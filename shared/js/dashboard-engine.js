@@ -9,7 +9,8 @@
 // proyecto nuevo) muestra sus cifras reales, no las de una carga anterior.
 (function(){
 
-let currentRole = null;
+let currentRole = null;       // 'admin' | 'client'
+let lockedProjectId = null;   // si currentRole==='client', el único proyecto que puede ver
 let charts = {};
 let activeProjectId = null;   // id de proyecto activo, o '__global__'
 let dataByProject = {};       // { [projectId]: allData }
@@ -22,18 +23,42 @@ function getProject(id){
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────
+// La contraseña de admin (config/platform.js) ve todos los proyectos, la
+// vista global y los controles de carga. La contraseña de cada proyecto
+// (config/<proyecto>.js → clientPassword) es la del CLIENTE de ese proyecto
+// puntual: entra viendo únicamente ese proyecto, nunca los demás — dos áreas
+// de GCBA distintas nunca comparten ni ven la información de la otra.
 function doLogin(){
   const pwd = document.getElementById('pwd-input').value;
   const auth = window.PLATFORM_AUTH || {};
-  if(pwd === auth.admin){ currentRole='admin'; startApp(); }
-  else if(pwd === auth.gov){ currentRole='gov'; startApp(); }
-  else{ document.getElementById('login-error').style.display='block'; }
+
+  if(pwd && pwd === auth.admin){
+    currentRole = 'admin';
+    lockedProjectId = null;
+    startApp();
+    return;
+  }
+
+  const project = (window.PLATFORM_PROJECTS||[]).find(p => p.clientPassword && p.clientPassword === pwd);
+  if(project){
+    currentRole = 'client';
+    lockedProjectId = project.id;
+    startApp();
+    return;
+  }
+
+  document.getElementById('login-error').style.display = 'block';
 }
 
 function startApp(){
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app').style.display='block';
-  document.getElementById('nav-user').textContent = currentRole==='admin' ? '👤 Administrador' : '🏛️ Gobierno CABA';
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  if(currentRole === 'admin'){
+    document.getElementById('nav-user').textContent = '👤 Administrador';
+  } else {
+    const proj = getProject(lockedProjectId);
+    document.getElementById('nav-user').textContent = '🏛️ ' + (proj ? proj.nombre : 'Cliente');
+  }
 
   // Migración única del localStorage del dashboard viejo de Censo Flash.
   const legacy = localStorage.getItem(LEGACY_KEY);
@@ -42,22 +67,36 @@ function startApp(){
   }
 
   renderTabs();
-  const first = (window.PLATFORM_PROJECTS||[])[0];
-  selectProject(first ? first.id : '__global__');
+  if(currentRole === 'admin'){
+    const first = (window.PLATFORM_PROJECTS||[])[0];
+    selectProject(first ? first.id : '__global__');
+  } else {
+    selectProject(lockedProjectId);
+  }
 }
 
 function logout(){
   currentRole = null;
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('app').style.display='none';
-  document.getElementById('pwd-input').value='';
-  document.getElementById('login-error').style.display='none';
+  lockedProjectId = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pwd-input').value = '';
+  document.getElementById('login-error').style.display = 'none';
 }
 
 // ── TABS DE PROYECTO ─────────────────────────────────────────────────
+// Un cliente (currentRole==='client') solo ve la pestaña de su propio
+// proyecto — ni las de otros proyectos ni "Todos los proyectos".
 function renderTabs(){
   const wrap = document.getElementById('project-tabs');
   wrap.innerHTML = '';
+
+  if(currentRole !== 'admin'){
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'flex';
+
   (window.PLATFORM_PROJECTS||[]).forEach(p=>{
     const b = document.createElement('button');
     b.className = 'tab-btn';
@@ -81,6 +120,12 @@ function markActiveTab(){
 }
 
 function selectProject(id){
+  // Defensa en profundidad: un cliente no puede navegar a otro proyecto ni
+  // a la vista global aunque manipule el DOM — siempre queda en el suyo.
+  if(currentRole !== 'admin' && id !== lockedProjectId){
+    id = lockedProjectId;
+  }
+
   activeProjectId = id;
   markActiveTab();
 

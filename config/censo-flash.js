@@ -104,6 +104,11 @@ window.PROJECT_CONFIG_CENSO_FLASH = {
   whatsappLink: 'https://wa.me/5491150495440',
   horario: { dias:'📅 Martes y miércoles', franja:'🕙 22:00 a 02:00' },
   appsScriptUrl: 'https://script.google.com/macros/s/AKfycbyqqp7fEA-A0jAtMHr7x5KaWkkxQzQ7EJVdGcC7l4PQPN2wTpEyVssTnji8-skojO1Esg/exec',
+  // Contraseña de acceso al dashboard para el cliente de ESTE proyecto
+  // (área de GCBA a cargo de Censo Flash). Un cliente que entra con esto
+  // solo ve este proyecto — nunca los demás. La contraseña de admin
+  // (config/platform.js) sigue viendo todos los proyectos.
+  clientPassword: 'Censoflash2026#',
   comunas,
   duplas,
   kobo: {

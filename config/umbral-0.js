@@ -21,6 +21,11 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   whatsappLink: '',   // TODO: link https://wa.me/...
   horario: { dias:'A definir', franja:'A definir' },
   appsScriptUrl: '', // TODO: URL del Apps Script /exec de Umbral 0
+  // TODO: contraseña de acceso al dashboard para el cliente de Umbral 0
+  // (un área de GCBA distinta a la de Censo Flash — no reusar la misma
+  // contraseña). Mientras esté vacía, nadie puede loguearse a este
+  // proyecto como cliente (sí lo ve el admin, que ve todos los proyectos).
+  clientPassword: '',
   comunas: {
     // TODO: 'C.X': 'Nombre de la comuna'
   },
