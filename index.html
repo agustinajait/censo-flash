@@ -16,7 +16,7 @@
   /* HOME */
   #home { display:none; }
   .cover {
-    background:linear-gradient(135deg,#0f1f3d 0%,#1a3a6e 60%,#1a56db 100%);
+    background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%);
     color:white; padding:44px 24px 38px; text-align:center; position:relative; overflow:hidden;
   }
   .cover::before { content:''; position:absolute; width:300px; height:300px; background:radial-gradient(circle,rgba(59,130,246,0.2) 0%,transparent 70%); top:-80px; right:-60px; border-radius:50%; }
@@ -30,7 +30,7 @@
 
   .inst-btn {
     display:flex; align-items:center; gap:12px;
-    background:linear-gradient(135deg,#f59e0b,#d97706);
+    background:linear-gradient(135deg,var(--amber),#d97706);
     color:white; padding:14px 20px; border-radius:14px;
     text-decoration:none; margin-bottom:20px;
     box-shadow:0 4px 14px rgba(245,158,11,0.3);
@@ -54,10 +54,13 @@
   .dupla-zona { font-size:0.62rem; font-weight:600; color:#6b7280; margin-top:1px; display:block; }
   .dupla-btn:hover .dupla-zona { color:rgba(255,255,255,0.7); }
 
+  .platform-link { display:block; text-align:center; margin-top:18px; font-size:0.74rem; color:#94a3b8; text-decoration:none; }
+  .platform-link:hover { color:var(--blue); }
+
   /* DUPLA SCREEN */
   #dupla-screen { display:none; }
   .dupla-cover {
-    background:linear-gradient(135deg,#0f1f3d 0%,#1a3a6e 60%,#1a56db 100%);
+    background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%);
     color:white; padding:32px 24px 28px; text-align:center; position:relative; overflow:hidden;
   }
   .back-btn {
@@ -78,10 +81,10 @@
   /* CARDS */
   .card { background:white; border-radius:14px; padding:20px; margin-bottom:16px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); position:relative; overflow:hidden; }
   .card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:14px 14px 0 0; }
-  .card-blue::before  { background:linear-gradient(90deg,#1a56db,#3b82f6); }
-  .card-green::before { background:linear-gradient(90deg,#10b981,#34d399); }
-  .card-amber::before { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
-  .card-red::before   { background:linear-gradient(90deg,#ef4444,#f87171); }
+  .card-blue::before  { background:linear-gradient(90deg,var(--blue),#3b82f6); }
+  .card-green::before { background:linear-gradient(90deg,var(--green),#34d399); }
+  .card-amber::before { background:linear-gradient(90deg,var(--amber),#fbbf24); }
+  .card-red::before   { background:linear-gradient(90deg,var(--red),#f87171); }
 
   .card-header { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .card-icon { width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
@@ -92,7 +95,7 @@
 
   .link-row { background:#f0f6ff; border:1.5px solid #bfdbfe; border-radius:10px; padding:11px 14px; margin-bottom:10px; }
   .link-lbl { font-size:0.7rem; font-weight:700; color:#1a56db; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
-  .open-btn { display:inline-flex; align-items:center; gap:5px; margin-top:6px; background:#1a56db; color:white; padding:6px 14px; border-radius:7px; font-size:0.78rem; font-weight:600; text-decoration:none; font-family:'Sora',sans-serif; }
+  .open-btn { display:inline-flex; align-items:center; gap:5px; margin-top:6px; background:var(--blue); color:white; padding:6px 14px; border-radius:7px; font-size:0.78rem; font-weight:600; text-decoration:none; font-family:'Sora',sans-serif; }
 
   .check-list { display:flex; flex-direction:column; gap:8px; }
   .check-item { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#f8faff; border-radius:9px; border:1px solid #e2eaf8; font-size:0.88rem; }
@@ -100,7 +103,7 @@
 
   .steps { display:flex; flex-direction:column; gap:8px; }
   .step { display:flex; gap:10px; align-items:flex-start; padding:9px 12px; background:#f0f6ff; border-radius:9px; border:1px solid var(--border); }
-  .step-n { width:24px; height:24px; background:#1a56db; color:white; font-family:'Sora',sans-serif; font-weight:700; font-size:0.75rem; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .step-n { width:24px; height:24px; background:var(--blue); color:white; font-family:'Sora',sans-serif; font-weight:700; font-size:0.75rem; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
   .step-t { font-size:0.87rem; }
   .step-t strong { color:#0f1f3d; }
 
@@ -111,20 +114,20 @@
   .alert strong { font-family:'Sora',sans-serif; }
 
   .speed { text-align:center; padding:14px; background:#fffbeb; border:2px solid #fbbf24; border-radius:12px; margin:12px 0; }
-  .speed-n { font-family:'Sora',sans-serif; font-size:2.5rem; font-weight:800; color:#f59e0b; line-height:1; }
+  .speed-n { font-family:'Sora',sans-serif; font-size:2.5rem; font-weight:800; color:var(--amber); line-height:1; }
   .speed-l { font-size:0.78rem; color:#92400e; font-weight:600; }
 
   .cierre-btn {
     display:flex; align-items:center; justify-content:center; gap:10px;
     width:100%; padding:16px; border:none; border-radius:14px;
-    background:linear-gradient(135deg,#0f1f3d,#1a56db);
+    background:linear-gradient(135deg,var(--navy),var(--blue));
     color:white; font-family:'Sora',sans-serif; font-weight:700;
     font-size:1rem; cursor:pointer; margin-top:8px;
     box-shadow:0 4px 14px rgba(15,31,61,0.3);
     text-decoration:none;
   }
 
-  .footer { background:#0f1f3d; color:rgba(255,255,255,0.4); text-align:center; padding:18px; font-size:0.75rem; }
+  .footer { background:var(--navy); color:rgba(255,255,255,0.4); text-align:center; padding:18px; font-size:0.75rem; }
   .footer strong { color:white; }
 </style>
 </head>
@@ -133,11 +136,11 @@
 <!-- HOME -->
 <div id="home">
   <div class="cover">
-    <div class="badge">Operativo oficial</div>
-    <h1>🏙️ Censo Flash</h1>
-    <p>Relevamiento nocturno de personas en situación de calle en la Ciudad de Buenos Aires.</p>
-    <a href="https://wa.me/5491150495440" target="_blank" class="wa-btn">💬 Contactar a la operadora</a>
-    <div class="wa-num">+54 9 11 5049-5440</div>
+    <div class="badge" data-cfg="badge">Operativo oficial</div>
+    <h1><span data-cfg="emoji">🏙️</span> <span data-cfg="nombre">Censo Flash</span></h1>
+    <p data-cfg="descripcion">Relevamiento nocturno de personas en situación de calle en la Ciudad de Buenos Aires.</p>
+    <a href="#" id="wa-btn" data-cfg-href="whatsappLink" target="_blank" class="wa-btn">💬 Contactar a la operadora</a>
+    <div class="wa-num" data-cfg="whatsappNumero"></div>
   </div>
   <div class="home-body">
     <a href="./instructivo.html" class="inst-btn">
@@ -150,19 +153,20 @@
     </a>
     <div class="section-label">Seleccioná tu dupla</div>
     <div class="dupla-grid" id="dupla-grid"></div>
+    <a href="./plataforma.html" class="platform-link">← Ver todos los proyectos de la plataforma</a>
   </div>
 </div>
 
 <!-- DUPLA SCREEN -->
 <div id="dupla-screen">
   <div class="dupla-cover">
-    <a class="back-btn" onclick="irHome()">← Volver al inicio</a>
+    <a class="back-btn" onclick="DuplasPortal.irHome()">← Volver al inicio</a>
     <div class="dupla-num-big" id="d-num"></div>
     <div class="dupla-title" id="d-title"></div>
     <div class="dupla-sub" id="d-sub"></div>
     <div class="dupla-pills">
-      <div class="pill">📅 Martes y miércoles</div>
-      <div class="pill">🕙 22:00 a 02:00</div>
+      <div class="pill" data-cfg="horario.dias">📅 Martes y miércoles</div>
+      <div class="pill" data-cfg="horario.franja">🕙 22:00 a 02:00</div>
     </div>
   </div>
 
@@ -271,86 +275,15 @@
     </div>
 
   </div>
-  <div class="footer"><strong>Censo Flash</strong> · Uso exclusivo operativo</div>
+  <div class="footer"><strong data-cfg="nombre">Censo Flash</strong> · Uso exclusivo operativo</div>
 </div>
 
+<script src="./config/censo-flash.js"></script>
+<script src="./shared/js/ui-theme.js"></script>
+<script src="./shared/js/duplas-portal.js"></script>
 <script>
-const duplas = [
-  { id:"01", zona:"Retiro",        poligono:"Polígono 01", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1a2FJrvzxTjejMZycd4yX85kbU6v9lZo&usp=sharing" },
-  { id:"02", zona:"Recoleta",      poligono:"Polígono 02", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1sXihNejPqwBKYool5mpX4Pf-4lhBoh8&usp=sharing" },
-  { id:"03", zona:"Recoleta",      poligono:"Polígono 03", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1OJqz28eDr2_EjNBUCMUhlTaWOxbZr-c&usp=sharing" },
-  { id:"04", zona:"Recoleta",      poligono:"Polígono 04", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1ZuFmoze5nih1GbV8GZnRHRacS8bRMjA&usp=sharing" },
-  { id:"05", zona:"Palermo",       poligono:"Polígono 05", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1nxOGoV9y06YwKQg2LzZlNSozTb8_CU8&usp=sharing" },
-  { id:"06", zona:"Palermo",       poligono:"Polígono 06", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1q8BoHfgzOks30289L7yKSGWdT25G7Rw&usp=sharing" },
-  { id:"07", zona:"Palermo",       poligono:"Polígono 07", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1om67m3Smp5GOPG__nApgxgevHO0ILZ4&usp=sharing" },
-  { id:"08", zona:"Palermo",       poligono:"Polígono 08", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1GeNWSaCubKktLOKlSfESLjspFxchark&usp=sharing" },
-  { id:"09", zona:"Colegiales",    poligono:"Polígono 09", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=134Xwm4lM6tqPOTqgoIroM52YJF8onhI&usp=sharing" },
-  { id:"10", zona:"Belgrano",      poligono:"Polígono 10", kobo:"https://ee.kobotoolbox.org/x/gaWzj9F4", mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1VF9579XAK0tVz2zh1YElGZmdWzlYpsM&usp=sharing" },
-  { id:"11", zona:"Belgrano",      poligono:"Polígono 11", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1U5V1iNZUgm2OYWt5Y2ZYBddVIkHGvt8&usp=sharing" },
-  { id:"12", zona:"Belgrano R",    poligono:"Polígono 12", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1NchByiiqydfmU5yIz3eb_UusG9FQXgg&usp=sharing" },
-  { id:"13", zona:"Núñez",         poligono:"Polígono 13", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1mihs63JT7RzERJ8-fdflkDsUGdWdB_M&usp=sharing" },
-  { id:"14", zona:"Nuñez",         poligono:"Polígono 14", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1nEbG0R4KElShILaJtFNaCZ0rlwqoMcQ&usp=sharing" },
-  { id:"15", zona:"Saavedra",      poligono:"Polígono 15", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1gInJRL0HoScU6t8IkKHR6qnHQzhAagE&usp=sharing" },
-  { id:"16", zona:"Saavedra",      poligono:"Polígono 16", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1kV8CwYixCNEuT3sxNmHHUqEyDNF5gfw&usp=sharing" },
-  { id:"17", zona:"Villa Urquiza", poligono:"Polígono 17", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1FHllQyYYHent3QvNJvvg_5QTgu4zhV8&usp=sharing" },
-  { id:"18", zona:"Villa Urquiza", poligono:"Polígono 18", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=10jjGAK6OXaWAIxdlJ3Hw5FBDVqLm8N0&usp=sharing" },
-  { id:"19", zona:"Villa Urquiza", poligono:"Polígono 19", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1jr5_-GOEeANTI5SAT4RKeSSuL9huJw4&usp=sharing" },
-  { id:"20", zona:"Caballito",     poligono:"Polígono 20", kobo:"https://ee.kobotoolbox.org/x/cI937u6G",  mymaps:"https://www.google.com/maps/d/u/2/edit?mid=1vF2VXSgQfMga2hRbNKogLmgVBuLIykE&usp=sharing" },
-];
-
-function getDuplaParam() {
-  const s = new URLSearchParams(window.location.search);
-  if (s.get('dupla')) return s.get('dupla').padStart(2,'0');
-  return null;
-}
-
-function irHome() {
-  history.pushState({}, '', '?');
-  document.getElementById('dupla-screen').style.display = 'none';
-  document.getElementById('home').style.display = 'block';
-  window.scrollTo(0,0);
-}
-
-function mostrarDupla(d) {
-  document.getElementById('home').style.display = 'none';
-  document.getElementById('dupla-screen').style.display = 'block';
-  document.getElementById('d-num').textContent = d.id;
-  document.getElementById('d-title').textContent = 'Dupla ' + d.id;
-  document.getElementById('d-sub').textContent = d.poligono + ' · ' + d.zona;
-  document.getElementById('d-mymaps').href = d.mymaps;
-  document.getElementById('d-kobo').href = d.kobo;
-  document.getElementById('cierre-link').href = './cierre.html?dupla=' + d.id;
-  document.title = 'Dupla ' + d.id + ' — ' + d.zona;
-  window.scrollTo(0,0);
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  // Build dupla grid
-  const grid = document.getElementById('dupla-grid');
-  duplas.forEach(d => {
-    const a = document.createElement('a');
-    a.className = 'dupla-btn';
-    a.href = '?dupla=' + d.id;
-    a.onclick = e => { e.preventDefault(); history.pushState({}, '', '?dupla=' + d.id); mostrarDupla(d); };
-    a.innerHTML = `<span class="dupla-num">${d.id}</span><span class="dupla-zona">${d.zona}</span>`;
-    grid.appendChild(a);
-  });
-
-  // Route
-  const param = getDuplaParam();
-  const d = duplas.find(x => x.id === param);
-  if (d) {
-    mostrarDupla(d);
-  } else {
-    document.getElementById('home').style.display = 'block';
-  }
-});
-
-window.addEventListener('popstate', () => {
-  const param = getDuplaParam();
-  const d = duplas.find(x => x.id === param);
-  if (d) { mostrarDupla(d); } else { irHome(); }
-});
+  UITheme.init();
+  DuplasPortal.init();
 </script>
 </body>
 </html>

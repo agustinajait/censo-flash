@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plataforma de Relevamientos Territoriales</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --amber:#f59e0b; --border:#dbeafe; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; }
+
+  .cover {
+    background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%);
+    color:white; padding:48px 24px 40px; text-align:center; position:relative; overflow:hidden;
+  }
+  .cover::before { content:''; position:absolute; width:320px; height:320px; background:radial-gradient(circle,rgba(59,130,246,0.2) 0%,transparent 70%); top:-90px; right:-70px; border-radius:50%; }
+  .badge { display:inline-block; background:rgba(245,158,11,0.2); border:1px solid rgba(245,158,11,0.5); color:#fcd34d; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:5px 16px; border-radius:20px; margin-bottom:14px; position:relative; }
+  .cover h1 { font-family:'Sora',sans-serif; font-size:1.9rem; font-weight:800; margin-bottom:8px; position:relative; }
+  .cover p { font-size:0.92rem; opacity:0.8; max-width:460px; margin:0 auto; position:relative; }
+
+  .body { max-width:720px; margin:0 auto; padding:28px 18px 60px; }
+  .section-label { font-family:'Sora',sans-serif; font-weight:700; font-size:0.88rem; color:var(--navy); margin-bottom:12px; }
+
+  .project-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:28px; }
+  @media(max-width:600px){ .project-grid{ grid-template-columns:1fr; } }
+
+  .project-card {
+    background:white; border-radius:16px; padding:22px; border:1px solid var(--border);
+    box-shadow:0 2px 10px rgba(15,31,61,0.06); text-decoration:none; color:inherit;
+    display:flex; flex-direction:column; gap:10px; position:relative; overflow:hidden;
+  }
+  .project-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--blue),#60a5fa); }
+  .project-card.dim::before { background:linear-gradient(90deg,#a78bfa,#c4b5fd); }
+  .project-emoji { font-size:2rem; }
+  .project-name { font-family:'Sora',sans-serif; font-size:1.05rem; font-weight:800; color:var(--navy); }
+  .project-desc { font-size:0.82rem; color:#64748b; line-height:1.5; }
+  .project-status { display:inline-block; align-self:flex-start; font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:3px 10px; border-radius:20px; }
+  .status-live { background:#d1fae5; color:#065f46; }
+  .status-config { background:#fef3c7; color:#92400e; }
+  .project-arrow { margin-top:auto; font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; color:var(--blue); }
+
+  .dashboard-link {
+    display:flex; align-items:center; gap:14px;
+    background:linear-gradient(135deg,var(--navy),var(--blue));
+    color:white; padding:18px 22px; border-radius:16px;
+    text-decoration:none; box-shadow:0 4px 14px rgba(15,31,61,0.25);
+  }
+  .dashboard-link-icon { font-size:1.8rem; }
+  .dashboard-link-title { font-family:'Sora',sans-serif; font-weight:800; font-size:0.98rem; }
+  .dashboard-link-sub { font-size:0.78rem; opacity:0.85; margin-top:2px; }
+  .dashboard-link-arr { margin-left:auto; font-size:1.2rem; opacity:0.7; }
+
+  .footer { text-align:center; padding:20px; font-size:0.72rem; color:#94a3b8; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="badge">GCBA</div>
+  <h1>🏙️ Plataforma de Relevamientos Territoriales</h1>
+  <p>Gestión unificada de operativos nocturnos de relevamiento en la Ciudad de Buenos Aires — duplas, KoBo, GeoTracker y dashboard, por proyecto.</p>
+</div>
+
+<div class="body">
+  <div class="section-label">Proyectos activos</div>
+  <div class="project-grid" id="project-grid"></div>
+
+  <div class="section-label">Resultados</div>
+  <a href="./dashboard.html" class="dashboard-link">
+    <span class="dashboard-link-icon">📊</span>
+    <div>
+      <div class="dashboard-link-title">Dashboard unificado</div>
+      <div class="dashboard-link-sub">Vista por proyecto y vista global — acceso con contraseña</div>
+    </div>
+    <span class="dashboard-link-arr">→</span>
+  </a>
+</div>
+
+<div class="footer">Plataforma de Relevamientos Territoriales · Uso exclusivo operativo</div>
+
+<script src="./config/censo-flash.js"></script>
+<script src="./config/umbral-0.js"></script>
+<script src="./config/projects.js"></script>
+<script>
+  const PROJECT_URLS = {
+    'censo-flash': './index.html',
+    'umbral-0': './umbral-0/index.html',
+  };
+
+  const grid = document.getElementById('project-grid');
+  (window.PLATFORM_PROJECTS || []).forEach(p => {
+    const live = !!(p.appsScriptUrl && p.duplas && p.duplas.length);
+    const a = document.createElement('a');
+    a.className = 'project-card' + (live ? '' : ' dim');
+    a.href = PROJECT_URLS[p.id] || '#';
+    a.innerHTML = `
+      <div class="project-emoji">${p.emoji || '📍'}</div>
+      <div class="project-name">${p.nombre}</div>
+      <div class="project-desc">${p.descripcion || ''}</div>
+      <span class="project-status ${live ? 'status-live' : 'status-config'}">${live ? 'Operativo' : (p.badge || 'En configuración')}</span>
+      <div class="project-arrow">Ir al portal de duplas →</div>
+    `;
+    grid.appendChild(a);
+  });
+</script>
+</body>
+</html>
