@@ -172,6 +172,12 @@ function inRange(dateVal, desde, hasta){
   if(hasta && ds>hasta) return false;
   return true;
 }
+// Escapa texto libre cargado por las duplas (Sheet de cierres) antes de
+// insertarlo con innerHTML — evita que un campo de texto con HTML/script
+// se ejecute en el dashboard.
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 // Normaliza cualquier forma de dupla ("5", "05", "Dupla 05"...) al mismo
 // formato de 2 dígitos que usan los ids en config/<proyecto>.js.
 function normDupla(x){
@@ -185,6 +191,7 @@ function parseCierreRow(r){
   const duplaRaw = r['Dupla']||r['dupla']||'';
   return {
     dupla: normDupla(duplaRaw) || String(duplaRaw).trim(),
+    poligono: r['Polígono']||r['Poligono']||r['poligono']||'—',
     responsable: r['Responsable']||r['responsable']||'—',
     inicio: r['Inicio']||r['inicio']||'—',
     cierre: r['Cierre']||r['cierre']||'—',
@@ -195,6 +202,7 @@ function parseCierreRow(r){
     eventos: r['Eventos']||r['eventos']||'Ninguno',
     situaciones: String(r['Situaciones']||r['situaciones']||''),
     observaciones: String(r['Observaciones']||r['observaciones']||''),
+    foto: String(r['Foto']||r['foto']||''),
     _fecha: toDateStr(r['Timestamp']||r['Dia']||r['dia']||''),
   };
 }
@@ -480,28 +488,37 @@ function renderTablaDuplas(project, cierres, rows){
     const pers = id ? (personasPorDupla[id]||0) : '—';
     const kb = r.clima==='Despejado' ? 'bg' : (r.clima && r.clima.match && r.clima.match(/tormenta|intenso/i)) ? 'br' : 'ba';
     const ib = (!r.inconvenientes || r.inconvenientes==='Ninguno') ? 'bg' : 'ba';
+    const eb = (!r.eventos || r.eventos==='Ninguno') ? 'bg' : 'ba';
+    const fotoUrl = /^https?:\/\//i.test(r.foto||'') ? r.foto : null;
+    const fotoCell = fotoUrl
+      ? `<a href="${esc(fotoUrl)}" target="_blank" class="open-btn" style="padding:3px 9px;font-size:9px;">📸 Ver</a>`
+      : `<span class="badge bgr">Sin captura</span>`;
     totalSheet += r.registros || 0;
     tbody.innerHTML += `<tr>
-      <td><b>D${id || r.dupla}</b></td>
-      <td>${r.responsable}</td>
-      <td>${r.inicio}</td><td>${r.cierre}</td><td>${r.tiempo}</td>
+      <td><b>D${esc(id || r.dupla)}</b></td>
+      <td>${esc(r.poligono)}</td>
+      <td>${fmtDate(r._fecha)}</td>
+      <td>${esc(r.responsable)}</td>
+      <td>${esc(r.inicio)}</td><td>${esc(r.cierre)}</td><td>${esc(r.tiempo)}</td>
       <td><b>${r.registros}</b></td>
       <td><b>${pers}</b></td>
-      <td><span class="badge ${kb}">${r.clima}</span></td>
-      <td><span class="badge ${ib}">${r.inconvenientes}</span></td>
+      <td><span class="badge ${kb}">${esc(r.clima)}</span></td>
+      <td><span class="badge ${eb}">${esc(r.eventos)}</span></td>
+      <td><span class="badge ${ib}">${esc(r.inconvenientes)}</span></td>
+      <td>${fotoCell}</td>
     </tr>`;
   });
-  tbody.innerHTML += `<tr class="total-row"><td colspan="5"><b>TOTAL</b></td><td><b>${totalSheet}</b></td><td><b>${rows.reduce((a,r)=>a+r.personas,0)}</b></td><td colspan="2"></td></tr>`;
+  tbody.innerHTML += `<tr class="total-row"><td colspan="7"><b>TOTAL</b></td><td><b>${totalSheet}</b></td><td><b>${rows.reduce((a,r)=>a+r.personas,0)}</b></td><td colspan="3"></td></tr>`;
 }
 
 function renderAlertas(cierres){
   const an = cierres.filter(r=>r.situaciones && r.situaciones.length>3 && !r.situaciones.match(/^(no|ninguno|nada|nan|sin)$/i));
   const ao = cierres.filter(r=>r.observaciones && r.observaciones.length>5 && !r.observaciones.match(/^(ninguno|nada|sin|ok|nan|no)$/i));
   document.getElementById('nnya-content').innerHTML = an.length ?
-    an.map(r=>`<div class="alert-item"><b>Dupla ${r.dupla}:</b> ${r.situaciones}</div>`).join('') :
+    an.map(r=>`<div class="alert-item"><b>Dupla ${esc(r.dupla)}:</b> ${esc(r.situaciones)}</div>`).join('') :
     '<p style="font-size:12px;color:var(--gray);">Sin reportes de NNyA.</p>';
   document.getElementById('obs-content').innerHTML = ao.length ?
-    ao.map(r=>`<div class="obs-item"><b>Dupla ${r.dupla}:</b> ${r.observaciones}</div>`).join('') :
+    ao.map(r=>`<div class="obs-item"><b>Dupla ${esc(r.dupla)}:</b> ${esc(r.observaciones)}</div>`).join('') :
     '<p style="font-size:12px;color:var(--gray);">Sin observaciones.</p>';
 }
 
