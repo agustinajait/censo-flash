@@ -253,6 +253,11 @@ function parseCierreRow(r){
 }
 
 // ── BUILD DATA ────────────────────────────────────────────────────────
+// Nota: NO se filtra por fecha acá — se carga todo lo que venga en el
+// archivo/API. "Fecha inicio"/"Fecha fin" del formulario de carga son solo
+// una sugerencia inicial para el filtro visual (filter-desde/filter-hasta),
+// nunca una exclusión permanente: si se dejan vacías o mal puestas, no se
+// pierden datos, y el filtro de arriba siempre puede ampliarse después.
 function buildData(raw, project){
   const d = {inicio:raw.inicio, fin:raw.fin, loaded:raw.loaded, cierres:[], koboRows:[]};
   if(raw.sheet) d.cierres = raw.sheet.map(parseCierreRow);
@@ -262,7 +267,6 @@ function buildData(raw, project){
     if(!rows) return;
     rows.forEach(r=>{
       const startVal = r['start']||r['_submission_time'];
-      if(!inRange(startVal, raw.inicio, raw.fin)) return;
       let parsed;
       try{ parsed = form.parseRow(r); }catch(e){ parsed = null; }
       if(!parsed || !(parsed.personas>0)) return;
@@ -279,6 +283,16 @@ function buildData(raw, project){
   });
 
   d.koboTotal = d.koboRows.reduce((a,r)=>a+r.personas,0);
+
+  // Si no se indicó un rango de fechas al cargar, lo derivamos de los datos
+  // reales para que el banner y el filtro arranquen mostrando todo.
+  if(!d.inicio || !d.fin){
+    const fechas = d.koboRows.map(r=>r.fecha).filter(Boolean).sort();
+    if(fechas.length){
+      d.inicio = d.inicio || fechas[0];
+      d.fin = d.fin || fechas[fechas.length-1];
+    }
+  }
   return d;
 }
 
@@ -330,7 +344,6 @@ async function loadFromAPI(){
   const fSheet = document.getElementById('file-sheet-api').files[0];
   const st = document.getElementById('upload-status');
 
-  if(!inicio || !fin){ alert('Seleccioná fecha inicio y fin.'); return; }
   if(!project.kobo.token || !(project.kobo.forms||[]).length){
     st.textContent = '❌ Este proyecto no tiene KoBo configurado todavía.';
     return;
