@@ -5,4 +5,4 @@ window.PLATFORM_AUTH = {
   gov: 'Censoflash2026#',
 };
 
-window.PLATFORM_NOMBRE = 'Plataforma de Gestión de Relevamientos Territoriales';
+window.PLATFORM_NOMBRE = 'Plataforma de Gestión de Operativos de Relevamiento Territorial';
