@@ -31,6 +31,17 @@ function getProject(id){
 //     incluida la sección KoBo como referencia.
 //   - coordPassword  → quien coordina el operativo día a día: ve todo lo
 //     operativo (duplas activas, cierres, alertas) pero SIN la sección KoBo.
+function togglePwd(){
+  const input = document.getElementById('pwd-input');
+  const btn = document.getElementById('pwd-toggle-btn');
+  if(!input || !btn) return;
+  const shown = input.type === 'text';
+  input.type = shown ? 'password' : 'text';
+  btn.textContent = shown ? '👁️' : '🙈';
+  btn.setAttribute('aria-label', shown ? 'Mostrar contraseña' : 'Ocultar contraseña');
+  input.focus();
+}
+
 function doLogin(){
   const pwd = document.getElementById('pwd-input').value;
   const auth = window.PLATFORM_AUTH || {};
@@ -879,7 +890,7 @@ document.addEventListener('click', function(ev){
 
 window.DashboardEngine = {
   doLogin, logout, toggleModo, processFiles, loadFromAPI, applyFilter, clearFilter,
-  toggleKobo, verFoto, cerrarFoto,
+  toggleKobo, verFoto, cerrarFoto, togglePwd,
 };
 
 })();
