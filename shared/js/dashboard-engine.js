@@ -360,9 +360,16 @@ function toDateStr(v){
   if(isNaN(d.getTime())) return '';
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+// Antes, una fecha vacía/no reconocible "pasaba" cualquier filtro (por
+// las dudas de no ocultar nada) — pero eso hacía que filas viejas con datos
+// incompletos (sin Timestamp/Día usable) aparecieran en CUALQUIER rango que
+// pusieras, incluido "hoy", aunque no fueran de hoy. Ahora una fecha
+// desconocida solo entra cuando no se pidió ningún rango (desde/hasta
+// vacíos = "mostrar todo", que es el estado de "✕ Limpiar").
 function inRange(dateVal, desde, hasta){
+  if(!desde && !hasta) return true;
   const ds = toDateStr(dateVal);
-  if(!ds) return true;
+  if(!ds) return false;
   if(desde && ds<desde) return false;
   if(hasta && ds>hasta) return false;
   return true;
@@ -603,8 +610,8 @@ function applyFilter(){
   const hasta = document.getElementById('filter-hasta').value;
   if(!desde && !hasta){ clearFilter(); return; }
   const rows = data.koboRows.filter(r=>inRange(r._fecha, desde, hasta));
-  const cierres = data.cierres.filter(r=>inRange(r._fecha, desde, hasta) || !r._fecha);
-  const presentes = (data.presentes||[]).filter(r=>inRange(r._fecha, desde, hasta) || !r._fecha);
+  const cierres = data.cierres.filter(r=>inRange(r._fecha, desde, hasta));
+  const presentes = (data.presentes||[]).filter(r=>inRange(r._fecha, desde, hasta));
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   document.getElementById('filter-info').textContent =
     `${total.toLocaleString('es-AR')} personas · ${rows.length} puntos · ${cierres.length} cierres`;
