@@ -17,6 +17,10 @@ let dataByProject = {};       // { [projectId]: allData }
 
 const STORAGE_PREFIX = 'platform_data_';
 const LEGACY_KEY = 'censoflash_v3'; // dashboard viejo de Censo Flash — se migra una vez
+// Sesión en sessionStorage (no localStorage): sobrevive a un F5/refresh,
+// pero se cierra sola si cerrás la pestaña o el navegador — no queda
+// logueado para siempre en una compu compartida.
+const SESSION_KEY = 'dash_session';
 
 function getProject(id){
   return (window.PLATFORM_PROJECTS||[]).find(p=>p.id===id) || null;
@@ -42,6 +46,38 @@ function togglePwd(){
   input.focus();
 }
 
+function saveSession(){
+  try{
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({role: currentRole, projectId: lockedProjectId}));
+  }catch(e){ /* sessionStorage bloqueado (modo privado, etc.) — no pasa nada, solo no persiste */ }
+}
+
+function clearSession(){
+  try{ sessionStorage.removeItem(SESSION_KEY); }catch(e){}
+}
+
+// Se llama sola al cargar la página: si hay una sesión guardada de un F5
+// anterior, entra directo sin mostrar el login de nuevo.
+function restoreSession(){
+  let saved = null;
+  try{ saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); }catch(e){}
+  if(!saved || !saved.role) return;
+
+  if(saved.role === 'admin'){
+    currentRole = 'admin';
+    lockedProjectId = null;
+    startApp();
+    return;
+  }
+  if((saved.role === 'client' || saved.role === 'coordinador') && saved.projectId && getProject(saved.projectId)){
+    currentRole = saved.role;
+    lockedProjectId = saved.projectId;
+    startApp();
+    return;
+  }
+  clearSession(); // sesión guardada inválida (ej. proyecto que ya no existe)
+}
+
 function doLogin(){
   const pwd = document.getElementById('pwd-input').value;
   const auth = window.PLATFORM_AUTH || {};
@@ -49,6 +85,7 @@ function doLogin(){
   if(pwd && pwd === auth.admin){
     currentRole = 'admin';
     lockedProjectId = null;
+    saveSession();
     startApp();
     return;
   }
@@ -57,6 +94,7 @@ function doLogin(){
   if(clientProject){
     currentRole = 'client';
     lockedProjectId = clientProject.id;
+    saveSession();
     startApp();
     return;
   }
@@ -65,6 +103,7 @@ function doLogin(){
   if(coordProject){
     currentRole = 'coordinador';
     lockedProjectId = coordProject.id;
+    saveSession();
     startApp();
     return;
   }
@@ -108,6 +147,7 @@ function startApp(){
 function logout(){
   currentRole = null;
   lockedProjectId = null;
+  clearSession();
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('pwd-input').value = '';
@@ -899,5 +939,7 @@ window.DashboardEngine = {
   doLogin, logout, toggleModo, processFiles, loadFromAPI, applyFilter, clearFilter,
   toggleKobo, verFoto, cerrarFoto, togglePwd,
 };
+
+restoreSession();
 
 })();
