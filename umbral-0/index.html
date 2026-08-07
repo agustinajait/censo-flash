@@ -126,6 +126,7 @@
     box-shadow:0 4px 14px rgba(15,31,61,0.3);
     text-decoration:none;
   }
+  .cierre-btn:disabled { opacity:0.75; cursor:default; box-shadow:none; }
 
   .footer { background:var(--navy); color:rgba(255,255,255,0.4); text-align:center; padding:18px; font-size:0.75rem; }
   .footer strong { color:white; }
@@ -213,6 +214,20 @@
         <span>🔴</span>
         <div><strong>No salgas sin activar GeoTracker.</strong> Si no graba desde el inicio, el recorrido no queda registrado.</div>
       </div>
+    </div>
+
+    <!-- PRESENTE -->
+    <div class="card card-green">
+      <div class="card-header">
+        <div class="card-icon ic-green">▶️</div>
+        <div>
+          <div class="card-title">Marcar inicio del recorrido</div>
+          <div class="card-sub">Avisale a la operadora sin usar WhatsApp</div>
+        </div>
+      </div>
+      <button id="presente-btn" class="cierre-btn" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 4px 14px rgba(5,150,105,0.3);" onclick="DuplasPortal.marcarPresente()">
+        ▶️ Marcar inicio del recorrido
+      </button>
     </div>
 
     <!-- DURANTE -->
