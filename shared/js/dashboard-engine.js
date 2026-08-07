@@ -529,6 +529,7 @@ function renderWithData(project, cierres, rows, presentes){
   renderAlertas(cierres);
   renderDuplasPresentes(project, presentes);
   renderDuplasPendientes(project, cierres);
+  applyKoboVisibility();
 }
 
 function renderKoboCharts(project, rows){
@@ -640,7 +641,7 @@ function renderTablaDuplas(project, cierres, rows){
     const eb = (!r.eventos || r.eventos==='Ninguno') ? 'bg' : 'ba';
     const fotoUrl = /^https?:\/\//i.test(r.foto||'') ? r.foto : null;
     const fotoCell = fotoUrl
-      ? `<a href="${esc(fotoUrl)}" target="_blank" class="open-btn" style="padding:3px 9px;font-size:9px;">📸 Ver</a>`
+      ? `<button type="button" class="open-btn foto-ver-btn" data-foto="${esc(fotoUrl)}" style="padding:3px 9px;font-size:9px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;">📸 Ver</button>`
       : `<span class="badge bgr">Sin captura</span>`;
     totalSheet += r.registros || 0;
     tbody.innerHTML += `<tr>
@@ -760,8 +761,61 @@ function renderGlobalView(){
   document.getElementById('g-proyectos').textContent = gConDatos + ' / ' + projects.length;
 }
 
+// ── SECCIÓN KOBO COLAPSABLE ─────────────────────────────────────────────
+const KOBO_HIDDEN_KEY = 'kobo_section_hidden';
+
+function applyKoboVisibility(){
+  const hidden = localStorage.getItem(KOBO_HIDDEN_KEY) === '1';
+  const body = document.getElementById('kobo-section-body');
+  const btn = document.getElementById('kobo-toggle-btn');
+  if(!body || !btn) return;
+  body.style.display = hidden ? 'none' : 'block';
+  btn.textContent = hidden ? '▼ Mostrar' : '▲ Ocultar';
+}
+
+function toggleKobo(){
+  const hidden = localStorage.getItem(KOBO_HIDDEN_KEY) === '1';
+  localStorage.setItem(KOBO_HIDDEN_KEY, hidden ? '0' : '1');
+  applyKoboVisibility();
+}
+
+// ── MODAL DE FOTO (captura de GeoTracker) — se ve adentro de la plataforma,
+// sin salir a Drive. Convertimos el link de "ver" de Drive a una URL de
+// imagen directa (funciona porque el Apps Script comparte el archivo como
+// "cualquiera con el link puede ver").
+function driveFileId(url){
+  const m = String(url||'').match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
+function verFoto(url){
+  const id = driveFileId(url);
+  const img = document.getElementById('foto-modal-img');
+  const link = document.getElementById('foto-modal-link');
+  if(!img || !link) return;
+  img.src = id ? `https://lh3.googleusercontent.com/d/${id}=w1200` : url;
+  link.href = url;
+  document.getElementById('foto-modal').classList.add('open');
+}
+
+function cerrarFoto(){
+  const modal = document.getElementById('foto-modal');
+  if(modal) modal.classList.remove('open');
+  const img = document.getElementById('foto-modal-img');
+  if(img) img.src = '';
+}
+
+// Delegado: los botones "📸 Ver" se generan dinámicamente en la tabla de
+// duplas, así que escuchamos en document en vez de armar un onclick con la
+// URL adentro (evita líos de comillas/escaping con URLs raras).
+document.addEventListener('click', function(ev){
+  const btn = ev.target.closest('.foto-ver-btn');
+  if(btn) verFoto(btn.dataset.foto);
+});
+
 window.DashboardEngine = {
   doLogin, logout, toggleModo, processFiles, loadFromAPI, applyFilter, clearFilter,
+  toggleKobo, verFoto, cerrarFoto,
 };
 
 })();
