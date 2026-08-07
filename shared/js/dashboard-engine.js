@@ -257,7 +257,7 @@ function buildUploadFields(project){
 
   wrapApi.innerHTML = '';
   if(project.sheetReadKey){
-    wrapApi.innerHTML += '<div style="font-size:0.78rem;color:#065f46;max-width:300px;">✅ Cierres, Presentes y KoBo se traen solos — no hace falta subir ni cargar nada, se actualiza cada vez que abrís esta pestaña.</div>';
+    wrapApi.innerHTML += '<div style="font-size:0.78rem;color:#065f46;max-width:300px;">✅ Cierres y Presentes se traen solos — no hace falta subir ni cargar nada, se actualiza cada vez que abrís esta pestaña. (KoBo no está conectado — se ve directo en KoBo.)</div>';
   } else {
     wrapApi.innerHTML += fieldHtml('file-sheet-api', 'Sheet de Cierres (.xlsx)') + fieldHtml('file-presentes-api', 'Sheet de Presentes (.xlsx)');
     if(!project.kobo.token || !(project.kobo.forms||[]).length){
