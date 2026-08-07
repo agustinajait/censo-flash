@@ -136,6 +136,8 @@
   .diff-bad{color:#991b1b;font-weight:700;}
 
   /* NO DATA */
+  .live-warning{background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;padding:10px 16px;border-radius:10px;font-size:0.8rem;font-weight:600;margin-bottom:14px;}
+
   .no-data{text-align:center;padding:50px 20px;color:var(--gray);}
   .no-data-icon{font-size:2.5rem;margin-bottom:8px;}
 
@@ -236,6 +238,10 @@
         <p id="banner-sub">Relevamiento nocturno</p>
         <div id="last-update"></div>
       </div>
+
+      <!-- Aviso si la última actualización en vivo falló — para no mostrar
+           datos viejos sin decirlo -->
+      <div id="live-warning" class="live-warning" style="display:none;"></div>
 
       <!-- FILTER -->
       <div class="filter-bar">

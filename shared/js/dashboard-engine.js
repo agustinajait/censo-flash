@@ -309,13 +309,29 @@ async function autoRefreshSheet(project){
     document.getElementById('no-data').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     renderDashboard(project, data);
+    hideLiveWarning();
   }catch(e){
     console.error('Auto-refresh falló', e);
+    // Antes esto quedaba mudo si ya había algo cacheado — mostraba datos
+    // viejos sin avisar. Ahora siempre se ve un aviso, para no confundir
+    // una carga vieja con la realidad de ahora mismo.
+    showLiveWarning('No se pudo actualizar en vivo ahora mismo (' + e.message + '). Esto que ves puede estar desactualizado.');
     if(!dataByProject[project.id]){
       const st = document.getElementById('upload-status');
       if(st) st.textContent = '⚠️ No se pudo conectar en vivo: '+e.message;
     }
   }
+}
+
+function showLiveWarning(msg){
+  const el = document.getElementById('live-warning');
+  if(!el) return;
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+function hideLiveWarning(){
+  const el = document.getElementById('live-warning');
+  if(el) el.style.display = 'none';
 }
 
 function toggleModo(){
@@ -503,9 +519,11 @@ async function loadFromAPI(){
       document.getElementById('no-data').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       renderDashboard(project, data);
+      hideLiveWarning();
     }catch(e){
       st.textContent = '❌ Error: '+e.message;
       console.error(e);
+      showLiveWarning('No se pudo actualizar en vivo (' + e.message + '). Esto que ves puede estar desactualizado.');
     }
     return;
   }
