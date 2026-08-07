@@ -223,6 +223,11 @@
   </div>
 
   <div class="main">
+    <!-- Aviso si la última actualización en vivo falló — vive afuera de
+         no-data/dashboard para que se vea SIEMPRE que haga falta, sin
+         importar si hay datos cacheados para mostrar o no. -->
+    <div id="live-warning" class="live-warning" style="display:none;"></div>
+
     <div id="no-data" class="no-data">
       <div class="no-data-icon">📂</div>
       <div style="font-weight:700;color:var(--navy);margin-bottom:6px;">Sin datos cargados</div>
@@ -238,10 +243,6 @@
         <p id="banner-sub">Relevamiento nocturno</p>
         <div id="last-update"></div>
       </div>
-
-      <!-- Aviso si la última actualización en vivo falló — para no mostrar
-           datos viejos sin decirlo -->
-      <div id="live-warning" class="live-warning" style="display:none;"></div>
 
       <!-- FILTER -->
       <div class="filter-bar">
