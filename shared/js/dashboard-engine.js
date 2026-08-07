@@ -492,16 +492,31 @@ function fmtDate(d){
   const [y,m,day] = d.split('-');
   return `${parseInt(day)}/${parseInt(m)}/${y}`;
 }
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 
+// Al abrir (o auto-refrescar) el dashboard te posiciona en el día de hoy en
+// vez de mostrar todo el histórico junto — así se ve directo la actividad
+// de la jornada actual (duplas activas, cierres de hoy). "✕ Limpiar" en el
+// filtro sigue llevando a ver el rango completo si hace falta.
 function renderDashboard(project, data){
-  if(data.inicio) document.getElementById('filter-desde').value = data.inicio;
-  if(data.fin)    document.getElementById('filter-hasta').value = data.fin;
+  const hoy = todayStr();
+  document.getElementById('filter-desde').value = hoy;
+  document.getElementById('filter-hasta').value = hoy;
   document.getElementById('banner-title').textContent = project.nombre + ' — Ciudad de Buenos Aires';
   document.getElementById('banner-sub').textContent =
     'Operativo del '+fmtDate(data.inicio)+' al '+fmtDate(data.fin)+' · '+(project.kobo.forms||[]).map(f=>f.nombre).join(' + ');
   document.getElementById('last-update').textContent = 'Actualizado: '+new Date(data.loaded).toLocaleString('es-AR');
-  document.getElementById('filter-info').textContent = '';
-  renderWithData(project, data.cierres, data.koboRows, data.presentes||[]);
+
+  const rows = data.koboRows.filter(r=>inRange(r._fecha, hoy, hoy));
+  const cierres = data.cierres.filter(r=>inRange(r._fecha, hoy, hoy));
+  const presentes = (data.presentes||[]).filter(r=>inRange(r._fecha, hoy, hoy));
+  const total = rows.reduce((a,r)=>a+r.personas, 0);
+  document.getElementById('filter-info').textContent =
+    `Hoy (${fmtDate(hoy)}) · ${total.toLocaleString('es-AR')} personas · ${rows.length} puntos · ${cierres.length} cierres`;
+  renderWithData(project, cierres, rows, presentes);
 }
 
 function applyFilter(){
@@ -718,8 +733,16 @@ function renderDuplasPresentes(project, presentes){
 
   const llegaron = duplas.filter(d=>horaPorDupla[normDupla(d.id)]);
   const faltan = duplas.filter(d=>!horaPorDupla[normDupla(d.id)]);
+  const pct = duplas.length ? Math.round((llegaron.length/duplas.length)*100) : 0;
 
-  let html = `<p style="font-size:11px;color:var(--gray);margin-bottom:8px;">${llegaron.length} de ${duplas.length} duplas marcaron inicio en el rango mostrado.</p>`;
+  let html = `
+    <div class="presentes-counter">
+      <div class="presentes-counter-num">${llegaron.length}<span class="presentes-counter-sep">/</span><span class="presentes-counter-total">${duplas.length}</span></div>
+      <div class="presentes-counter-bar-wrap">
+        <div class="presentes-counter-bar"><div class="presentes-counter-fill" style="width:${pct}%;"></div></div>
+        <div class="presentes-counter-lbl">${pct}% de las duplas ya marcaron inicio en el rango mostrado</div>
+      </div>
+    </div>`;
   html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
   llegaron.forEach(d=>{
     const hora = horaPorDupla[normDupla(d.id)];
