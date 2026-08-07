@@ -75,6 +75,13 @@ function doLogin(){
 function startApp(){
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+
+  const navDate = document.getElementById('nav-date');
+  if(navDate){
+    const hoyLegible = new Date().toLocaleDateString('es-AR', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    navDate.textContent = '📅 ' + hoyLegible.charAt(0).toUpperCase() + hoyLegible.slice(1);
+  }
+
   if(currentRole === 'admin'){
     document.getElementById('nav-user').textContent = '👤 Administrador';
   } else {
