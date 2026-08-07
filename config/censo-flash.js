@@ -104,6 +104,12 @@ window.PROJECT_CONFIG_CENSO_FLASH = {
   whatsappLink: 'https://wa.me/5491150495440',
   horario: { dias:'📅 Martes y miércoles', franja:'🕙 22:00 a 02:00' },
   appsScriptUrl: 'https://script.google.com/macros/s/AKfycbyqqp7fEA-A0jAtMHr7x5KaWkkxQzQ7EJVdGcC7l4PQPN2wTpEyVssTnji8-skojO1Esg/exec',
+  // Clave para leer Cierres+Presentes en vivo desde el Apps Script (doGet).
+  // Tiene que coincidir EXACTO con la constante KEY del doGet en el script.
+  // No es un secreto fuerte (viaja en el JS del navegador, como el resto de
+  // las credenciales de este proyecto) — solo evita que cualquiera que
+  // adivine la URL del Apps Script pueda leer los datos sin este parámetro.
+  sheetReadKey: '5wMd3KXaZVSYItilU_6QRWjZ_xriEgba',
   // Contraseña de acceso al dashboard para el cliente de ESTE proyecto
   // (área de GCBA a cargo de Censo Flash). Un cliente que entra con esto
   // solo ve este proyecto — nunca los demás. La contraseña de admin

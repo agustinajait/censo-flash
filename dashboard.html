@@ -175,7 +175,7 @@
       <div class="upload-field" style="min-width:200px;">
         <div class="upload-label">Modo de carga</div>
         <select id="modo-carga" class="date-inp" onchange="DashboardEngine.toggleModo()">
-          <option value="api">🔗 Directo desde KoBo (API)</option>
+          <option value="api">🔗 En vivo (Sheet + KoBo)</option>
           <option value="archivo">📁 Subir archivos Excel</option>
         </select>
       </div>
@@ -183,7 +183,7 @@
       <!-- API MODE -->
       <div id="modo-api" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
         <div id="modo-api-files" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;"></div>
-        <button class="upload-btn" style="background:#059669;" onclick="DashboardEngine.loadFromAPI()">🔗 Cargar desde KoBo</button>
+        <button class="upload-btn" style="background:#059669;" onclick="DashboardEngine.loadFromAPI()">🔄 Actualizar ahora</button>
         <div class="upload-status" id="upload-status"></div>
       </div>
 

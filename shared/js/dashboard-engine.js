@@ -155,6 +155,12 @@ function selectProject(id){
     document.getElementById('dashboard').style.display = 'none';
     document.getElementById('no-data').style.display = 'block';
   }
+
+  // Si el proyecto tiene el Sheet conectado en vivo, no hace falta que nadie
+  // suba nada: se refresca solo al abrir la pestaña (para admin Y cliente).
+  if(project.sheetReadKey){
+    autoRefreshSheet(project);
+  }
 }
 
 function loadFromStorage(id){
@@ -178,9 +184,55 @@ function buildUploadFields(project){
   (project.kobo.forms||[]).forEach((f,i)=>{
     wrapArchivo.innerHTML += fieldHtml('file-form-'+i, f.nombre + ' (.xlsx)');
   });
-  wrapApi.innerHTML = fieldHtml('file-sheet-api', 'Sheet de Cierres (.xlsx)') + fieldHtml('file-presentes-api', 'Sheet de Presentes (.xlsx)');
+
+  wrapApi.innerHTML = '';
+  if(project.sheetReadKey){
+    wrapApi.innerHTML += '<div style="font-size:0.78rem;color:#065f46;max-width:280px;">✅ Cierres y Presentes se traen solos desde el Sheet — no hace falta subir nada, se actualizan cada vez que abrís esta pestaña.</div>';
+  } else {
+    wrapApi.innerHTML += fieldHtml('file-sheet-api', 'Sheet de Cierres (.xlsx)') + fieldHtml('file-presentes-api', 'Sheet de Presentes (.xlsx)');
+  }
   if(!project.kobo.token || !(project.kobo.forms||[]).length){
     wrapApi.innerHTML += '<div style="font-size:0.78rem;color:#92400e;max-width:260px;">⚠️ Este proyecto todavía no tiene KoBo conectado.</div>';
+  }
+}
+
+// ── LECTURA EN VIVO DEL SHEET (doGet del Apps Script) ───────────────────
+async function fetchSheetData(project){
+  const sep = project.appsScriptUrl.includes('?') ? '&' : '?';
+  const url = project.appsScriptUrl + sep + 'key=' + encodeURIComponent(project.sheetReadKey);
+  const resp = await fetch(url);
+  if(!resp.ok) throw new Error('HTTP '+resp.status);
+  const json = await resp.json();
+  if(json.error) throw new Error(json.error);
+  return json; // { cierres:[...], presentes:[...] }
+}
+
+// Se llama sola al abrir la pestaña de un proyecto (admin o cliente) — no
+// hace falta que nadie toque un botón. Si falla y ya había datos cacheados,
+// no rompe la vista (se queda con lo último bueno); si no hay nada
+// cacheado, avisa en upload-status (si existe, solo lo ve el admin).
+async function autoRefreshSheet(project){
+  try{
+    const sheetData = await fetchSheetData(project);
+    if(activeProjectId !== project.id) return; // cambiaron de pestaña mientras cargaba
+    let data = dataByProject[project.id];
+    if(!data){
+      data = {inicio:'', fin:'', loaded:new Date().toISOString(), cierres:[], koboRows:[], koboTotal:0, presentes:[]};
+    }
+    data.cierres = sheetData.cierres.map(parseCierreRow);
+    data.presentes = sheetData.presentes.map(parsePresenteRow).filter(p=>p.dupla);
+    data.loaded = new Date().toISOString();
+    dataByProject[project.id] = data;
+    saveToStorage(project.id, data);
+    document.getElementById('no-data').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    renderDashboard(project, data);
+  }catch(e){
+    console.error('Auto-refresh del Sheet falló', e);
+    if(!dataByProject[project.id]){
+      const st = document.getElementById('upload-status');
+      if(st) st.textContent = '⚠️ No se pudo conectar al Sheet en vivo: '+e.message;
+    }
   }
 }
 
@@ -355,33 +407,53 @@ async function loadFromAPI(){
   if(!project) return;
   const inicio = document.getElementById('fecha-inicio').value;
   const fin = document.getElementById('fecha-fin').value;
-  const fSheet = document.getElementById('file-sheet-api').files[0];
-  const fPresentes = document.getElementById('file-presentes-api').files[0];
   const st = document.getElementById('upload-status');
+  const tieneKobo = project.kobo.token && (project.kobo.forms||[]).length;
 
-  if(!project.kobo.token || !(project.kobo.forms||[]).length){
-    st.textContent = '❌ Este proyecto no tiene KoBo configurado todavía.';
+  if(!tieneKobo && !project.sheetReadKey){
+    st.textContent = '❌ Este proyecto no tiene KoBo ni el Sheet en vivo configurados todavía.';
     return;
   }
 
-  st.textContent = '⏳ Conectando a KoBo...';
+  const raw = {sheet:null, presentes:null, formRows:[], inicio, fin, loaded:new Date().toISOString()};
+  let koboError = null;
+
+  if(tieneKobo){
+    try{
+      for(let i=0;i<project.kobo.forms.length;i++){
+        const form = project.kobo.forms[i];
+        st.textContent = `⏳ Descargando ${form.nombre}...`;
+        raw.formRows[i] = await fetchKoboAll(project, form.id);
+      }
+    }catch(e){ koboError = e.message; }
+  }
+
   try{
-    const raw = {sheet:null, presentes:null, formRows:[], inicio, fin, loaded:new Date().toISOString()};
-    for(let i=0;i<project.kobo.forms.length;i++){
-      const form = project.kobo.forms[i];
-      st.textContent = `⏳ Descargando ${form.nombre}...`;
-      raw.formRows[i] = await fetchKoboAll(project, form.id);
+    if(project.sheetReadKey){
+      st.textContent = '⏳ Descargando cierres y presentes del Sheet...';
+      const sheetData = await fetchSheetData(project);
+      raw.sheet = sheetData.cierres;
+      raw.presentes = sheetData.presentes;
+    } else {
+      const fSheet = document.getElementById('file-sheet-api')?.files[0];
+      const fPresentes = document.getElementById('file-presentes-api')?.files[0];
+      if(fSheet) raw.sheet = await readExcel(fSheet);
+      if(fPresentes) raw.presentes = await readExcel(fPresentes);
     }
-    if(fSheet) raw.sheet = await readExcel(fSheet);
-    if(fPresentes) raw.presentes = await readExcel(fPresentes);
-    const data = buildData(raw, project);
-    dataByProject[project.id] = data;
-    saveToStorage(project.id, data);
-    st.textContent = `✅ KoBo: ${data.koboTotal} personas · ${data.koboRows.length} puntos · ${data.cierres.length} cierres`;
-    document.getElementById('no-data').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    renderDashboard(project, data);
-  }catch(e){ st.textContent = '❌ Error: '+e.message; console.error(e); }
+  }catch(e){
+    st.textContent = '❌ Error al leer el Sheet: '+e.message;
+    console.error(e);
+    return;
+  }
+
+  const data = buildData(raw, project);
+  dataByProject[project.id] = data;
+  saveToStorage(project.id, data);
+  st.textContent = (koboError ? `⚠️ KoBo falló (${koboError}) — ` : '✅ ') +
+    `${data.koboTotal} personas · ${data.koboRows.length} puntos · ${data.cierres.length} cierres`;
+  document.getElementById('no-data').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  renderDashboard(project, data);
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────
