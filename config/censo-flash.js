@@ -115,6 +115,11 @@ window.PROJECT_CONFIG_CENSO_FLASH = {
   // solo ve este proyecto — nunca los demás. La contraseña de admin
   // (config/platform.js) sigue viendo todos los proyectos.
   clientPassword: 'Censoflash2026#',
+  // Contraseña de coordinación: ve todo lo operativo de este proyecto
+  // (duplas activas, cierres, alertas) igual que el cliente, pero SIN la
+  // sección de KoBo — pensada para quien coordina el operativo día a día,
+  // no para rendición de cuentas.
+  coordPassword: 'Coordinacion2026#',
   comunas,
   duplas,
   kobo: {

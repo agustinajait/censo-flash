@@ -24,10 +24,13 @@ function getProject(id){
 
 // ── AUTH ──────────────────────────────────────────────────────────────
 // La contraseña de admin (config/platform.js) ve todos los proyectos, la
-// vista global y los controles de carga. La contraseña de cada proyecto
-// (config/<proyecto>.js → clientPassword) es la del CLIENTE de ese proyecto
-// puntual: entra viendo únicamente ese proyecto, nunca los demás — dos áreas
-// de GCBA distintas nunca comparten ni ven la información de la otra.
+// vista global y los controles de carga. Dentro de cada proyecto hay dos
+// contraseñas más, ambas encerradas en ESE proyecto nada más (nunca ven
+// otros proyectos ni entre sí):
+//   - clientPassword → el cliente (rendición de cuentas): ve todo,
+//     incluida la sección KoBo como referencia.
+//   - coordPassword  → quien coordina el operativo día a día: ve todo lo
+//     operativo (duplas activas, cierres, alertas) pero SIN la sección KoBo.
 function doLogin(){
   const pwd = document.getElementById('pwd-input').value;
   const auth = window.PLATFORM_AUTH || {};
@@ -39,10 +42,18 @@ function doLogin(){
     return;
   }
 
-  const project = (window.PLATFORM_PROJECTS||[]).find(p => p.clientPassword && p.clientPassword === pwd);
-  if(project){
+  const clientProject = (window.PLATFORM_PROJECTS||[]).find(p => p.clientPassword && p.clientPassword === pwd);
+  if(clientProject){
     currentRole = 'client';
-    lockedProjectId = project.id;
+    lockedProjectId = clientProject.id;
+    startApp();
+    return;
+  }
+
+  const coordProject = (window.PLATFORM_PROJECTS||[]).find(p => p.coordPassword && p.coordPassword === pwd);
+  if(coordProject){
+    currentRole = 'coordinador';
+    lockedProjectId = coordProject.id;
     startApp();
     return;
   }
@@ -57,7 +68,8 @@ function startApp(){
     document.getElementById('nav-user').textContent = '👤 Administrador';
   } else {
     const proj = getProject(lockedProjectId);
-    document.getElementById('nav-user').textContent = '🏛️ ' + (proj ? proj.nombre : 'Cliente');
+    const icono = currentRole === 'coordinador' ? '🧭 Coordinación —' : '🏛️';
+    document.getElementById('nav-user').textContent = icono + ' ' + (proj ? proj.nombre : 'Cliente');
   }
 
   // Migración única del localStorage del dashboard viejo de Censo Flash.
@@ -783,10 +795,21 @@ function renderGlobalView(){
 const KOBO_HIDDEN_KEY = 'kobo_section_hidden';
 
 function applyKoboVisibility(){
-  const hidden = localStorage.getItem(KOBO_HIDDEN_KEY) === '1';
+  const header = document.getElementById('kobo-section-header');
   const body = document.getElementById('kobo-section-body');
   const btn = document.getElementById('kobo-toggle-btn');
-  if(!body || !btn) return;
+  if(!header || !body || !btn) return;
+
+  // El rol "coordinador" no tiene sección KoBo, ni siquiera colapsada —
+  // directamente no existe para ese login.
+  if(currentRole === 'coordinador'){
+    header.style.display = 'none';
+    body.style.display = 'none';
+    return;
+  }
+
+  header.style.display = 'flex';
+  const hidden = localStorage.getItem(KOBO_HIDDEN_KEY) === '1';
   body.style.display = hidden ? 'none' : 'block';
   btn.textContent = hidden ? '▼ Mostrar' : '▲ Ocultar';
 }
