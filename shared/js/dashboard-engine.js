@@ -174,11 +174,11 @@ function fieldHtml(id, label){
 function buildUploadFields(project){
   const wrapArchivo = document.getElementById('modo-archivo-files');
   const wrapApi = document.getElementById('modo-api-files');
-  wrapArchivo.innerHTML = fieldHtml('file-sheet', 'Sheet de Cierres (.xlsx)');
+  wrapArchivo.innerHTML = fieldHtml('file-sheet', 'Sheet de Cierres (.xlsx)') + fieldHtml('file-presentes', 'Sheet de Presentes (.xlsx)');
   (project.kobo.forms||[]).forEach((f,i)=>{
     wrapArchivo.innerHTML += fieldHtml('file-form-'+i, f.nombre + ' (.xlsx)');
   });
-  wrapApi.innerHTML = fieldHtml('file-sheet-api', 'Sheet de Cierres (.xlsx)');
+  wrapApi.innerHTML = fieldHtml('file-sheet-api', 'Sheet de Cierres (.xlsx)') + fieldHtml('file-presentes-api', 'Sheet de Presentes (.xlsx)');
   if(!project.kobo.token || !(project.kobo.forms||[]).length){
     wrapApi.innerHTML += '<div style="font-size:0.78rem;color:#92400e;max-width:260px;">⚠️ Este proyecto todavía no tiene KoBo conectado.</div>';
   }
@@ -252,6 +252,17 @@ function parseCierreRow(r){
   };
 }
 
+// ── PARSEO DE "PRESENTES" (pestaña que llena el botón "Marcar inicio del
+// recorrido" del portal de duplas — reemplaza el aviso por WhatsApp) ──
+function parsePresenteRow(r){
+  const duplaRaw = r['Dupla']||r['dupla']||'';
+  return {
+    dupla: normDupla(duplaRaw),
+    hora: r['Hora']||r['hora']||'',
+    _fecha: toDateStr(r['Timestamp']||r['timestamp']||''),
+  };
+}
+
 // ── BUILD DATA ────────────────────────────────────────────────────────
 // Nota: NO se filtra por fecha acá — se carga todo lo que venga en el
 // archivo/API. "Fecha inicio"/"Fecha fin" del formulario de carga son solo
@@ -259,8 +270,9 @@ function parseCierreRow(r){
 // nunca una exclusión permanente: si se dejan vacías o mal puestas, no se
 // pierden datos, y el filtro de arriba siempre puede ampliarse después.
 function buildData(raw, project){
-  const d = {inicio:raw.inicio, fin:raw.fin, loaded:raw.loaded, cierres:[], koboRows:[]};
+  const d = {inicio:raw.inicio, fin:raw.fin, loaded:raw.loaded, cierres:[], koboRows:[], presentes:[]};
   if(raw.sheet) d.cierres = raw.sheet.map(parseCierreRow);
+  if(raw.presentes) d.presentes = raw.presentes.map(parsePresenteRow).filter(p=>p.dupla);
 
   (project.kobo.forms||[]).forEach((form, idx)=>{
     const rows = (raw.formRows||[])[idx];
@@ -301,15 +313,17 @@ async function processFiles(){
   const project = getProject(activeProjectId);
   if(!project) return;
   const fSheet = document.getElementById('file-sheet').files[0];
+  const fPresentes = document.getElementById('file-presentes').files[0];
   const formFiles = (project.kobo.forms||[]).map((f,i)=>document.getElementById('file-form-'+i).files[0]);
   const inicio = document.getElementById('fecha-inicio').value;
   const fin = document.getElementById('fecha-fin').value;
-  if(!fSheet && !formFiles.some(Boolean)){ alert('Cargá al menos un archivo.'); return; }
+  if(!fSheet && !fPresentes && !formFiles.some(Boolean)){ alert('Cargá al menos un archivo.'); return; }
   const st = document.getElementById('upload-status');
   st.textContent = '⏳ Procesando...';
   try{
-    const raw = {sheet:null, formRows:[], inicio, fin, loaded:new Date().toISOString()};
+    const raw = {sheet:null, presentes:null, formRows:[], inicio, fin, loaded:new Date().toISOString()};
     if(fSheet) raw.sheet = await readExcel(fSheet);
+    if(fPresentes) raw.presentes = await readExcel(fPresentes);
     for(let i=0;i<formFiles.length;i++){
       raw.formRows[i] = formFiles[i] ? await readExcel(formFiles[i]) : null;
     }
@@ -342,6 +356,7 @@ async function loadFromAPI(){
   const inicio = document.getElementById('fecha-inicio').value;
   const fin = document.getElementById('fecha-fin').value;
   const fSheet = document.getElementById('file-sheet-api').files[0];
+  const fPresentes = document.getElementById('file-presentes-api').files[0];
   const st = document.getElementById('upload-status');
 
   if(!project.kobo.token || !(project.kobo.forms||[]).length){
@@ -351,13 +366,14 @@ async function loadFromAPI(){
 
   st.textContent = '⏳ Conectando a KoBo...';
   try{
-    const raw = {sheet:null, formRows:[], inicio, fin, loaded:new Date().toISOString()};
+    const raw = {sheet:null, presentes:null, formRows:[], inicio, fin, loaded:new Date().toISOString()};
     for(let i=0;i<project.kobo.forms.length;i++){
       const form = project.kobo.forms[i];
       st.textContent = `⏳ Descargando ${form.nombre}...`;
       raw.formRows[i] = await fetchKoboAll(project, form.id);
     }
     if(fSheet) raw.sheet = await readExcel(fSheet);
+    if(fPresentes) raw.presentes = await readExcel(fPresentes);
     const data = buildData(raw, project);
     dataByProject[project.id] = data;
     saveToStorage(project.id, data);
@@ -383,7 +399,7 @@ function renderDashboard(project, data){
     'Operativo del '+fmtDate(data.inicio)+' al '+fmtDate(data.fin)+' · '+(project.kobo.forms||[]).map(f=>f.nombre).join(' + ');
   document.getElementById('last-update').textContent = 'Actualizado: '+new Date(data.loaded).toLocaleString('es-AR');
   document.getElementById('filter-info').textContent = '';
-  renderWithData(project, data.cierres, data.koboRows);
+  renderWithData(project, data.cierres, data.koboRows, data.presentes||[]);
 }
 
 function applyFilter(){
@@ -395,10 +411,11 @@ function applyFilter(){
   if(!desde && !hasta){ clearFilter(); return; }
   const rows = data.koboRows.filter(r=>inRange(r._fecha, desde, hasta));
   const cierres = data.cierres.filter(r=>inRange(r._fecha, desde, hasta) || !r._fecha);
+  const presentes = (data.presentes||[]).filter(r=>inRange(r._fecha, desde, hasta) || !r._fecha);
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   document.getElementById('filter-info').textContent =
     `${total.toLocaleString('es-AR')} personas · ${rows.length} puntos · ${cierres.length} cierres`;
-  renderWithData(project, cierres, rows);
+  renderWithData(project, cierres, rows, presentes);
 }
 
 function clearFilter(){
@@ -407,10 +424,10 @@ function clearFilter(){
   document.getElementById('filter-hasta').value = data?.fin || '';
   document.getElementById('filter-info').textContent = '';
   const project = getProject(activeProjectId);
-  if(project && data) renderWithData(project, data.cierres, data.koboRows);
+  if(project && data) renderWithData(project, data.cierres, data.koboRows, data.presentes||[]);
 }
 
-function renderWithData(project, cierres, rows){
+function renderWithData(project, cierres, rows, presentes){
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   const puntos = rows.length;
   const fechas = new Set(rows.map(r=>r.fecha).filter(Boolean));
@@ -438,6 +455,7 @@ function renderWithData(project, cierres, rows){
   renderTablaPoligono(project, rows, cierres);
   renderTablaDuplas(project, cierres, rows);
   renderAlertas(cierres);
+  renderDuplasPresentes(project, presentes);
   renderDuplasPendientes(project, cierres);
 }
 
@@ -579,6 +597,36 @@ function renderAlertas(cierres){
   document.getElementById('obs-content').innerHTML = ao.length ?
     ao.map(r=>`<div class="obs-item"><b>Dupla ${esc(r.dupla)}:</b> ${esc(r.observaciones)}</div>`).join('') :
     '<p style="font-size:12px;color:var(--gray);">Sin observaciones.</p>';
+}
+
+// Reemplazo del "dupla 1 activa, dupla 2 presente" del grupo de WhatsApp:
+// qué duplas ya tocaron "Marcar inicio del recorrido" (pestaña "Presentes"
+// del Sheet) dentro del rango mostrado, y cuáles todavía no arrancaron.
+function renderDuplasPresentes(project, presentes){
+  const el = document.getElementById('presentes-content');
+  if(!el) return;
+  const duplas = project.duplas || [];
+  if(!duplas.length){
+    el.innerHTML = '<p style="font-size:12px;color:var(--gray);">Este proyecto todavía no tiene duplas cargadas.</p>';
+    return;
+  }
+  const horaPorDupla = {};
+  presentes.forEach(p=>{ if(p.dupla && !horaPorDupla[p.dupla]) horaPorDupla[p.dupla] = p.hora; });
+
+  const llegaron = duplas.filter(d=>horaPorDupla[normDupla(d.id)]);
+  const faltan = duplas.filter(d=>!horaPorDupla[normDupla(d.id)]);
+
+  let html = `<p style="font-size:11px;color:var(--gray);margin-bottom:8px;">${llegaron.length} de ${duplas.length} duplas marcaron inicio en el rango mostrado.</p>`;
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+  llegaron.forEach(d=>{
+    const hora = horaPorDupla[normDupla(d.id)];
+    html += `<span class="badge bg">D${esc(d.id)} · ${esc(hora)}</span>`;
+  });
+  faltan.forEach(d=>{
+    html += `<span class="badge bgr">D${esc(d.id)} · sin marcar</span>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 // Seguimiento de operadores: qué duplas (de las cargadas en el proyecto)
