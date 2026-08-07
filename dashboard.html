@@ -70,6 +70,7 @@
 
   /* METRICS */
   .metrics-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+  .metrics-5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px;}
   .metrics-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
   .metric{background:white;border-radius:12px;padding:16px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,31,61,0.04);position:relative;overflow:hidden;}
   .metric::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;}
@@ -226,17 +227,62 @@
         <span id="filter-info" style="font-size:0.75rem;color:var(--gray);margin-left:auto;"></span>
       </div>
 
-      <!-- ══════ SECCIÓN KOBO ══════ -->
+      <!-- ══════ SECCIÓN OPERATIVO — lo que hoy se comparte como resumen ══════ -->
       <div class="section-header">
-        <span class="section-tag tag-kobo">KoBo</span>
-        <h2>Personas en situación de calle — datos reales</h2>
+        <span class="section-tag tag-sheet">Operativo</span>
+        <h2>Resumen del operativo — cierres y seguimiento de duplas</h2>
       </div>
 
-      <div class="metrics-4">
+      <div class="metrics-5">
+        <div class="metric m-green"><div class="metric-icon">🚗</div><div class="metric-val" id="m-duplas">—</div><div class="metric-lbl">Duplas con cierre</div></div>
+        <div class="metric m-blue"><div class="metric-icon">📋</div><div class="metric-val" id="m-reg-sheet">—</div><div class="metric-lbl">Registros reportados</div></div>
+        <div class="metric m-amber"><div class="metric-icon">⏱️</div><div class="metric-val" id="m-tiempo">—</div><div class="metric-lbl">Promedio horas/dupla</div></div>
+        <div class="metric m-purple"><div class="metric-icon">⚠️</div><div class="metric-val" id="m-incidentes">—</div><div class="metric-lbl">Incidentes reportados</div></div>
+        <div class="metric m-red"><div class="metric-icon">👶</div><div class="metric-val" id="m-nnya">—</div><div class="metric-lbl">Reportes NNyA</div></div>
+      </div>
+
+      <!-- Seguimiento de operadores: quién no cerró todavía -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">🕵️ Duplas sin cierre</div>
+        <div id="pendientes-content"></div>
+      </div>
+
+      <!-- Tabla resumen duplas -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">📤 Seguimiento de duplas</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Dupla</th><th>Polígono</th><th>Fecha</th><th>Responsable</th><th>Inicio</th><th>Cierre</th><th>Tiempo</th>
+              <th>Registros</th><th>Pers. (KoBo)</th><th>Clima</th><th>Eventos</th><th>Inconvenientes</th><th>Foto</th>
+            </tr></thead>
+            <tbody id="duplas-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Alertas -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🚨 Situaciones urgentes (NNyA)</div>
+          <div id="nnya-content"><p style="font-size:12px;color:var(--gray);">Sin reportes.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📝 Observaciones de campo</div>
+          <div id="obs-content"><p style="font-size:12px;color:var(--gray);">Sin observaciones.</p></div>
+        </div>
+      </div>
+
+      <!-- ══════ SECCIÓN KOBO — referencia (gobierno ya lo mira directo en KoBo) ══════ -->
+      <div class="section-header">
+        <span class="section-tag tag-kobo">KoBo</span>
+        <h2>Detalle de relevamiento en KoBo — referencia</h2>
+      </div>
+
+      <div class="metrics-3">
         <div class="metric m-blue"><div class="metric-icon">👥</div><div class="metric-val blue" id="m-personas">—</div><div class="metric-lbl">Total personas observadas</div></div>
         <div class="metric m-green"><div class="metric-icon">📍</div><div class="metric-val" id="m-puntos">—</div><div class="metric-lbl">Puntos registrados</div></div>
         <div class="metric m-amber"><div class="metric-icon">🌙</div><div class="metric-val" id="m-noches">—</div><div class="metric-lbl">Noches operativas</div></div>
-        <div class="metric m-red"><div class="metric-icon">👶</div><div class="metric-val" id="m-nnya">—</div><div class="metric-lbl">Reportes NNyA</div></div>
       </div>
 
       <!-- Por día -->
@@ -275,45 +321,6 @@
             <thead><tr><th>Polígono</th><th>Dupla</th><th>Comuna</th><th>Personas</th><th>Puntos</th><th>Promedio/punto</th></tr></thead>
             <tbody id="poligono-tbody"></tbody>
           </table>
-        </div>
-      </div>
-
-      <!-- ══════ SECCIÓN SHEET ══════ -->
-      <div class="section-header">
-        <span class="section-tag tag-sheet">Operativo</span>
-        <h2>Trabajo de las duplas — cierres del operativo</h2>
-      </div>
-
-      <div class="metrics-4">
-        <div class="metric m-green"><div class="metric-icon">🚗</div><div class="metric-val" id="m-duplas">—</div><div class="metric-lbl">Duplas con cierre</div></div>
-        <div class="metric m-blue"><div class="metric-icon">📋</div><div class="metric-val" id="m-reg-sheet">—</div><div class="metric-lbl">Registros reportados</div></div>
-        <div class="metric m-amber"><div class="metric-icon">⏱️</div><div class="metric-val" id="m-tiempo">—</div><div class="metric-lbl">Promedio horas/dupla</div></div>
-        <div class="metric m-purple"><div class="metric-icon">⚠️</div><div class="metric-val" id="m-incidentes">—</div><div class="metric-lbl">Incidentes reportados</div></div>
-      </div>
-
-      <!-- Tabla resumen duplas -->
-      <div class="card" style="margin-bottom:14px;">
-        <div class="card-title">📤 Resumen por dupla — Sheet vs KoBo</div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr>
-              <th>Dupla</th><th>Polígono</th><th>Fecha</th><th>Responsable</th><th>Inicio</th><th>Cierre</th><th>Tiempo</th>
-              <th>Reg. Sheet</th><th>Pers. KoBo</th><th>Clima</th><th>Eventos</th><th>Inconvenientes</th><th>Foto</th>
-            </tr></thead>
-            <tbody id="duplas-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Alertas -->
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-title">🚨 Situaciones urgentes (NNyA)</div>
-          <div id="nnya-content"><p style="font-size:12px;color:var(--gray);">Sin reportes.</p></div>
-        </div>
-        <div class="card">
-          <div class="card-title">📝 Observaciones de campo</div>
-          <div id="obs-content"><p style="font-size:12px;color:var(--gray);">Sin observaciones.</p></div>
         </div>
       </div>
 

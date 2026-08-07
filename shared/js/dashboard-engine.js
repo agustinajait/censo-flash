@@ -438,6 +438,7 @@ function renderWithData(project, cierres, rows){
   renderTablaPoligono(project, rows, cierres);
   renderTablaDuplas(project, cierres, rows);
   renderAlertas(cierres);
+  renderDuplasPendientes(project, cierres);
 }
 
 function renderKoboCharts(project, rows){
@@ -578,6 +579,31 @@ function renderAlertas(cierres){
   document.getElementById('obs-content').innerHTML = ao.length ?
     ao.map(r=>`<div class="obs-item"><b>Dupla ${esc(r.dupla)}:</b> ${esc(r.observaciones)}</div>`).join('') :
     '<p style="font-size:12px;color:var(--gray);">Sin observaciones.</p>';
+}
+
+// Seguimiento de operadores: qué duplas (de las cargadas en el proyecto)
+// todavía no mandaron su cierre dentro del rango de fechas que se está
+// mostrando. Sirve para que el admin haga seguimiento sin tener que cruzar
+// la lista de duplas contra el Sheet a mano.
+function renderDuplasPendientes(project, cierres){
+  const el = document.getElementById('pendientes-content');
+  if(!el) return;
+  const duplas = project.duplas || [];
+  if(!duplas.length){
+    el.innerHTML = '<p style="font-size:12px;color:var(--gray);">Este proyecto todavía no tiene duplas cargadas.</p>';
+    return;
+  }
+  const cerraron = new Set(cierres.map(r=>normDupla(r.dupla)).filter(Boolean));
+  const pendientes = duplas.filter(d=>!cerraron.has(normDupla(d.id)));
+  if(!pendientes.length){
+    el.innerHTML = '<p style="font-size:12px;color:#065f46;font-weight:700;">✅ Todas las duplas cerraron el operativo en el rango mostrado.</p>';
+    return;
+  }
+  el.innerHTML =
+    `<p style="font-size:11px;color:var(--gray);margin-bottom:8px;">${pendientes.length} de ${duplas.length} duplas todavía no registraron su cierre en el rango mostrado:</p>` +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+    pendientes.map(d=>`<span class="badge ba">D${esc(d.id)} · ${esc(d.zona||'')}</span>`).join('') +
+    '</div>';
 }
 
 // ── VISTA GLOBAL (todos los proyectos) ──────────────────────────────
