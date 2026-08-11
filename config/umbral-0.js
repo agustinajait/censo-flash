@@ -1,19 +1,20 @@
 // Config del proyecto "Umbral 0" — TODAVÍA EN CONFIGURACIÓN.
-// Mismo esquema que config/censo-flash.js, más los campos propios de Umbral 0
-// (gestión de casos: ingreso → acompañamiento → egreso/derivación).
+// A diferencia de Censo Flash (Google Sheets/Apps Script, un cierre por noche),
+// Umbral 0 gestiona casos con estado que cambia en el tiempo (ingreso →
+// acompañamiento → egreso/derivación), así que vive en Supabase:
+//   - duplas/integrantes/choferes: tablas `duplas` e `integrantes` — se dan de
+//     alta y se editan desde umbral-0/admin-duplas.html, NO acá en el config
+//     (dejaron de ser un array hardcodeado a propósito, para que sean editables
+//     sin tocar código).
+//   - casos: tablas `personas`, `intervenciones`, `derivaciones`, `seguimientos`.
+//   - acceso: cuentas reales de Supabase Auth (no contraseña compartida como
+//     Censo Flash) + rol en la tabla `perfiles` (admin/coordinacion/dupla/cliente),
+//     validado por políticas RLS en cada tabla. Ver umbral-0/DISENO-CASOS.md.
 //
-// Completar cuando estén definidos:
-//   1) las 16 duplas (zona/polígono + los 2 integrantes de cada una) y los
-//      2 choferes — ver `duplas` y `choferes` más abajo.
-//   2) el link de WhatsApp de la operadora y el horario del operativo,
-//   3) la URL del Apps Script de cierres (Sheet + Drive) ya desplegado —
-//      o, si Umbral 0 termina viviendo en Supabase (recomendado, dado que
-//      necesita casos con estado que cambia en el tiempo, no solo un
-//      cierre por noche), la conexión a esa base en su lugar.
-//   4) el/los formulario(s) de KoBo, si Umbral 0 los termina usando para
-//      el ingreso de casos.
-// Hasta completar esto, el proyecto aparece en la plataforma pero con el
-// portal de duplas vacío y el dashboard mostrando "sin datos".
+// Completar todavía:
+//   1) el link de WhatsApp de la operadora y el horario del operativo,
+//   2) el/los formulario(s) de KoBo, si Umbral 0 los termina usando además de
+//      lo que se carga directo en Supabase.
 (function(){
 
 window.PROJECT_CONFIG_UMBRAL_0 = {
@@ -26,7 +27,15 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   whatsappNumero: '', // TODO: número de la operadora, formato "+54 9 11 ...."
   whatsappLink: '',   // TODO: link https://wa.me/...
   horario: { dias:'A definir', franja:'A definir' },
-  appsScriptUrl: '', // TODO: URL del Apps Script /exec de Umbral 0 (o reemplazar por Supabase)
+
+  // ── SUPABASE — proyecto dedicado (cuenta a.jait@inclusioncaii.org) ────────
+  // La anon/publishable key es pública por diseño (se embebe en el cliente);
+  // todo el acceso real lo controlan las políticas RLS de cada tabla, atadas
+  // al rol de `perfiles` de la cuenta logueada. Nunca poner acá la service_role key.
+  supabaseUrl: 'https://qwnrdclaeaskoyskbqff.supabase.co',
+  supabaseAnonKey: 'sb_publishable_3fsj-u1CkxDhHTRgsI6Mjw_VyBcyP8t',
+
+  appsScriptUrl: '', // sin uso por ahora — Umbral 0 vive en Supabase (ver arriba)
   // TODO: contraseña de acceso al dashboard para el cliente de Umbral 0
   // (un área de GCBA distinta a la de Censo Flash — no reusar la misma
   // contraseña). Mientras esté vacía, nadie puede loguearse a este
@@ -35,25 +44,6 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   comunas: {
     // TODO: 'C.X': 'Nombre de la comuna'
   },
-
-  // ── DUPLAS (16) — equipo territorial + zona asignada ──────────────────
-  // Cada dupla tiene 2 integrantes con sus datos personales (para el alta
-  // administrativa) además de zona/polígono (para el portal de campo, una
-  // vez que Umbral 0 tenga su propio flujo de recorrido como Censo Flash).
-  // TODO: cargar las 16 duplas reales, formato:
-  // { id:'U01', zona:'...', poligono:'...', comuna:'C.X',
-  //   miembros: [
-  //     { nombre:'', apellido:'', dni:'', telefono:'' },
-  //     { nombre:'', apellido:'', dni:'', telefono:'' },
-  //   ] }
-  duplas: [
-  ],
-
-  // ── CHOFERES (2) — sin zona fija, rotan entre duplas ───────────────────
-  // TODO: cargar los 2 choferes reales, formato:
-  // { nombre:'', apellido:'', dni:'', telefono:'' }
-  choferes: [
-  ],
 
   // ── OPCIONES CUSTOMIZABLES DEL CICLO DE UN CASO ────────────────────────
   // Ambas listas son editables acá sin tocar el resto del código — agregar
