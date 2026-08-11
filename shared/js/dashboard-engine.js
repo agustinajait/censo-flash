@@ -367,9 +367,19 @@ function toDateStr(v){
 // pusieras, incluido "hoy", aunque no fueran de hoy. Ahora una fecha
 // desconocida solo entra cuando no se pidió ningún rango (desde/hasta
 // vacíos = "mostrar todo", que es el estado de "✕ Limpiar").
+//
+// OJO acá: `dateVal` viene siempre de un campo `_fecha` que YA pasó por
+// toDateStr() al armar la fila (parseCierreRow/parsePresenteRow/etc.) —
+// ya es un string "YYYY-MM-DD", no una fecha cruda. Antes esta función lo
+// volvía a mandar a toDateStr(), y `new Date("YYYY-MM-DD")` (sin hora) se
+// interpreta como medianoche UTC — que en un huso horario negativo como
+// Argentina (UTC-3) cae en el DÍA ANTERIOR al convertirla a hora local. Eso
+// corría todos los cierres de hoy al filtro de "ayer" y hacía que "Hoy"
+// apareciera vacío aunque hubiera cierres cargados esa misma tarde. Acá no
+// hay que volver a parsear nada: ya es un string comparable tal cual.
 function inRange(dateVal, desde, hasta){
   if(!desde && !hasta) return true;
-  const ds = toDateStr(dateVal);
+  const ds = dateVal || '';
   if(!ds) return false;
   if(desde && ds<desde) return false;
   if(hasta && ds>hasta) return false;
