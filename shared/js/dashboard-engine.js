@@ -286,6 +286,7 @@ async function fetchLiveData(project, inicio, fin){
   const raw = {
     sheet: sheetData.cierres || [],
     presentes: sheetData.presentes || [],
+    ausencias: sheetData.ausencias || [],
     formRows: (project.kobo.forms||[]).map(form=>{
       const match = (sheetData.koboForms||[]).find(k=>k.id===form.id);
       return match ? match.rows : null;
@@ -420,6 +421,18 @@ function parsePresenteRow(r){
   };
 }
 
+// ── PARSEO DE "AUSENCIAS" (pestaña que llena el botón "Marcar ausente hoy"
+// del portal de duplas) ──
+function parseAusenteRow(r){
+  const duplaRaw = r['Dupla']||r['dupla']||'';
+  return {
+    dupla: normDupla(duplaRaw),
+    recupera: r['Recupera']||r['recupera']||'',
+    motivo: r['Motivo']||r['motivo']||'',
+    _fecha: toDateStr(r['Timestamp']||r['timestamp']||''),
+  };
+}
+
 // ── BUILD DATA ────────────────────────────────────────────────────────
 // Nota: NO se filtra por fecha acá — se carga todo lo que venga en el
 // archivo/API. "Fecha inicio"/"Fecha fin" del formulario de carga son solo
@@ -427,9 +440,10 @@ function parsePresenteRow(r){
 // nunca una exclusión permanente: si se dejan vacías o mal puestas, no se
 // pierden datos, y el filtro de arriba siempre puede ampliarse después.
 function buildData(raw, project){
-  const d = {inicio:raw.inicio, fin:raw.fin, loaded:raw.loaded, cierres:[], koboRows:[], presentes:[]};
+  const d = {inicio:raw.inicio, fin:raw.fin, loaded:raw.loaded, cierres:[], koboRows:[], presentes:[], ausencias:[]};
   if(raw.sheet) d.cierres = raw.sheet.map(parseCierreRow);
   if(raw.presentes) d.presentes = raw.presentes.map(parsePresenteRow).filter(p=>p.dupla);
+  if(raw.ausencias) d.ausencias = raw.ausencias.map(parseAusenteRow).filter(a=>a.dupla);
 
   (project.kobo.forms||[]).forEach((form, idx)=>{
     const rows = (raw.formRows||[])[idx];
@@ -596,10 +610,11 @@ function renderDashboard(project, data){
   const rows = data.koboRows.filter(r=>inRange(r._fecha, hoy, hoy));
   const cierres = data.cierres.filter(r=>inRange(r._fecha, hoy, hoy));
   const presentes = (data.presentes||[]).filter(r=>inRange(r._fecha, hoy, hoy));
+  const ausencias = (data.ausencias||[]).filter(r=>inRange(r._fecha, hoy, hoy));
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   document.getElementById('filter-info').textContent =
     `Hoy (${fmtDate(hoy)}) · ${total.toLocaleString('es-AR')} personas · ${rows.length} puntos · ${cierres.length} cierres`;
-  renderWithData(project, cierres, rows, presentes);
+  renderWithData(project, cierres, rows, presentes, ausencias);
 }
 
 function applyFilter(){
@@ -612,10 +627,11 @@ function applyFilter(){
   const rows = data.koboRows.filter(r=>inRange(r._fecha, desde, hasta));
   const cierres = data.cierres.filter(r=>inRange(r._fecha, desde, hasta));
   const presentes = (data.presentes||[]).filter(r=>inRange(r._fecha, desde, hasta));
+  const ausencias = (data.ausencias||[]).filter(r=>inRange(r._fecha, desde, hasta));
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   document.getElementById('filter-info').textContent =
     `${total.toLocaleString('es-AR')} personas · ${rows.length} puntos · ${cierres.length} cierres`;
-  renderWithData(project, cierres, rows, presentes);
+  renderWithData(project, cierres, rows, presentes, ausencias);
 }
 
 function clearFilter(){
@@ -624,10 +640,10 @@ function clearFilter(){
   document.getElementById('filter-hasta').value = data?.fin || '';
   document.getElementById('filter-info').textContent = '';
   const project = getProject(activeProjectId);
-  if(project && data) renderWithData(project, data.cierres, data.koboRows, data.presentes||[]);
+  if(project && data) renderWithData(project, data.cierres, data.koboRows, data.presentes||[], data.ausencias||[]);
 }
 
-function renderWithData(project, cierres, rows, presentes){
+function renderWithData(project, cierres, rows, presentes, ausencias){
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   const puntos = rows.length;
   const fechas = new Set(rows.map(r=>r.fecha).filter(Boolean));
@@ -655,8 +671,8 @@ function renderWithData(project, cierres, rows, presentes){
   renderTablaPoligono(project, rows, cierres);
   renderTablaDuplas(project, cierres, rows);
   renderAlertas(cierres);
-  renderDuplasPresentes(project, presentes);
-  renderDuplasPendientes(project, cierres);
+  renderDuplasPresentes(project, presentes, ausencias);
+  renderDuplasPendientes(project, cierres, ausencias);
   applyKoboVisibility();
 }
 
@@ -802,8 +818,10 @@ function renderAlertas(cierres){
 
 // Reemplazo del "dupla 1 activa, dupla 2 presente" del grupo de WhatsApp:
 // qué duplas ya tocaron "Marcar inicio del recorrido" (pestaña "Presentes"
-// del Sheet) dentro del rango mostrado, y cuáles todavía no arrancaron.
-function renderDuplasPresentes(project, presentes){
+// del Sheet) dentro del rango mostrado, cuáles avisaron ausencia (no se
+// cuentan como "faltan", ya están justificadas), y cuáles todavía no
+// arrancaron ni avisaron nada.
+function renderDuplasPresentes(project, presentes, ausencias){
   const el = document.getElementById('presentes-content');
   if(!el) return;
   const duplas = project.duplas || [];
@@ -813,23 +831,33 @@ function renderDuplasPresentes(project, presentes){
   }
   const horaPorDupla = {};
   presentes.forEach(p=>{ if(p.dupla && !horaPorDupla[p.dupla]) horaPorDupla[p.dupla] = p.hora; });
+  const ausentePorDupla = {};
+  (ausencias||[]).forEach(a=>{ if(a.dupla && !ausentePorDupla[a.dupla]) ausentePorDupla[a.dupla] = a; });
 
   const llegaron = duplas.filter(d=>horaPorDupla[normDupla(d.id)]);
-  const faltan = duplas.filter(d=>!horaPorDupla[normDupla(d.id)]);
-  const pct = duplas.length ? Math.round((llegaron.length/duplas.length)*100) : 0;
+  const ausentes = duplas.filter(d=>!horaPorDupla[normDupla(d.id)] && ausentePorDupla[normDupla(d.id)]);
+  const faltan = duplas.filter(d=>!horaPorDupla[normDupla(d.id)] && !ausentePorDupla[normDupla(d.id)]);
+
+  const esperadas = duplas.length - ausentes.length;
+  const pct = esperadas ? Math.round((llegaron.length/esperadas)*100) : 0;
 
   let html = `
     <div class="presentes-counter">
-      <div class="presentes-counter-num">${llegaron.length}<span class="presentes-counter-sep">/</span><span class="presentes-counter-total">${duplas.length}</span></div>
+      <div class="presentes-counter-num">${llegaron.length}<span class="presentes-counter-sep">/</span><span class="presentes-counter-total">${esperadas}</span></div>
       <div class="presentes-counter-bar-wrap">
         <div class="presentes-counter-bar"><div class="presentes-counter-fill" style="width:${pct}%;"></div></div>
-        <div class="presentes-counter-lbl">${pct}% de las duplas ya marcaron inicio en el rango mostrado</div>
+        <div class="presentes-counter-lbl">${pct}% de las duplas que salen hoy ya marcaron inicio${ausentes.length ? ' · '+ausentes.length+' avisaron ausencia' : ''}</div>
       </div>
     </div>`;
   html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
   llegaron.forEach(d=>{
     const hora = horaPorDupla[normDupla(d.id)];
     html += `<span class="badge bg">D${esc(d.id)} · ${esc(hora)}</span>`;
+  });
+  ausentes.forEach(d=>{
+    const a = ausentePorDupla[normDupla(d.id)];
+    const recuperaTxt = a && a.recupera ? ' · recupera '+esc(fmtDate(a.recupera)) : '';
+    html += `<span class="badge ba">D${esc(d.id)} · ausente${recuperaTxt}</span>`;
   });
   faltan.forEach(d=>{
     html += `<span class="badge bgr">D${esc(d.id)} · sin marcar</span>`;
@@ -840,9 +868,9 @@ function renderDuplasPresentes(project, presentes){
 
 // Seguimiento de operadores: qué duplas (de las cargadas en el proyecto)
 // todavía no mandaron su cierre dentro del rango de fechas que se está
-// mostrando. Sirve para que el admin haga seguimiento sin tener que cruzar
-// la lista de duplas contra el Sheet a mano.
-function renderDuplasPendientes(project, cierres){
+// mostrando. Las que avisaron ausencia no se cuentan como pendientes — ya
+// está justificado que no cierren ese día.
+function renderDuplasPendientes(project, cierres, ausencias){
   const el = document.getElementById('pendientes-content');
   if(!el) return;
   const duplas = project.duplas || [];
@@ -851,13 +879,17 @@ function renderDuplasPendientes(project, cierres){
     return;
   }
   const cerraron = new Set(cierres.map(r=>normDupla(r.dupla)).filter(Boolean));
-  const pendientes = duplas.filter(d=>!cerraron.has(normDupla(d.id)));
+  const ausentesSet = new Set((ausencias||[]).map(a=>a.dupla).filter(Boolean));
+  const pendientes = duplas.filter(d=>!cerraron.has(normDupla(d.id)) && !ausentesSet.has(normDupla(d.id)));
+  const ausentesCount = duplas.filter(d=>!cerraron.has(normDupla(d.id)) && ausentesSet.has(normDupla(d.id))).length;
+
   if(!pendientes.length){
-    el.innerHTML = '<p style="font-size:12px;color:#065f46;font-weight:700;">✅ Todas las duplas cerraron el operativo en el rango mostrado.</p>';
+    el.innerHTML = '<p style="font-size:12px;color:#065f46;font-weight:700;">✅ Todas las duplas esperadas cerraron el operativo en el rango mostrado.</p>' +
+      (ausentesCount ? `<p style="font-size:11px;color:var(--gray);margin-top:6px;">${ausentesCount} dupla(s) avisaron ausencia y no cuentan como pendientes.</p>` : '');
     return;
   }
   el.innerHTML =
-    `<p style="font-size:11px;color:var(--gray);margin-bottom:8px;">${pendientes.length} de ${duplas.length} duplas todavía no registraron su cierre en el rango mostrado:</p>` +
+    `<p style="font-size:11px;color:var(--gray);margin-bottom:8px;">${pendientes.length} de ${duplas.length} duplas todavía no registraron su cierre en el rango mostrado${ausentesCount ? ' (sin contar '+ausentesCount+' que avisaron ausencia)' : ''}:</p>` +
     '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
     pendientes.map(d=>`<span class="badge ba">D${esc(d.id)} · ${esc(d.zona||'')}</span>`).join('') +
     '</div>';

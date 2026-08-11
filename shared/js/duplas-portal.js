@@ -19,27 +19,62 @@ function irHome(){
   window.scrollTo(0,0);
 }
 
+function hoyStr(){
+  return new Date().toISOString().split('T')[0];
+}
+
 // ── "Marcar presente" — reemplaza el aviso por WhatsApp de que la dupla
 // arrancó el recorrido. Se guarda un registro local por dupla/día para que
 // el botón recuerde que ya se avisó si se recarga la página, y se manda al
 // mismo Apps Script que recibe los cierres (con tipo:'presente' para que el
 // backend lo distinga y lo guarde aparte).
 function presenteKey(duplaId){
-  const hoy = new Date().toISOString().split('T')[0];
-  return 'presente_' + (CFG ? CFG.id : '') + '_' + duplaId + '_' + hoy;
+  return 'presente_' + (CFG ? CFG.id : '') + '_' + duplaId + '_' + hoyStr();
+}
+function ausenteKey(duplaId){
+  return 'ausente_' + (CFG ? CFG.id : '') + '_' + duplaId + '_' + hoyStr();
 }
 
-function pintarBotonPresente(duplaId){
-  const btn = document.getElementById('presente-btn');
-  if(!btn) return;
+function pintarEstadoAsistencia(duplaId){
+  const btnPresente = document.getElementById('presente-btn');
+  const ausenteForm = document.getElementById('ausente-form');
+  const ausenteOk = document.getElementById('ausente-ok');
+  const yaAusente = localStorage.getItem(ausenteKey(duplaId));
   const yaPresente = localStorage.getItem(presenteKey(duplaId));
-  if(yaPresente){
-    btn.disabled = true;
-    btn.textContent = '✅ Diste presente a las ' + yaPresente;
-  } else {
-    btn.disabled = false;
-    btn.textContent = '▶️ Marcar inicio del recorrido';
+
+  if(yaAusente){
+    // Marcó ausencia: el botón de "marcar inicio" queda deshabilitado (no
+    // va a salir hoy) y se muestra la confirmación en vez del formulario.
+    if(btnPresente){ btnPresente.disabled = true; btnPresente.textContent = '🚫 No salís hoy (marcaste ausencia)'; }
+    if(ausenteForm) ausenteForm.style.display = 'none';
+    if(ausenteOk){
+      ausenteOk.style.display = 'block';
+      let texto = '✅ Marcaste ausencia por hoy';
+      try{
+        const info = JSON.parse(yaAusente);
+        if(info.recupera) texto += ' — recuperás el ' + fmtDDMM(info.recupera);
+      }catch(e){}
+      ausenteOk.textContent = texto;
+    }
+    return;
   }
+
+  if(ausenteForm) ausenteForm.style.display = 'block';
+  if(document.getElementById('ausente-ok')) document.getElementById('ausente-ok').style.display = 'none';
+
+  if(!btnPresente) return;
+  if(yaPresente){
+    btnPresente.disabled = true;
+    btnPresente.textContent = '✅ Diste presente a las ' + yaPresente;
+  } else {
+    btnPresente.disabled = false;
+    btnPresente.textContent = '▶️ Marcar inicio del recorrido';
+  }
+}
+
+function fmtDDMM(dateStr){
+  const [y,m,d] = String(dateStr).split('-');
+  return d && m ? `${parseInt(d)}/${parseInt(m)}` : dateStr;
 }
 
 async function marcarPresente(){
@@ -60,10 +95,43 @@ async function marcarPresente(){
       body: JSON.stringify({ proyecto: CFG.id, dupla: currentDupla.id, tipo:'presente', hora, timestamp: now.toISOString() })
     });
     localStorage.setItem(presenteKey(currentDupla.id), hora);
-    pintarBotonPresente(currentDupla.id);
+    pintarEstadoAsistencia(currentDupla.id);
   }catch(e){
     btn.disabled = false;
     btn.textContent = '▶️ Marcar inicio del recorrido';
+    alert('Error al enviar. Verificá tu conexión e intentá nuevamente.');
+  }
+}
+
+// ── "Marcar ausente" — para cuando la dupla no sale esa noche. Pide el día
+// que recupera (obligatorio, para que quede registrado el acuerdo) y un
+// motivo opcional. Mismo Apps Script, con tipo:'ausente'.
+async function marcarAusente(){
+  if(!currentDupla) return;
+  if(!CFG.appsScriptUrl){
+    alert('Este proyecto todavía no tiene conectado el backend de cierres. Avisá al administrador.');
+    return;
+  }
+  const recupera = (document.getElementById('ausente-recupera')||{}).value || '';
+  const motivo = (document.getElementById('ausente-motivo')||{}).value || '';
+  if(!recupera){
+    alert('Elegí qué día vas a recuperar antes de marcar la ausencia.');
+    return;
+  }
+  const btn = document.getElementById('ausente-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando...';
+  try{
+    await fetch(CFG.appsScriptUrl, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ proyecto: CFG.id, dupla: currentDupla.id, tipo:'ausente', recupera, motivo, timestamp: new Date().toISOString() })
+    });
+    localStorage.setItem(ausenteKey(currentDupla.id), JSON.stringify({recupera, motivo}));
+    pintarEstadoAsistencia(currentDupla.id);
+  }catch(e){
+    btn.disabled = false;
+    btn.textContent = '🚫 Marcar ausente hoy';
     alert('Error al enviar. Verificá tu conexión e intentá nuevamente.');
   }
 }
@@ -78,7 +146,7 @@ function mostrarDupla(d){
   document.getElementById('d-mymaps').href = d.mymaps;
   document.getElementById('d-kobo').href = d.kobo;
   document.getElementById('cierre-link').href = './cierre.html?dupla=' + d.id;
-  pintarBotonPresente(d.id);
+  pintarEstadoAsistencia(d.id);
   document.title = 'Dupla ' + d.id + ' — ' + d.zona;
   window.scrollTo(0,0);
 }
@@ -117,6 +185,6 @@ function init(cfg){
   window.addEventListener('popstate', route);
 }
 
-window.DuplasPortal = { init, irHome, marcarPresente };
+window.DuplasPortal = { init, irHome, marcarPresente, marcarAusente };
 
 })();

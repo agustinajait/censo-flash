@@ -131,6 +131,11 @@
   }
   .cierre-btn:disabled { opacity:0.75; cursor:default; box-shadow:none; }
 
+  .form-field { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
+  .form-field label { font-size:0.76rem; font-weight:700; color:var(--navy); font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+  .form-field input { border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; font-size:0.9rem; font-family:'DM Sans',sans-serif; color:#1e293b; background:#f8faff; outline:none; }
+  .form-field input:focus { border-color:var(--blue); background:white; }
+
   .footer { background:var(--navy); color:rgba(255,255,255,0.4); text-align:center; padding:18px; font-size:0.75rem; }
   .footer strong { color:white; }
 </style>
@@ -234,6 +239,31 @@
       <button id="presente-btn" class="cierre-btn" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 4px 14px rgba(5,150,105,0.3);" onclick="DuplasPortal.marcarPresente()">
         ▶️ Marcar inicio del recorrido
       </button>
+    </div>
+
+    <!-- AUSENTE -->
+    <div class="card card-amber">
+      <div class="card-header">
+        <div class="card-icon ic-amber">🚫</div>
+        <div>
+          <div class="card-title">¿No salís hoy?</div>
+          <div class="card-sub">Marcá tu ausencia y cuándo recuperás el día</div>
+        </div>
+      </div>
+      <div id="ausente-form">
+        <div class="form-field">
+          <label>📅 ¿Qué día recuperás?</label>
+          <input type="date" id="ausente-recupera">
+        </div>
+        <div class="form-field">
+          <label>📝 Motivo (opcional)</label>
+          <input type="text" id="ausente-motivo" placeholder="Ej: médico, personal...">
+        </div>
+        <button id="ausente-btn" class="cierre-btn" style="background:linear-gradient(135deg,#d97706,#f59e0b);box-shadow:0 4px 14px rgba(217,119,6,0.3);margin-top:10px;" onclick="DuplasPortal.marcarAusente()">
+          🚫 Marcar ausente hoy
+        </button>
+      </div>
+      <div id="ausente-ok" class="alert alert-warn" style="display:none;margin-top:0;"></div>
     </div>
 
     <!-- DURANTE -->
