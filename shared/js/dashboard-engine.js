@@ -606,6 +606,7 @@ function renderDashboard(project, data){
   document.getElementById('banner-sub').textContent =
     'Operativo del '+fmtDate(data.inicio)+' al '+fmtDate(data.fin)+' · '+(project.kobo.forms||[]).map(f=>f.nombre).join(' + ');
   document.getElementById('last-update').textContent = 'Actualizado: '+new Date(data.loaded).toLocaleString('es-AR');
+  renderCalendario(project);
 
   const rows = data.koboRows.filter(r=>inRange(r._fecha, hoy, hoy));
   const cierres = data.cierres.filter(r=>inRange(r._fecha, hoy, hoy));
@@ -814,6 +815,55 @@ function renderAlertas(cierres){
   document.getElementById('obs-content').innerHTML = ao.length ?
     ao.map(r=>`<div class="obs-item"><b>Dupla ${esc(r.dupla)}:</b> ${esc(r.observaciones)}</div>`).join('') :
     '<p style="font-size:12px;color:var(--gray);">Sin observaciones.</p>';
+}
+
+// ── CALENDARIO DE FECHAS DE SALIDA ───────────────────────────────────
+// Dibuja un mini-calendario por cada mes entre project.calendario.desde y
+// .hasta, marcando los días de la semana en diasSemana (2=martes, 3=miércoles
+// por defecto). No depende de cierres/KoBo — es agenda fija del proyecto.
+function buildMiniCalendar(year, month, diasSemana, hoy){
+  const primerDia = new Date(year, month-1, 1);
+  let nombreMes = primerDia.toLocaleDateString('es-AR', {month:'long', year:'numeric'});
+  nombreMes = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
+  const diasEnMes = new Date(year, month, 0).getDate();
+  const offset = (primerDia.getDay()+6)%7; // semana arranca en lunes
+
+  let html = `<div class="mini-cal"><div class="mini-cal-title">${esc(nombreMes)}</div><div class="mini-cal-grid">`;
+  ['L','M','X','J','V','S','D'].forEach(d=>{ html += `<div class="mini-cal-dow">${d}</div>`; });
+  for(let i=0;i<offset;i++) html += '<div class="mini-cal-day"></div>';
+  for(let day=1; day<=diasEnMes; day++){
+    const dow = new Date(year, month-1, day).getDay();
+    const dateStr = year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    let cls = 'mini-cal-day';
+    if(diasSemana.includes(dow)) cls += ' op';
+    if(dateStr === hoy) cls += ' hoy';
+    html += `<div class="${cls}">${day}</div>`;
+  }
+  html += '</div></div>';
+  return html;
+}
+
+function renderCalendario(project){
+  const el = document.getElementById('calendario-content');
+  if(!el) return;
+  const cal = project.calendario;
+  if(!cal || !cal.desde || !cal.hasta){
+    el.innerHTML = '<p style="font-size:12px;color:var(--gray);">Este proyecto todavía no tiene calendario de operativos cargado.</p>';
+    return;
+  }
+  const diasSemana = cal.diasSemana || [2,3];
+  const hoy = todayStr();
+  const [ y0, m0 ] = cal.desde.split('-').map(Number);
+  const [ y1, m1 ] = cal.hasta.split('-').map(Number);
+
+  let html = '';
+  let year = y0, month = m0;
+  while(year < y1 || (year === y1 && month <= m1)){
+    html += buildMiniCalendar(year, month, diasSemana, hoy);
+    month++;
+    if(month > 12){ month = 1; year++; }
+  }
+  el.innerHTML = html;
 }
 
 // Reemplazo del "dupla 1 activa, dupla 2 presente" del grupo de WhatsApp:

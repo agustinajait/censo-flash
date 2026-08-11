@@ -106,6 +106,19 @@
   .presentes-counter-bar{background:#e5e7eb;border-radius:20px;height:10px;overflow:hidden;}
   .presentes-counter-fill{background:linear-gradient(90deg,#10b981,#34d399);height:100%;border-radius:20px;transition:width .4s ease;}
   .presentes-counter-lbl{font-size:0.7rem;color:var(--gray);margin-top:5px;}
+
+  /* CALENDARIO */
+  .mini-cal-row{display:flex;flex-wrap:wrap;gap:14px;}
+  .mini-cal{background:var(--lightbg);border:1px solid var(--border);border-radius:10px;padding:10px;width:190px;}
+  .mini-cal-title{font-size:0.78rem;font-weight:700;color:var(--navy);margin-bottom:6px;text-align:center;}
+  .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .mini-cal-dow{font-size:9px;font-weight:700;color:var(--gray);text-align:center;padding:2px 0;}
+  .mini-cal-day{font-size:10px;text-align:center;padding:4px 0;border-radius:4px;color:#1e293b;}
+  .mini-cal-day.op{background:var(--blue);color:white;font-weight:700;}
+  .mini-cal-day.hoy{outline:2px solid var(--amber);outline-offset:-1px;}
+  .mini-cal-legend{font-size:0.7rem;color:var(--gray);margin-top:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .mini-cal-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .mini-cal-dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
   .card-title{font-size:0.85rem;font-weight:700;color:var(--navy);margin-bottom:12px;}
   .chart-wrap{position:relative;height:180px;}
 
@@ -283,6 +296,16 @@
       <div class="card" style="margin-bottom:14px;">
         <div class="card-title">🕵️ Duplas sin cierre</div>
         <div id="pendientes-content"></div>
+      </div>
+
+      <!-- Calendario de fechas de salida -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">📅 Calendario de salidas</div>
+        <div id="calendario-content" class="mini-cal-row"></div>
+        <div class="mini-cal-legend">
+          <span><span class="mini-cal-dot" style="background:var(--blue);"></span> Fecha de salida</span>
+          <span><span class="mini-cal-dot" style="background:transparent;outline:2px solid var(--amber);outline-offset:-1px;"></span> Hoy</span>
+        </div>
       </div>
 
       <!-- Tabla resumen duplas -->

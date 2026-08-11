@@ -103,6 +103,9 @@ window.PROJECT_CONFIG_CENSO_FLASH = {
   whatsappNumero: '+54 9 11 5049-5440',
   whatsappLink: 'https://wa.me/5491150495440',
   horario: { dias:'📅 Martes y miércoles', franja:'🕙 22:00 a 02:00' },
+  // Calendario de fechas de salida para el dashboard: todos los martes (2) y
+  // miércoles (3) entre "desde" y "hasta" (getDay(): domingo=0 ... sábado=6).
+  calendario: { desde:'2026-08-01', hasta:'2026-12-31', diasSemana:[2,3] },
   appsScriptUrl: 'https://script.google.com/macros/s/AKfycbyqqp7fEA-A0jAtMHr7x5KaWkkxQzQ7EJVdGcC7l4PQPN2wTpEyVssTnji8-skojO1Esg/exec',
   // Clave para leer Cierres+Presentes en vivo desde el Apps Script (doGet).
   // Tiene que coincidir EXACTO con la constante KEY del doGet en el script.
