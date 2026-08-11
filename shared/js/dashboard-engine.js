@@ -297,13 +297,35 @@ async function fetchLiveData(project, inicio, fin){
   return buildData(raw, project);
 }
 
+function sleep(ms){ return new Promise(res=>setTimeout(res, ms)); }
+
+// El exec de Apps Script a veces devuelve un 404 intermitente en el
+// redirect de Google (pasa sobre todo un rato después de redesplegar) aunque
+// la ejecución del lado del servidor haya sido exitosa — es infraestructura
+// de Google, no algo que podamos arreglar del lado nuestro. Como casi
+// siempre un reintento inmediato sí funciona, probamos unas cuantas veces
+// antes de darnos por vencidos y recién ahí mostrar el aviso.
+async function fetchLiveDataConReintentos(project, intentos){
+  intentos = intentos || 3;
+  let ultimoError;
+  for(let i=0; i<intentos; i++){
+    try{
+      return await fetchLiveData(project);
+    }catch(e){
+      ultimoError = e;
+      if(i < intentos-1) await sleep(1200 * (i+1)); // 1.2s, 2.4s...
+    }
+  }
+  throw ultimoError;
+}
+
 // Se llama sola al abrir la pestaña de un proyecto (admin o cliente) — no
 // hace falta que nadie toque un botón. Si falla y ya había datos cacheados,
 // no rompe la vista (se queda con lo último bueno); si no hay nada
 // cacheado, avisa en upload-status (si existe, solo lo ve el admin).
 async function autoRefreshSheet(project){
   try{
-    const data = await fetchLiveData(project);
+    const data = await fetchLiveDataConReintentos(project);
     if(activeProjectId !== project.id) return; // cambiaron de pestaña mientras cargaba
     dataByProject[project.id] = data;
     saveToStorage(project.id, data);
@@ -322,6 +344,19 @@ async function autoRefreshSheet(project){
       if(st) st.textContent = '⚠️ No se pudo conectar en vivo: '+e.message;
     }
   }
+}
+
+// Botón "🔄 Actualizar" del nav — visible para cualquier rol, no solo admin.
+// Reintenta el fetch en vivo del proyecto que se está mirando ahora mismo,
+// sin necesidad de recargar toda la página (útil cuando el aviso de "no se
+// pudo actualizar" aparece y hay que esperar a que Google se recupere).
+async function refrescarAhora(){
+  const project = getProject(activeProjectId);
+  if(!project || !project.sheetReadKey) return;
+  const btn = document.getElementById('nav-refresh-btn');
+  if(btn){ btn.disabled = true; btn.textContent = '🔄 Actualizando…'; }
+  await autoRefreshSheet(project);
+  if(btn){ btn.disabled = false; btn.textContent = '🔄 Actualizar'; }
 }
 
 function showLiveWarning(msg){
@@ -1074,6 +1109,7 @@ document.addEventListener('click', function(ev){
 window.DashboardEngine = {
   doLogin, logout, toggleModo, processFiles, loadFromAPI, applyFilter, clearFilter,
   toggleKobo, verFoto, cerrarFoto, togglePwd, abrirCalendario, cerrarCalendario,
+  refrescarAhora,
 };
 
 restoreSession();
