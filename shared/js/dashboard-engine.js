@@ -606,7 +606,6 @@ function renderDashboard(project, data){
   document.getElementById('banner-sub').textContent =
     'Operativo del '+fmtDate(data.inicio)+' al '+fmtDate(data.fin)+' · '+(project.kobo.forms||[]).map(f=>f.nombre).join(' + ');
   document.getElementById('last-update').textContent = 'Actualizado: '+new Date(data.loaded).toLocaleString('es-AR');
-  renderCalendario(project);
 
   const rows = data.koboRows.filter(r=>inRange(r._fecha, hoy, hoy));
   const cierres = data.cierres.filter(r=>inRange(r._fecha, hoy, hoy));
@@ -866,6 +865,26 @@ function renderCalendario(project){
   el.innerHTML = html;
 }
 
+// El botón "📅 Calendario" del nav abre esto como modal — funciona para el
+// proyecto activo (no tiene sentido en la pestaña "Todos los proyectos",
+// que no es un proyecto puntual).
+function abrirCalendario(){
+  const project = getProject(activeProjectId);
+  const el = document.getElementById('calendario-content');
+  if(!project){
+    if(el) el.innerHTML = '<p style="font-size:12px;color:var(--gray);">Elegí la pestaña de un proyecto puntual para ver su calendario.</p>';
+  } else {
+    renderCalendario(project);
+  }
+  const modal = document.getElementById('calendario-modal');
+  if(modal) modal.classList.add('open');
+}
+
+function cerrarCalendario(){
+  const modal = document.getElementById('calendario-modal');
+  if(modal) modal.classList.remove('open');
+}
+
 // Reemplazo del "dupla 1 activa, dupla 2 presente" del grupo de WhatsApp:
 // qué duplas ya tocaron "Marcar inicio del recorrido" (pestaña "Presentes"
 // del Sheet) dentro del rango mostrado, cuáles avisaron ausencia (no se
@@ -1044,7 +1063,7 @@ document.addEventListener('click', function(ev){
 
 window.DashboardEngine = {
   doLogin, logout, toggleModo, processFiles, loadFromAPI, applyFilter, clearFilter,
-  toggleKobo, verFoto, cerrarFoto, togglePwd,
+  toggleKobo, verFoto, cerrarFoto, togglePwd, abrirCalendario, cerrarCalendario,
 };
 
 restoreSession();
