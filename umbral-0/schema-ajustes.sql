@@ -35,15 +35,29 @@ alter table public.perfiles
 --    perfil de OTRA cuenta (la que se acaba de crear con signUp). Sin esto,
 --    "Crear acceso" falla con un error de permisos al guardar en `perfiles`.
 --    Es seguro re-correr (drop + create).
+--
+--    OJO — versión corregida: la primera versión de este bloque consultaba
+--    `perfiles` desde adentro de su propia política ("exists (select 1 from
+--    perfiles yo where...)"), lo que en Postgres/Supabase dispara
+--    "infinite recursion detected in policy for relation perfiles" al
+--    loguearse. Se resuelve con una función SECURITY DEFINER que lee el rol
+--    por afuera de RLS (patrón estándar de Supabase para este caso).
+create or replace function public.mi_rol()
+returns text
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select rol from public.perfiles where id = auth.uid()
+$$;
+
 drop policy if exists "perfiles_admin_select_todos" on public.perfiles;
 create policy "perfiles_admin_select_todos" on public.perfiles
   for select
   using (
     auth.uid() = id
-    or exists (
-      select 1 from public.perfiles yo
-      where yo.id = auth.uid() and yo.rol in ('admin', 'coordinacion')
-    )
+    or public.mi_rol() in ('admin', 'coordinacion')
   );
 
 drop policy if exists "perfiles_admin_insert" on public.perfiles;
@@ -51,10 +65,7 @@ create policy "perfiles_admin_insert" on public.perfiles
   for insert
   with check (
     auth.uid() = id
-    or exists (
-      select 1 from public.perfiles yo
-      where yo.id = auth.uid() and yo.rol in ('admin', 'coordinacion')
-    )
+    or public.mi_rol() in ('admin', 'coordinacion')
   );
 
 drop policy if exists "perfiles_admin_update" on public.perfiles;
@@ -62,10 +73,7 @@ create policy "perfiles_admin_update" on public.perfiles
   for update
   using (
     auth.uid() = id
-    or exists (
-      select 1 from public.perfiles yo
-      where yo.id = auth.uid() and yo.rol in ('admin', 'coordinacion')
-    )
+    or public.mi_rol() in ('admin', 'coordinacion')
   );
 
 -- IMPORTANTE — falta un paso que este SQL no puede hacer por vos:
