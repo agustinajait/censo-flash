@@ -844,10 +844,12 @@ function renderTablaDuplas(project, cierres, rows){
       <td><span class="badge ${kb}">${esc(r.clima)}</span></td>
       <td><span class="badge ${eb}">${esc(r.eventos)}</span></td>
       <td><span class="badge ${ib}">${esc(r.inconvenientes)}</span></td>
+      <td style="max-width:200px;white-space:normal;">${esc(r.situaciones)}</td>
+      <td style="max-width:240px;white-space:normal;">${esc(r.observaciones)}</td>
       <td>${fotoCell}</td>
     </tr>`;
   });
-  tbody.innerHTML += `<tr class="total-row"><td colspan="7"><b>TOTAL</b></td><td><b>${totalSheet}</b></td><td><b>${rows.reduce((a,r)=>a+r.personas,0)}</b></td><td colspan="3"></td></tr>`;
+  tbody.innerHTML += `<tr class="total-row"><td colspan="7"><b>TOTAL</b></td><td><b>${totalSheet}</b></td><td><b>${rows.reduce((a,r)=>a+r.personas,0)}</b></td><td colspan="5"></td></tr>`;
 }
 
 function renderAlertas(cierres){
