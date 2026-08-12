@@ -10,6 +10,7 @@
 
 let _client = null;
 let _sdkPromise = null;
+let _adminActionClient = null;
 
 function loadSdk(){
   if(window.supabase) return Promise.resolve(window.supabase);
@@ -33,6 +34,40 @@ async function getClient(cfg){
   const sdk = await loadSdk();
   _client = sdk.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   return _client;
+}
+
+// Cliente secundario, con su propio storage aislado, para acciones de
+// administración que crean OTRAS cuentas (ej. dar de alta el login de una
+// dupla desde admin-duplas.html) sin pisar la sesión de quien está logueado
+// haciendo esa alta. persistSession:false porque es de uso puntual — no hace
+// falta mantener viva la sesión del usuario recién creado.
+async function getAdminActionClient(cfg){
+  if(_adminActionClient) return _adminActionClient;
+  cfg = cfg || window.PROJECT_CONFIG;
+  if(!cfg || !cfg.supabaseUrl || !cfg.supabaseAnonKey){
+    throw new Error('Este proyecto no tiene supabaseUrl/supabaseAnonKey configurados en su config.');
+  }
+  const sdk = await loadSdk();
+  _adminActionClient = sdk.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+    auth: { storageKey: 'sb-umbral0-admin-actions', persistSession: false, autoRefreshToken: false },
+  });
+  return _adminActionClient;
+}
+
+// Crea una cuenta de Supabase Auth para OTRA persona (ej. una dupla) sin
+// afectar la sesión de quien la está creando. Devuelve el user id nuevo —
+// después hay que insertar/actualizar su fila en `perfiles` con el cliente
+// principal (getClient), que sí tiene permiso vía RLS si quien llama es
+// admin/coordinacion (ver umbral-0/schema-ajustes.sql).
+async function crearCuenta(email, password){
+  const client = await getAdminActionClient();
+  const { data, error } = await client.auth.signUp({ email, password });
+  if(error) throw error;
+  // Limpiar la sesión transitoria del usuario recién creado en este cliente
+  // secundario (no afecta al cliente principal ni a quien está logueado).
+  await client.auth.signOut().catch(()=>{});
+  if(!data || !data.user) throw new Error('Supabase no devolvió el usuario creado.');
+  return data.user;
 }
 
 async function login(email, password){
@@ -66,6 +101,6 @@ async function getMiPerfil(){
   return data;
 }
 
-window.SupabaseClient = { getClient, login, logout, getSession, getMiPerfil };
+window.SupabaseClient = { getClient, login, logout, getSession, getMiPerfil, crearCuenta };
 
 })();

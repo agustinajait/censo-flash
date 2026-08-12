@@ -73,10 +73,11 @@ una cuenta real de Supabase Auth (email + contraseña), y su rol vive en
 | `dupla` | operador/a de un equipo territorial | carga casos e intervenciones, pero solo ve/edita lo de **su propia dupla** (`perfiles.dupla_id`) |
 | `cliente` | GCBA / Dg Red de Atención | solo lectura de todos los casos (para reporting), no ve el roster de duplas/choferes |
 
-Las cuentas se crean desde el **Supabase Dashboard → Authentication → Add user**
-(por ahora; más adelante puede armarse una pantalla de invitación). Después de
-crear la cuenta, alguien con rol `admin` le asigna el rol en `perfiles` (yo
-puedo hacerlo por vos con una consulta SQL cuando me pases el email creado).
+Para `admin`/`coordinacion`, las cuentas propias se siguen creando desde el
+**Supabase Dashboard → Authentication → Add user** (son pocas). Para las
+duplas (una cuenta por dupla, compartida entre sus 2 integrantes — ver
+sección 2) hay un flujo self-service: el botón **"🔑 Crear acceso"** en
+`admin-duplas.html`, que da de alta el login sin pasar por el dashboard.
 
 ## 2. Pantalla: Duplas y equipo — `admin-duplas.html` (ya construida)
 
@@ -84,6 +85,32 @@ Login con cuenta Supabase → si el rol es `admin`/`coordinacion`, lista de
 duplas (código, zona, polígono, comuna) con sus hasta 2 integrantes editables
 inline, más una sección aparte de choferes (sin zona fija). Todo contra las
 tablas `duplas`/`integrantes`, protegido por RLS.
+
+**Acceso de la dupla (una cuenta por dupla, no por integrante):** cada card
+de dupla tiene una sección de "Acceso" — si todavía no tiene login, un botón
+"🔑 Crear acceso" abre un formulario con un email sugerido por convención
+(`<código-en-minúscula>@umbral0.app`, ej. `u01@umbral0.app` — es un email
+inventado, no recibe correo real, solo sirve para loguearse) y un campo de
+contraseña que define quien administra. Al guardar:
+1. Crea la cuenta en Supabase Auth (`SupabaseClient.crearCuenta`, usa un
+   cliente secundario con storage aislado para no pisar la sesión de
+   admin/coordinación que está haciendo el alta).
+2. Inserta la fila en `perfiles` (`rol='dupla'`, `dupla_id`, `nombre`, `email`)
+   con el cliente principal — esto requiere las políticas de RLS agregadas en
+   `schema-ajustes.sql` que permiten a admin/coordinación escribir el perfil
+   de otra cuenta (por defecto RLS solo deja a cada quien tocar su propio
+   perfil).
+
+Limitaciones conocidas de este flujo (por no usar la service_role key, que
+nunca debe vivir en el cliente):
+- **Hace falta desactivar "Confirm email" una sola vez** en el proyecto de
+  Supabase (Authentication → Providers → Email), si no la cuenta queda creada
+  pero no puede loguearse hasta confirmar un mail que, al ser inventado, nunca
+  va a llegar. Ver el aviso en `schema-ajustes.sql`.
+- **Resetear la contraseña de una dupla no se puede hacer desde esta
+  pantalla** — hay que hacerlo desde el Supabase Dashboard directamente
+  (Authentication → Users → el usuario → reset password), porque eso sí
+  requiere permisos de administración que la anon key no tiene.
 
 Pendiente sobre esto (no bloquea el resto): los **referentes de zona**
 (Ilanit Álvarez, Natasha Forcinito, Luna Aloy) no están modelados todavía —
