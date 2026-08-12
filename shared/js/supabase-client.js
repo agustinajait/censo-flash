@@ -36,11 +36,25 @@ async function getClient(cfg){
   return _client;
 }
 
-// Cliente secundario, con su propio storage aislado, para acciones de
+// Storage 100% en memoria (no toca localStorage) para el cliente
+// secundario de abajo. `persistSession:false` en el SDK solo evita
+// GUARDAR la sesión — igual puede llegar a LEER storage compartido en
+// algún punto interno. Dándole un storage que ni siquiera es
+// localStorage garantizamos cero interferencia con la sesión de quien
+// está logueado en el cliente principal.
+function storageEnMemoria(){
+  const mem = {};
+  return {
+    getItem: (k) => (k in mem ? mem[k] : null),
+    setItem: (k, v) => { mem[k] = v; },
+    removeItem: (k) => { delete mem[k]; },
+  };
+}
+
+// Cliente secundario, completamente aislado, para acciones de
 // administración que crean OTRAS cuentas (ej. dar de alta el login de una
 // dupla desde admin-duplas.html) sin pisar la sesión de quien está logueado
-// haciendo esa alta. persistSession:false porque es de uso puntual — no hace
-// falta mantener viva la sesión del usuario recién creado.
+// haciendo esa alta.
 async function getAdminActionClient(cfg){
   if(_adminActionClient) return _adminActionClient;
   cfg = cfg || window.PROJECT_CONFIG;
@@ -49,7 +63,13 @@ async function getAdminActionClient(cfg){
   }
   const sdk = await loadSdk();
   _adminActionClient = sdk.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-    auth: { storageKey: 'sb-umbral0-admin-actions', persistSession: false, autoRefreshToken: false },
+    auth: {
+      storage: storageEnMemoria(),
+      storageKey: 'sb-umbral0-admin-actions',
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
   });
   return _adminActionClient;
 }
@@ -59,13 +79,18 @@ async function getAdminActionClient(cfg){
 // después hay que insertar/actualizar su fila en `perfiles` con el cliente
 // principal (getClient), que sí tiene permiso vía RLS si quien llama es
 // admin/coordinacion (ver umbral-0/schema-ajustes.sql).
+//
+// OJO — a propósito NO se llama signOut() acá después del signUp. El
+// storage en memoria ya alcanza para no dejar rastro (se descarta solo al
+// recargar la página), y signOut() por defecto usa scope:'global', que
+// revoca TODAS las sesiones activas de esa cuenta en todos lados — si por
+// cualquier motivo el cliente terminaba compartiendo contexto con la
+// sesión de quien administra, eso le cerraba la sesión de admin de golpe
+// (fue justo lo que pasó: ver el commit que corrige esto).
 async function crearCuenta(email, password){
   const client = await getAdminActionClient();
   const { data, error } = await client.auth.signUp({ email, password });
   if(error) throw error;
-  // Limpiar la sesión transitoria del usuario recién creado en este cliente
-  // secundario (no afecta al cliente principal ni a quien está logueado).
-  await client.auth.signOut().catch(()=>{});
   if(!data || !data.user) throw new Error('Supabase no devolvió el usuario creado.');
   return data.user;
 }
