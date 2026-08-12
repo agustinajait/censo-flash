@@ -263,6 +263,17 @@ const CAMPOS_PERSONA_CASO = [
   { key:'consumo_activo', label:'Consumo activo', type:'checkbox', checkLabel:'La persona presenta consumo activo' },
   { key:'historia_breve', label:'Historia breve', type:'textarea' },
 ];
+// Salud y antecedentes — sección opcional, precarga el formulario de CIS
+// (§5.1) cuando ya está cargada acá.
+const CAMPOS_PERSONA_SALUD = [
+  { key:'estado_salud', label:'Estado de salud', type:'textarea' },
+  { key:'medicacion', label:'Medicación (lo más detallado posible)', type:'textarea' },
+  { key:'esquema', label:'Esquema (de medicación/tratamiento)' },
+  { key:'sube_escaleras', label:'Puede subir escaleras', type:'checkbox', checkLabel:'Puede subir escaleras' },
+  { key:'cama_arriba', label:'Puede cama arriba', type:'checkbox', checkLabel:'Puede cama arriba' },
+  { key:'estuvo_en_cis_antes', label:'Estuvo en algún CIS antes', type:'checkbox', checkLabel:'Estuvo en algún CIS antes' },
+  { key:'estuvo_en_cis_detalle', label:'¿En cuál?' },
+];
 // Informe social — sección opcional, se completa cuando corresponda (no es
 // obligatoria en el primer contacto). Precarga el formulario de Casa
 // Vincular (§5.2) cuando ya está cargada acá.
@@ -286,12 +297,12 @@ const TIPOS_DERIVACION_CONFIG = {
       { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
       { key:'tiene_dni', label:'¿Tiene DNI?', type:'select', options:()=>['Sí','No (denuncia de extravío)'], prefill:p=>p.dni ? 'Sí' : (p.dni_denuncia_extravio ? 'No (denuncia de extravío)' : '') },
       { key:'dni', label:'DNI / N° de denuncia', prefill:p=>p.dni || (p.dni_denuncia_extravio ? '(con denuncia de extravío — completar N° acá)' : '') },
-      { key:'estado_salud', label:'Estado de salud', type:'textarea' },
-      { key:'medicacion', label:'Medicación (lo más detallado posible)', type:'textarea' },
-      { key:'esquema', label:'Esquema (de medicación/tratamiento)' },
-      { key:'sube_escaleras', label:'¿Puede subir escaleras?', type:'select', options:()=>['Sí','No'] },
-      { key:'cama_arriba', label:'¿Puede cama arriba?', type:'select', options:()=>['Sí','No'] },
-      { key:'estuvo_en_cis', label:'¿Estuvo en algún CIS antes? (si sí, ¿cuál?)' },
+      { key:'estado_salud', label:'Estado de salud', type:'textarea', prefill:p=>p.estado_salud },
+      { key:'medicacion', label:'Medicación (lo más detallado posible)', type:'textarea', prefill:p=>p.medicacion },
+      { key:'esquema', label:'Esquema (de medicación/tratamiento)', prefill:p=>p.esquema },
+      { key:'sube_escaleras', label:'¿Puede subir escaleras?', type:'select', options:()=>['Sí','No'], prefill:p=> p.sube_escaleras===true?'Sí':(p.sube_escaleras===false?'No':'') },
+      { key:'cama_arriba', label:'¿Puede cama arriba?', type:'select', options:()=>['Sí','No'], prefill:p=> p.cama_arriba===true?'Sí':(p.cama_arriba===false?'No':'') },
+      { key:'estuvo_en_cis', label:'¿Estuvo en algún CIS antes? (si sí, ¿cuál?)', prefill:p=> p.estuvo_en_cis_antes ? ('Sí' + (p.estuvo_en_cis_detalle ? ' — ' + p.estuvo_en_cis_detalle : '')) : (p.estuvo_en_cis_antes===false ? 'No' : '') },
       { key:'resumen_intervencion', label:'Resumen de la intervención', type:'textarea', hint:'Hace cuánto está en situación de calle, motivo, redes de contención socio-familiar, instituciones comunitarias.' },
     ],
   },
@@ -594,6 +605,10 @@ const Casos = {
           ${CAMPOS_PERSONA_CASO.map(c => renderCampo(c, v[c.key])).join('')}
         </fieldset>
         <details class="form-section">
+          <summary>Salud y antecedentes (completar cuando corresponda — precarga el formulario de CIS)</summary>
+          ${CAMPOS_PERSONA_SALUD.map(c => renderCampo(c, v[c.key])).join('')}
+        </details>
+        <details class="form-section">
           <summary>Informe social (completar cuando corresponda — no hace falta en el primer contacto)</summary>
           ${CAMPOS_PERSONA_INFORME.map(c => renderCampo(c, v[c.key])).join('')}
         </details>
@@ -636,7 +651,7 @@ const Casos = {
           persona_id: persona.id,
           dupla_id: miPerfil.dupla_id || null,
           tipo: 'contacto_espontaneo',
-          descripcion: 'Ingreso inicial del caso.',
+          resumen: 'Ingreso inicial del caso.',
         });
         if(errInt) throw errInt;
       }
@@ -745,21 +760,27 @@ const Casos = {
 
   _renderTimelineItem(it){
     const el = document.createElement('div');
-    const duplaCod = it.data.dupla_id ? (duplasMap[it.data.dupla_id] || 'dupla') : 'coordinación';
 
     if(it.tipo === 'intervencion'){
+      const duplaCod = it.data.dupla_id ? (duplasMap[it.data.dupla_id] || 'dupla') : 'coordinación';
       el.className = 'timeline-item tl-intervencion';
       el.innerHTML = `
         <div class="tl-head">
           <div class="tl-title">🚶 Intervención — ${esc(it.data.tipo || '')}</div>
           <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
         </div>
-        <div class="tl-body">${esc(it.data.descripcion || '')}</div>
+        ${it.data.ubicacion ? `<div class="tl-body" style="font-size:0.78rem;color:#94a3b8;">📍 ${esc(it.data.ubicacion)}</div>` : ''}
+        <div class="tl-body">${esc(it.data.resumen || '')}</div>
       `;
       return el;
     }
 
     if(it.tipo === 'derivacion'){
+      // derivaciones no tiene dupla_id — guarda quién la pidió en
+      // solicitado_por (id de `perfiles`). Por RLS, un rol `dupla` no
+      // puede resolver el nombre de OTRAS cuentas, así que solo
+      // distinguimos "vos" de "equipo" en vez de mostrar el código.
+      const quien = it.data.solicitado_por === (miPerfil && miPerfil.id) ? 'vos' : 'equipo';
       el.className = 'timeline-item tl-derivacion';
       const datos = it.data.datos || {};
       const filas = Object.keys(datos)
@@ -777,8 +798,9 @@ const Casos = {
       el.innerHTML = `
         <div class="tl-head">
           <div class="tl-title">📨 Derivación — ${esc(it.data.tipo || '')} ${badgeEstado(estadoActual)}</div>
-          <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
+          <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(quien)}</div>
         </div>
+        ${it.data.observaciones ? `<div class="tl-body">${esc(it.data.observaciones)}</div>` : ''}
         ${filas ? `<div class="tl-body"><dl>${filas}</dl></div>` : ''}
         <div class="tl-foot">${selectEstado}${fotoBtn}${cierreBtn}</div>
       `;
@@ -786,6 +808,7 @@ const Casos = {
     }
 
     // seguimiento
+    const duplaCod = it.data.dupla_id ? (duplasMap[it.data.dupla_id] || 'dupla') : 'coordinación';
     el.className = 'timeline-item tl-seguimiento';
     if(it.data.tipo === 'checklist_item'){
       el.innerHTML = `
@@ -795,7 +818,7 @@ const Casos = {
         </div>
         <div class="tl-check">
           <input type="checkbox" id="chk-${it.data.id}" ${it.data.checklist_completado ? 'checked' : ''} onchange="Casos.toggleChecklist('${it.data.id}', this.checked)">
-          <label for="chk-${it.data.id}">${esc(it.data.texto || '')}</label>
+          <label for="chk-${it.data.id}">${esc(it.data.checklist_item || '')}</label>
         </div>
       `;
     }else{
@@ -804,7 +827,7 @@ const Casos = {
           <div class="tl-title">📝 Seguimiento — comentario</div>
           <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
         </div>
-        <div class="tl-body">${esc(it.data.texto || '')}</div>
+        <div class="tl-body">${esc(it.data.contenido || '')}</div>
       `;
     }
     return el;
@@ -831,8 +854,12 @@ const Casos = {
           </select>
         </div>
         <div class="form-field">
+          <label>Ubicación</label>
+          <input type="text" id="f_ubic_interv" data-f="ubicacion" value="${escAttr(personaActual.punto_contacto || '')}">
+        </div>
+        <div class="form-field">
           <label>Descripción</label>
-          <textarea id="f_desc_interv" data-f="descripcion" placeholder="Qué pasó en este contacto…"></textarea>
+          <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-blue" id="btn-guardar-interv">💾 Guardar</button>
@@ -855,7 +882,8 @@ const Casos = {
         persona_id: personaActual.id,
         dupla_id: miPerfil.dupla_id || null,
         tipo: campos.tipo || 'seguimiento',
-        descripcion: campos.descripcion || '',
+        ubicacion: campos.ubicacion || null,
+        resumen: campos.resumen || '',
       });
       if(error) throw error;
       await Casos._reactivarSiEgresado();
@@ -958,7 +986,7 @@ const Casos = {
       const client = await SupabaseClient.getClient();
       const { data: nueva, error } = await client.from('derivaciones').insert({
         persona_id: personaActual.id,
-        dupla_id: miPerfil.dupla_id || null,
+        solicitado_por: miPerfil.id,
         tipo,
         estado: 'solicitado',
         datos,
@@ -1042,13 +1070,20 @@ const Casos = {
     btn.disabled = true; btn.textContent = 'Guardando…';
     try{
       const client = await SupabaseClient.getClient();
-      const { error } = await client.from('seguimientos').insert({
+      // seguimientos usa columnas distintas según el tipo: `contenido` para
+      // comentarios libres, `checklist_item` para el texto de un ítem.
+      const fila = {
         persona_id: personaActual.id,
         dupla_id: miPerfil.dupla_id || null,
         tipo,
-        texto,
-        checklist_completado: false,
-      });
+      };
+      if(tipo === 'checklist_item'){
+        fila.checklist_item = texto;
+        fila.checklist_completado = false;
+      }else{
+        fila.contenido = texto;
+      }
+      const { error } = await client.from('seguimientos').insert(fila);
       if(error) throw error;
       await Casos._reactivarSiEgresado();
       closeModal();
