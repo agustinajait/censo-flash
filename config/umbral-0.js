@@ -50,8 +50,13 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   },
 
   // ── OPCIONES CUSTOMIZABLES DEL CICLO DE UN CASO ────────────────────────
-  // Ambas listas son editables acá sin tocar el resto del código — agregar
-  // o sacar opciones es solo agregar/sacar strings.
+  // Todas estas listas son editables acá sin tocar el resto del código —
+  // agregar o sacar opciones es solo agregar/sacar strings.
+
+  // Zonas prioritarias del operativo (documento 27/07/2026). Se usa como
+  // desplegable en "Ubicación" de la ficha de persona, junto al punto de
+  // contacto (dirección/referencia libre) y la comuna.
+  zonasOpciones: ['C1A', 'C2', 'C14', 'C13', 'Zona frontera'],
 
   // Nivel de criticidad del caso (ingreso). Sin escala definitiva todavía —
   // ajustar cuando la tengan (ej. cambiar a números 1-5, agregar niveles, etc.)
