@@ -28,6 +28,10 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   whatsappLink: '',   // TODO: link https://wa.me/...
   horario: { dias:'A definir', franja:'A definir' },
 
+  // Herramienta externa donde los operadores generan las "cartas de soflex"
+  // (no se replica el formulario acá, solo se linkea). Ver DISENO-CASOS.md §4.
+  cartasSoflexLink: '', // TODO: URL de la herramienta externa
+
   // ── SUPABASE — proyecto dedicado (cuenta a.jait@inclusioncaii.org) ────────
   // La anon/publishable key es pública por diseño (se embebe en el cliente);
   // todo el acceso real lo controlan las políticas RLS de cada tabla, atadas

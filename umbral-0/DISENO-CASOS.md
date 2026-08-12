@@ -100,7 +100,7 @@ plataforma va absorbiendo funciones a medida que se construye:
 | **Kobo** | Formulario de registro de intervenciones en territorio | Hoy es la fuente de las `intervenciones`. La app ya tiene un lugar para configurar formularios Kobo (`config.kobo`, vacío todavía) si se decide importar desde ahí en vez de cargar directo en la pantalla de ficha de persona (sección 6). Definir con Agustina si Kobo se mantiene en paralelo o se reemplaza. |
 | **Grupo de WhatsApp de equipos territoriales** | Los operadores envían sus intervenciones ahí; coordinación y Gerencia Operativa ven en vivo qué pasa en territorio, despejan dudas, gestionan estrategias | No se reemplaza — es el canal de comunicación en caliente. La plataforma es el registro estructurado que **queda después** de esa conversación, no la reemplaza como canal. |
 | **Planilla de seguimiento** | Coordinación consolida en una base de datos la info que le llega por WhatsApp | Esto es exactamente lo que hacen las tablas `personas`/`intervenciones`/`derivaciones`/`seguimientos` — el objetivo de Umbral 0 es que esta planilla deje de mantenerse a mano. |
-| **Cartas de soflex** | Mencionado en el documento, no está claro qué son | **Pendiente de definir con Agustina** — ver sección 10. No se modela hasta saber de qué se trata. |
+| **Cartas de soflex** | Instrumento que generan los operadores en una herramienta externa (no en esta plataforma) | No se migra ni se replica el formulario acá — se suma como **link directo** desde la ficha de persona (ver sección 4), para que el equipo salga a esa herramienta externa sin tener que buscarla. |
 
 ## 4. Pantalla: Nuevo ingreso / Ficha de persona
 
@@ -136,10 +136,16 @@ todo lo que pasa con ella en el tiempo.
      distingue esto de un caso con vínculo sostenido, porque varios recursos
      (Casa Vincular, ver 5.2) solo están habilitados para seguimientos.
 3. **Ficha de la persona** (pantalla principal del caso): cabecera con los
-   datos de arriba + foto, y debajo tres botones de acción:
+   datos de arriba + foto, y debajo botones de acción:
    - ➕ Registrar intervención (otro contacto en territorio)
    - 📨 Pedir derivación (abre el formulario dinámico de la sección 5)
    - 📝 Agregar seguimiento (comentario o ítem de checklist, sección 6)
+   - 📄 Generar carta de soflex — **link externo**, no un formulario propio.
+     Abre `config.cartasSoflexLink` en pestaña nueva (mismo patrón que los
+     links de My Maps/KoBo en `index.html`). No queda registro automático en
+     el timeline de que se generó una carta — si hace falta trazabilidad de
+     esto más adelante, se agrega como un ítem de checklist manual (sección 6)
+     o una intervención que el equipo carga a mano después de generarla.
 
    Debajo, un **timeline cronológico** que mezcla `intervenciones` +
    `derivaciones` + `seguimientos` de esa persona (`order by fecha desc`). El
@@ -398,8 +404,9 @@ más adelante — quedan pendientes de definir con Agustina:
 - **Mapeo zona frontera + puntos flash:** lo suma Flor Pedraza — sin definir
   todavía si esto se traduce en un campo/tabla o queda como mapa externo
   (My Maps, como en Censo Flash).
-- **"Cartas de soflex"** — no quedó claro qué son en el documento, contame y
-  lo sumo donde corresponda.
+- **URL de cartas de soflex:** falta el link real de la herramienta externa
+  para completar `config.cartasSoflexLink` (sección 4) — se lo pasás cuando
+  lo tengas a mano, es un cambio de una línea en `config/umbral-0.js`.
 - **Referentes por zona/polígono** (Ilanit Álvarez, Natasha Forcinito, Luna
   Aloy) — no están modelados todavía; si terminan siendo un rol más
   (`perfiles.rol='referente'`) o simplemente un campo en `duplas`, se define
