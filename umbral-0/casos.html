@@ -255,7 +255,7 @@ const CAMPOS_PERSONA_BASICOS = [
 ];
 const CAMPOS_PERSONA_UBICACION = [
   { key:'punto_contacto', label:'Punto de contacto (dirección/referencia)' },
-  { key:'zona', label:'Zona' },
+  { key:'zona', label:'Zona', type:'select', options: () => window.PROJECT_CONFIG.zonasOpciones || [] },
   { key:'comuna', label:'Comuna' },
 ];
 const CAMPOS_PERSONA_CASO = [
@@ -1000,13 +1000,67 @@ const Casos = {
       }
 
       await Casos._reactivarSiEgresado();
-      closeModal();
-      await Casos.abrirFicha(personaActual.id);
+      if(tipo === 'CIS'){
+        // El circuito real de CIS es "armar el mensaje + foto y mandarlo por
+        // WhatsApp al referente territorial/coordinación" (DISENO-CASOS.md
+        // §5.1) — la plataforma todavía no manda ese mensaje sola, así que
+        // se lo dejamos armado y listo para copiar.
+        Casos._mostrarMensajeCIS(datos);
+      }else{
+        closeModal();
+        await Casos.abrirFicha(personaActual.id);
+      }
     }catch(e){
       modalError('No se pudo enviar la derivación: ' + e.message);
     }finally{
       btn.disabled = false; btn.textContent = '📨 Enviar derivación';
     }
+  },
+
+  _mostrarMensajeCIS(datos){
+    const mensaje = [
+      ['Punto de contacto', datos.punto_contacto],
+      ['Nombre y apellido', datos.nombre_apellido],
+      ['Fecha de nacimiento', datos.fecha_nacimiento],
+      ['Edad', datos.edad],
+      ['Tiene DNI?', datos.tiene_dni],
+      ['DNI', datos.dni],
+      ['Estado de salud', datos.estado_salud],
+      ['Medicación', datos.medicacion],
+      ['Esquema', datos.esquema],
+      ['Puede subir escaleras', datos.sube_escaleras],
+      ['Puede cama arriba', datos.cama_arriba],
+      ['Estuvo en algún CIS', datos.estuvo_en_cis],
+      ['Resumen de la intervención', datos.resumen_intervencion],
+    ].map(([label, val]) => `${label}: ${val || ''}`).join('\n');
+
+    const body = `
+      <div class="modal-sub">Copiá este mensaje y mandalo por WhatsApp al referente territorial / coordinación, junto con la foto del DNI o denuncia que ya quedó adjunta acá.</div>
+      <textarea id="mensaje-cis" readonly style="width:100%;min-height:260px;font-family:monospace;font-size:0.8rem;border:1.5px solid #cbd5e1;border-radius:9px;padding:10px 12px;background:#f8faff;">${esc(mensaje)}</textarea>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-blue" id="btn-copiar-cis">📋 Copiar mensaje</button>
+        <button type="button" class="btn btn-outline" onclick="Casos._cerrarMensajeCIS()">Listo, volver a la ficha</button>
+      </div>
+    `;
+    openModal('📨 Derivación a CIS — mensaje para enviar', body);
+    document.getElementById('btn-copiar-cis').onclick = async () => {
+      const btn = document.getElementById('btn-copiar-cis');
+      try{
+        await navigator.clipboard.writeText(mensaje);
+      }catch(e){
+        const ta = document.getElementById('mensaje-cis');
+        ta.select();
+        document.execCommand('copy');
+      }
+      const original = btn.textContent;
+      btn.textContent = '✅ Copiado';
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    };
+  },
+
+  async _cerrarMensajeCIS(){
+    closeModal();
+    await Casos.abrirFicha(personaActual.id);
   },
 
   async actualizarEstadoDerivacion(derivacionId, nuevoEstado){

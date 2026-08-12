@@ -143,7 +143,10 @@ todo lo que pasa con ella en el tiempo.
    - Datos básicos: `nombre`, `apellido`, `dni` (o `dni_denuncia_extravio` si no
      tiene y hay que acompañar a hacer la denuncia — igual que el circuito de
      DNI del documento), `fecha_nacimiento`, `nacionalidad`, `telefono_contacto`.
-   - Ubicación: `punto_contacto` (dirección/referencia), `zona`, `comuna`.
+   - Ubicación: `punto_contacto` (dirección/referencia libre), `zona`
+     (desplegable con `config.zonasOpciones` — hoy: C1A, C2, C14, C13, Zona
+     frontera, las zonas prioritarias del documento; editable sin tocar
+     código), `comuna`.
    - `foto_url` — subida al bucket privado `umbral0-fotos` (mismo patrón que
      Censo Flash con Drive, pero acá es un bucket de Supabase Storage).
    - `criticidad` — select con las opciones de `config.criticidadOpciones`
@@ -237,24 +240,38 @@ o cambió:
   comisaría más cercana (esto se registra como intervención/seguimiento, no
   bloquea el resto de la ficha).
 
-**Circuito** (fuera de la plataforma, referencia para las duplas):
-1. El equipo arma este formulario + la foto y lo envía a coordinación
-   (en la plataforma: guardar la derivación, `estado='solicitado'`).
-2. Coordinación completa un Forms externo de solicitud de vacante, y reenvía
-   el mismo mensaje al grupo de WhatsApp **"Derivaciones DIPA"** (GOPA +
-   derivadoras de los CIS).
+**Circuito** (fuera de la plataforma, referencia para las duplas — versión
+actualizada, el documento ahora distingue quién recibe el aviso primero):
+1. El equipo que contacta a la persona arma este formulario + la foto y le
+   avisa a un **referente territorial** (no directamente a coordinación) —
+   tanto si es un contacto espontáneo como si es un seguimiento propio que
+   pide ingresar. En la plataforma: guardar la derivación
+   (`estado='solicitado'`).
+2. El referente territorial (GOPA) le avisa a la supervisión de la RED, que
+   tiene los móviles en calle, y completa un Forms externo de solicitud de
+   vacante, reenviando el mismo mensaje al grupo de WhatsApp **"Derivaciones
+   DIPA"** (GOPA + derivadoras de los CIS).
 3. Las derivadoras van actualizando el estado en un documento externo —
    coordinación/admin replica ese estado en `derivaciones.estado`
    (`en_espera` → `aprobado`/`rechazado` → `efectivizado`).
-4. La supervisión de RED (que tiene los móviles en calle) informa un tiempo
-   estimado de arribo. Si el equipo tiene que seguir su recorrido, se piden
-   datos de vestimenta de la persona para que el equipo que la traslade pueda
-   identificarla (campo opcional `vestimenta` en `derivaciones.datos` para
-   ese caso).
+4. La RED informa un tiempo estimado de arribo. Si el equipo tiene que
+   seguir su recorrido, se piden datos de vestimenta de la persona para que
+   el equipo que la traslade pueda identificarla (campo opcional
+   `vestimenta` en `derivaciones.datos` para ese caso).
 5. Mientras se espera, se le ofrece a la persona esperar en uno de los dos
    DIPA. Si rechaza, el equipo evalúa si conviene quedarse dando contención en
    calle o seguir el recorrido y volver cuando la vacante se otorgue — esto
    se puede dejar registrado como un `seguimiento` tipo comentario.
+
+**Mensaje listo para copiar (ya construido):** la plataforma todavía no le
+manda el aviso al referente territorial por sí sola (sigue siendo un
+WhatsApp real, paso 1 de arriba) — lo que sí hace es, al guardar la
+derivación, armar el mensaje con el formato exacto que usa el equipo
+(Punto de contacto / Nombre y apellido / Fecha de nacimiento / Edad / Tiene
+DNI? / DNI / Estado de salud / Medicación / Esquema / Puede subir
+escaleras / Puede cama arriba / Estuvo en algún CIS / Resumen de la
+intervención) en una caja de texto con botón "Copiar", para pegarlo directo
+en WhatsApp junto con la foto del DNI/denuncia que ya quedó adjunta.
 
 ### 5.2 Casa Vincular
 
