@@ -62,6 +62,7 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
     'Médico',
     'Centro de día',
     'CIS',
+    'Casa Vincular', // solo habilitado para seguimientos — ver DISENO-CASOS.md §5.2
     // TODO: sumar más opciones de derivación acá
   ],
 
