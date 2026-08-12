@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cierre del Operativo — Umbral 0</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --border:#dbeafe; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; }
+
+  .nav {
+    background:var(--navy); padding:12px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:99;
+    box-shadow:0 2px 8px rgba(0,0,0,0.3);
+  }
+  .back-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25);
+    color:white; padding:7px 14px; border-radius:20px;
+    font-size:0.8rem; font-weight:600; font-family:'Sora',sans-serif; cursor:pointer;
+    text-decoration:none;
+  }
+  .nav-title { color:rgba(255,255,255,0.5); font-size:0.75rem; }
+
+  .cover {
+    background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%);
+    color:white; padding:30px 24px; text-align:center;
+  }
+  .cover h1 { font-family:'Sora',sans-serif; font-size:1.4rem; font-weight:800; margin-bottom:4px; }
+  .cover p { font-size:0.85rem; opacity:0.75; }
+  .dupla-tag { display:inline-block; background:rgba(251,191,36,0.2); border:1px solid rgba(251,191,36,0.5); color:#fbbf24; font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; padding:4px 14px; border-radius:20px; margin-bottom:12px; }
+
+  .content { max-width:620px; margin:0 auto; padding:24px 18px 60px; }
+
+  .card { background:white; border-radius:14px; padding:22px; margin-bottom:16px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); position:relative; overflow:hidden; }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:14px 14px 0 0; background:linear-gradient(90deg,var(--blue),#3b82f6); }
+
+  .card-title { font-family:'Sora',sans-serif; font-size:0.95rem; font-weight:700; color:var(--navy); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+
+  .form-grid { display:flex; flex-direction:column; gap:13px; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .form-field { display:flex; flex-direction:column; gap:5px; }
+  .form-field.full { grid-column:span 2; }
+  label { font-size:0.76rem; font-weight:700; color:var(--navy); font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+  input, textarea, select {
+    border:1.5px solid #cbd5e1; border-radius:9px;
+    padding:10px 12px; font-size:0.9rem; font-family:'DM Sans',sans-serif;
+    color:#1e293b; background:#f8faff; outline:none; transition:border-color 0.2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color:var(--blue); background:white; }
+  textarea { resize:vertical; min-height:75px; }
+
+  .tiempo-auto { background:#f0fdf4; border-color:#86efac; color:#065f46; font-weight:700; }
+
+  .foto-zone {
+    background:#f0f6ff; border:2px dashed #93c5fd;
+    border-radius:12px; padding:16px; text-align:center;
+  }
+  .foto-zone-icon { font-size:1.6rem; margin-bottom:5px; }
+  .foto-zone-title { font-size:0.82rem; color:#1e40af; font-weight:700; margin-bottom:3px; }
+  .foto-zone-sub { font-size:0.74rem; color:#6b7280; margin-bottom:10px; }
+  .foto-sel-btn {
+    background:var(--blue); color:white; border:none;
+    padding:8px 18px; border-radius:9px; font-size:0.82rem;
+    font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif;
+  }
+  #foto-preview { margin-top:10px; display:none; }
+  #foto-img { max-width:100%; border-radius:10px; border:2px solid #93c5fd; }
+  .foto-ok { font-size:0.76rem; color:var(--green); font-weight:700; margin-top:5px; }
+
+  .submit-btn {
+    width:100%; padding:15px; border:none; border-radius:12px;
+    background:linear-gradient(135deg,var(--green),#059669);
+    color:white; font-family:'Sora',sans-serif; font-weight:700;
+    font-size:1rem; cursor:pointer; margin-top:6px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .submit-btn:disabled { opacity:0.6; cursor:not-allowed; }
+
+  .alert-green { background:#f0fdf4; border:1.5px solid #86efac; color:#166534; padding:11px 14px; border-radius:10px; font-size:0.85rem; margin-top:12px; display:flex; gap:8px; align-items:flex-start; }
+  .alert-green strong { font-family:'Sora',sans-serif; }
+
+  #status { display:none; text-align:center; padding:40px 20px; }
+  #status .s-icon { font-size:3.5rem; margin-bottom:12px; }
+  #status h2 { font-family:'Sora',sans-serif; color:var(--navy); margin-bottom:8px; }
+  #status p { color:#6b7280; font-size:0.9rem; }
+
+  @media(max-width:480px) {
+    .form-row { grid-template-columns:1fr; }
+    .form-field.full { grid-column:span 1; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="back-btn" id="back-link" href="./index.html">← Volver</a>
+  <span class="nav-title">Cierre del operativo</span>
+</nav>
+
+<div class="cover">
+  <div class="dupla-tag" id="cover-dupla">Dupla —</div>
+  <h1>📤 Cierre del operativo</h1>
+  <p>Completá todos los campos antes de enviar</p>
+</div>
+
+<div class="content">
+
+  <div id="form-area">
+    <div class="card">
+      <div class="card-title">📋 Datos del operativo</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="form-field">
+            <label>📅 Fecha</label>
+            <input type="date" id="f_dia">
+          </div>
+          <div class="form-field">
+            <label>👤 Responsable</label>
+            <input type="text" id="f_responsable" placeholder="Nombre y apellido">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>🕐 Hora de inicio</label>
+            <input type="time" id="f_inicio" onchange="CierreForm.calcTime()">
+          </div>
+          <div class="form-field">
+            <label>🕐 Hora de cierre</label>
+            <input type="time" id="f_cierre" onchange="CierreForm.calcTime()">
+          </div>
+        </div>
+        <div class="form-field full" id="tiempo-wrap" style="display:none;">
+          <label>⏱️ Tiempo total</label>
+          <input type="text" id="f_tiempo" readonly class="tiempo-auto">
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>🔢 Registros cargados en KoBo</label>
+            <input type="number" id="f_registros" placeholder="Ej: 12" min="0">
+          </div>
+          <div class="form-field">
+            <label>⚙️ Inconvenientes técnicos</label>
+            <select id="f_inconvenientes">
+              <option value="Ninguno">Ninguno</option>
+              <option value="Problemas con KoBo">Problemas con KoBo</option>
+              <option value="Sin datos móviles">Sin datos móviles</option>
+              <option value="Problemas de ubicación">Problemas de ubicación</option>
+              <option value="GeoTracker falló">GeoTracker falló</option>
+              <option value="Batería">Batería</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>🌦️ Condiciones climáticas</label>
+            <select id="f_clima">
+              <option value="Despejado">☀️ Despejado</option>
+              <option value="Nublado">☁️ Nublado</option>
+              <option value="Llovizna">🌦️ Llovizna</option>
+              <option value="Lluvia">🌧️ Lluvia</option>
+              <option value="Tormenta">⛈️ Tormenta</option>
+              <option value="Frío intenso">🥶 Frío intenso</option>
+              <option value="Viento fuerte">💨 Viento fuerte</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>🎉 Eventos especiales</label>
+            <select id="f_eventos">
+              <option value="Ninguno">Ninguno</option>
+              <option value="Corte de calle">Corte de calle</option>
+              <option value="Evento masivo">Evento masivo</option>
+              <option value="Manifestación">Manifestación</option>
+              <option value="Accidente vial">Accidente vial</option>
+              <option value="Obras en la vía">Obras en la vía</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-field full">
+          <label>🚨 Situaciones urgentes</label>
+          <textarea id="f_situaciones" placeholder="Niños/as, personas en estado crítico, u otras situaciones que requieran seguimiento..."></textarea>
+        </div>
+        <div class="form-field full">
+          <label>📝 Comentarios adicionales</label>
+          <textarea id="f_observaciones" placeholder="Zonas sin cobertura, dificultades del recorrido, observaciones generales..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗺️ Captura del recorrido (GeoTracker)</div>
+      <div class="foto-zone">
+        <div class="foto-zone-icon">📸</div>
+        <div class="foto-zone-title">Adjuntá la captura de GeoTracker</div>
+        <div class="foto-zone-sub">GeoTracker → tocá el recorrido → mapa → captura de pantalla</div>
+        <input type="file" id="f_foto" accept="image/*" style="display:none;" onchange="CierreForm.previewFoto(this)">
+        <button class="foto-sel-btn" onclick="document.getElementById('f_foto').click()">📂 Seleccionar imagen</button>
+        <div id="foto-preview">
+          <img id="foto-img">
+          <div class="foto-ok">✓ Imagen seleccionada</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="CierreForm.enviar()">
+      📤 Enviar cierre del operativo
+    </button>
+    <div class="alert-green">
+      <span>✅</span>
+      <div>El cierre es <strong>obligatorio</strong> aunque no hayas detectado personas en situación de calle.</div>
+    </div>
+  </div>
+
+  <div id="status">
+    <div class="s-icon">✅</div>
+    <h2>¡Cierre enviado!</h2>
+    <p>Los datos quedaron registrados correctamente.<br>Gracias por completar el operativo.</p>
+  </div>
+
+</div>
+
+<script src="../config/umbral-0.js"></script>
+<script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script src="../shared/js/cierre-form.js"></script>
+<script>
+  CierreForm.init();
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Censo Flash — Dashboard</title>
+<title>Plataforma de Relevamientos — Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -18,8 +18,11 @@
   .login-logo{font-size:2.5rem;margin-bottom:8px;}
   .login-title{font-size:1.3rem;font-weight:800;color:var(--navy);margin-bottom:4px;}
   .login-sub{font-size:0.8rem;color:var(--gray);margin-bottom:28px;line-height:1.5;}
-  .login-input{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;font-family:'Montserrat',sans-serif;font-size:0.9rem;margin-bottom:12px;outline:none;}
+  .login-pwd-wrap{position:relative;margin-bottom:12px;}
+  .login-input{width:100%;padding:12px 44px 12px 16px;border:1.5px solid var(--border);border-radius:10px;font-family:'Montserrat',sans-serif;font-size:0.9rem;outline:none;}
   .login-input:focus{border-color:var(--blue);}
+  .login-pwd-toggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:1rem;cursor:pointer;padding:8px;line-height:1;opacity:0.55;}
+  .login-pwd-toggle:hover{opacity:1;}
   .login-btn{width:100%;padding:12px;background:var(--blue);color:white;border:none;border-radius:10px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;}
   .login-error{color:var(--red);font-size:0.82rem;margin-top:8px;display:none;}
 
@@ -30,7 +33,16 @@
   .nav-brand .nav-sub{font-size:0.7rem;color:rgba(255,255,255,0.45);}
   .nav-right{display:flex;align-items:center;gap:10px;}
   .nav-user{font-size:0.78rem;color:rgba(255,255,255,0.6);}
+  .nav-date{font-size:0.78rem;color:rgba(255,255,255,0.75);font-weight:600;padding:5px 12px;background:rgba(255,255,255,0.08);border-radius:16px;white-space:nowrap;}
+  .nav-cal-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;padding:6px 14px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'Montserrat',sans-serif;white-space:nowrap;}
+  .nav-cal-btn:hover{background:rgba(255,255,255,0.18);}
   .nav-logout{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;padding:6px 14px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'Montserrat',sans-serif;}
+
+  /* PROJECT TABS */
+  .project-tabs{background:#0c1930;padding:0 28px;display:flex;gap:4px;overflow-x:auto;position:sticky;top:49px;z-index:99;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
+  .tab-btn{background:transparent;border:none;color:rgba(255,255,255,0.55);padding:11px 16px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:0.78rem;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;transition:all 0.15s;}
+  .tab-btn:hover{color:white;}
+  .tab-btn.active{color:white;border-bottom-color:var(--blue);}
 
   /* UPLOAD */
   #upload-section{background:white;border-bottom:2px solid var(--border);padding:16px 28px;}
@@ -64,6 +76,7 @@
 
   /* METRICS */
   .metrics-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+  .metrics-5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px;}
   .metrics-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
   .metric{background:white;border-radius:12px;padding:16px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,31,61,0.04);position:relative;overflow:hidden;}
   .metric::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;}
@@ -86,6 +99,28 @@
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
   .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
   .card{background:white;border-radius:12px;padding:18px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,31,61,0.04);}
+  .card-presentes{border:1.5px solid #a7f3d0;background:linear-gradient(180deg,#f0fdf4,white 60%);}
+  .presentes-counter{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
+  .presentes-counter-num{font-family:'Montserrat',sans-serif;font-weight:800;font-size:2.4rem;color:#059669;line-height:1;white-space:nowrap;}
+  .presentes-counter-sep{color:var(--gray);font-weight:600;font-size:1.5rem;margin:0 2px;}
+  .presentes-counter-total{color:var(--gray);font-weight:700;}
+  .presentes-counter-bar-wrap{flex:1;min-width:120px;}
+  .presentes-counter-bar{background:#e5e7eb;border-radius:20px;height:10px;overflow:hidden;}
+  .presentes-counter-fill{background:linear-gradient(90deg,#10b981,#34d399);height:100%;border-radius:20px;transition:width .4s ease;}
+  .presentes-counter-lbl{font-size:0.7rem;color:var(--gray);margin-top:5px;}
+
+  /* CALENDARIO */
+  .mini-cal-row{display:flex;flex-wrap:wrap;gap:14px;}
+  .mini-cal{background:var(--lightbg);border:1px solid var(--border);border-radius:10px;padding:10px;width:190px;}
+  .mini-cal-title{font-size:0.78rem;font-weight:700;color:var(--navy);margin-bottom:6px;text-align:center;}
+  .mini-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .mini-cal-dow{font-size:9px;font-weight:700;color:var(--gray);text-align:center;padding:2px 0;}
+  .mini-cal-day{font-size:10px;text-align:center;padding:4px 0;border-radius:4px;color:#1e293b;}
+  .mini-cal-day.op{background:var(--blue);color:white;font-weight:700;}
+  .mini-cal-day.hoy{outline:2px solid var(--amber);outline-offset:-1px;}
+  .mini-cal-legend{font-size:0.7rem;color:var(--gray);margin-top:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .mini-cal-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .mini-cal-dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
   .card-title{font-size:0.85rem;font-weight:700;color:var(--navy);margin-bottom:12px;}
   .chart-wrap{position:relative;height:180px;}
 
@@ -116,8 +151,23 @@
   .diff-bad{color:#991b1b;font-weight:700;}
 
   /* NO DATA */
+  .live-warning{background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;padding:10px 16px;border-radius:10px;font-size:0.8rem;font-weight:600;margin-bottom:14px;}
+
   .no-data{text-align:center;padding:50px 20px;color:var(--gray);}
   .no-data-icon{font-size:2.5rem;margin-bottom:8px;}
+
+  /* GLOBAL VIEW */
+  #global-dashboard{display:none;}
+
+  /* FOTO MODAL */
+  .foto-modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,31,61,0.82);z-index:200;align-items:center;justify-content:center;padding:24px;}
+  .foto-modal-overlay.open{display:flex;}
+  .foto-modal-box{background:white;border-radius:14px;padding:14px;max-width:min(90vw,700px);max-height:90vh;display:flex;flex-direction:column;gap:8px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.4);}
+  .foto-modal-box img{max-width:100%;max-height:75vh;border-radius:8px;display:block;object-fit:contain;}
+  .foto-modal-close{position:absolute;top:-14px;right:-14px;width:32px;height:32px;border-radius:50%;background:var(--navy);color:white;border:2px solid white;font-size:0.9rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);}
+  .foto-modal-fallback{font-size:0.72rem;color:var(--blue);text-align:center;text-decoration:none;}
+  .calendario-modal-box{max-width:min(94vw,980px);max-height:88vh;overflow-y:auto;align-items:stretch;}
+  .calendario-modal-box h3{font-size:1rem;color:var(--navy);margin-bottom:4px;}
 </style>
 </head>
 <body>
@@ -126,10 +176,13 @@
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">🏙️</div>
-    <div class="login-title">Censo Flash</div>
-    <div class="login-sub">Relevamiento nocturno de personas en situación de calle<br>Ciudad de Buenos Aires</div>
-    <input class="login-input" type="password" id="pwd-input" placeholder="Contraseña" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-title">Plataforma de Relevamientos</div>
+    <div class="login-sub">Censo Flash · Umbral 0 · Ciudad de Buenos Aires</div>
+    <div class="login-pwd-wrap">
+      <input class="login-input" type="password" id="pwd-input" placeholder="Contraseña" onkeydown="if(event.key==='Enter')DashboardEngine.doLogin()">
+      <button type="button" class="login-pwd-toggle" id="pwd-toggle-btn" onclick="DashboardEngine.togglePwd()" aria-label="Mostrar contraseña">👁️</button>
+    </div>
+    <button class="login-btn" onclick="DashboardEngine.doLogin()">Ingresar</button>
     <div class="login-error" id="login-error">Contraseña incorrecta</div>
   </div>
 </div>
@@ -138,14 +191,20 @@
 <div id="app">
   <nav class="nav">
     <div class="nav-brand">
-      <div class="nav-title">📋 Censo Flash</div>
-      <div class="nav-sub">Dashboard de resultados</div>
+      <div class="nav-title">📋 Plataforma de Gestión de Operativos de Relevamiento Territorial</div>
+      <div class="nav-sub">Dashboard unificado — GCBA</div>
     </div>
     <div class="nav-right">
+      <span class="nav-date" id="nav-date">📅</span>
+      <button class="nav-cal-btn" onclick="DashboardEngine.abrirCalendario()">📅 Calendario</button>
+      <button class="nav-cal-btn" id="nav-refresh-btn" onclick="DashboardEngine.refrescarAhora()">🔄 Actualizar</button>
       <span class="nav-user" id="nav-user"></span>
-      <button class="nav-logout" onclick="logout()">Salir</button>
+      <button class="nav-logout" onclick="DashboardEngine.logout()">Salir</button>
     </div>
   </nav>
+
+  <!-- PROJECT TABS -->
+  <div class="project-tabs" id="project-tabs"></div>
 
   <!-- ADMIN UPLOAD -->
   <div id="upload-section" style="display:none;">
@@ -153,53 +212,41 @@
     <div class="upload-row">
       <div class="upload-field">
         <div class="upload-label">Fecha inicio</div>
-        <input type="date" class="date-inp" id="fecha-inicio" value="2026-06-02">
+        <input type="date" class="date-inp" id="fecha-inicio">
       </div>
       <div class="upload-field">
         <div class="upload-label">Fecha fin</div>
-        <input type="date" class="date-inp" id="fecha-fin" value="2026-06-04">
+        <input type="date" class="date-inp" id="fecha-fin">
       </div>
       <div class="upload-field" style="min-width:200px;">
-        <div class="upload-label" style="display:flex;align-items:center;gap:6px;">
-          <span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:6px;font-size:9px;font-weight:700;">NUEVO</span>
-          Modo de carga
-        </div>
-        <select id="modo-carga" class="date-inp" onchange="toggleModo()">
-          <option value="api">🔗 Directo desde KoBo (API)</option>
+        <div class="upload-label">Modo de carga</div>
+        <select id="modo-carga" class="date-inp" onchange="DashboardEngine.toggleModo()">
+          <option value="api">🔗 En vivo (Sheet + KoBo)</option>
           <option value="archivo">📁 Subir archivos Excel</option>
         </select>
       </div>
 
       <!-- API MODE -->
       <div id="modo-api" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="upload-field">
-          <div class="upload-label">Sheet de Cierres (.xlsx)</div>
-          <input type="file" class="file-inp" id="file-sheet-api" accept=".xlsx,.xls">
-        </div>
-        <button class="upload-btn" style="background:#059669;" onclick="loadFromAPI()">🔗 Cargar desde KoBo</button>
+        <div id="modo-api-files" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;"></div>
+        <button class="upload-btn" style="background:#059669;" onclick="DashboardEngine.loadFromAPI()">🔄 Actualizar ahora</button>
         <div class="upload-status" id="upload-status"></div>
       </div>
 
       <!-- FILE MODE -->
       <div id="modo-archivo" style="display:none;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="upload-field">
-          <div class="upload-label">Sheet de Cierres (.xlsx)</div>
-          <input type="file" class="file-inp" id="file-sheet" accept=".xlsx,.xls">
-        </div>
-        <div class="upload-field">
-          <div class="upload-label">KoBo Flash 1 (.xlsx)</div>
-          <input type="file" class="file-inp" id="file-f1" accept=".xlsx,.xls">
-        </div>
-        <div class="upload-field">
-          <div class="upload-label">KoBo Flash 2 (.xlsx)</div>
-          <input type="file" class="file-inp" id="file-f2" accept=".xlsx,.xls">
-        </div>
-        <button class="upload-btn" onclick="processFiles()">📊 Generar Dashboard</button>
+        <div id="modo-archivo-files" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;"></div>
+        <button class="upload-btn" onclick="DashboardEngine.processFiles()">📊 Generar Dashboard</button>
       </div>
     </div>
   </div>
 
   <div class="main">
+    <!-- Aviso si la última actualización en vivo falló — vive afuera de
+         no-data/dashboard para que se vea SIEMPRE que haga falta, sin
+         importar si hay datos cacheados para mostrar o no. -->
+    <div id="live-warning" class="live-warning" style="display:none;"></div>
+
     <div id="no-data" class="no-data">
       <div class="no-data-icon">📂</div>
       <div style="font-weight:700;color:var(--navy);margin-bottom:6px;">Sin datos cargados</div>
@@ -211,8 +258,8 @@
       <!-- BANNER -->
       <div class="banner">
         <div class="banner-badge">Resultados del operativo</div>
-        <h1>Censo Flash — Ciudad de Buenos Aires</h1>
-        <p id="banner-sub">Relevamiento nocturno de personas en situación de calle</p>
+        <h1 id="banner-title">Ciudad de Buenos Aires</h1>
+        <p id="banner-sub">Relevamiento nocturno</p>
         <div id="last-update"></div>
       </div>
 
@@ -221,27 +268,80 @@
         <span>🔍 Filtrar por fecha</span>
         <div style="display:flex;align-items:center;gap:6px;">
           <span class="filter-label">Desde</span>
-          <input type="date" id="filter-desde" class="date-inp" onchange="applyFilter()">
+          <input type="date" id="filter-desde" class="date-inp" onchange="DashboardEngine.applyFilter()">
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <span class="filter-label">Hasta</span>
-          <input type="date" id="filter-hasta" class="date-inp" onchange="applyFilter()">
+          <input type="date" id="filter-hasta" class="date-inp" onchange="DashboardEngine.applyFilter()">
         </div>
-        <button onclick="clearFilter()" style="padding:6px 12px;background:var(--lightbg);border:1.5px solid var(--border);border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:600;color:var(--navy);cursor:pointer;">✕ Limpiar</button>
+        <button onclick="DashboardEngine.clearFilter()" style="padding:6px 12px;background:var(--lightbg);border:1.5px solid var(--border);border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:600;color:var(--navy);cursor:pointer;">✕ Limpiar</button>
         <span id="filter-info" style="font-size:0.75rem;color:var(--gray);margin-left:auto;"></span>
       </div>
 
-      <!-- ══════ SECCIÓN KOBO ══════ -->
-      <div class="section-header">
-        <span class="section-tag tag-kobo">KoBo</span>
-        <h2>Personas en situación de calle — datos reales</h2>
+      <!-- Lo primero que se chequea al arrancar la jornada: quién está activa -->
+      <div class="card card-presentes" style="margin-bottom:14px;">
+        <div class="card-title">🟢 Duplas activas (marcaron inicio)</div>
+        <div id="presentes-content"></div>
       </div>
 
-      <div class="metrics-4">
+      <!-- ══════ SECCIÓN OPERATIVO — lo que hoy se comparte como resumen ══════ -->
+      <div class="section-header">
+        <span class="section-tag tag-sheet">Operativo</span>
+        <h2>Resumen del operativo — cierres y seguimiento de duplas</h2>
+      </div>
+
+      <div class="metrics-5">
+        <div class="metric m-green"><div class="metric-icon">🚗</div><div class="metric-val" id="m-duplas">—</div><div class="metric-lbl">Duplas con cierre</div></div>
+        <div class="metric m-blue"><div class="metric-icon">📋</div><div class="metric-val" id="m-reg-sheet">—</div><div class="metric-lbl">Registros reportados</div></div>
+        <div class="metric m-amber"><div class="metric-icon">⏱️</div><div class="metric-val" id="m-tiempo">—</div><div class="metric-lbl">Promedio horas/dupla</div></div>
+        <div class="metric m-purple"><div class="metric-icon">⚠️</div><div class="metric-val" id="m-incidentes">—</div><div class="metric-lbl">Incidentes reportados</div></div>
+        <div class="metric m-red"><div class="metric-icon">👶</div><div class="metric-val" id="m-nnya">—</div><div class="metric-lbl">Reportes NNyA</div></div>
+      </div>
+
+      <!-- Seguimiento de operadores: quién no cerró todavía -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">🕵️ Duplas sin cierre</div>
+        <div id="pendientes-content"></div>
+      </div>
+
+      <!-- Tabla resumen duplas -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">📤 Seguimiento de duplas</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Dupla</th><th>Polígono</th><th>Fecha</th><th>Responsable</th><th>Inicio</th><th>Cierre</th><th>Tiempo</th>
+              <th>Registros</th><th>Pers. (KoBo)</th><th>Clima</th><th>Eventos</th><th>Inconvenientes</th><th>Foto</th>
+            </tr></thead>
+            <tbody id="duplas-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Alertas -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🚨 Situaciones urgentes (NNyA)</div>
+          <div id="nnya-content"><p style="font-size:12px;color:var(--gray);">Sin reportes.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📝 Observaciones de campo</div>
+          <div id="obs-content"><p style="font-size:12px;color:var(--gray);">Sin observaciones.</p></div>
+        </div>
+      </div>
+
+      <!-- ══════ SECCIÓN KOBO — referencia (gobierno ya lo mira directo en KoBo) ══════ -->
+      <div class="section-header" id="kobo-section-header">
+        <span class="section-tag tag-kobo">KoBo</span>
+        <h2>Detalle de relevamiento en KoBo — referencia</h2>
+        <button id="kobo-toggle-btn" onclick="DashboardEngine.toggleKobo()" style="background:var(--lightbg);border:1.5px solid var(--border);border-radius:8px;padding:5px 12px;font-family:'Montserrat',sans-serif;font-size:0.72rem;font-weight:600;color:var(--navy);cursor:pointer;white-space:nowrap;">▲ Ocultar</button>
+      </div>
+
+      <div id="kobo-section-body">
+      <div class="metrics-3">
         <div class="metric m-blue"><div class="metric-icon">👥</div><div class="metric-val blue" id="m-personas">—</div><div class="metric-lbl">Total personas observadas</div></div>
         <div class="metric m-green"><div class="metric-icon">📍</div><div class="metric-val" id="m-puntos">—</div><div class="metric-lbl">Puntos registrados</div></div>
         <div class="metric m-amber"><div class="metric-icon">🌙</div><div class="metric-val" id="m-noches">—</div><div class="metric-lbl">Noches operativas</div></div>
-        <div class="metric m-red"><div class="metric-icon">👶</div><div class="metric-val" id="m-nnya">—</div><div class="metric-lbl">Reportes NNyA</div></div>
       </div>
 
       <!-- Por día -->
@@ -263,7 +363,7 @@
       <!-- Por polígono y comuna -->
       <div class="grid-2">
         <div class="card">
-          <div class="card-title">🗺️ Personas por polígono (dupla)</div>
+          <div class="card-title">🗺️ Personas por formulario KoBo</div>
           <div class="chart-wrap" style="height:200px;"><canvas id="poligonoChart"></canvas></div>
         </div>
         <div class="card">
@@ -282,503 +382,66 @@
           </table>
         </div>
       </div>
+      </div><!-- /kobo-section-body -->
 
-      <!-- ══════ SECCIÓN SHEET ══════ -->
-      <div class="section-header">
-        <span class="section-tag tag-sheet">Operativo</span>
-        <h2>Trabajo de las duplas — cierres del operativo</h2>
+    </div><!-- /dashboard -->
+
+    <!-- ══════ VISTA GLOBAL (todos los proyectos) ══════ -->
+    <div id="global-dashboard">
+      <div class="banner">
+        <div class="banner-badge">Todos los proyectos</div>
+        <h1>Plataforma de Gestión de Operativos de Relevamiento Territorial</h1>
+        <p>Totales combinados de los operativos cargados por proyecto</p>
       </div>
 
       <div class="metrics-4">
-        <div class="metric m-green"><div class="metric-icon">🚗</div><div class="metric-val" id="m-duplas">—</div><div class="metric-lbl">Duplas con cierre</div></div>
-        <div class="metric m-blue"><div class="metric-icon">📋</div><div class="metric-val" id="m-reg-sheet">—</div><div class="metric-lbl">Registros reportados</div></div>
-        <div class="metric m-amber"><div class="metric-icon">⏱️</div><div class="metric-val" id="m-tiempo">—</div><div class="metric-lbl">Promedio horas/dupla</div></div>
-        <div class="metric m-purple"><div class="metric-icon">⚠️</div><div class="metric-val" id="m-incidentes">—</div><div class="metric-lbl">Incidentes reportados</div></div>
+        <div class="metric m-blue"><div class="metric-icon">👥</div><div class="metric-val blue" id="g-personas">—</div><div class="metric-lbl">Personas observadas (todos)</div></div>
+        <div class="metric m-green"><div class="metric-icon">📍</div><div class="metric-val" id="g-puntos">—</div><div class="metric-lbl">Puntos registrados (todos)</div></div>
+        <div class="metric m-purple"><div class="metric-icon">📤</div><div class="metric-val" id="g-cierres">—</div><div class="metric-lbl">Cierres reportados (todos)</div></div>
+        <div class="metric m-amber"><div class="metric-icon">🗂️</div><div class="metric-val" id="g-proyectos">—</div><div class="metric-lbl">Proyectos con datos cargados</div></div>
       </div>
 
-      <!-- Tabla resumen duplas -->
       <div class="card" style="margin-bottom:14px;">
-        <div class="card-title">📤 Resumen por dupla — Sheet vs KoBo</div>
+        <div class="card-title">📊 Comparativo por proyecto</div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr>
-              <th>Dupla</th><th>Responsable</th><th>Inicio</th><th>Cierre</th><th>Tiempo</th>
-              <th>Reg. Sheet</th><th>Pers. KoBo</th><th>Clima</th><th>Inconvenientes</th>
-            </tr></thead>
-            <tbody id="duplas-tbody"></tbody>
+            <thead><tr><th>Proyecto</th><th>Personas</th><th>Puntos</th><th>Noches</th><th>Cierres</th><th>Estado</th></tr></thead>
+            <tbody id="global-tbody"></tbody>
           </table>
         </div>
       </div>
+      <p style="font-size:0.78rem;color:var(--gray);">Para ver el detalle completo de un proyecto (gráficos, tablas por dupla, alertas), elegí su pestaña arriba.</p>
+    </div>
 
-      <!-- Alertas -->
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-title">🚨 Situaciones urgentes (NNyA)</div>
-          <div id="nnya-content"><p style="font-size:12px;color:var(--gray);">Sin reportes.</p></div>
-        </div>
-        <div class="card">
-          <div class="card-title">📝 Observaciones de campo</div>
-          <div id="obs-content"><p style="font-size:12px;color:var(--gray);">Sin observaciones.</p></div>
-        </div>
-      </div>
-
-    </div><!-- /dashboard -->
   </div><!-- /main -->
+
+  <!-- MODAL DE FOTO — la captura de GeoTracker se ve adentro de la plataforma -->
+  <div id="foto-modal" class="foto-modal-overlay" onclick="if(event.target===this)DashboardEngine.cerrarFoto()">
+    <div class="foto-modal-box">
+      <button class="foto-modal-close" onclick="DashboardEngine.cerrarFoto()">✕</button>
+      <img id="foto-modal-img" src="" alt="Captura de GeoTracker">
+      <a id="foto-modal-link" href="#" target="_blank" class="foto-modal-fallback">¿No carga? Abrir en Drive →</a>
+    </div>
+  </div>
+
+  <!-- MODAL DE CALENDARIO -->
+  <div id="calendario-modal" class="foto-modal-overlay" onclick="if(event.target===this)DashboardEngine.cerrarCalendario()">
+    <div class="foto-modal-box calendario-modal-box">
+      <button class="foto-modal-close" onclick="DashboardEngine.cerrarCalendario()">✕</button>
+      <h3>📅 Calendario de salidas</h3>
+      <div id="calendario-content" class="mini-cal-row"></div>
+      <div class="mini-cal-legend">
+        <span><span class="mini-cal-dot" style="background:var(--blue);"></span> Fecha de salida</span>
+        <span><span class="mini-cal-dot" style="background:transparent;outline:2px solid var(--amber);outline-offset:-1px;"></span> Hoy</span>
+      </div>
+    </div>
+  </div>
 </div><!-- /app -->
 
-<script>
-const PWD_ADMIN='Camilo2016#', PWD_GOV='Censoflash2026#';
-let currentRole=null, charts={}, allData=null;
-
-function doLogin(){
-  const pwd=document.getElementById('pwd-input').value;
-  if(pwd===PWD_ADMIN){currentRole='admin';startApp();}
-  else if(pwd===PWD_GOV){currentRole='gov';startApp();}
-  else{document.getElementById('login-error').style.display='block';}
-}
-function startApp(){
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app').style.display='block';
-  document.getElementById('nav-user').textContent=currentRole==='admin'?'👤 Administrador':'🏛️ Gobierno CABA';
-  if(currentRole==='admin') document.getElementById('upload-section').style.display='block';
-  const saved=localStorage.getItem('censoflash_v3');
-  if(saved){allData=JSON.parse(saved);renderDashboard();}
-}
-function logout(){
-  currentRole=null;
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('app').style.display='none';
-  document.getElementById('pwd-input').value='';
-  document.getElementById('login-error').style.display='none';
-}
-
-// ── EXCEL READING ─────────────────────────────────────────────────────────────
-function readExcel(file){
-  return new Promise((res,rej)=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
-      try{
-        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
-        res(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{raw:false}));
-      }catch(err){rej(err);}
-    };
-    reader.onerror=rej;
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-function toDateStr(v){
-  if(!v) return '';
-  let d = v instanceof Date ? v : new Date(v);
-  if(isNaN(d.getTime())) return '';
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-
-function inRange(dateVal, desde, hasta){
-  const ds=toDateStr(dateVal);
-  if(!ds) return true;
-  if(desde && ds<desde) return false;
-  if(hasta && ds>hasta) return false;
-  return true;
-}
-
-// ── PROCESS ───────────────────────────────────────────────────────────────────
-async function processFiles(){
-  const fSheet=document.getElementById('file-sheet').files[0];
-  const fF1=document.getElementById('file-f1').files[0];
-  const fF2=document.getElementById('file-f2').files[0];
-  const inicio=document.getElementById('fecha-inicio').value;
-  const fin=document.getElementById('fecha-fin').value;
-  if(!fSheet&&!fF1&&!fF2){alert('Cargá al menos un archivo.');return;}
-  const st=document.getElementById('upload-status');
-  st.textContent='⏳ Procesando...';
-  try{
-    const raw={sheet:null,f1:null,f2:null,inicio,fin,loaded:new Date().toISOString()};
-    if(fSheet) raw.sheet=await readExcel(fSheet);
-    if(fF1)    raw.f1=await readExcel(fF1);
-    if(fF2)    raw.f2=await readExcel(fF2);
-    allData=buildData(raw);
-    localStorage.setItem('censoflash_v3',JSON.stringify(allData));
-    st.textContent='✅ '+allData.koboTotal+' personas · '+allData.koboRows.length+' puntos KoBo · '+allData.cierres.length+' cierres';
-    renderDashboard();
-  }catch(e){st.textContent='❌ '+e.message;console.error(e);}
-}
-
-const DUPLA_COMUNA={1:'C.1',2:'C.2',3:'C.2',4:'C.2',5:'C.14',6:'C.14',7:'C.14',8:'C.14',
-  9:'C.13',10:'C.13',11:'C.13',12:'C.13',13:'C.13',14:'C.13',
-  15:'C.12',16:'C.12',17:'C.12',18:'C.12',19:'C.12',20:'C.6'};
-const COMUNA_NOMBRE={'C.1':'Retiro','C.2':'Recoleta','C.13':'Belgrano/Núñez','C.14':'Palermo','C.12':'Villa Urquiza','C.6':'Caballito'};
-
-function buildData(raw){
-  const d={inicio:raw.inicio,fin:raw.fin,loaded:raw.loaded,cierres:[],koboRows:[]};
-  const sitMap={
-    'Durmiendo/sentado':'Durmiendo/sentado','Circulando/Moviéndose':'Circulando/moviéndose',
-    'Cocinando/Comiendo':'Cocinando/comiendo',
-    'Vendiendo o mendigando (en puerta de comercio, en semaforo, en la vereda, etc)':'Vendiendo o mendigando',
-    'Recolectando en tacho de basura':'Recolectando en tacho',
-    4:'Durmiendo/sentado',5:'Cocinando/comiendo',6:'Circulando/moviéndose',
-    7:'Vendiendo o mendigando',8:'Recolectando en tacho',9:'Otro',
-    '4':'Durmiendo/sentado','5':'Cocinando/comiendo','6':'Circulando/moviéndose',
-    '7':'Vendiendo o mendigando','8':'Recolectando en tacho','9':'Otro',
-  };
-
-  // CIERRES
-  if(raw.sheet) d.cierres=raw.sheet.map(r=>({
-    dupla:String(r['Dupla']||r['dupla']||'').trim(),
-    responsable:r['Responsable']||r['responsable']||'—',
-    inicio:r['Inicio']||r['inicio']||'—',
-    cierre:r['Cierre']||r['cierre']||'—',
-    tiempo:r['Tiempo total']||r['tiempo_total']||'—',
-    registros:parseInt(r['Registros']||r['registros']||0)||0,
-    clima:r['Clima']||r['clima']||'—',
-    inconvenientes:r['Inconvenientes']||r['inconvenientes']||'Ninguno',
-    eventos:r['Eventos']||r['eventos']||'Ninguno',
-    situaciones:String(r['Situaciones']||r['situaciones']||''),
-    observaciones:String(r['Observaciones']||r['observaciones']||''),
-    _fecha:toDateStr(r['Timestamp']||r['Dia']||r['dia']||''),
-  }));
-
-  // KOBO F1 — Flash 1 = duplas 11-20
-  if(raw.f1) raw.f1.forEach(r=>{
-    if(!inRange(r['start'],raw.inicio,raw.fin)) return;
-    let pers=parseInt(r['cant_pers']||0)||0;
-    if(pers<=0){
-      for(const key of Object.keys(r)){
-        if(key.toLowerCase().includes('cant') && key.toLowerCase().includes('pers')){
-          pers=parseInt(r[key]||0)||0; if(pers>0) break;
-        }
-      }
-    }
-    if(pers<=0) return;
-    const sit=sitMap[r['sit_calle']]||r['sit_calle']||'Otro';
-    const hora=r['start']?new Date(r['start']).getHours():null;
-    const fecha=toDateStr(r['start']);
-    // Assign dupla from username/DNI — approximate by assuming F1 covers 11-20
-    // Use username to get dupla number if available
-    const user=String(r['username']||r['_submitted_by']||'');
-    const dupla=parseInt(user.replace(/\D/g,''))||0;
-    d.koboRows.push({personas:pers,situacion:sit,hora,fecha,formulario:'F1',dupla:dupla||null,_fecha:fecha});
-  });
-
-  // KOBO F2 — Flash 2 = duplas 01-10
-  if(raw.f2) raw.f2.forEach(r=>{
-    if(!inRange(r['start'],raw.inicio,raw.fin)) return;
-    // F2 has a long column name with special chars - try multiple keys
-    let pers=0;
-    for(const key of Object.keys(r)){
-      if(key.toLowerCase().includes('cantidad') || key.toLowerCase().includes('personas')){
-        const v=parseInt(r[key]||0)||0;
-        if(v>0){pers=v;break;}
-      }
-    }
-    if(pers<=0) return;
-    const hora=r['start']?new Date(r['start']).getHours():null;
-    const fecha=toDateStr(r['start']);
-    const user=String(r['username']||r['_submitted_by']||'');
-    const dupla=parseInt(user.replace(/\D/g,''))||0;
-    d.koboRows.push({personas:pers,situacion:'—',hora,fecha,formulario:'F2',dupla:dupla||null,_fecha:fecha});
-  });
-
-  d.koboTotal=d.koboRows.reduce((a,r)=>a+r.personas,0);
-  return d;
-}
-
-// ── RENDER ────────────────────────────────────────────────────────────────────
-function renderDashboard(){
-  if(!allData) return;
-  document.getElementById('no-data').style.display='none';
-  document.getElementById('dashboard').style.display='block';
-  if(allData.inicio) document.getElementById('filter-desde').value=allData.inicio;
-  if(allData.fin)    document.getElementById('filter-hasta').value=allData.fin;
-  document.getElementById('banner-sub').textContent=
-    'Operativo del '+fmtDate(allData.inicio)+' al '+fmtDate(allData.fin)+' · Flash 1 + Flash 2';
-  document.getElementById('last-update').textContent='Actualizado: '+new Date(allData.loaded).toLocaleString('es-AR');
-  renderWithData(allData.cierres, allData.koboRows);
-}
-
-function fmtDate(d){
-  if(!d) return '—';
-  const [y,m,day]=d.split('-');
-  return `${parseInt(day)}/${parseInt(m)}/${y}`;
-}
-
-function applyFilter(){
-  if(!allData) return;
-  const desde=document.getElementById('filter-desde').value;
-  const hasta=document.getElementById('filter-hasta').value;
-  if(!desde&&!hasta){clearFilter();return;}
-  const rows=allData.koboRows.filter(r=>inRange(r._fecha,desde,hasta));
-  const cierres=allData.cierres.filter(r=>inRange(r._fecha,desde,hasta)||!r._fecha);
-  const total=rows.reduce((a,r)=>a+r.personas,0);
-  document.getElementById('filter-info').textContent=
-    `${total.toLocaleString('es-AR')} personas · ${rows.length} puntos · ${cierres.length} cierres`;
-  renderWithData(cierres, rows);
-}
-
-function clearFilter(){
-  document.getElementById('filter-desde').value=allData?.inicio||'';
-  document.getElementById('filter-hasta').value=allData?.fin||'';
-  document.getElementById('filter-info').textContent='';
-  if(allData) renderWithData(allData.cierres, allData.koboRows);
-}
-
-function renderWithData(cierres, rows){
-  const total=rows.reduce((a,r)=>a+r.personas,0);
-  const puntos=rows.length;
-  const fechas=new Set(rows.map(r=>r.fecha).filter(Boolean));
-  const nnya=cierres.filter(r=>r.situaciones&&r.situaciones.toLowerCase().match(/niño|menor|bebé|bebe|nnya/)).length;
-  const incidentes=cierres.filter(r=>r.inconvenientes&&r.inconvenientes!=='Ninguno'&&r.inconvenientes.length>2).length;
-
-  document.getElementById('m-personas').textContent=total.toLocaleString('es-AR');
-  document.getElementById('m-puntos').textContent=puntos.toLocaleString('es-AR');
-  document.getElementById('m-noches').textContent=fechas.size;
-  document.getElementById('m-nnya').textContent=nnya;
-  document.getElementById('m-duplas').textContent=new Set(cierres.map(r=>r.dupla)).size;
-  document.getElementById('m-reg-sheet').textContent=cierres.reduce((a,r)=>a+r.registros,0).toLocaleString('es-AR');
-  document.getElementById('m-incidentes').textContent=incidentes;
-
-  // Tiempo promedio
-  const tiempos=cierres.map(r=>r.tiempo).filter(t=>t&&t.includes(':'));
-  if(tiempos.length){
-    const mins=tiempos.map(t=>{const p=t.split(':');return parseInt(p[0])*60+parseInt(p[1]);});
-    const avg=Math.round(mins.reduce((a,b)=>a+b,0)/mins.length);
-    document.getElementById('m-tiempo').textContent=`${Math.floor(avg/60)}h ${avg%60}m`;
-  }
-
-  renderKoboCharts(rows);
-  renderTablaPoligono(rows, cierres);
-  renderTablaDuplas(cierres, rows);
-  renderAlertas(cierres);
-}
-
-function renderKoboCharts(rows){
-  const clrs=['#185FA5','#1D9E75','#BA7517','#888780','#D4537E','#534AB7','#059669'];
-  const font={family:'Montserrat',size:9};
-  const base={responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+' personas'}}},
-    scales:{x:{grid:{display:false},ticks:{font,color:'#6b7280'}},y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{font,color:'#6b7280'}}}};
-  Object.values(charts).forEach(c=>c.destroy()); charts={};
-
-  // Por día
-  const byDia={};
-  rows.forEach(r=>{if(r.fecha) byDia[r.fecha]=(byDia[r.fecha]||0)+r.personas;});
-  const diaKeys=Object.keys(byDia).sort();
-  charts.dia=new Chart(document.getElementById('diaChart'),{type:'bar',
-    data:{labels:diaKeys.map(d=>fmtDate(d)),datasets:[{data:diaKeys.map(k=>byDia[k]),backgroundColor:['#185FA5','#1D9E75','#BA7517'],borderRadius:4,borderSkipped:false}]},
-    options:base});
-
-  // Por hora
-  const byHora={};
-  rows.forEach(r=>{if(r.hora!==null) byHora[r.hora]=(byHora[r.hora]||0)+r.personas;});
-  const horaKeys=Object.keys(byHora).map(Number).sort((a,b)=>(a<8?a+24:a)-(b<8?b+24:b));
-  charts.hora=new Chart(document.getElementById('horaChart'),{type:'bar',
-    data:{labels:horaKeys.map(h=>h+'hs'),datasets:[{data:horaKeys.map(h=>byHora[h]||0),backgroundColor:'#378ADD',borderRadius:4,borderSkipped:false}]},
-    options:base});
-
-  // Por situación
-  const bySit={};
-  rows.forEach(r=>{if(r.situacion&&r.situacion!=='—') bySit[r.situacion]=(bySit[r.situacion]||0)+r.personas;});
-  const sitKeys=Object.keys(bySit).sort((a,b)=>bySit[b]-bySit[a]);
-  charts.sit=new Chart(document.getElementById('sitChart'),{type:'bar',
-    data:{labels:sitKeys.map(s=>s.replace('Vendiendo o mendigando','Vendiendo').replace('Circulando/moviéndose','Circulando').replace('Recolectando en tacho','Recolectando')),
-          datasets:[{data:sitKeys.map(k=>bySit[k]),backgroundColor:clrs,borderRadius:4,borderSkipped:false}]},
-    options:base});
-
-  // Por polígono
-  const byPoli={};
-  rows.forEach(r=>{if(r.formulario) byPoli[r.formulario]=(byPoli[r.formulario]||0)+r.personas;});
-
-  // Por comuna — use cierres registros as proxy since we can't geolocate in browser
-  const cOrder=['C.2','C.13','C.14','C.12','C.6','C.1'];
-  // Pre-calculated from our analysis
-  const comunaVals=[222,198,207,76,52,150];
-  charts.comuna=new Chart(document.getElementById('comunaChart'),{type:'bar',
-    data:{labels:cOrder,datasets:[{data:comunaVals,backgroundColor:clrs,borderRadius:4,borderSkipped:false}]},
-    options:{...base,plugins:{...base.plugins,tooltip:{callbacks:{label:c=>c.parsed.y+' personas'}}}}});
-
-  // Por polígono (F1+F2 split)
-  const f1Total=rows.filter(r=>r.formulario==='F1').reduce((a,r)=>a+r.personas,0);
-  const f2Total=rows.filter(r=>r.formulario==='F2').reduce((a,r)=>a+r.personas,0);
-  charts.poligono=new Chart(document.getElementById('poligonoChart'),{type:'bar',
-    data:{
-      labels:['Flash 2\n(D01–D10)','Flash 1\n(D11–D20)'],
-      datasets:[{data:[f2Total,f1Total],backgroundColor:['#185FA5','#1D9E75'],borderRadius:6,borderSkipped:false}]
-    },
-    options:{...base,plugins:{...base.plugins,tooltip:{callbacks:{label:c=>c.parsed.y+' personas'}}}}});
-}
-
-function renderTablaPoligono(rows, cierres){
-  const tbody=document.getElementById('poligono-tbody');
-  tbody.innerHTML='';
-  const f1rows=rows.filter(r=>r.formulario==='F1');
-  const f2rows=rows.filter(r=>r.formulario==='F2');
-
-  // Group cierres by dupla
-  const byDupla={};
-  cierres.forEach(r=>{
-    if(!byDupla[r.dupla]) byDupla[r.dupla]={responsable:r.responsable,registros:0};
-    byDupla[r.dupla].registros+=r.registros;
-  });
-
-  // Pre-calculated personas per dupla from our Python analysis
-  const personasPorDupla={1:150,2:45,3:135,4:42,5:46,6:31,7:87,8:43,9:17,10:28,
-    11:50,12:27,13:31,14:45,15:22,16:13,17:23,18:11,19:7,20:52};
-
-  let totalPers=0, totalPts=0;
-  for(let i=1;i<=20;i++){
-    const d=byDupla[String(i)]||{responsable:'—',registros:0};
-    const pers=personasPorDupla[i]||0;
-    const pts=d.registros||0;
-    const prom=pts>0?(pers/pts).toFixed(1):'—';
-    const comuna=DUPLA_COMUNA[i]||'—';
-    const comunaNombre=COMUNA_NOMBRE[comuna]||'—';
-    totalPers+=pers; totalPts+=pts;
-    tbody.innerHTML+=`<tr>
-      <td><b>Polígono ${String(i).padStart(2,'0')}</b></td>
-      <td>Dupla ${String(i).padStart(2,'0')}</td>
-      <td>${comuna} — ${comunaNombre}</td>
-      <td><b>${pers}</b></td>
-      <td>${pts}</td>
-      <td>${prom}</td>
-    </tr>`;
-  }
-  tbody.innerHTML+=`<tr class="total-row-dark">
-    <td colspan="3"><b>TOTAL</b></td>
-    <td><b>${totalPers}</b></td>
-    <td><b>${totalPts}</b></td>
-    <td><b>${(totalPers/totalPts).toFixed(1)}</b></td>
-  </tr>`;
-}
-
-function renderTablaDuplas(cierres, rows){
-  const f1Pers=rows.filter(r=>r.formulario==='F1').reduce((a,r)=>a+r.personas,0);
-  const f2Pers=rows.filter(r=>r.formulario==='F2').reduce((a,r)=>a+r.personas,0);
-  const personasPorDupla={1:150,2:45,3:135,4:42,5:46,6:31,7:87,8:43,9:17,10:28,
-    11:50,12:27,13:31,14:45,15:22,16:13,17:23,18:11,19:7,20:52};
-
-  const tbody=document.getElementById('duplas-tbody');
-  tbody.innerHTML='';
-  const sorted=[...cierres].sort((a,b)=>parseInt(a.dupla)-parseInt(b.dupla));
-  let totalSheet=0;
-  sorted.forEach(r=>{
-    const num=parseInt(r.dupla);
-    const pers=personasPorDupla[num]||'—';
-    const kb=r.clima==='Despejado'?'bg':r.clima.match&&r.clima.match(/tormenta|intenso/i)?'br':'ba';
-    const ib=(!r.inconvenientes||r.inconvenientes==='Ninguno')?'bg':'ba';
-    totalSheet+=r.registros||0;
-    tbody.innerHTML+=`<tr>
-      <td><b>D${String(r.dupla).padStart(2,'0')}</b></td>
-      <td>${r.responsable}</td>
-      <td>${r.inicio}</td><td>${r.cierre}</td><td>${r.tiempo}</td>
-      <td><b>${r.registros}</b></td>
-      <td><b>${pers}</b></td>
-      <td><span class="badge ${kb}">${r.clima}</span></td>
-      <td><span class="badge ${ib}">${r.inconvenientes}</span></td>
-    </tr>`;
-  });
-  tbody.innerHTML+=`<tr class="total-row"><td colspan="5"><b>TOTAL</b></td><td><b>${totalSheet}</b></td><td><b>${rows.reduce((a,r)=>a+r.personas,0)}</b></td><td colspan="2"></td></tr>`;
-}
-
-function renderAlertas(cierres){
-  const an=cierres.filter(r=>r.situaciones&&r.situaciones.length>3&&!r.situaciones.match(/^(no|ninguno|nada|nan|sin)$/i));
-  const ao=cierres.filter(r=>r.observaciones&&r.observaciones.length>5&&!r.observaciones.match(/^(ninguno|nada|sin|ok|nan|no)$/i));
-  document.getElementById('nnya-content').innerHTML=an.length?
-    an.map(r=>`<div class="alert-item"><b>Dupla ${String(r.dupla).padStart(2,'0')}:</b> ${r.situaciones}</div>`).join(''):
-    '<p style="font-size:12px;color:var(--gray);">Sin reportes de NNyA.</p>';
-  document.getElementById('obs-content').innerHTML=ao.length?
-    ao.map(r=>`<div class="obs-item"><b>Dupla ${String(r.dupla).padStart(2,'0')}:</b> ${r.observaciones}</div>`).join(''):
-    '<p style="font-size:12px;color:var(--gray);">Sin observaciones.</p>';
-}
-
-const KOBO_TOKEN = '685fc2e5a79995c816b2652530a9fc520387a630';
-const KOBO_F1_ID = 'aH2SygyBTRCkqCgBtu4m3R';
-const KOBO_F2_ID = 'aPou2eJThDtn45mdmfrbaA';
-const KOBO_BASE  = 'https://kf.kobotoolbox.org/api/v2/assets';
-
-function toggleModo(){
-  const modo = document.getElementById('modo-carga').value;
-  document.getElementById('modo-api').style.display    = modo==='api'    ? 'flex' : 'none';
-  document.getElementById('modo-archivo').style.display = modo==='archivo' ? 'flex' : 'none';
-}
-
-async function fetchKoboAll(assetId){
-  let results = [], next = `${KOBO_BASE}/${assetId}/data/?format=json&limit=3000`;
-  while(next){
-    const resp = await fetch(next, {headers:{'Authorization':`Token ${KOBO_TOKEN}`}});
-    if(!resp.ok) throw new Error(`KoBo error ${resp.status} en ${assetId}`);
-    const data = await resp.json();
-    results = results.concat(data.results || []);
-    next = data.next || null;
-  }
-  return results;
-}
-
-async function loadFromAPI(){
-  const inicio = document.getElementById('fecha-inicio').value;
-  const fin    = document.getElementById('fecha-fin').value;
-  const fSheet = document.getElementById('file-sheet-api').files[0];
-  const st = document.getElementById('upload-status');
-
-  if(!inicio || !fin){ alert('Seleccioná fecha inicio y fin.'); return; }
-
-  st.textContent = '⏳ Conectando a KoBo...';
-
-  try {
-    // Load KoBo data
-    st.textContent = '⏳ Descargando Flash 1...';
-    const f1raw = await fetchKoboAll(KOBO_F1_ID);
-    st.textContent = '⏳ Descargando Flash 2...';
-    const f2raw = await fetchKoboAll(KOBO_F2_ID);
-    st.textContent = `⏳ Flash 1: ${f1raw.length} registros · Flash 2: ${f2raw.length} registros · Procesando...`;
-
-    // Convert KoBo API response to same format as Excel
-    const f1 = f1raw.map(r => ({
-      'start': r.start || r._submission_time,
-      'cant_pers': r.cant_pers || r['Cantidad de personas'] || 0,
-      'sit_calle': r.sit_calle || '',
-      '_geo_punto_latitude': r._geo_punto_latitude || (r.geo_punto||'').split(' ')[0] || 0,
-      '_geo_punto_longitude': r._geo_punto_longitude || (r.geo_punto||'').split(' ')[1] || 0,
-      'NNyA_observa': r.NNyA_observa || '',
-      'username': r._submitted_by || '',
-    }));
-
-    const f2 = f2raw.map(r => {
-      // Find personas column flexibly
-      let pers = 0;
-      for(const k of Object.keys(r)){
-        if(k.toLowerCase().includes('cantidad') || (k.toLowerCase().includes('person') && !k.toLowerCase().includes('_by'))){
-          const v = parseInt(r[k]||0)||0;
-          if(v>0){pers=v;break;}
-        }
-      }
-      const latKey = Object.keys(r).find(k=>k.includes('latitude'))||'';
-      const lonKey = Object.keys(r).find(k=>k.includes('longitude'))||'';
-      return {
-        'start': r.start || r._submission_time,
-        'Cantidad de personas en situación de calle observadas': pers,
-        '_Georreferenciación del punto_latitude': latKey ? parseFloat(r[latKey]||0) : 0,
-        '_Georreferenciación del punto_longitude': lonKey ? parseFloat(r[lonKey]||0) : 0,
-        'Se observan niños/as en el lugar': r['Se_observan_ninos_as_en_el_lugar'] || r['NNyA_observa'] || '',
-        'username': r._submitted_by || '',
-      };
-    });
-
-    // Load sheet if provided
-    let sheetData = null;
-    if(fSheet) sheetData = await readExcel(fSheet);
-
-    const raw = {sheet: sheetData, f1, f2, inicio, fin, loaded: new Date().toISOString()};
-    allData = buildData(raw);
-    localStorage.setItem('censoflash_v3', JSON.stringify(allData));
-    st.textContent = `✅ KoBo: ${allData.koboTotal} personas · ${allData.koboRows.length} puntos · ${allData.cierres.length} cierres`;
-    renderDashboard();
-
-  } catch(e) {
-    st.textContent = '❌ Error: ' + e.message;
-    console.error(e);
-  }
-}
-
-</script>
+<script src="./config/platform.js"></script>
+<script src="./config/censo-flash.js"></script>
+<script src="./config/umbral-0.js"></script>
+<script src="./config/projects.js"></script>
+<script src="./shared/js/dashboard-engine.js"></script>
 </body>
 </html>

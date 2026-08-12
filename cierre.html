@@ -26,7 +26,7 @@
   .nav-title { color:rgba(255,255,255,0.5); font-size:0.75rem; }
 
   .cover {
-    background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,#1a56db 100%);
+    background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%);
     color:white; padding:30px 24px; text-align:center;
   }
   .cover h1 { font-family:'Sora',sans-serif; font-size:1.4rem; font-weight:800; margin-bottom:4px; }
@@ -97,7 +97,7 @@
 <body>
 
 <nav class="nav">
-  <a class="back-btn" id="back-link" href="/">← Volver</a>
+  <a class="back-btn" id="back-link" href="./index.html">← Volver</a>
   <span class="nav-title">Cierre del operativo</span>
 </nav>
 
@@ -126,11 +126,11 @@
         <div class="form-row">
           <div class="form-field">
             <label>🕐 Hora de inicio</label>
-            <input type="time" id="f_inicio" onchange="calcTime()">
+            <input type="time" id="f_inicio" onchange="CierreForm.calcTime()">
           </div>
           <div class="form-field">
             <label>🕐 Hora de cierre</label>
-            <input type="time" id="f_cierre" onchange="calcTime()">
+            <input type="time" id="f_cierre" onchange="CierreForm.calcTime()">
           </div>
         </div>
         <div class="form-field full" id="tiempo-wrap" style="display:none;">
@@ -198,7 +198,7 @@
         <div class="foto-zone-icon">📸</div>
         <div class="foto-zone-title">Adjuntá la captura de GeoTracker</div>
         <div class="foto-zone-sub">GeoTracker → tocá el recorrido → mapa → captura de pantalla</div>
-        <input type="file" id="f_foto" accept="image/*" style="display:none;" onchange="previewFoto(this)">
+        <input type="file" id="f_foto" accept="image/*" style="display:none;" onchange="CierreForm.previewFoto(this)">
         <button class="foto-sel-btn" onclick="document.getElementById('f_foto').click()">📂 Seleccionar imagen</button>
         <div id="foto-preview">
           <img id="foto-img">
@@ -207,7 +207,7 @@
       </div>
     </div>
 
-    <button class="submit-btn" id="submit-btn" onclick="enviar()">
+    <button class="submit-btn" id="submit-btn" onclick="CierreForm.enviar()">
       📤 Enviar cierre del operativo
     </button>
     <div class="alert-green">
@@ -224,132 +224,10 @@
 
 </div>
 
+<script src="./config/censo-flash.js"></script>
+<script src="./shared/js/cierre-form.js"></script>
 <script>
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyqqp7fEA-A0jAtMHr7x5KaWkkxQzQ7EJVdGcC7l4PQPN2wTpEyVssTnji8-skojO1Esg/exec';
-
-function getDuplaId() {
-  return new URLSearchParams(window.location.search).get('dupla') || '??';
-}
-
-function calcTime() {
-  const ini = document.getElementById('f_inicio').value;
-  const fin = document.getElementById('f_cierre').value;
-  if (!ini || !fin) return;
-  const [h1,m1] = ini.split(':').map(Number);
-  const [h2,m2] = fin.split(':').map(Number);
-  let mins = (h2*60+m2) - (h1*60+m1);
-  if (mins < 0) mins += 1440;
-  const hh = String(Math.floor(mins/60)).padStart(2,'0');
-  const mm = String(mins%60).padStart(2,'0');
-  document.getElementById('f_tiempo').value = hh + ':' + mm + ' hs';
-  document.getElementById('tiempo-wrap').style.display = 'block';
-}
-
-function previewFoto(input) {
-  if (!input.files[0]) return;
-  const file = input.files[0];
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      // Compress to max 800px width, quality 0.6
-      const canvas = document.createElement('canvas');
-      const maxW = 800;
-      const scale = img.width > maxW ? maxW / img.width : 1;
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const compressed = canvas.toDataURL('image/jpeg', 0.6);
-      // Store compressed version for upload
-      window._fotoComprimida = compressed;
-      document.getElementById('foto-img').src = compressed;
-      document.getElementById('foto-preview').style.display = 'block';
-      const kb = Math.round(compressed.length * 0.75 / 1024);
-      document.querySelector('.foto-ok').textContent = '✓ Imagen lista (' + kb + ' KB)';
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-async function enviar() {
-  const dupla       = getDuplaId();
-  const dia         = document.getElementById('f_dia').value;
-  const responsable = document.getElementById('f_responsable').value;
-  const inicio      = document.getElementById('f_inicio').value;
-  const cierre      = document.getElementById('f_cierre').value;
-  const tiempo      = document.getElementById('f_tiempo').value || '';
-  const registros   = document.getElementById('f_registros').value;
-  const inconvenientes = document.getElementById('f_inconvenientes').value;
-  const clima       = document.getElementById('f_clima').value;
-  const eventos     = document.getElementById('f_eventos').value;
-  const situaciones = document.getElementById('f_situaciones').value;
-  const observaciones = document.getElementById('f_observaciones').value;
-  const fotoFile    = document.getElementById('f_foto').files[0];
-
-  if (!dia || !responsable || !inicio || !cierre || !registros) {
-    alert('Por favor completá fecha, responsable, horarios y cantidad de registros.');
-    return;
-  }
-
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.innerHTML = '⏳ Enviando...';
-
-  let fotoBase64 = 'Sin captura';
-  if (fotoFile && window._fotoComprimida) {
-    fotoBase64 = window._fotoComprimida;
-  } else if (fotoFile) {
-    fotoBase64 = await new Promise(resolve => {
-      const img = new Image();
-      const reader = new FileReader();
-      reader.onload = e => {
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const maxW = 800;
-          const scale = img.width > maxW ? maxW / img.width : 1;
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL('image/jpeg', 0.6));
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(fotoFile);
-    });
-  }
-
-  const payload = {
-    dupla, dia, responsable,
-    horario_inicio: inicio, horario_cierre: cierre, tiempo_total: tiempo,
-    registros, inconvenientes, clima, eventos, situaciones, observaciones,
-    foto: fotoBase64
-  };
-
-  try {
-    await fetch(SHEET_URL, {
-      method:'POST', mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
-    document.getElementById('form-area').style.display = 'none';
-    document.getElementById('status').style.display = 'block';
-    window.scrollTo(0,0);
-  } catch(e) {
-    btn.disabled = false;
-    btn.innerHTML = '📤 Enviar cierre del operativo';
-    alert('Error al enviar. Verificá tu conexión e intentá nuevamente.');
-  }
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  const dupla = getDuplaId();
-  document.getElementById('cover-dupla').textContent = 'Dupla ' + dupla;
-  document.getElementById('back-link').href = '/?dupla=' + dupla;
-  // Set today's date as default
-  document.getElementById('f_dia').value = new Date().toISOString().split('T')[0];
-});
+  CierreForm.init();
 </script>
 </body>
 </html>
