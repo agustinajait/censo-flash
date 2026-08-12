@@ -435,8 +435,19 @@ function normDupla(x){
 }
 
 // ── PARSEO DE CIERRES (Sheet — mismo formato para todos los proyectos) ──
+// Normalmente la celda "Foto" tiene un solo link de Drive, pero a veces se
+// carga más de uno a mano en la misma celda (separados por coma, espacio o
+// salto de línea — Alt+Enter en Sheets). En vez de depender de un separador
+// fijo, sacamos TODAS las URLs http(s) que encontremos en el texto de la
+// celda, venga como venga separado.
+function extractFotoUrls(raw){
+  const matches = String(raw||'').match(/https?:\/\/[^\s,;]+/g);
+  return matches || [];
+}
+
 function parseCierreRow(r){
   const duplaRaw = r['Dupla']||r['dupla']||'';
+  const fotoRaw = r['Foto']||r['foto']||'';
   return {
     dupla: normDupla(duplaRaw) || String(duplaRaw).trim(),
     poligono: r['Polígono']||r['Poligono']||r['poligono']||'—',
@@ -450,7 +461,8 @@ function parseCierreRow(r){
     eventos: r['Eventos']||r['eventos']||'Ninguno',
     situaciones: String(r['Situaciones']||r['situaciones']||''),
     observaciones: String(r['Observaciones']||r['observaciones']||''),
-    foto: String(r['Foto']||r['foto']||''),
+    foto: String(fotoRaw), // se mantiene por compatibilidad, ya no se usa para renderizar
+    fotos: extractFotoUrls(fotoRaw), // 0, 1 o más URLs — la tabla muestra un botón por cada una
     _fecha: toDateStr(r['Timestamp']||r['Dia']||r['dia']||''),
   };
 }
@@ -828,10 +840,20 @@ function renderTablaDuplas(project, cierres, rows){
     const kb = r.clima==='Despejado' ? 'bg' : (r.clima && r.clima.match && r.clima.match(/tormenta|intenso/i)) ? 'br' : 'ba';
     const ib = (!r.inconvenientes || r.inconvenientes==='Ninguno') ? 'bg' : 'ba';
     const eb = (!r.eventos || r.eventos==='Ninguno') ? 'bg' : 'ba';
-    const fotoUrl = /^https?:\/\//i.test(r.foto||'') ? r.foto : null;
-    const fotoCell = fotoUrl
-      ? `<button type="button" class="open-btn foto-ver-btn" data-foto="${esc(fotoUrl)}" style="padding:3px 9px;font-size:9px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;">📸 Ver</button>`
-      : `<span class="badge bgr">Sin captura</span>`;
+    // 0 fotos: "Sin captura". 1 foto: mismo botón "📸 Ver" de siempre. 2+
+    // fotos (algunas duplas cargan más de un link en la misma celda): un
+    // botón numerado por cada una, todas abren el mismo modal de siempre.
+    const fotos = r.fotos && r.fotos.length ? r.fotos : [];
+    let fotoCell;
+    if(!fotos.length){
+      fotoCell = `<span class="badge bgr">Sin captura</span>`;
+    } else if(fotos.length === 1){
+      fotoCell = `<button type="button" class="open-btn foto-ver-btn" data-foto="${esc(fotos[0])}" style="padding:3px 9px;font-size:9px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;">📸 Ver</button>`;
+    } else {
+      fotoCell = '<div style="display:flex;gap:3px;flex-wrap:wrap;">' + fotos.map((u,i)=>
+        `<button type="button" class="open-btn foto-ver-btn" data-foto="${esc(u)}" style="padding:3px 7px;font-size:9px;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;">📸 ${i+1}</button>`
+      ).join('') + '</div>';
+    }
     totalSheet += r.registros || 0;
     tbody.innerHTML += `<tr>
       <td><b>D${esc(id || r.dupla)}</b></td>
