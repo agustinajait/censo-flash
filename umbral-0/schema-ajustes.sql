@@ -18,3 +18,61 @@ alter table public.personas
   add column if not exists situacion_sanitaria text,
   add column if not exists redes_contencion text,
   add column if not exists situacion_educativa text;
+
+-- 2026-08-12: soporte para "Crear acceso" en admin-duplas.html — un botón
+-- por dupla que da de alta su login (email inventado tipo u01@umbral0.app +
+-- contraseña que elige quien administra) sin pasar por el dashboard de
+-- Supabase a mano. Ver DISENO-CASOS.md §1 y shared/js/supabase-client.js
+-- (función crearCuenta).
+--
+-- 1) Guardamos el email en `perfiles` porque el cliente (anon key) no puede
+--    leer auth.users para mostrar "esta dupla ya tiene cuenta: fulano@...".
+alter table public.perfiles
+  add column if not exists email text;
+
+-- 2) RLS: admin/coordinacion necesitan poder ver TODOS los perfiles (para
+--    saber qué duplas ya tienen acceso creado) e insertar/actualizar el
+--    perfil de OTRA cuenta (la que se acaba de crear con signUp). Sin esto,
+--    "Crear acceso" falla con un error de permisos al guardar en `perfiles`.
+--    Es seguro re-correr (drop + create).
+drop policy if exists "perfiles_admin_select_todos" on public.perfiles;
+create policy "perfiles_admin_select_todos" on public.perfiles
+  for select
+  using (
+    auth.uid() = id
+    or exists (
+      select 1 from public.perfiles yo
+      where yo.id = auth.uid() and yo.rol in ('admin', 'coordinacion')
+    )
+  );
+
+drop policy if exists "perfiles_admin_insert" on public.perfiles;
+create policy "perfiles_admin_insert" on public.perfiles
+  for insert
+  with check (
+    auth.uid() = id
+    or exists (
+      select 1 from public.perfiles yo
+      where yo.id = auth.uid() and yo.rol in ('admin', 'coordinacion')
+    )
+  );
+
+drop policy if exists "perfiles_admin_update" on public.perfiles;
+create policy "perfiles_admin_update" on public.perfiles
+  for update
+  using (
+    auth.uid() = id
+    or exists (
+      select 1 from public.perfiles yo
+      where yo.id = auth.uid() and yo.rol in ('admin', 'coordinacion')
+    )
+  );
+
+-- IMPORTANTE — falta un paso que este SQL no puede hacer por vos:
+-- desactivar la confirmación por email en el proyecto de Supabase. Como los
+-- emails de las duplas son inventados (nadie los lee), si la confirmación
+-- sigue activa la cuenta queda creada pero NO puede loguearse hasta "click"
+-- en un mail que nunca va a llegar. Se desactiva en:
+-- Supabase Dashboard → Authentication → Sign In / Providers → Email →
+-- apagar "Confirm email" (o "Enable email confirmations", según la versión
+-- del dashboard). Es un toggle único para todo el proyecto, se hace una sola vez.

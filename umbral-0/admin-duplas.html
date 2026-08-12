@@ -66,6 +66,26 @@
   .footer-nav { display:flex; justify-content:center; gap:16px; margin-top:26px; }
   .footer-nav a { font-size:0.78rem; color:#94a3b8; text-decoration:none; }
   .footer-nav a:hover { color:var(--blue); }
+
+  /* ACCESO (login de la dupla) */
+  .acceso-box { border-top:1.5px dashed var(--border); margin-top:12px; padding-top:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .acceso-info { font-size:0.82rem; color:#334155; }
+  .acceso-info strong { font-family:'Sora',sans-serif; color:var(--navy); }
+  .acceso-badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; background:#d1fae5; color:#047857; margin-left:6px; }
+
+  /* MODAL (mismo patrón que casos.html) */
+  .modal-overlay { position:fixed; inset:0; background:rgba(15,31,61,0.55); display:none; align-items:flex-start; justify-content:center; overflow-y:auto; padding:30px 14px; z-index:200; }
+  .modal-overlay.show { display:flex; }
+  .modal-box { background:white; border-radius:16px; width:100%; max-width:440px; padding:22px; margin-bottom:30px; }
+  .modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .modal-title { font-family:'Sora',sans-serif; font-weight:800; font-size:1.05rem; color:var(--navy); }
+  .modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:#94a3b8; line-height:1; }
+  .modal-sub { font-size:0.8rem; color:#64748b; margin-bottom:16px; }
+  .modal-foot { display:flex; gap:8px; align-items:center; margin-top:16px; }
+  .modal-err { font-size:0.82rem; background:#fff1f2; border:1.5px solid #fca5a5; color:#991b1b; padding:9px 12px; border-radius:9px; margin-bottom:12px; display:none; }
+  .modal-err.show { display:block; }
+  .modal-ok { font-size:0.82rem; background:#f0fdf4; border:1.5px solid #86efac; color:#166534; padding:9px 12px; border-radius:9px; margin-bottom:12px; display:none; }
+  .modal-ok.show { display:block; }
 </style>
 </head>
 <body>
@@ -138,12 +158,18 @@
   </div>
 </div>
 
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
 <script src="../config/umbral-0.js"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
 
 let miPerfil = null;
+let perfilesPorDupla = {}; // dupla_id -> fila de `perfiles` (el login de esa dupla, si ya existe)
 
 function togglePwd(){
   const input = document.getElementById('login-pass');
@@ -206,7 +232,23 @@ async function boot(){
 }
 
 async function cargarTodo(){
-  await Promise.all([cargarDuplas(), cargarChoferes()]);
+  await Promise.all([cargarPerfilesPorDupla(), cargarDuplas(), cargarChoferes()]);
+}
+
+// ── ACCESOS (login de cada dupla) ─────────────────────────────────────────
+async function cargarPerfilesPorDupla(){
+  perfilesPorDupla = {};
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('perfiles').select('*').eq('rol', 'dupla');
+    if(error) throw error;
+    (data || []).forEach(p => { if(p.dupla_id) perfilesPorDupla[p.dupla_id] = p; });
+  }catch(e){
+    // Si todavía no está la política de RLS que permite ver perfiles ajenos
+    // (ver umbral-0/schema-ajustes.sql), simplemente no mostramos el estado
+    // del acceso — no bloquea el resto de la pantalla.
+    console.warn('No se pudo cargar perfiles por dupla:', e.message);
+  }
 }
 
 // ── DUPLAS ──────────────────────────────────────────────────────────────
@@ -245,9 +287,12 @@ function renderDuplaCard(d){
       <div data-role="integrantes"></div>
       <button class="mini-btn btn-outline" data-act="add-integrante">+ Agregar integrante</button>
     </div>
+    <div class="acceso-box" data-role="acceso"></div>
   `;
   const integrantesBox = card.querySelector('[data-role="integrantes"]');
   operadores.forEach(i => integrantesBox.appendChild(renderIntegranteRow(i)));
+
+  renderAccesoBox(card.querySelector('[data-role="acceso"]'), d);
 
   card.querySelector('[data-act="guardar"]').onclick = async () => {
     const fields = {};
@@ -269,6 +314,112 @@ function renderDuplaCard(d){
     integrantesBox.appendChild(renderIntegranteRow(nuevo));
   };
   return card;
+}
+
+// ── ACCESO (crear el login de la dupla) ───────────────────────────────────
+
+function emailSugerido(codigo){
+  const slug = String(codigo || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return (slug || 'dupla') + '@umbral0.app';
+}
+
+function renderAccesoBox(box, d){
+  const perfil = perfilesPorDupla[d.id];
+  if(perfil){
+    box.innerHTML = `
+      <div class="acceso-info">🔑 Acceso: <strong>${esc(perfil.email || '(sin email registrado)')}</strong><span class="acceso-badge">creado</span></div>
+      <span style="font-size:0.72rem;color:#94a3b8;">Para resetear la contraseña, hacelo desde el dashboard de Supabase (Authentication → Users).</span>
+    `;
+  }else{
+    box.innerHTML = `
+      <div class="acceso-info">🔒 Esta dupla todavía no tiene login para entrar a "Casos".</div>
+      <button class="mini-btn btn-blue" data-act="crear-acceso">🔑 Crear acceso</button>
+    `;
+    box.querySelector('[data-act="crear-acceso"]').onclick = () => abrirModalAcceso(d);
+  }
+}
+
+function abrirModalAcceso(d){
+  if(!d.codigo || !d.codigo.trim()){
+    alert('Completá y guardá el código de la dupla antes de crear su acceso (se usa para armar el email).');
+    return;
+  }
+  const email = emailSugerido(d.codigo);
+  const body = `
+    <div class="modal-sub">Se crea una cuenta de Supabase Auth para que <strong>${esc(d.codigo)}</strong> entre a "Casos" (ingreso, derivación, seguimiento). Es un email inventado, solo para loguearse — no recibe correo real.</div>
+    <div class="modal-err" id="acceso-err"></div>
+    <div class="modal-ok" id="acceso-ok"></div>
+    <form id="form-acceso" onsubmit="return false;">
+      <div class="form-field">
+        <label>Email de acceso</label>
+        <input type="email" id="f_acceso_email" value="${escAttr(email)}">
+      </div>
+      <div class="form-field">
+        <label>Contraseña</label>
+        <div class="pwd-wrap">
+          <input type="text" id="f_acceso_pass" placeholder="Elegí una contraseña (mínimo 6 caracteres)">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-blue" id="btn-crear-acceso">🔑 Crear acceso</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      </div>
+    </form>
+  `;
+  openModal('🔑 Crear acceso — ' + esc(d.codigo), body);
+  document.getElementById('btn-crear-acceso').onclick = () => guardarAcceso(d);
+}
+
+async function guardarAcceso(d){
+  const email = document.getElementById('f_acceso_email').value.trim();
+  const pass = document.getElementById('f_acceso_pass').value;
+  const btn = document.getElementById('btn-crear-acceso');
+  const errBox = document.getElementById('acceso-err');
+  const okBox = document.getElementById('acceso-ok');
+  errBox.classList.remove('show');
+  okBox.classList.remove('show');
+  if(!email || !pass){ errBox.textContent = 'Completá email y contraseña.'; errBox.classList.add('show'); return; }
+  if(pass.length < 6){ errBox.textContent = 'La contraseña tiene que tener al menos 6 caracteres.'; errBox.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = 'Creando…';
+  try{
+    const user = await SupabaseClient.crearCuenta(email, pass);
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('perfiles').upsert({
+      id: user.id,
+      rol: 'dupla',
+      dupla_id: d.id,
+      nombre: d.codigo,
+      email: email,
+    });
+    if(error) throw error;
+    okBox.textContent = `Cuenta creada. Pasale a la dupla: email "${email}" y la contraseña que elegiste — anotala ahora, no se vuelve a mostrar acá.`;
+    okBox.classList.add('show');
+    await cargarPerfilesPorDupla();
+    setTimeout(() => { closeModal(); cargarDuplas(); }, 3500);
+  }catch(e){
+    let msg = e.message || 'Error desconocido.';
+    if(/already registered|already exists/i.test(msg)) msg = 'Ese email ya tiene una cuenta creada en Supabase.';
+    errBox.textContent = 'No se pudo crear el acceso: ' + msg;
+    errBox.classList.add('show');
+  }finally{
+    btn.disabled = false; btn.textContent = '🔑 Crear acceso';
+  }
+}
+
+// ── MODAL genérico ──────────────────────────────────────────────────────
+function openModal(titulo, bodyHtml){
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-head">
+      <div class="modal-title">${titulo}</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    ${bodyHtml}
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('show');
+  document.getElementById('modal-box').innerHTML = '';
 }
 
 function renderIntegranteRow(i){
