@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Umbral 0 · Casos</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; --gray:#64748b; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; }
+
+  .topbar { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:18px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  .topbar h1 { font-family:'Sora',sans-serif; font-size:1.05rem; font-weight:800; }
+  .topbar .sub { font-size:0.74rem; opacity:0.7; }
+  .topbar-right { display:flex; align-items:center; gap:10px; font-size:0.8rem; }
+  .btn { border:none; border-radius:9px; padding:8px 16px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; cursor:pointer; }
+  .btn-blue { background:var(--blue); color:white; }
+  .btn-green { background:var(--green); color:white; }
+  .btn-red { background:var(--red); color:white; }
+  .btn-amber { background:var(--amber); color:white; }
+  .btn-ghost { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); color:white; }
+  .btn-outline { background:white; border:1.5px solid var(--border); color:var(--navy); }
+  .btn-sm { padding:6px 11px; font-size:0.74rem; border-radius:7px; }
+  .btn:disabled { opacity:0.5; cursor:default; }
+
+  .wrap { max-width:860px; margin:0 auto; padding:22px 18px 60px; }
+
+  /* LOGIN (igual patrón que admin-duplas.html) */
+  #login-screen { max-width:380px; margin:60px auto; padding:0 18px; }
+  .login-card { background:white; border-radius:16px; padding:28px 24px; border:1px solid var(--border); box-shadow:0 4px 18px rgba(15,31,61,0.08); }
+  .login-card h2 { font-family:'Sora',sans-serif; font-size:1.15rem; margin-bottom:4px; color:var(--navy); }
+  .login-card .sub { font-size:0.8rem; color:#64748b; margin-bottom:18px; }
+  .form-field { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+  .form-field label { font-size:0.72rem; font-weight:700; color:var(--navy); font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+  .form-field .hint { font-size:0.72rem; color:#94a3b8; font-weight:400; text-transform:none; letter-spacing:0; margin-top:-2px; }
+  .form-field input, .form-field select, .form-field textarea { border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; font-size:0.9rem; font-family:'DM Sans',sans-serif; color:#1e293b; background:#f8faff; outline:none; width:100%; }
+  .form-field textarea { resize:vertical; min-height:64px; }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color:var(--blue); background:white; }
+  .form-check { display:flex; align-items:center; gap:8px; }
+  .form-check input { width:auto; }
+  .form-check label { font-size:0.86rem; font-weight:500; color:#1e293b; text-transform:none; letter-spacing:0; font-family:'DM Sans',sans-serif; }
+  .pwd-wrap { position:relative; }
+  .pwd-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:0.85rem; padding:2px; }
+  .login-msg { font-size:0.82rem; padding:9px 12px; border-radius:9px; margin-bottom:12px; display:none; }
+  .login-msg.err { background:#fff1f2; border:1.5px solid #fca5a5; color:#991b1b; display:block; }
+  .login-full-btn { width:100%; padding:12px; margin-top:4px; }
+
+  .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media(max-width:560px){ .form-grid-2 { grid-template-columns:1fr; } }
+
+  #app-screen, #denied-screen { display:none; }
+  .denied-box { max-width:420px; margin:80px auto; text-align:center; padding:0 20px; }
+  .denied-box .emoji { font-size:2.4rem; margin-bottom:10px; }
+  .denied-box h2 { font-family:'Sora',sans-serif; color:var(--navy); margin-bottom:8px; }
+  .denied-box p { font-size:0.88rem; color:#64748b; margin-bottom:18px; }
+
+  /* BUSCAR */
+  .search-row { display:flex; gap:8px; margin-bottom:16px; }
+  .search-row input { flex:1; border:1.5px solid #cbd5e1; border-radius:10px; padding:11px 14px; font-size:0.92rem; font-family:'DM Sans',sans-serif; background:white; outline:none; }
+  .search-row input:focus { border-color:var(--blue); }
+  .section-label { font-family:'Sora',sans-serif; font-weight:800; font-size:1.02rem; color:var(--navy); margin:22px 0 12px; }
+  .empty-msg { font-size:0.84rem; color:#94a3b8; padding:20px; text-align:center; }
+
+  .persona-card { background:white; border-radius:12px; padding:13px 16px; margin-bottom:8px; border:1px solid var(--border); display:flex; align-items:center; gap:12px; cursor:pointer; transition:border-color .15s; }
+  .persona-card:hover { border-color:var(--blue); }
+  .persona-avatar { width:42px; height:42px; border-radius:50%; background:#e0ebff; color:var(--blue); display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-weight:800; font-size:1rem; flex-shrink:0; }
+  .persona-info { flex:1; min-width:0; }
+  .persona-nombre { font-family:'Sora',sans-serif; font-weight:700; font-size:0.92rem; color:var(--navy); }
+  .persona-sub { font-size:0.76rem; color:#64748b; margin-top:1px; }
+  .persona-badges { display:flex; gap:6px; flex-shrink:0; }
+
+  .badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; white-space:nowrap; }
+  .badge-gray { background:#f1f5f9; color:#475569; }
+  .badge-blue { background:#dbeafe; color:#1d4ed8; }
+  .badge-green { background:#d1fae5; color:#047857; }
+  .badge-amber { background:#fef3c7; color:#92400e; }
+  .badge-red { background:#fee2e2; color:#b91c1c; }
+
+  /* FICHA */
+  .ficha-header { background:white; border-radius:14px; padding:20px; margin-bottom:18px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); display:flex; gap:16px; }
+  .ficha-foto { width:76px; height:76px; border-radius:14px; background:#e0ebff; color:var(--blue); display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-weight:800; font-size:1.6rem; flex-shrink:0; overflow:hidden; }
+  .ficha-foto img { width:100%; height:100%; object-fit:cover; }
+  .ficha-main { flex:1; min-width:0; }
+  .ficha-nombre { font-family:'Sora',sans-serif; font-weight:800; font-size:1.2rem; color:var(--navy); }
+  .ficha-meta { font-size:0.82rem; color:#64748b; margin-top:3px; line-height:1.5; }
+  .ficha-badges { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+
+  .accion-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+
+  .timeline-item { background:white; border-radius:12px; padding:14px 16px; margin-bottom:10px; border:1px solid var(--border); border-left:4px solid var(--gray); }
+  .timeline-item.tl-intervencion { border-left-color:var(--blue); }
+  .timeline-item.tl-derivacion { border-left-color:var(--amber); }
+  .timeline-item.tl-seguimiento { border-left-color:var(--green); }
+  .tl-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
+  .tl-title { font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:var(--navy); }
+  .tl-fecha { font-size:0.72rem; color:#94a3b8; white-space:nowrap; }
+  .tl-body { font-size:0.86rem; color:#334155; line-height:1.5; white-space:pre-wrap; }
+  .tl-body dl { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; font-size:0.82rem; }
+  .tl-body dt { color:#64748b; font-weight:600; }
+  .tl-body dd { color:#1e293b; }
+  .tl-foot { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .tl-check { display:flex; align-items:center; gap:8px; font-size:0.86rem; }
+
+  /* MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(15,31,61,0.55); display:none; align-items:flex-start; justify-content:center; overflow-y:auto; padding:30px 14px; z-index:200; }
+  .modal-overlay.show { display:flex; }
+  .modal-box { background:white; border-radius:16px; width:100%; max-width:560px; padding:22px; margin-bottom:30px; }
+  .modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .modal-title { font-family:'Sora',sans-serif; font-weight:800; font-size:1.05rem; color:var(--navy); }
+  .modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:#94a3b8; line-height:1; }
+  .modal-foot { display:flex; gap:8px; align-items:center; margin-top:16px; }
+  .modal-err { font-size:0.82rem; background:#fff1f2; border:1.5px solid #fca5a5; color:#991b1b; padding:9px 12px; border-radius:9px; margin-bottom:12px; display:none; }
+  .modal-err.show { display:block; }
+  fieldset { border:none; padding:0; margin:0; }
+  legend { font-family:'Sora',sans-serif; font-weight:700; font-size:0.84rem; color:var(--navy); margin-bottom:8px; padding:0; }
+  details.form-section { border:1.5px dashed var(--border); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
+  details.form-section summary { font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; color:var(--gray); cursor:pointer; }
+  details.form-section[open] summary { margin-bottom:10px; }
+  .file-row { display:flex; align-items:center; gap:10px; }
+  .file-row input[type=file] { font-size:0.8rem; }
+
+  .footer-nav { display:flex; justify-content:center; gap:16px; margin-top:26px; flex-wrap:wrap; }
+  .footer-nav a { font-size:0.78rem; color:#94a3b8; text-decoration:none; }
+  .footer-nav a:hover { color:var(--blue); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <h2>🌒 Umbral 0</h2>
+    <div class="sub">Casos — ingreso, derivación y acompañamiento</div>
+    <div class="login-msg" id="login-error"></div>
+    <div class="form-field">
+      <label>Email</label>
+      <input type="email" id="login-email" autocomplete="username" placeholder="tu-email@ejemplo.org">
+    </div>
+    <div class="form-field">
+      <label>Contraseña</label>
+      <div class="pwd-wrap">
+        <input type="password" id="login-pass" autocomplete="current-password" placeholder="••••••••">
+        <button type="button" class="pwd-toggle" id="pwd-toggle-btn" onclick="togglePwd()">👁️</button>
+      </div>
+    </div>
+    <button class="btn btn-blue login-full-btn" id="login-btn" onclick="doLogin()">Ingresar</button>
+  </div>
+  <div class="footer-nav">
+    <a href="./index.html">← Volver al portal de duplas</a>
+    <a href="./admin-duplas.html">Duplas y equipo</a>
+  </div>
+</div>
+
+<!-- SIN PERMISO -->
+<div id="denied-screen">
+  <div class="denied-box">
+    <div class="emoji">🔒</div>
+    <h2>No tenés acceso a esta sección</h2>
+    <p>Tu cuenta está logueada pero no tiene un rol de carga de casos asignado en Umbral 0 (admin / coordinación / dupla). Pedile a quien administra la plataforma que te asigne un rol en <code>perfiles</code>.</p>
+    <button class="btn btn-outline" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="topbar">
+    <div>
+      <h1>🌒 Casos — Umbral 0</h1>
+      <div class="sub" id="topbar-user"></div>
+    </div>
+    <div class="topbar-right">
+      <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
+      <a href="./admin-duplas.html" class="btn btn-ghost" id="link-admin-duplas" style="display:none;">👥 Duplas</a>
+      <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <!-- VISTA: BUSCAR -->
+    <div id="view-buscar">
+      <div class="section-label">Buscar o cargar un caso</div>
+      <div class="search-row">
+        <input type="text" id="buscar-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="Casos.onBuscarInput()">
+        <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Nuevo ingreso</button>
+      </div>
+      <div id="resultados-list"></div>
+    </div>
+
+    <!-- VISTA: FICHA -->
+    <div id="view-ficha" style="display:none;">
+      <button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="Casos.volverABuscar()">← Volver a la búsqueda</button>
+
+      <div class="ficha-header">
+        <div class="ficha-foto" id="ficha-foto">👤</div>
+        <div class="ficha-main">
+          <div class="ficha-nombre" id="ficha-nombre">—</div>
+          <div class="ficha-meta" id="ficha-meta"></div>
+          <div class="ficha-badges" id="ficha-badges"></div>
+        </div>
+        <div>
+          <button class="btn btn-outline btn-sm" onclick="Casos.abrirModalEditarPersona()">✏️ Editar</button>
+        </div>
+      </div>
+
+      <div class="accion-row">
+        <button class="btn btn-blue" onclick="Casos.abrirModalIntervencion()">➕ Registrar intervención</button>
+        <button class="btn btn-amber" onclick="Casos.abrirModalDerivacion()">📨 Pedir derivación</button>
+        <button class="btn btn-green" onclick="Casos.abrirModalSeguimiento()">📝 Agregar seguimiento</button>
+        <button class="btn btn-outline" id="btn-soflex" onclick="Casos.abrirCartaSoflex()">📄 Generar carta de soflex</button>
+      </div>
+
+      <div class="section-label">Historial</div>
+      <div id="timeline-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<script src="../config/umbral-0.js"></script>
+<script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script src="../shared/js/supabase-client.js"></script>
+<script>
+
+// ═══════════════════════════════════════════════════════════════════════
+// Umbral 0 — Casos: ingreso / ficha de persona / derivación / seguimiento
+// Ver umbral-0/DISENO-CASOS.md para el diseño completo de este circuito.
+// ═══════════════════════════════════════════════════════════════════════
+
+const ROLES_PERMITIDOS = ['admin', 'coordinacion', 'dupla'];
+
+let miPerfil = null;
+let duplasMap = {}; // id -> codigo, para mostrar quién cargó cada evento
+let personaActual = null;
+let intervencionesActuales = [];
+let derivacionesActuales = [];
+let seguimientosActuales = [];
+
+// ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
+
+const CAMPOS_PERSONA_BASICOS = [
+  { key:'nombre', label:'Nombre', required:true },
+  { key:'apellido', label:'Apellido', required:true },
+  { key:'dni', label:'DNI' },
+  { key:'dni_denuncia_extravio', label:'N° de denuncia de extravío (si no tiene DNI)' },
+  { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date' },
+  { key:'nacionalidad', label:'Nacionalidad' },
+  { key:'telefono_contacto', label:'Teléfono de contacto' },
+];
+const CAMPOS_PERSONA_UBICACION = [
+  { key:'punto_contacto', label:'Punto de contacto (dirección/referencia)' },
+  { key:'zona', label:'Zona' },
+  { key:'comuna', label:'Comuna' },
+];
+const CAMPOS_PERSONA_CASO = [
+  { key:'criticidad', label:'Criticidad', type:'select', options: () => window.PROJECT_CONFIG.criticidadOpciones || [] },
+  { key:'consumo_activo', label:'Consumo activo', type:'checkbox', checkLabel:'La persona presenta consumo activo' },
+  { key:'historia_breve', label:'Historia breve', type:'textarea' },
+];
+// Informe social — sección opcional, se completa cuando corresponda (no es
+// obligatoria en el primer contacto). Precarga el formulario de Casa
+// Vincular (§5.2) cuando ya está cargada acá.
+const CAMPOS_PERSONA_INFORME = [
+  { key:'situacion_habitacional', label:'Situación habitacional', type:'textarea' },
+  { key:'situacion_economica', label:'Situación económica', type:'textarea' },
+  { key:'situacion_sanitaria', label:'Situación sanitaria', type:'textarea' },
+  { key:'redes_contencion', label:'Redes de contención', type:'textarea' },
+  { key:'situacion_educativa', label:'Situación educativa', type:'textarea' },
+];
+
+// Formularios por tipo de derivación (DISENO-CASOS.md §5). Todo lo que no
+// esté acá cae en el formulario genérico (solo observaciones).
+const TIPOS_DERIVACION_CONFIG = {
+  'CIS': {
+    requiereFoto: true,
+    campos: [
+      { key:'punto_contacto', label:'Punto de contacto', prefill:p=>p.punto_contacto },
+      { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
+      { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date', prefill:p=>p.fecha_nacimiento },
+      { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
+      { key:'tiene_dni', label:'¿Tiene DNI?', type:'select', options:()=>['Sí','No (denuncia de extravío)'], prefill:p=>p.dni ? 'Sí' : (p.dni_denuncia_extravio ? 'No (denuncia de extravío)' : '') },
+      { key:'dni', label:'DNI / N° de denuncia', prefill:p=>p.dni||p.dni_denuncia_extravio },
+      { key:'estado_salud', label:'Estado de salud', type:'textarea' },
+      { key:'medicacion', label:'Medicación (lo más detallado posible)', type:'textarea' },
+      { key:'esquema', label:'Esquema (de medicación/tratamiento)' },
+      { key:'sube_escaleras', label:'¿Puede subir escaleras?', type:'select', options:()=>['Sí','No'] },
+      { key:'cama_arriba', label:'¿Puede cama arriba?', type:'select', options:()=>['Sí','No'] },
+      { key:'estuvo_en_cis', label:'¿Estuvo en algún CIS antes? (si sí, ¿cuál?)' },
+      { key:'resumen_intervencion', label:'Resumen de la intervención', type:'textarea', hint:'Hace cuánto está en situación de calle, motivo, redes de contención socio-familiar, instituciones comunitarias.' },
+    ],
+  },
+  'Casa Vincular': {
+    soloSeguimiento: true,
+    campos: [
+      { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
+      { key:'dni', label:'DNI', prefill:p=>p.dni||p.dni_denuncia_extravio },
+      { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date', prefill:p=>p.fecha_nacimiento },
+      { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
+      { key:'nacionalidad', label:'Nacionalidad', prefill:p=>p.nacionalidad },
+      { key:'telefono_contacto', label:'Número de contacto telefónico', prefill:p=>p.telefono_contacto },
+      { key:'situacion_habitacional', label:'Situación habitacional', type:'textarea', prefill:p=>p.situacion_habitacional },
+      { key:'situacion_economica', label:'Situación económica', type:'textarea', prefill:p=>p.situacion_economica },
+      { key:'situacion_sanitaria', label:'Situación sanitaria', type:'textarea', prefill:p=>p.situacion_sanitaria },
+      { key:'redes_contencion', label:'Redes de contención', type:'textarea', prefill:p=>p.redes_contencion },
+      { key:'situacion_educativa', label:'Situación educativa', type:'textarea', prefill:p=>p.situacion_educativa },
+      { key:'resumen_estrategias', label:'Resumen de la intervención y posibles estrategias futuras', type:'textarea' },
+    ],
+  },
+  'Micro': {
+    requiereCheckConsumo: true,
+    campos: [
+      { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
+      { key:'dni', label:'DNI / N° de denuncia', prefill:p=>p.dni||p.dni_denuncia_extravio },
+      { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
+      { key:'estado_salud', label:'Situación de salud', type:'textarea' },
+    ],
+  },
+};
+const TIPOS_SIMPLES_SET = new Set(['DIPA', 'Hacer DNI', 'Médico', 'Centro de día']);
+
+// ── BOOT / AUTH (mismo patrón que admin-duplas.html) ──────────────────────
+
+function togglePwd(){
+  const input = document.getElementById('login-pass');
+  const btn = document.getElementById('pwd-toggle-btn');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁️';
+}
+
+function showScreen(id){
+  ['login-screen','denied-screen','app-screen'].forEach(s=>{
+    document.getElementById(s).style.display = (s===id) ? 'block' : 'none';
+  });
+}
+
+async function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const errBox = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  errBox.style.display = 'none';
+  if(!email || !pass){
+    errBox.textContent = 'Completá email y contraseña.';
+    errBox.style.display = 'block';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Ingresando…';
+  try{
+    await SupabaseClient.login(email, pass);
+    await boot();
+  }catch(e){
+    errBox.textContent = 'No se pudo ingresar: ' + (e.message || 'revisá el email y la contraseña.');
+    errBox.style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Ingresar';
+  }
+}
+
+async function doLogout(){
+  await SupabaseClient.logout();
+  miPerfil = null;
+  showScreen('login-screen');
+}
+
+async function boot(){
+  const session = await SupabaseClient.getSession();
+  if(!session){ showScreen('login-screen'); return; }
+  miPerfil = await SupabaseClient.getMiPerfil();
+  if(!miPerfil || !ROLES_PERMITIDOS.includes(miPerfil.rol)){
+    showScreen('denied-screen');
+    return;
+  }
+  document.getElementById('topbar-user').textContent =
+    (miPerfil.nombre || session.user.email) + ' · rol: ' + miPerfil.rol;
+  document.getElementById('link-admin-duplas').style.display =
+    ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
+  showScreen('app-screen');
+  await cargarDuplasMap();
+  Casos.volverABuscar();
+}
+
+async function cargarDuplasMap(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data } = await client.from('duplas').select('id, codigo');
+    duplasMap = {};
+    (data||[]).forEach(d => duplasMap[d.id] = d.codigo);
+  }catch(e){ /* si la dupla no tiene permiso de ver duplas, seguimos sin el mapa */ }
+}
+
+document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+
+// ── UTILIDADES ──────────────────────────────────────────────────────────
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escAttr(s){ return esc(s); }
+
+function calcEdad(fechaNacStr){
+  if(!fechaNacStr) return '';
+  const nac = new Date(fechaNacStr);
+  if(isNaN(nac)) return '';
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if(m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return String(edad);
+}
+
+function fmtFecha(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' }) + ' ' +
+         d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+}
+
+function iniciales(p){
+  return ((p.nombre||'?')[0] + (p.apellido||'')[0]).toUpperCase();
+}
+
+async function subirArchivo(file, carpeta){
+  const client = await SupabaseClient.getClient();
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${carpeta}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const { error } = await client.storage.from('umbral0-fotos').upload(path, file);
+  if(error) throw error;
+  return path;
+}
+
+async function verFoto(path){
+  if(!path) return;
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.storage.from('umbral0-fotos').createSignedUrl(path, 3600);
+    if(error) throw error;
+    window.open(data.signedUrl, '_blank');
+  }catch(e){
+    alert('No se pudo abrir la foto: ' + e.message);
+  }
+}
+
+function badgeEstado(estado){
+  const map = { solicitado:'badge-gray', en_espera:'badge-amber', aprobado:'badge-blue', rechazado:'badge-red', efectivizado:'badge-green' };
+  return `<span class="badge ${map[estado]||'badge-gray'}">${esc(estado||'solicitado')}</span>`;
+}
+
+// ── MODAL genérico ─────────────────────────────────────────────────────
+
+function openModal(titulo, bodyHtml){
+  document.getElementById('modal-box').innerHTML = `
+    <div class="modal-head">
+      <div class="modal-title">${titulo}</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-err" id="modal-err"></div>
+    ${bodyHtml}
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('show');
+  document.getElementById('modal-box').innerHTML = '';
+}
+function modalError(msg){
+  const box = document.getElementById('modal-err');
+  box.textContent = msg;
+  box.classList.add('show');
+}
+
+// ── Render de campos de formulario (reutilizado por persona y derivación) ──
+
+function renderCampo(campo, valor){
+  const id = 'f_' + campo.key;
+  const label = `<label>${esc(campo.label)}${campo.required?' *':''}</label>`;
+  const hint = campo.hint ? `<div class="hint">${esc(campo.hint)}</div>` : '';
+  if(campo.type === 'textarea'){
+    return `<div class="form-field">${label}${hint}<textarea id="${id}" data-f="${campo.key}">${esc(valor||'')}</textarea></div>`;
+  }
+  if(campo.type === 'select'){
+    const opts = (typeof campo.options === 'function' ? campo.options() : campo.options) || [];
+    const optsHtml = ['<option value=""></option>'].concat(
+      opts.map(o => `<option value="${escAttr(o)}" ${o===valor?'selected':''}>${esc(o)}</option>`)
+    ).join('');
+    return `<div class="form-field">${label}${hint}<select id="${id}" data-f="${campo.key}">${optsHtml}</select></div>`;
+  }
+  if(campo.type === 'checkbox'){
+    return `<div class="form-field"><div class="form-check"><input type="checkbox" id="${id}" data-f="${campo.key}" ${valor?'checked':''}><label for="${id}">${esc(campo.checkLabel||campo.label)}</label></div></div>`;
+  }
+  if(campo.type === 'date'){
+    return `<div class="form-field">${label}${hint}<input type="date" id="${id}" data-f="${campo.key}" value="${escAttr(valor||'')}"></div>`;
+  }
+  return `<div class="form-field">${label}${hint}<input type="text" id="${id}" data-f="${campo.key}" value="${escAttr(valor||'')}"></div>`;
+}
+
+function recolectarCampos(container){
+  const out = {};
+  container.querySelectorAll('[data-f]').forEach(el => {
+    if(el.type === 'checkbox'){ out[el.dataset.f] = el.checked; }
+    else { const v = el.value.trim(); out[el.dataset.f] = v === '' ? null : v; }
+  });
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Casos — namespace con toda la lógica de ingreso/ficha/derivación/seguimiento
+// ═══════════════════════════════════════════════════════════════════════
+
+const Casos = {
+
+  // ── BUSCAR ────────────────────────────────────────────────────────────
+
+  volverABuscar(){
+    personaActual = null;
+    document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-buscar').style.display = 'block';
+    document.getElementById('buscar-input').value = '';
+    Casos.buscarPersonas('');
+  },
+
+  onBuscarInput(){
+    clearTimeout(Casos._debounce);
+    Casos._debounce = setTimeout(() => Casos.buscarPersonas(document.getElementById('buscar-input').value.trim()), 250);
+  },
+
+  async buscarPersonas(q){
+    const cont = document.getElementById('resultados-list');
+    cont.innerHTML = '<div class="empty-msg">Buscando…</div>';
+    const client = await SupabaseClient.getClient();
+    let query = client.from('personas').select('*').order('apellido', { ascending:true }).limit(40);
+    if(q){
+      query = query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,dni.ilike.%${q}%`);
+    }
+    const { data, error } = await query;
+    if(error){ cont.innerHTML = `<div class="empty-msg">Error buscando personas: ${esc(error.message)}</div>`; return; }
+    if(!data || !data.length){
+      cont.innerHTML = `<div class="empty-msg">${q ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Nuevo ingreso" para dar de alta.</div>`;
+      return;
+    }
+    cont.innerHTML = '';
+    data.forEach(p => cont.appendChild(Casos.renderPersonaCard(p)));
+  },
+
+  renderPersonaCard(p){
+    const card = document.createElement('div');
+    card.className = 'persona-card';
+    const badges = [];
+    if(p.estado === 'egresado') badges.push('<span class="badge badge-green">egresado</span>');
+    else badges.push('<span class="badge badge-blue">activo</span>');
+    if(p.criticidad) badges.push(`<span class="badge badge-amber">${esc(p.criticidad)}</span>`);
+    card.innerHTML = `
+      <div class="persona-avatar">${esc(iniciales(p))}</div>
+      <div class="persona-info">
+        <div class="persona-nombre">${esc(p.nombre)} ${esc(p.apellido)}</div>
+        <div class="persona-sub">${p.dni ? 'DNI ' + esc(p.dni) : (p.dni_denuncia_extravio ? 'Denuncia de extravío' : 'Sin DNI registrado')} ${p.zona ? '· ' + esc(p.zona) : ''} ${p.comuna ? '· ' + esc(p.comuna) : ''}</div>
+      </div>
+      <div class="persona-badges">${badges.join('')}</div>
+    `;
+    card.onclick = () => Casos.abrirFicha(p.id);
+    return card;
+  },
+
+  // ── NUEVO INGRESO / EDITAR PERSONA ──────────────────────────────────────
+
+  abrirModalNuevoIngreso(){
+    Casos._renderFormPersona(null);
+  },
+  abrirModalEditarPersona(){
+    if(!personaActual) return;
+    Casos._renderFormPersona(personaActual);
+  },
+
+  _renderFormPersona(persona){
+    const esEdicion = !!persona;
+    const v = persona || {};
+    const body = `
+      <form id="form-persona" onsubmit="return false;">
+        <fieldset>
+          <legend>Datos básicos</legend>
+          <div class="form-grid-2">${CAMPOS_PERSONA_BASICOS.map(c => renderCampo(c, v[c.key])).join('')}</div>
+        </fieldset>
+        <fieldset>
+          <legend>Ubicación</legend>
+          <div class="form-grid-2">${CAMPOS_PERSONA_UBICACION.map(c => renderCampo(c, v[c.key])).join('')}</div>
+        </fieldset>
+        <fieldset>
+          <legend>Datos del caso</legend>
+          ${CAMPOS_PERSONA_CASO.map(c => renderCampo(c, v[c.key])).join('')}
+        </fieldset>
+        <details class="form-section">
+          <summary>Informe social (completar cuando corresponda — no hace falta en el primer contacto)</summary>
+          ${CAMPOS_PERSONA_INFORME.map(c => renderCampo(c, v[c.key])).join('')}
+        </details>
+        <div class="form-field">
+          <label>Foto</label>
+          <div class="file-row"><input type="file" id="f_foto" accept="image/*"></div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-blue" id="btn-guardar-persona">💾 ${esEdicion ? 'Guardar cambios' : 'Dar de alta'}</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        </div>
+      </form>
+    `;
+    openModal(esEdicion ? '✏️ Editar datos de la persona' : '➕ Nuevo ingreso', body);
+    document.getElementById('btn-guardar-persona').onclick = () => Casos.guardarPersona(persona);
+  },
+
+  async guardarPersona(personaExistente){
+    const form = document.getElementById('form-persona');
+    const btn = document.getElementById('btn-guardar-persona');
+    const campos = recolectarCampos(form);
+    if(!campos.nombre || !campos.apellido){
+      modalError('Nombre y apellido son obligatorios.');
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try{
+      const client = await SupabaseClient.getClient();
+      let persona;
+      if(personaExistente){
+        const { data, error } = await client.from('personas').update(campos).eq('id', personaExistente.id).select().single();
+        if(error) throw error;
+        persona = data;
+      }else{
+        const { data, error } = await client.from('personas').insert({ ...campos, estado:'activo' }).select().single();
+        if(error) throw error;
+        persona = data;
+        // Alta = primer evento del timeline (DISENO-CASOS.md §4)
+        const { error: errInt } = await client.from('intervenciones').insert({
+          persona_id: persona.id,
+          dupla_id: miPerfil.dupla_id || null,
+          tipo: 'contacto_espontaneo',
+          descripcion: 'Ingreso inicial del caso.',
+        });
+        if(errInt) throw errInt;
+      }
+      const fotoFile = document.getElementById('f_foto').files[0];
+      if(fotoFile){
+        const path = await subirArchivo(fotoFile, `personas/${persona.id}`);
+        const { error: errFoto } = await client.from('personas').update({ foto_url: path }).eq('id', persona.id);
+        if(errFoto) throw errFoto;
+      }
+      closeModal();
+      await Casos.abrirFicha(persona.id);
+    }catch(e){
+      modalError('No se pudo guardar: ' + e.message);
+    }finally{
+      btn.disabled = false; btn.textContent = personaExistente ? '💾 Guardar cambios' : '💾 Dar de alta';
+    }
+  },
+
+  // ── FICHA ────────────────────────────────────────────────────────────
+
+  async abrirFicha(personaId){
+    const client = await SupabaseClient.getClient();
+    const { data: persona, error } = await client.from('personas').select('*').eq('id', personaId).single();
+    if(error){ alert('No se pudo abrir la ficha: ' + error.message); return; }
+    personaActual = persona;
+
+    const [interv, deriv, segu] = await Promise.all([
+      client.from('intervenciones').select('*').eq('persona_id', personaId).order('created_at', { ascending:false }),
+      client.from('derivaciones').select('*').eq('persona_id', personaId).order('created_at', { ascending:false }),
+      client.from('seguimientos').select('*').eq('persona_id', personaId).order('created_at', { ascending:false }),
+    ]);
+    intervencionesActuales = interv.data || [];
+    derivacionesActuales = deriv.data || [];
+    seguimientosActuales = segu.data || [];
+
+    document.getElementById('view-buscar').style.display = 'none';
+    document.getElementById('view-ficha').style.display = 'block';
+    Casos._renderFichaHeader();
+    Casos._renderTimeline();
+  },
+
+  esSeguimiento(){
+    // Derivado de intervenciones (no una columna nueva): más de un contacto
+    // registrado = vínculo sostenido. Ver DISENO-CASOS.md §4.
+    return intervencionesActuales.length > 1;
+  },
+
+  _renderFichaHeader(){
+    const p = personaActual;
+    document.getElementById('ficha-nombre').textContent = `${p.nombre || ''} ${p.apellido || ''}`.trim();
+    const edad = calcEdad(p.fecha_nacimiento);
+    const metaParts = [];
+    if(p.dni) metaParts.push('DNI ' + p.dni);
+    else if(p.dni_denuncia_extravio) metaParts.push('Denuncia de extravío ' + p.dni_denuncia_extravio);
+    else metaParts.push('Sin DNI registrado');
+    if(edad) metaParts.push(edad + ' años');
+    if(p.zona) metaParts.push(p.zona);
+    if(p.comuna) metaParts.push(p.comuna);
+    if(p.telefono_contacto) metaParts.push('📞 ' + p.telefono_contacto);
+    document.getElementById('ficha-meta').textContent = metaParts.join(' · ');
+
+    const badges = [];
+    badges.push(p.estado === 'egresado' ? '<span class="badge badge-green">egresado</span>' : '<span class="badge badge-blue">activo</span>');
+    if(p.criticidad) badges.push(`<span class="badge badge-amber">criticidad: ${esc(p.criticidad)}</span>`);
+    if(p.consumo_activo) badges.push('<span class="badge badge-red">consumo activo</span>');
+    badges.push(Casos.esSeguimiento() ? '<span class="badge badge-gray">seguimiento</span>' : '<span class="badge badge-gray">contacto espontáneo</span>');
+    document.getElementById('ficha-badges').innerHTML = badges.join('');
+
+    const fotoBox = document.getElementById('ficha-foto');
+    fotoBox.innerHTML = esc(iniciales(p));
+    if(p.foto_url){
+      SupabaseClient.getClient().then(async client => {
+        const { data } = await client.storage.from('umbral0-fotos').createSignedUrl(p.foto_url, 3600);
+        if(data && data.signedUrl){
+          fotoBox.innerHTML = `<img src="${escAttr(data.signedUrl)}" alt="Foto">`;
+        }
+      }).catch(()=>{});
+    }
+
+    const soflexBtn = document.getElementById('btn-soflex');
+    soflexBtn.disabled = !(window.PROJECT_CONFIG.cartasSoflexLink);
+    soflexBtn.title = window.PROJECT_CONFIG.cartasSoflexLink ? '' : 'Falta configurar el link de cartas de soflex (config/umbral-0.js)';
+  },
+
+  abrirCartaSoflex(){
+    const link = window.PROJECT_CONFIG.cartasSoflexLink;
+    if(!link) return;
+    window.open(link, '_blank');
+  },
+
+  _renderTimeline(){
+    const cont = document.getElementById('timeline-list');
+    const items = [];
+    intervencionesActuales.forEach(i => items.push({ tipo:'intervencion', fecha:i.created_at, data:i }));
+    derivacionesActuales.forEach(d => items.push({ tipo:'derivacion', fecha:d.created_at, data:d }));
+    seguimientosActuales.forEach(s => items.push({ tipo:'seguimiento', fecha:s.created_at, data:s }));
+    items.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+    if(!items.length){
+      cont.innerHTML = '<div class="empty-msg">Todavía no hay eventos cargados para esta persona.</div>';
+      return;
+    }
+    cont.innerHTML = '';
+    items.forEach(it => cont.appendChild(Casos._renderTimelineItem(it)));
+  },
+
+  _renderTimelineItem(it){
+    const el = document.createElement('div');
+    const duplaCod = it.data.dupla_id ? (duplasMap[it.data.dupla_id] || 'dupla') : 'coordinación';
+
+    if(it.tipo === 'intervencion'){
+      el.className = 'timeline-item tl-intervencion';
+      el.innerHTML = `
+        <div class="tl-head">
+          <div class="tl-title">🚶 Intervención — ${esc(it.data.tipo || '')}</div>
+          <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
+        </div>
+        <div class="tl-body">${esc(it.data.descripcion || '')}</div>
+      `;
+      return el;
+    }
+
+    if(it.tipo === 'derivacion'){
+      el.className = 'timeline-item tl-derivacion';
+      const datos = it.data.datos || {};
+      const filas = Object.keys(datos)
+        .filter(k => datos[k] !== null && datos[k] !== '' && k !== 'foto_dni_path')
+        .map(k => `<dt>${esc(k.replace(/_/g,' '))}</dt><dd>${esc(String(datos[k]))}</dd>`).join('');
+      const puedeGestionar = ['admin','coordinacion'].includes(miPerfil.rol);
+      const estadoActual = it.data.estado || 'solicitado';
+      const selectEstado = puedeGestionar ? `
+        <select data-est-id="${it.data.id}" onchange="Casos.actualizarEstadoDerivacion('${it.data.id}', this.value)" style="font-size:0.76rem;padding:4px 8px;border-radius:7px;border:1.5px solid #cbd5e1;">
+          ${['solicitado','en_espera','aprobado','rechazado','efectivizado'].map(e=>`<option value="${e}" ${e===estadoActual?'selected':''}>${e}</option>`).join('')}
+        </select>` : '';
+      const fotoBtn = datos.foto_dni_path ? `<button class="btn btn-outline btn-sm" onclick="verFoto('${escAttr(datos.foto_dni_path)}')">📎 Ver foto DNI</button>` : '';
+      const cierreBtn = (puedeGestionar && estadoActual === 'efectivizado' && personaActual.estado !== 'egresado')
+        ? `<button class="btn btn-green btn-sm" onclick="Casos.marcarCierreCaso('${it.data.id}')">✅ Marcar como cierre del caso</button>` : '';
+      el.innerHTML = `
+        <div class="tl-head">
+          <div class="tl-title">📨 Derivación — ${esc(it.data.tipo || '')} ${badgeEstado(estadoActual)}</div>
+          <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
+        </div>
+        ${filas ? `<div class="tl-body"><dl>${filas}</dl></div>` : ''}
+        <div class="tl-foot">${selectEstado}${fotoBtn}${cierreBtn}</div>
+      `;
+      return el;
+    }
+
+    // seguimiento
+    el.className = 'timeline-item tl-seguimiento';
+    if(it.data.tipo === 'checklist_item'){
+      el.innerHTML = `
+        <div class="tl-head">
+          <div class="tl-title">📝 Seguimiento — checklist</div>
+          <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
+        </div>
+        <div class="tl-check">
+          <input type="checkbox" id="chk-${it.data.id}" ${it.data.checklist_completado ? 'checked' : ''} onchange="Casos.toggleChecklist('${it.data.id}', this.checked)">
+          <label for="chk-${it.data.id}">${esc(it.data.texto || '')}</label>
+        </div>
+      `;
+    }else{
+      el.innerHTML = `
+        <div class="tl-head">
+          <div class="tl-title">📝 Seguimiento — comentario</div>
+          <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
+        </div>
+        <div class="tl-body">${esc(it.data.texto || '')}</div>
+      `;
+    }
+    return el;
+  },
+
+  async _reactivarSiEgresado(){
+    if(personaActual && personaActual.estado === 'egresado'){
+      const client = await SupabaseClient.getClient();
+      await client.from('personas').update({ estado:'activo' }).eq('id', personaActual.id);
+      personaActual.estado = 'activo';
+    }
+  },
+
+  // ── REGISTRAR INTERVENCIÓN ───────────────────────────────────────────
+
+  abrirModalIntervencion(){
+    const body = `
+      <form id="form-intervencion" onsubmit="return false;">
+        <div class="form-field">
+          <label>Tipo</label>
+          <select id="f_tipo_interv" data-f="tipo">
+            <option value="seguimiento">Seguimiento en territorio</option>
+            <option value="contacto_espontaneo">Contacto espontáneo</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Descripción</label>
+          <textarea id="f_desc_interv" data-f="descripcion" placeholder="Qué pasó en este contacto…"></textarea>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-blue" id="btn-guardar-interv">💾 Guardar</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        </div>
+      </form>
+    `;
+    openModal('➕ Registrar intervención', body);
+    document.getElementById('btn-guardar-interv').onclick = Casos.guardarIntervencion;
+  },
+
+  async guardarIntervencion(){
+    const form = document.getElementById('form-intervencion');
+    const btn = document.getElementById('btn-guardar-interv');
+    const campos = recolectarCampos(form);
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('intervenciones').insert({
+        persona_id: personaActual.id,
+        dupla_id: miPerfil.dupla_id || null,
+        tipo: campos.tipo || 'seguimiento',
+        descripcion: campos.descripcion || '',
+      });
+      if(error) throw error;
+      await Casos._reactivarSiEgresado();
+      closeModal();
+      await Casos.abrirFicha(personaActual.id);
+    }catch(e){
+      modalError('No se pudo guardar: ' + e.message);
+    }finally{
+      btn.disabled = false; btn.textContent = '💾 Guardar';
+    }
+  },
+
+  // ── PEDIR DERIVACIÓN ─────────────────────────────────────────────────
+
+  abrirModalDerivacion(){
+    const opciones = window.PROJECT_CONFIG.derivacionOpciones || [];
+    const body = `
+      <form id="form-derivacion" onsubmit="return false;">
+        <div class="form-field">
+          <label>Tipo de derivación</label>
+          <select id="f_tipo_deriv" onchange="Casos._renderSubformDerivacion(this.value)">
+            <option value="">— Elegir —</option>
+            ${opciones.map(o => `<option value="${escAttr(o)}">${esc(o)}</option>`).join('')}
+          </select>
+        </div>
+        <div id="subform-derivacion"></div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-amber" id="btn-guardar-deriv" disabled>📨 Enviar derivación</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        </div>
+      </form>
+    `;
+    openModal('📨 Pedir derivación', body);
+    document.getElementById('btn-guardar-deriv').onclick = Casos.guardarDerivacion;
+  },
+
+  _renderSubformDerivacion(tipo){
+    const sub = document.getElementById('subform-derivacion');
+    const btn = document.getElementById('btn-guardar-deriv');
+    if(!tipo){ sub.innerHTML = ''; btn.disabled = true; return; }
+    btn.disabled = false;
+
+    const cfg = TIPOS_DERIVACION_CONFIG[tipo];
+
+    if(cfg && cfg.soloSeguimiento && !Casos.esSeguimiento()){
+      sub.innerHTML = `<div class="modal-err show">Este recurso solo está habilitado para casos en seguimiento (la persona todavía no tiene más de un contacto registrado). Registrá otra intervención antes de pedir esta derivación.</div>`;
+      btn.disabled = true;
+      return;
+    }
+
+    if(!cfg){
+      // simple / genérico: una sola observación libre
+      sub.innerHTML = `<div class="form-field"><label>Observaciones</label><textarea data-f="observaciones"></textarea></div>`;
+      return;
+    }
+
+    let html = cfg.campos.map(c => renderCampo(c, c.prefill ? c.prefill(personaActual) : '')).join('');
+
+    if(cfg.requiereCheckConsumo){
+      html += `<div class="form-field"><div class="form-check"><input type="checkbox" id="f_check_consumo"><label for="f_check_consumo">Confirmo que la persona no presenta signos de consumo activo al momento del ingreso</label></div></div>`;
+    }
+    if(cfg.requiereFoto){
+      html += `<div class="form-field"><label>Foto del DNI o de la denuncia de extravío *</label><div class="file-row"><input type="file" id="f_foto_dni" accept="image/*"></div></div>`;
+    }
+    sub.innerHTML = html;
+  },
+
+  async guardarDerivacion(){
+    const tipo = document.getElementById('f_tipo_deriv').value;
+    if(!tipo){ modalError('Elegí un tipo de derivación.'); return; }
+    const cfg = TIPOS_DERIVACION_CONFIG[tipo];
+    const sub = document.getElementById('subform-derivacion');
+    const btn = document.getElementById('btn-guardar-deriv');
+
+    if(cfg && cfg.soloSeguimiento && !Casos.esSeguimiento()){
+      modalError('Este recurso solo está habilitado para casos en seguimiento.');
+      return;
+    }
+    let fotoFile = null;
+    if(cfg && cfg.requiereFoto){
+      fotoFile = document.getElementById('f_foto_dni').files[0];
+      if(!fotoFile){
+        modalError('Falta la foto del DNI o de la denuncia de extravío — es obligatoria para este tipo de derivación.');
+        return;
+      }
+    }
+    if(cfg && cfg.requiereCheckConsumo){
+      const checked = document.getElementById('f_check_consumo').checked;
+      if(!checked){
+        modalError('Tenés que confirmar que la persona no presenta signos de consumo activo antes de enviar esta derivación.');
+        return;
+      }
+    }
+
+    const datos = recolectarCampos(sub);
+    if(cfg && cfg.requiereCheckConsumo){ datos.confirmacion_sin_consumo = true; }
+
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    try{
+      const client = await SupabaseClient.getClient();
+      const { data: nueva, error } = await client.from('derivaciones').insert({
+        persona_id: personaActual.id,
+        dupla_id: miPerfil.dupla_id || null,
+        tipo,
+        estado: 'solicitado',
+        datos,
+      }).select().single();
+      if(error) throw error;
+
+      if(fotoFile){
+        const path = await subirArchivo(fotoFile, `derivaciones/${nueva.id}`);
+        const { error: errFoto } = await client.from('derivaciones').update({ datos: { ...datos, foto_dni_path: path } }).eq('id', nueva.id);
+        if(errFoto) throw errFoto;
+      }
+
+      await Casos._reactivarSiEgresado();
+      closeModal();
+      await Casos.abrirFicha(personaActual.id);
+    }catch(e){
+      modalError('No se pudo enviar la derivación: ' + e.message);
+    }finally{
+      btn.disabled = false; btn.textContent = '📨 Enviar derivación';
+    }
+  },
+
+  async actualizarEstadoDerivacion(derivacionId, nuevoEstado){
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('derivaciones').update({ estado: nuevoEstado }).eq('id', derivacionId);
+      if(error) throw error;
+      await Casos.abrirFicha(personaActual.id);
+    }catch(e){
+      alert('No se pudo actualizar el estado: ' + e.message);
+    }
+  },
+
+  async marcarCierreCaso(derivacionId){
+    if(!confirm('¿Marcar esta derivación como el cierre del caso? La persona va a quedar como "egresada".')) return;
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('personas').update({ estado:'egresado' }).eq('id', personaActual.id);
+      if(error) throw error;
+      await Casos.abrirFicha(personaActual.id);
+    }catch(e){
+      alert('No se pudo marcar el cierre: ' + e.message);
+    }
+  },
+
+  // ── ACOMPAÑAMIENTO (SEGUIMIENTO) ─────────────────────────────────────
+
+  abrirModalSeguimiento(){
+    const body = `
+      <form id="form-seguimiento" onsubmit="return false;">
+        <div class="form-field">
+          <label>Tipo</label>
+          <select id="f_tipo_seg" onchange="Casos._toggleTipoSeguimiento(this.value)">
+            <option value="comentario">Comentario libre</option>
+            <option value="checklist_item">Ítem de checklist (ej: "acompañar a control médico")</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label id="lbl-texto-seg">Texto</label>
+          <textarea id="f_texto_seg"></textarea>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-green" id="btn-guardar-seg">💾 Guardar</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        </div>
+      </form>
+    `;
+    openModal('📝 Agregar seguimiento', body);
+    document.getElementById('btn-guardar-seg').onclick = Casos.guardarSeguimiento;
+  },
+
+  _toggleTipoSeguimiento(tipo){
+    document.getElementById('lbl-texto-seg').textContent = tipo === 'checklist_item' ? 'Ítem (texto corto)' : 'Texto';
+  },
+
+  async guardarSeguimiento(){
+    const tipo = document.getElementById('f_tipo_seg').value;
+    const texto = document.getElementById('f_texto_seg').value.trim();
+    const btn = document.getElementById('btn-guardar-seg');
+    if(!texto){ modalError('Completá el texto.'); return; }
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('seguimientos').insert({
+        persona_id: personaActual.id,
+        dupla_id: miPerfil.dupla_id || null,
+        tipo,
+        texto,
+        checklist_completado: false,
+      });
+      if(error) throw error;
+      await Casos._reactivarSiEgresado();
+      closeModal();
+      await Casos.abrirFicha(personaActual.id);
+    }catch(e){
+      modalError('No se pudo guardar: ' + e.message);
+    }finally{
+      btn.disabled = false; btn.textContent = '💾 Guardar';
+    }
+  },
+
+  async toggleChecklist(seguimientoId, completado){
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('seguimientos').update({ checklist_completado: completado }).eq('id', seguimientoId);
+      if(error) throw error;
+      const item = seguimientosActuales.find(s => s.id === seguimientoId);
+      if(item) item.checklist_completado = completado;
+    }catch(e){
+      alert('No se pudo actualizar: ' + e.message);
+    }
+  },
+
+};
+
+boot();
+
+</script>
+</body>
+</html>
