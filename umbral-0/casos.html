@@ -248,7 +248,7 @@ const CAMPOS_PERSONA_BASICOS = [
   { key:'nombre', label:'Nombre', required:true },
   { key:'apellido', label:'Apellido', required:true },
   { key:'dni', label:'DNI' },
-  { key:'dni_denuncia_extravio', label:'N° de denuncia de extravío (si no tiene DNI)' },
+  { key:'dni_denuncia_extravio', label:'Denuncia de extravío', type:'checkbox', checkLabel:'No tiene DNI y se hizo la denuncia de extravío' },
   { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date' },
   { key:'nacionalidad', label:'Nacionalidad' },
   { key:'telefono_contacto', label:'Teléfono de contacto' },
@@ -285,7 +285,7 @@ const TIPOS_DERIVACION_CONFIG = {
       { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date', prefill:p=>p.fecha_nacimiento },
       { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
       { key:'tiene_dni', label:'¿Tiene DNI?', type:'select', options:()=>['Sí','No (denuncia de extravío)'], prefill:p=>p.dni ? 'Sí' : (p.dni_denuncia_extravio ? 'No (denuncia de extravío)' : '') },
-      { key:'dni', label:'DNI / N° de denuncia', prefill:p=>p.dni||p.dni_denuncia_extravio },
+      { key:'dni', label:'DNI / N° de denuncia', prefill:p=>p.dni || (p.dni_denuncia_extravio ? '(con denuncia de extravío — completar N° acá)' : '') },
       { key:'estado_salud', label:'Estado de salud', type:'textarea' },
       { key:'medicacion', label:'Medicación (lo más detallado posible)', type:'textarea' },
       { key:'esquema', label:'Esquema (de medicación/tratamiento)' },
@@ -299,7 +299,7 @@ const TIPOS_DERIVACION_CONFIG = {
     soloSeguimiento: true,
     campos: [
       { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
-      { key:'dni', label:'DNI', prefill:p=>p.dni||p.dni_denuncia_extravio },
+      { key:'dni', label:'DNI', prefill:p=>p.dni || (p.dni_denuncia_extravio ? '(con denuncia de extravío — completar N° acá)' : '') },
       { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date', prefill:p=>p.fecha_nacimiento },
       { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
       { key:'nacionalidad', label:'Nacionalidad', prefill:p=>p.nacionalidad },
@@ -316,7 +316,7 @@ const TIPOS_DERIVACION_CONFIG = {
     requiereCheckConsumo: true,
     campos: [
       { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
-      { key:'dni', label:'DNI / N° de denuncia', prefill:p=>p.dni||p.dni_denuncia_extravio },
+      { key:'dni', label:'DNI / N° de denuncia', prefill:p=>p.dni || (p.dni_denuncia_extravio ? '(con denuncia de extravío — completar N° acá)' : '') },
       { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
       { key:'estado_salud', label:'Situación de salud', type:'textarea' },
     ],
@@ -690,7 +690,7 @@ const Casos = {
     const edad = calcEdad(p.fecha_nacimiento);
     const metaParts = [];
     if(p.dni) metaParts.push('DNI ' + p.dni);
-    else if(p.dni_denuncia_extravio) metaParts.push('Denuncia de extravío ' + p.dni_denuncia_extravio);
+    else if(p.dni_denuncia_extravio) metaParts.push('Sin DNI — con denuncia de extravío');
     else metaParts.push('Sin DNI registrado');
     if(edad) metaParts.push(edad + ' años');
     if(p.zona) metaParts.push(p.zona);
