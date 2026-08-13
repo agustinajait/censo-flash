@@ -271,7 +271,9 @@ derivación, armar el mensaje con el formato exacto que usa el equipo
 DNI? / DNI / Estado de salud / Medicación / Esquema / Puede subir
 escaleras / Puede cama arriba / Estuvo en algún CIS / Resumen de la
 intervención) en una caja de texto con botón "Copiar", para pegarlo directo
-en WhatsApp junto con la foto del DNI/denuncia que ya quedó adjunta.
+en WhatsApp junto con la foto del DNI/denuncia que ya quedó adjunta. El
+mismo mecanismo (`RESUMEN_DERIVACION_CONFIG` en `casos.html`) se reusa para
+Casa Vincular (sección 5.2).
 
 ### 5.2 Casa Vincular
 
@@ -322,6 +324,24 @@ pre-cargan; el resto son las columnas de informe social que ya existen en
    barrial) para construir vínculo con la institución; el pase a pernocte
    depende exclusivamente de la evaluación posterior del equipo profesional
    de la casa.
+
+**Mensaje/PDF listo para enviar (ya construido):** al guardar la derivación
+aparece el informe armado con el formato exacto de arriba, con dos botones:
+"Copiar mensaje" (mismo mecanismo que CIS) y **"Descargar PDF"** (con
+jsPDF, cargado por CDN — sin backend) para mandárselo directo a la
+coordinadora.
+
+**Corrector de redacción por IA (ya construido):** los 6 campos de texto
+libre del informe (las 5 situaciones + el resumen de estrategias) tienen un
+botón "✨ Corregir redacción" que le pide a Claude (Haiku, vía una función
+serverless de Netlify — `netlify/functions/corregir-texto.js`) que mejore
+ortografía/gramática/claridad sin inventar datos, y reemplaza el texto del
+campo por la versión corregida. La clave de la API vive únicamente como
+variable de entorno de Netlify (`ANTHROPIC_API_KEY`), nunca en el código —
+sin esa variable configurada, el botón muestra un error claro en vez de
+fallar en silencio. Por ahora solo está en este informe; sumarlo a otros
+campos de texto libre (historia breve, resumen de intervención de CIS,
+comentarios de seguimiento) es extender la misma función, no rehacer nada.
 
 ### 5.3 Micro
 

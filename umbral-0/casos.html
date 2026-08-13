@@ -22,6 +22,8 @@
   .btn-ghost { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); color:white; }
   .btn-outline { background:white; border:1.5px solid var(--border); color:var(--navy); }
   .btn-sm { padding:6px 11px; font-size:0.74rem; border-radius:7px; }
+  .mini-btn { border:none; border-radius:7px; padding:6px 10px; font-size:0.74rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+  .mini-btn:disabled { opacity:0.55; cursor:default; }
   .btn:disabled { opacity:0.5; cursor:default; }
 
   .wrap { max-width:860px; margin:0 auto; padding:22px 18px 60px; }
@@ -315,12 +317,12 @@ const TIPOS_DERIVACION_CONFIG = {
       { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
       { key:'nacionalidad', label:'Nacionalidad', prefill:p=>p.nacionalidad },
       { key:'telefono_contacto', label:'Número de contacto telefónico', prefill:p=>p.telefono_contacto },
-      { key:'situacion_habitacional', label:'Situación habitacional', type:'textarea', prefill:p=>p.situacion_habitacional },
-      { key:'situacion_economica', label:'Situación económica', type:'textarea', prefill:p=>p.situacion_economica },
-      { key:'situacion_sanitaria', label:'Situación sanitaria', type:'textarea', prefill:p=>p.situacion_sanitaria },
-      { key:'redes_contencion', label:'Redes de contención', type:'textarea', prefill:p=>p.redes_contencion },
-      { key:'situacion_educativa', label:'Situación educativa', type:'textarea', prefill:p=>p.situacion_educativa },
-      { key:'resumen_estrategias', label:'Resumen de la intervención y posibles estrategias futuras', type:'textarea' },
+      { key:'situacion_habitacional', label:'Situación habitacional', type:'textarea', prefill:p=>p.situacion_habitacional, corregible:true },
+      { key:'situacion_economica', label:'Situación económica', type:'textarea', prefill:p=>p.situacion_economica, corregible:true },
+      { key:'situacion_sanitaria', label:'Situación sanitaria', type:'textarea', prefill:p=>p.situacion_sanitaria, corregible:true },
+      { key:'redes_contencion', label:'Redes de contención', type:'textarea', prefill:p=>p.redes_contencion, corregible:true },
+      { key:'situacion_educativa', label:'Situación educativa', type:'textarea', prefill:p=>p.situacion_educativa, corregible:true },
+      { key:'resumen_estrategias', label:'Resumen de la intervención y posibles estrategias futuras', type:'textarea', corregible:true },
     ],
   },
   'Micro': {
@@ -535,6 +537,21 @@ function iniciales(p){
   return ((p.nombre||'?')[0] + (p.apellido||'')[0]).toUpperCase();
 }
 
+// Corrector de redacción por IA — llama a la función serverless de Netlify
+// (netlify/functions/corregir-texto.js), que es la única que conoce la
+// clave de la API. El navegador nunca ve esa clave.
+async function pedirCorreccionIA(texto){
+  const resp = await fetch('/.netlify/functions/corregir-texto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto }),
+  });
+  let data = {};
+  try{ data = await resp.json(); }catch(e){ /* respuesta no-JSON, cae al error genérico de abajo */ }
+  if(!resp.ok) throw new Error(data.error || `Error del servidor (${resp.status})`);
+  return data.texto_corregido;
+}
+
 async function subirArchivo(file, carpeta){
   const client = await SupabaseClient.getClient();
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -591,7 +608,10 @@ function renderCampo(campo, valor){
   const label = `<label>${esc(campo.label)}${campo.required?' *':''}</label>`;
   const hint = campo.hint ? `<div class="hint">${esc(campo.hint)}</div>` : '';
   if(campo.type === 'textarea'){
-    return `<div class="form-field">${label}${hint}<textarea id="${id}" data-f="${campo.key}">${esc(valor||'')}</textarea></div>`;
+    const corregirBtn = campo.corregible
+      ? `<button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.corregirTexto('${id}', this)">✨ Corregir redacción</button>`
+      : '';
+    return `<div class="form-field">${label}${hint}<textarea id="${id}" data-f="${campo.key}">${esc(valor||'')}</textarea>${corregirBtn}</div>`;
   }
   if(campo.type === 'select'){
     const opts = (typeof campo.options === 'function' ? campo.options() : campo.options) || [];
@@ -839,6 +859,24 @@ const Casos = {
     const link = window.PROJECT_CONFIG.cartasSoflexLink;
     if(!link) return;
     window.open(link, '_blank');
+  },
+
+  // Botón "✨ Corregir redacción" — solo aparece en los campos marcados
+  // `corregible:true` (hoy: el informe social de Casa Vincular).
+  async corregirTexto(fieldId, btnEl){
+    const ta = document.getElementById(fieldId);
+    const original = ta.value.trim();
+    if(!original){ alert('Escribí algo primero — no hay nada para corregir.'); return; }
+    const textoOriginalBtn = btnEl.textContent;
+    btnEl.disabled = true; btnEl.textContent = '✨ Corrigiendo…';
+    try{
+      const corregido = await pedirCorreccionIA(original);
+      if(corregido) ta.value = corregido;
+    }catch(e){
+      alert('No se pudo corregir el texto: ' + e.message);
+    }finally{
+      btnEl.disabled = false; btnEl.textContent = textoOriginalBtn;
+    }
   },
 
   _renderTimeline(){

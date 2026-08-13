@@ -1,0 +1,8 @@
+# Configuración de Netlify. Agregado solo para habilitar la función
+# serverless de corrección de redacción por IA
+# (netlify/functions/corregir-texto.js, usada desde umbral-0/casos.html).
+# No define [build]/publish a propósito, para no pisar la configuración
+# de publicación que ya está cargada en el dashboard de Netlify.
+
+[functions]
+  directory = "netlify/functions"
