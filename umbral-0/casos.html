@@ -335,6 +335,50 @@ const TIPOS_DERIVACION_CONFIG = {
 };
 const TIPOS_SIMPLES_SET = new Set(['DIPA', 'Hacer DNI', 'Médico', 'Centro de día']);
 
+// Qué tipos de derivación, al guardarse, muestran el mensaje/informe listo
+// para copiar y descargar en PDF (en vez de cerrar el modal directo). Los
+// pares [label, key] apuntan a las mismas claves de TIPOS_DERIVACION_CONFIG
+// de arriba, en el orden exacto que usa cada formulario real del programa.
+const RESUMEN_DERIVACION_CONFIG = {
+  'CIS': {
+    titulo: 'Solicitud de ingreso a CIS',
+    ayuda: 'Copiá este mensaje y mandalo por WhatsApp al referente territorial / coordinación, junto con la foto del DNI o denuncia que ya quedó adjunta acá.',
+    campos: [
+      ['Punto de contacto', 'punto_contacto'],
+      ['Nombre y apellido', 'nombre_apellido'],
+      ['Fecha de nacimiento', 'fecha_nacimiento'],
+      ['Edad', 'edad'],
+      ['Tiene DNI?', 'tiene_dni'],
+      ['DNI', 'dni'],
+      ['Estado de salud', 'estado_salud'],
+      ['Medicación', 'medicacion'],
+      ['Esquema', 'esquema'],
+      ['Puede subir escaleras', 'sube_escaleras'],
+      ['Puede cama arriba', 'cama_arriba'],
+      ['Estuvo en algún CIS', 'estuvo_en_cis'],
+      ['Resumen de la intervención', 'resumen_intervencion'],
+    ],
+  },
+  'Casa Vincular': {
+    titulo: 'Informe social — Casa Vincular',
+    ayuda: 'Copiá este informe o descargalo en PDF para enviárselo directamente a la coordinadora.',
+    campos: [
+      ['Nombre y apellido', 'nombre_apellido'],
+      ['DNI', 'dni'],
+      ['Edad', 'edad'],
+      ['Fecha de nacimiento', 'fecha_nacimiento'],
+      ['Nacionalidad', 'nacionalidad'],
+      ['Número de contacto telefónico', 'telefono_contacto'],
+      ['Situación habitacional', 'situacion_habitacional'],
+      ['Situación económica', 'situacion_economica'],
+      ['Situación sanitaria', 'situacion_sanitaria'],
+      ['Redes de contención', 'redes_contencion'],
+      ['Situación educativa', 'situacion_educativa'],
+      ['Resumen de la intervención y posibles estrategias futuras', 'resumen_estrategias'],
+    ],
+  },
+};
+
 // ── BOOT / AUTH (mismo patrón que admin-duplas.html) ──────────────────────
 
 function togglePwd(){
@@ -412,6 +456,61 @@ document.getElementById('login-pass').addEventListener('keydown', e => { if(e.ke
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escAttr(s){ return esc(s); }
+
+// PDF de los informes de derivación (CIS/Casa Vincular) — se carga jsPDF
+// recién cuando hace falta, mismo patrón que el SDK de Supabase.
+let _jsPdfPromise = null;
+function loadJsPDF(){
+  if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if(_jsPdfPromise) return _jsPdfPromise;
+  _jsPdfPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    s.onload = () => resolve(window.jspdf.jsPDF);
+    s.onerror = () => reject(new Error('No se pudo cargar la librería de PDF (¿sin conexión?)'));
+    document.head.appendChild(s);
+  });
+  return _jsPdfPromise;
+}
+
+// `filas` = [[label, valor], ...] en el orden que se quiere imprimir.
+async function descargarInformePDF(titulo, nombrePersona, filas){
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const marginX = 48;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxWidth = pageWidth - marginX * 2;
+  let y = 56;
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+  doc.text(titulo, marginX, y); y += 20;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  doc.setTextColor(110);
+  doc.text(`Umbral 0 · ${nombrePersona || 'sin nombre'} · ${new Date().toLocaleDateString('es-AR')}`, marginX, y);
+  y += 26;
+  doc.setTextColor(20);
+
+  filas.forEach(([label, val]) => {
+    if(y > pageHeight - 60){ doc.addPage(); y = 56; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text(label + ':', marginX, y);
+    y += 14;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
+    const lineas = doc.splitTextToSize(String(val || '—'), maxWidth);
+    lineas.forEach(linea => {
+      if(y > pageHeight - 50){ doc.addPage(); y = 56; }
+      doc.text(linea, marginX, y);
+      y += 13;
+    });
+    y += 9;
+  });
+
+  const slug = (nombrePersona || 'persona').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'persona';
+  doc.save(`${titulo.toLowerCase().includes('cis') ? 'cis' : 'casa-vincular'}-${slug}.pdf`);
+}
 
 function calcEdad(fechaNacStr){
   if(!fechaNacStr) return '';
@@ -1000,12 +1099,12 @@ const Casos = {
       }
 
       await Casos._reactivarSiEgresado();
-      if(tipo === 'CIS'){
-        // El circuito real de CIS es "armar el mensaje + foto y mandarlo por
-        // WhatsApp al referente territorial/coordinación" (DISENO-CASOS.md
-        // §5.1) — la plataforma todavía no manda ese mensaje sola, así que
-        // se lo dejamos armado y listo para copiar.
-        Casos._mostrarMensajeCIS(datos);
+      if(RESUMEN_DERIVACION_CONFIG[tipo]){
+        // CIS y Casa Vincular todavía se mandan "a mano" por fuera de la
+        // plataforma (WhatsApp al referente territorial, o a la
+        // coordinadora — DISENO-CASOS.md §5.1/§5.2). En vez de cerrar el
+        // modal directo, dejamos el mensaje/informe ya armado.
+        Casos._mostrarResumenDerivacion(tipo, datos);
       }else{
         closeModal();
         await Casos.abrirFicha(personaActual.id);
@@ -1017,38 +1116,29 @@ const Casos = {
     }
   },
 
-  _mostrarMensajeCIS(datos){
-    const mensaje = [
-      ['Punto de contacto', datos.punto_contacto],
-      ['Nombre y apellido', datos.nombre_apellido],
-      ['Fecha de nacimiento', datos.fecha_nacimiento],
-      ['Edad', datos.edad],
-      ['Tiene DNI?', datos.tiene_dni],
-      ['DNI', datos.dni],
-      ['Estado de salud', datos.estado_salud],
-      ['Medicación', datos.medicacion],
-      ['Esquema', datos.esquema],
-      ['Puede subir escaleras', datos.sube_escaleras],
-      ['Puede cama arriba', datos.cama_arriba],
-      ['Estuvo en algún CIS', datos.estuvo_en_cis],
-      ['Resumen de la intervención', datos.resumen_intervencion],
-    ].map(([label, val]) => `${label}: ${val || ''}`).join('\n');
+  _mostrarResumenDerivacion(tipo, datos){
+    const cfgResumen = RESUMEN_DERIVACION_CONFIG[tipo];
+    const filas = cfgResumen.campos.map(([label, key]) => [label, datos[key]]);
+    const mensaje = filas.map(([label, val]) => `${label}: ${val || ''}`).join('\n');
+    const nombrePersona = `${personaActual.nombre || ''} ${personaActual.apellido || ''}`.trim();
 
     const body = `
-      <div class="modal-sub">Copiá este mensaje y mandalo por WhatsApp al referente territorial / coordinación, junto con la foto del DNI o denuncia que ya quedó adjunta acá.</div>
-      <textarea id="mensaje-cis" readonly style="width:100%;min-height:260px;font-family:monospace;font-size:0.8rem;border:1.5px solid #cbd5e1;border-radius:9px;padding:10px 12px;background:#f8faff;">${esc(mensaje)}</textarea>
+      <div class="modal-sub">${esc(cfgResumen.ayuda)}</div>
+      <textarea id="mensaje-resumen" readonly style="width:100%;min-height:260px;font-family:monospace;font-size:0.8rem;border:1.5px solid #cbd5e1;border-radius:9px;padding:10px 12px;background:#f8faff;">${esc(mensaje)}</textarea>
       <div class="modal-foot">
-        <button type="button" class="btn btn-blue" id="btn-copiar-cis">📋 Copiar mensaje</button>
-        <button type="button" class="btn btn-outline" onclick="Casos._cerrarMensajeCIS()">Listo, volver a la ficha</button>
+        <button type="button" class="btn btn-blue" id="btn-copiar-resumen">📋 Copiar mensaje</button>
+        <button type="button" class="btn btn-amber" id="btn-pdf-resumen">📄 Descargar PDF</button>
+        <button type="button" class="btn btn-outline" onclick="Casos._cerrarResumenDerivacion()">Listo, volver a la ficha</button>
       </div>
     `;
-    openModal('📨 Derivación a CIS — mensaje para enviar', body);
-    document.getElementById('btn-copiar-cis').onclick = async () => {
-      const btn = document.getElementById('btn-copiar-cis');
+    openModal(`📨 ${cfgResumen.titulo}`, body);
+
+    document.getElementById('btn-copiar-resumen').onclick = async () => {
+      const btn = document.getElementById('btn-copiar-resumen');
       try{
         await navigator.clipboard.writeText(mensaje);
       }catch(e){
-        const ta = document.getElementById('mensaje-cis');
+        const ta = document.getElementById('mensaje-resumen');
         ta.select();
         document.execCommand('copy');
       }
@@ -1056,9 +1146,21 @@ const Casos = {
       btn.textContent = '✅ Copiado';
       setTimeout(() => { btn.textContent = original; }, 1500);
     };
+
+    document.getElementById('btn-pdf-resumen').onclick = async () => {
+      const btn = document.getElementById('btn-pdf-resumen');
+      btn.disabled = true; btn.textContent = 'Generando…';
+      try{
+        await descargarInformePDF(cfgResumen.titulo, nombrePersona, filas);
+      }catch(e){
+        alert('No se pudo generar el PDF: ' + e.message);
+      }finally{
+        btn.disabled = false; btn.textContent = '📄 Descargar PDF';
+      }
+    };
   },
 
-  async _cerrarMensajeCIS(){
+  async _cerrarResumenDerivacion(){
     closeModal();
     await Casos.abrirFicha(personaActual.id);
   },
