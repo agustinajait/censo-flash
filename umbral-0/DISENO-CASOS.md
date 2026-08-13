@@ -368,7 +368,52 @@ derivación a micro como respuesta a una detección espontánea en territorio de
 alguien que no quiere ir a CIS, o para cuando no hay vacantes de CIS al
 momento de la solicitud — mismo formulario, sin requerir seguimiento previo.
 
-### 5.4 DNI, Médico/Salud, DIPA, Centro de día
+### 5.4 Salud Mental, Mapa de Familias en Riesgo, Policía de la Ciudad
+
+Tres circuitos de emergencia/derivación sumados en una vuelta posterior del
+diseño (no estaban en el documento original de julio). Los tres usan el
+mismo mecanismo de mensaje-para-copiar + PDF que CIS/Casa Vincular
+(`RESUMEN_DERIVACION_CONFIG`), y sus campos de resumen libre son
+`corregible:true` (corrector de redacción por IA, sección 5.2).
+
+**Salud Mental:** para personas con indicadores de alguna problemática de
+salud mental. Campos: punto de contacto (detallado si la persona no da
+datos — área que frecuenta, referencias del lugar), datos básicos,
+vestimenta y apariencia (para que el equipo de Salud Mental pueda
+identificar a la persona), y la evaluación de orientación en tiempo/espacio
+que define la derivación (¿sabe qué día es? ¿mes y año? ¿vestimenta acorde
+al clima? ¿conductas de riesgo?).
+
+**Brigada CER y SAME quedaron adentro de este mismo formulario** (no son
+tipos de derivación separados) — el documento los presenta como protocolos
+de escalamiento durante una evaluación de salud mental o urgencia sanitaria:
+si hay riesgo para sí o terceros, el equipo llama al SAME (107) y permanece
+en el lugar hasta que llegue; alternativamente puede pedir Brigada CER para
+una evaluación sanitaria de campo. El formulario tiene checkboxes para cada
+llamado + un campo para los datos de quien arriba (médico, matrícula,
+institución, móvil, patente, hospital de traslado si corresponde) — esos
+datos "se adjuntan a la devolución que realiza el equipo", que es
+exactamente lo que este mensaje/PDF ya resuelve. Si en algún momento se
+necesita registrar SAME/Brigada CER como su propio tipo de derivación
+(reutilizable fuera de Salud Mental), separarlos es un cambio chico —
+`TIPOS_DERIVACION_CONFIG` y `RESUMEN_DERIVACION_CONFIG` en `casos.html` ya
+están armados para agregar tipos sin tocar el resto.
+
+**Mapa de Familias en Riesgo:** para grupos familiares en calle con
+niños/niñas/adolescentes. El modelo de una-persona-por-caso no encaja del
+todo con un grupo familiar — por ahora los integrantes se cargan en un
+campo de texto libre (nombre/DNI/fecha de nacimiento/edad/vínculo de cada
+uno), no como filas separadas. Tiene los checkboxes del protocolo urgente
+si hay NNyA solos/as: SAME, Policía (911) y Línea 102 (Consejo de Derechos
+de NNyA).
+
+**Policía de la Ciudad:** para llamados al 911 por violencia, amenazas o
+comportamientos que requieran intervención policial. Campos: motivo del
+llamado, si el equipo aguardó el móvil, y los datos del personal
+interviniente (nombre, LP, comisaría, móvil) que también van a la
+devolución del equipo.
+
+### 5.5 DNI, Médico/Salud, DIPA, Centro de día
 
 Formulario simple (observaciones libres por ahora), enriquecible más
 adelante:
@@ -387,7 +432,7 @@ adelante:
 - **Centro de día:** sin detalle adicional en el documento — formulario
   simple hasta que se defina más.
 
-### 5.5 Espacios de contención — aclaración, no es una derivación
+### 5.6 Espacios de contención — aclaración, no es una derivación
 
 El documento lista "espacios de contención" junto con las herramientas
 territoriales, pero conceptualmente **no es una derivación a un recurso
@@ -396,7 +441,7 @@ en seguimiento, para sostener el vínculo que facilita el resto de las
 gestiones. Por eso no tiene formulario de derivación: se registra como
 `seguimiento` (sección 6), no como `derivacion`.
 
-### 5.6 Tipo nuevo
+### 5.7 Tipo nuevo
 
 Cualquier tipo que se agregue a `derivacionOpciones` cae en el formulario
 genérico (solo observaciones) hasta que se le diseñe uno propio.
