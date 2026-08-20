@@ -136,6 +136,25 @@ async function marcarAusente(){
   }
 }
 
+// Si el link viene vacío (ej. duplas nuevas sin KoBo confirmado todavía —
+// ver config/censo-flash.js), un <a href=""> apunta a la página actual: al
+// tocarlo no pasa nada visible, o como mucho "duplica" la pestaña. Mejor
+// dejarlo inhabilitado y avisar explícitamente que falta.
+function setLinkOrDisabled(id, url, textoOk){
+  const a = document.getElementById(id);
+  if(url){
+    a.href = url;
+    a.textContent = textoOk;
+    a.classList.remove('open-btn-disabled');
+    a.onclick = null;
+  }else{
+    a.removeAttribute('href');
+    a.textContent = 'Todavía no está cargado';
+    a.classList.add('open-btn-disabled');
+    a.onclick = e => e.preventDefault();
+  }
+}
+
 function mostrarDupla(d){
   currentDupla = d;
   document.getElementById('home').style.display = 'none';
@@ -143,8 +162,8 @@ function mostrarDupla(d){
   document.getElementById('d-num').textContent = d.id;
   document.getElementById('d-title').textContent = 'Dupla ' + d.id;
   document.getElementById('d-sub').textContent = d.poligono + ' · ' + d.zona;
-  document.getElementById('d-mymaps').href = d.mymaps;
-  document.getElementById('d-kobo').href = d.kobo;
+  setLinkOrDisabled('d-mymaps', d.mymaps, 'Abrir mapa →');
+  setLinkOrDisabled('d-kobo', d.kobo, 'Abrir KoBo →');
   document.getElementById('cierre-link').href = './cierre.html?dupla=' + d.id;
   pintarEstadoAsistencia(d.id);
   document.title = 'Dupla ' + d.id + ' — ' + d.zona;
