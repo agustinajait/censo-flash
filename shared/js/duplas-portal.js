@@ -151,9 +151,32 @@ function mostrarDupla(d){
   window.scrollTo(0,0);
 }
 
-function renderSinDuplas(){
-  const grid = document.getElementById('dupla-grid');
-  grid.outerHTML = '<div style="grid-column:1/-1;background:#fff;border:1.5px dashed var(--border);border-radius:12px;padding:20px;text-align:center;color:#6b7280;font-size:0.85rem;">Todavía no hay duplas cargadas para este proyecto.</div>';
+function renderSinDuplas(grid){
+  grid.innerHTML = '<div style="grid-column:1/-1;background:#fff;border:1.5px dashed var(--border);border-radius:12px;padding:20px;text-align:center;color:#6b7280;font-size:0.85rem;">Todavía no hay duplas cargadas para este proyecto.</div>';
+}
+
+function renderGrid(grid, duplas){
+  grid.innerHTML = '';
+  if(!duplas.length){ renderSinDuplas(grid); return; }
+  duplas.forEach(d=>{
+    const a = document.createElement('a');
+    a.className = 'dupla-btn';
+    a.href = '?dupla=' + d.id;
+    a.onclick = e => { e.preventDefault(); history.pushState({}, '', '?dupla=' + d.id); mostrarDupla(d); };
+    a.innerHTML = `<span class="dupla-num">${d.id}</span><span class="dupla-zona">${d.zona}</span>`;
+    grid.appendChild(a);
+  });
+}
+
+// Pestañas "Duplas" / "Duplas nuevas" — solo aparecen si el proyecto tiene
+// alguna dupla marcada `grupo:'nueva'` en su config (hoy: Censo Flash,
+// duplas 21-30, mientras no esté confirmado si la agencia que coordina el
+// censo las va a poner en territorio). Sin eso, se comporta exactamente
+// como antes: una sola grilla con todas las duplas.
+function tab(nombre){
+  document.getElementById('dupla-grid').style.display = nombre === 'actuales' ? 'grid' : 'none';
+  document.getElementById('dupla-grid-nuevas').style.display = nombre === 'nuevas' ? 'grid' : 'none';
+  document.querySelectorAll('.dupla-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === nombre));
 }
 
 function route(){
@@ -167,18 +190,27 @@ function init(cfg){
   CFG = cfg || window.PROJECT_CONFIG;
   if(!CFG) return;
 
+  const todas = CFG.duplas || [];
+  const nuevas = todas.filter(d => d.grupo === 'nueva');
+  const actuales = todas.filter(d => d.grupo !== 'nueva');
+
   const grid = document.getElementById('dupla-grid');
-  if(!CFG.duplas || !CFG.duplas.length){
-    renderSinDuplas();
+  const gridNuevas = document.getElementById('dupla-grid-nuevas');
+  const tabs = document.getElementById('dupla-tabs');
+
+  if(nuevas.length && gridNuevas && tabs){
+    tabs.style.display = 'flex';
+    tabs.innerHTML = `
+      <button class="dupla-tab active" data-tab="actuales">Duplas (${actuales.length})</button>
+      <button class="dupla-tab" data-tab="nuevas">Duplas nuevas (${nuevas.length})</button>
+    `;
+    tabs.querySelectorAll('.dupla-tab').forEach(b => b.onclick = () => tab(b.dataset.tab));
+    renderGrid(grid, actuales);
+    renderGrid(gridNuevas, nuevas);
+    gridNuevas.style.display = 'none';
   } else {
-    CFG.duplas.forEach(d=>{
-      const a = document.createElement('a');
-      a.className = 'dupla-btn';
-      a.href = '?dupla=' + d.id;
-      a.onclick = e => { e.preventDefault(); history.pushState({}, '', '?dupla=' + d.id); mostrarDupla(d); };
-      a.innerHTML = `<span class="dupla-num">${d.id}</span><span class="dupla-zona">${d.zona}</span>`;
-      grid.appendChild(a);
-    });
+    // Comportamiento de siempre: sin pestañas, una sola grilla con todo.
+    renderGrid(grid, todas);
   }
 
   route();
