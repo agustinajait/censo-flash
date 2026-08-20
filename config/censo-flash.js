@@ -15,6 +15,10 @@ const comunas = {
   'C.13': 'Belgrano/Núñez',
   'C.12': 'Villa Urquiza',
   'C.6':  'Caballito',
+  // Comunas sumadas con la expansión a 30 duplas (agosto 2026):
+  'C.3':  'Balvanera',
+  'C.5':  'Almagro/Boedo',
+  'C.15': 'Chacarita/Villa Crespo',
 };
 
 const duplas = [
@@ -38,6 +42,24 @@ const duplas = [
   { id:'18', zona:'Villa Urquiza', poligono:'Polígono 18', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=10jjGAK6OXaWAIxdlJ3Hw5FBDVqLm8N0&usp=sharing' },
   { id:'19', zona:'Villa Urquiza', poligono:'Polígono 19', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1jr5_-GOEeANTI5SAT4RKeSSuL9huJw4&usp=sharing' },
   { id:'20', zona:'Caballito',     poligono:'Polígono 20', comuna:'C.6',  kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1vF2VXSgQfMga2hRbNKogLmgVBuLIykE&usp=sharing' },
+
+  // ── Expansión a 30 duplas (agosto 2026) ──────────────────────────────
+  // TODO: falta el link de KoBo de cada una — puede que haga falta un
+  // formulario "Flash 3" nuevo en KoBo Toolbox (todavía no confirmado
+  // con Agustina). Mientras
+  // kobo quede vacío, el dashboard no va a poder cruzar las cargas de
+  // estas duplas contra KoBo, pero el resto (portal, cierre, mapa) ya
+  // funciona igual.
+  { id:'21', zona:'Microcentro + Macrocentro', poligono:'Polígono 21', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1BTx5bqg-jN3Iig-SQ28M7z5snsexxnI' },
+  { id:'22', zona:'Caballito Sur',             poligono:'Polígono 22', comuna:'C.6',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1AZQuRGvfPVXkQHHxOIaJfCA662UTGwQ' },
+  { id:'23', zona:'Caballito Norte',           poligono:'Polígono 23', comuna:'C.6',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1vNPwuSGyvU3SIVpxqIlNnM-p0sjpJjE' },
+  { id:'24', zona:'Almagro Norte',             poligono:'Polígono 24', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1WNAFbuZeAwgHxTwFSKMYocXAwZfW6qA' },
+  { id:'25', zona:'Almagro Sur',               poligono:'Polígono 25', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1PTdr8m1Q1aW5kZJokxzfEREIMhghAkM' },
+  { id:'26', zona:'Villa Crespo',              poligono:'Polígono 26', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1Y5-QKnPRqLvVQlqOHjeHbJP6OMGlKJk' },
+  { id:'27', zona:'Once',                      poligono:'Polígono 27', comuna:'C.3',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1vpaKauq8MKfhQ7j5MNJFqpQgrNUT4mU' },
+  { id:'28', zona:'Chacarita',                 poligono:'Polígono 28', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=16zz_Ns9avN3ni92oTIcEu2dF2xveFDg' },
+  { id:'29', zona:'Agronomía',                 poligono:'Polígono 29', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1T4noPhcGo8Be-84jQEb14iMY-ij8kFk' },
+  { id:'30', zona:'Boedo',                     poligono:'Polígono 30', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=13nTcHf5x79TlEsq85YYu393URmJ4MyQ' },
 ];
 
 // ── Parseo de envíos de KoBo ──────────────────────────────────────────
