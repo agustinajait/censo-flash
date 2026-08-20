@@ -54,6 +54,14 @@
   .dupla-zona { font-size:0.62rem; font-weight:600; color:#6b7280; margin-top:1px; display:block; }
   .dupla-btn:hover .dupla-zona { color:rgba(255,255,255,0.7); }
 
+  .dupla-tabs { display:none; gap:8px; margin-bottom:12px; }
+  .dupla-tab {
+    background:white; border:1.5px solid var(--border); color:#6b7280;
+    padding:7px 14px; border-radius:20px; font-family:'Sora',sans-serif;
+    font-weight:700; font-size:0.78rem; cursor:pointer;
+  }
+  .dupla-tab.active { background:var(--navy); color:white; border-color:var(--navy); }
+
   .home-footer-links { display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:18px; }
   .platform-link { font-size:0.74rem; color:#94a3b8; text-decoration:none; }
   .platform-link:hover { color:var(--blue); }
@@ -161,7 +169,9 @@
       <span class="inst-btn-arr">→</span>
     </a>
     <div class="section-label">Seleccioná tu dupla</div>
+    <div class="dupla-tabs" id="dupla-tabs"></div>
     <div class="dupla-grid" id="dupla-grid"></div>
+    <div class="dupla-grid" id="dupla-grid-nuevas"></div>
     <div class="home-footer-links">
       <a href="./plataforma.html" class="platform-link">← Ver todos los proyectos de la plataforma</a>
       <a href="./dashboard.html" class="admin-link">🔐 Acceso administrador / dashboard</a>
