@@ -58,12 +58,7 @@ const duplas = [
   // 01-19 — todavía no está confirmado si la agencia que coordina hoy el
   // censo las va a poner en territorio. Sacar ese campo (o ponerlo en
   // 'actual') las vuelve a mezclar en la pestaña principal.
-  //
-  // Microcentro (21) y Macrocentro (22) todavía comparten el mismo mapa
-  // de My Maps (Agustina tiene que separarlo en dos documentos distintos
-  // cuando pueda; hasta entonces ambos botones "Abrir mapa" llevan al
-  // mismo polígono combinado).
-  { id:'21', zona:'Microcentro',               poligono:'Polígono 21', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1BTx5bqg-jN3Iig-SQ28M7z5snsexxnI', grupo:'nueva' },
+  { id:'21', zona:'Microcentro',               poligono:'Polígono 21', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1fAbAstJwu-8gcmMGdRRdgymJTalnt4E', grupo:'nueva' },
   { id:'22', zona:'Macrocentro',               poligono:'Polígono 22', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1BTx5bqg-jN3Iig-SQ28M7z5snsexxnI', grupo:'nueva' },
   { id:'23', zona:'Almagro Norte',             poligono:'Polígono 23', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1WNAFbuZeAwgHxTwFSKMYocXAwZfW6qA', grupo:'nueva' },
   { id:'24', zona:'Almagro Sur',               poligono:'Polígono 24', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1PTdr8m1Q1aW5kZJokxzfEREIMhghAkM', grupo:'nueva' },
