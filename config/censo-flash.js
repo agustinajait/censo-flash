@@ -3,7 +3,7 @@
 // cierre.html y dashboard.html se centraliza acá: duplas, comunas, formularios
 // de KoBo y su parseo, colores de marca y el endpoint de cierres.
 //
-// Para sumar duplas nuevas (expansión a comunas 3, 5, 15 y resto de comuna 6):
+// Para sumar duplas nuevas (expansión a comunas 1, 3, 5, 6, 7 y 15):
 // agregar entradas al array `duplas` de abajo, con su `comuna` correspondiente
 // (agregando la comuna a `comunas` si todavía no existe).
 (function(){
@@ -15,10 +15,11 @@ const comunas = {
   'C.13': 'Belgrano/Núñez',
   'C.12': 'Villa Urquiza',
   'C.6':  'Caballito',
-  // Comunas sumadas con la expansión a 30 duplas (agosto 2026):
+  // Comunas sumadas con la expansión a 33 duplas (agosto 2026):
   'C.3':  'Balvanera',
   'C.5':  'Almagro/Boedo',
   'C.15': 'Chacarita/Villa Crespo',
+  'C.7':  'Parque Chacabuco',
 };
 
 const duplas = [
@@ -41,9 +42,11 @@ const duplas = [
   { id:'17', zona:'Villa Urquiza', poligono:'Polígono 17', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1FHllQyYYHent3QvNJvvg_5QTgu4zhV8&usp=sharing' },
   { id:'18', zona:'Villa Urquiza', poligono:'Polígono 18', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=10jjGAK6OXaWAIxdlJ3Hw5FBDVqLm8N0&usp=sharing' },
   { id:'19', zona:'Villa Urquiza', poligono:'Polígono 19', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1jr5_-GOEeANTI5SAT4RKeSSuL9huJw4&usp=sharing' },
-  { id:'20', zona:'Caballito',     poligono:'Polígono 20', comuna:'C.6',  kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1vF2VXSgQfMga2hRbNKogLmgVBuLIykE&usp=sharing' },
+  // La Dupla 20 (Caballito, Polígono 20) se dio de baja con la expansión:
+  // su zona quedó cubierta por las nuevas Caballito Sur (26) y Caballito
+  // Norte (27), con recorrido propio. El número 20 no se reutiliza.
 
-  // ── Expansión a 30 duplas (agosto 2026) ──────────────────────────────
+  // ── Expansión a 33 duplas (agosto 2026) ──────────────────────────────
   // TODO: falta el link de KoBo de cada una — puede que haga falta un
   // formulario "Flash 3" nuevo en KoBo Toolbox (todavía no confirmado
   // con Agustina). Mientras kobo quede vacío, el dashboard no va a poder
@@ -52,19 +55,22 @@ const duplas = [
   //
   // `grupo:'nueva'` es lo que hace que el portal (index.html) las separe
   // en su propia pestaña "Duplas nuevas" en vez de mezclarlas con las
-  // 01-20 — todavía no está confirmado si la agencia que coordina hoy el
+  // 01-19 — todavía no está confirmado si la agencia que coordina hoy el
   // censo las va a poner en territorio. Sacar ese campo (o ponerlo en
   // 'actual') las vuelve a mezclar en la pestaña principal.
-  { id:'21', zona:'Microcentro + Macrocentro', poligono:'Polígono 21', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1BTx5bqg-jN3Iig-SQ28M7z5snsexxnI', grupo:'nueva' },
-  { id:'22', zona:'Caballito Sur',             poligono:'Polígono 22', comuna:'C.6',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1AZQuRGvfPVXkQHHxOIaJfCA662UTGwQ', grupo:'nueva' },
-  { id:'23', zona:'Caballito Norte',           poligono:'Polígono 23', comuna:'C.6',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1vNPwuSGyvU3SIVpxqIlNnM-p0sjpJjE', grupo:'nueva' },
-  { id:'24', zona:'Almagro Norte',             poligono:'Polígono 24', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1WNAFbuZeAwgHxTwFSKMYocXAwZfW6qA', grupo:'nueva' },
-  { id:'25', zona:'Almagro Sur',               poligono:'Polígono 25', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1PTdr8m1Q1aW5kZJokxzfEREIMhghAkM', grupo:'nueva' },
-  { id:'26', zona:'Villa Crespo',              poligono:'Polígono 26', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1Y5-QKnPRqLvVQlqOHjeHbJP6OMGlKJk', grupo:'nueva' },
-  { id:'27', zona:'Once',                      poligono:'Polígono 27', comuna:'C.3',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1vpaKauq8MKfhQ7j5MNJFqpQgrNUT4mU', grupo:'nueva' },
-  { id:'28', zona:'Chacarita',                 poligono:'Polígono 28', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=16zz_Ns9avN3ni92oTIcEu2dF2xveFDg', grupo:'nueva' },
-  { id:'29', zona:'Agronomía',                 poligono:'Polígono 29', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1T4noPhcGo8Be-84jQEb14iMY-ij8kFk', grupo:'nueva' },
-  { id:'30', zona:'Boedo',                     poligono:'Polígono 30', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=13nTcHf5x79TlEsq85YYu393URmJ4MyQ', grupo:'nueva' },
+  { id:'21', zona:'Microcentro',               poligono:'Polígono 21', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1fAbAstJwu-8gcmMGdRRdgymJTalnt4E', grupo:'nueva' },
+  { id:'22', zona:'Macrocentro',               poligono:'Polígono 22', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1BTx5bqg-jN3Iig-SQ28M7z5snsexxnI', grupo:'nueva' },
+  { id:'23', zona:'Almagro Norte',             poligono:'Polígono 23', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1WNAFbuZeAwgHxTwFSKMYocXAwZfW6qA', grupo:'nueva' },
+  { id:'24', zona:'Almagro Sur',               poligono:'Polígono 24', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1PTdr8m1Q1aW5kZJokxzfEREIMhghAkM', grupo:'nueva' },
+  { id:'25', zona:'Boedo',                     poligono:'Polígono 25', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=13nTcHf5x79TlEsq85YYu393URmJ4MyQ', grupo:'nueva' },
+  { id:'26', zona:'Caballito Sur',             poligono:'Polígono 26', comuna:'C.6',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1AZQuRGvfPVXkQHHxOIaJfCA662UTGwQ', grupo:'nueva' },
+  { id:'27', zona:'Caballito Norte',           poligono:'Polígono 27', comuna:'C.6',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1vNPwuSGyvU3SIVpxqIlNnM-p0sjpJjE', grupo:'nueva' },
+  { id:'28', zona:'Once',                      poligono:'Polígono 28', comuna:'C.3',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1vpaKauq8MKfhQ7j5MNJFqpQgrNUT4mU', grupo:'nueva' },
+  { id:'29', zona:'Villa Crespo',              poligono:'Polígono 29', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1Y5-QKnPRqLvVQlqOHjeHbJP6OMGlKJk', grupo:'nueva' },
+  { id:'30', zona:'Agronomía',                 poligono:'Polígono 30', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1T4noPhcGo8Be-84jQEb14iMY-ij8kFk', grupo:'nueva' },
+  { id:'31', zona:'Chacarita',                 poligono:'Polígono 31', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=16zz_Ns9avN3ni92oTIcEu2dF2xveFDg', grupo:'nueva' },
+  { id:'32', zona:'San Telmo-Constitución',    poligono:'Polígono 32', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=10cAIOzUsfhKN_LC9VxhnzB7alqL7XBE', grupo:'nueva' },
+  { id:'33', zona:'Parque Chacabuco',          poligono:'Polígono 33', comuna:'C.7',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1iDsGxMAY81nsb2gJxuPQAoLcXktl2u4', grupo:'nueva' },
 ];
 
 // ── Parseo de envíos de KoBo ──────────────────────────────────────────
