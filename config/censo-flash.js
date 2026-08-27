@@ -22,55 +22,60 @@ const comunas = {
   'C.7':  'Parque Chacabuco',
 };
 
+// ── Asignación de KoBo desde el 1° de septiembre 2026 ────────────────
+// Gobierno reorganizó los formularios en 3 grupos (Norte/Centro/Sur) que
+// NO respetan rangos contiguos de dupla — cada dupla puede caer en
+// cualquiera de los 3. Los links de "Norte" y "Centro" son LOS MISMOS
+// formularios de KoBo que ya veníamos usando (los que antes se llamaban
+// "Flash 2" y "Flash 1"), solo que ahora los usa un grupo distinto de
+// duplas. "Sur" es el único formulario realmente nuevo.
+const KOBO_NORTE  = 'https://ee.kobotoolbox.org/x/gaWzj9F4'; // = ex "Flash 2"
+const KOBO_CENTRO = 'https://ee.kobotoolbox.org/x/cI937u6G'; // = ex "Flash 1"
+const KOBO_SUR    = 'https://ee.kobotoolbox.org/x/HcanGFj5'; // formulario nuevo
+
 const duplas = [
-  { id:'01', zona:'Retiro',        poligono:'Polígono 01', comuna:'C.1',  kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1a2FJrvzxTjejMZycd4yX85kbU6v9lZo&usp=sharing' },
-  { id:'02', zona:'Recoleta',      poligono:'Polígono 02', comuna:'C.2',  kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1sXihNejPqwBKYool5mpX4Pf-4lhBoh8&usp=sharing' },
-  { id:'03', zona:'Recoleta',      poligono:'Polígono 03', comuna:'C.2',  kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1OJqz28eDr2_EjNBUCMUhlTaWOxbZr-c&usp=sharing' },
-  { id:'04', zona:'Recoleta',      poligono:'Polígono 04', comuna:'C.2',  kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1ZuFmoze5nih1GbV8GZnRHRacS8bRMjA&usp=sharing' },
-  { id:'05', zona:'Palermo',       poligono:'Polígono 05', comuna:'C.14', kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1nxOGoV9y06YwKQg2LzZlNSozTb8_CU8&usp=sharing' },
-  { id:'06', zona:'Palermo',       poligono:'Polígono 06', comuna:'C.14', kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1q8BoHfgzOks30289L7yKSGWdT25G7Rw&usp=sharing' },
-  { id:'07', zona:'Palermo',       poligono:'Polígono 07', comuna:'C.14', kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1om67m3Smp5GOPG__nApgxgevHO0ILZ4&usp=sharing' },
-  { id:'08', zona:'Palermo',       poligono:'Polígono 08', comuna:'C.14', kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1GeNWSaCubKktLOKlSfESLjspFxchark&usp=sharing' },
-  { id:'09', zona:'Colegiales',    poligono:'Polígono 09', comuna:'C.13', kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=134Xwm4lM6tqPOTqgoIroM52YJF8onhI&usp=sharing' },
-  { id:'10', zona:'Belgrano',      poligono:'Polígono 10', comuna:'C.13', kobo:'https://ee.kobotoolbox.org/x/gaWzj9F4', mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1VF9579XAK0tVz2zh1YElGZmdWzlYpsM&usp=sharing' },
-  { id:'11', zona:'Belgrano',      poligono:'Polígono 11', comuna:'C.13', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1U5V1iNZUgm2OYWt5Y2ZYBddVIkHGvt8&usp=sharing' },
-  { id:'12', zona:'Belgrano R',    poligono:'Polígono 12', comuna:'C.13', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1NchByiiqydfmU5yIz3eb_UusG9FQXgg&usp=sharing' },
-  { id:'13', zona:'Núñez',         poligono:'Polígono 13', comuna:'C.13', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1mihs63JT7RzERJ8-fdflkDsUGdWdB_M&usp=sharing' },
-  { id:'14', zona:'Nuñez',         poligono:'Polígono 14', comuna:'C.13', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1nEbG0R4KElShILaJtFNaCZ0rlwqoMcQ&usp=sharing' },
-  { id:'15', zona:'Saavedra',      poligono:'Polígono 15', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1gInJRL0HoScU6t8IkKHR6qnHQzhAagE&usp=sharing' },
-  { id:'16', zona:'Saavedra',      poligono:'Polígono 16', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1kV8CwYixCNEuT3sxNmHHUqEyDNF5gfw&usp=sharing' },
-  { id:'17', zona:'Villa Urquiza', poligono:'Polígono 17', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1FHllQyYYHent3QvNJvvg_5QTgu4zhV8&usp=sharing' },
-  { id:'18', zona:'Villa Urquiza', poligono:'Polígono 18', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=10jjGAK6OXaWAIxdlJ3Hw5FBDVqLm8N0&usp=sharing' },
-  { id:'19', zona:'Villa Urquiza', poligono:'Polígono 19', comuna:'C.12', kobo:'https://ee.kobotoolbox.org/x/cI937u6G',  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1jr5_-GOEeANTI5SAT4RKeSSuL9huJw4&usp=sharing' },
+  { id:'01', zona:'Retiro',        poligono:'Polígono 01', comuna:'C.1',  kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1a2FJrvzxTjejMZycd4yX85kbU6v9lZo&usp=sharing' },
+  { id:'02', zona:'Recoleta',      poligono:'Polígono 02', comuna:'C.2',  kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1sXihNejPqwBKYool5mpX4Pf-4lhBoh8&usp=sharing' },
+  { id:'03', zona:'Recoleta',      poligono:'Polígono 03', comuna:'C.2',  kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1OJqz28eDr2_EjNBUCMUhlTaWOxbZr-c&usp=sharing' },
+  { id:'04', zona:'Recoleta',      poligono:'Polígono 04', comuna:'C.2',  kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1ZuFmoze5nih1GbV8GZnRHRacS8bRMjA&usp=sharing' },
+  { id:'05', zona:'Palermo',       poligono:'Polígono 05', comuna:'C.14', kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1nxOGoV9y06YwKQg2LzZlNSozTb8_CU8&usp=sharing' },
+  { id:'06', zona:'Palermo',       poligono:'Polígono 06', comuna:'C.14', kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1q8BoHfgzOks30289L7yKSGWdT25G7Rw&usp=sharing' },
+  { id:'07', zona:'Palermo',       poligono:'Polígono 07', comuna:'C.14', kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1om67m3Smp5GOPG__nApgxgevHO0ILZ4&usp=sharing' },
+  { id:'08', zona:'Palermo',       poligono:'Polígono 08', comuna:'C.14', kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1GeNWSaCubKktLOKlSfESLjspFxchark&usp=sharing' },
+  { id:'09', zona:'Colegiales',    poligono:'Polígono 09', comuna:'C.13', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/u/2/edit?mid=134Xwm4lM6tqPOTqgoIroM52YJF8onhI&usp=sharing' },
+  { id:'10', zona:'Belgrano',      poligono:'Polígono 10', comuna:'C.13', kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1VF9579XAK0tVz2zh1YElGZmdWzlYpsM&usp=sharing' },
+  { id:'11', zona:'Belgrano',      poligono:'Polígono 11', comuna:'C.13', kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1U5V1iNZUgm2OYWt5Y2ZYBddVIkHGvt8&usp=sharing' },
+  { id:'12', zona:'Belgrano R',    poligono:'Polígono 12', comuna:'C.13', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1NchByiiqydfmU5yIz3eb_UusG9FQXgg&usp=sharing' },
+  { id:'13', zona:'Núñez',         poligono:'Polígono 13', comuna:'C.13', kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1mihs63JT7RzERJ8-fdflkDsUGdWdB_M&usp=sharing' },
+  { id:'14', zona:'Nuñez',         poligono:'Polígono 14', comuna:'C.13', kobo:KOBO_NORTE,  mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1nEbG0R4KElShILaJtFNaCZ0rlwqoMcQ&usp=sharing' },
+  { id:'15', zona:'Saavedra',      poligono:'Polígono 15', comuna:'C.12', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1gInJRL0HoScU6t8IkKHR6qnHQzhAagE&usp=sharing' },
+  { id:'16', zona:'Saavedra',      poligono:'Polígono 16', comuna:'C.12', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1kV8CwYixCNEuT3sxNmHHUqEyDNF5gfw&usp=sharing' },
+  { id:'17', zona:'Villa Urquiza', poligono:'Polígono 17', comuna:'C.12', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1FHllQyYYHent3QvNJvvg_5QTgu4zhV8&usp=sharing' },
+  { id:'18', zona:'Villa Urquiza', poligono:'Polígono 18', comuna:'C.12', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/u/2/edit?mid=10jjGAK6OXaWAIxdlJ3Hw5FBDVqLm8N0&usp=sharing' },
+  { id:'19', zona:'Villa Urquiza', poligono:'Polígono 19', comuna:'C.12', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/u/2/edit?mid=1jr5_-GOEeANTI5SAT4RKeSSuL9huJw4&usp=sharing' },
   // La Dupla 20 (Caballito, Polígono 20) se dio de baja con la expansión:
   // su zona quedó cubierta por las nuevas Caballito Sur (26) y Caballito
   // Norte (27), con recorrido propio. El número 20 no se reutiliza.
 
   // ── Expansión a 33 duplas (agosto 2026) ──────────────────────────────
-  // TODO: falta el link de KoBo de cada una — puede que haga falta un
-  // formulario "Flash 3" nuevo en KoBo Toolbox (todavía no confirmado
-  // con Agustina). Mientras kobo quede vacío, el dashboard no va a poder
-  // cruzar las cargas de estas duplas contra KoBo, pero el resto
-  // (portal, cierre, mapa) ya funciona igual.
-  //
   // `grupo:'nueva'` es lo que hace que el portal (index.html) las separe
   // en su propia pestaña "Duplas nuevas" en vez de mezclarlas con las
   // 01-19 — todavía no está confirmado si la agencia que coordina hoy el
   // censo las va a poner en territorio. Sacar ese campo (o ponerlo en
   // 'actual') las vuelve a mezclar en la pestaña principal.
-  { id:'21', zona:'Microcentro',               poligono:'Polígono 21', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1fAbAstJwu-8gcmMGdRRdgymJTalnt4E', grupo:'nueva' },
-  { id:'22', zona:'Macrocentro',               poligono:'Polígono 22', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1BTx5bqg-jN3Iig-SQ28M7z5snsexxnI', grupo:'nueva' },
-  { id:'23', zona:'Almagro Norte',             poligono:'Polígono 23', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1WNAFbuZeAwgHxTwFSKMYocXAwZfW6qA', grupo:'nueva' },
-  { id:'24', zona:'Almagro Sur',               poligono:'Polígono 24', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1PTdr8m1Q1aW5kZJokxzfEREIMhghAkM', grupo:'nueva' },
-  { id:'25', zona:'Boedo',                     poligono:'Polígono 25', comuna:'C.5',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=13nTcHf5x79TlEsq85YYu393URmJ4MyQ', grupo:'nueva' },
-  { id:'26', zona:'Caballito Sur',             poligono:'Polígono 26', comuna:'C.6',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1AZQuRGvfPVXkQHHxOIaJfCA662UTGwQ', grupo:'nueva' },
-  { id:'27', zona:'Caballito Norte',           poligono:'Polígono 27', comuna:'C.6',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1vNPwuSGyvU3SIVpxqIlNnM-p0sjpJjE', grupo:'nueva' },
-  { id:'28', zona:'Once',                      poligono:'Polígono 28', comuna:'C.3',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1vpaKauq8MKfhQ7j5MNJFqpQgrNUT4mU', grupo:'nueva' },
-  { id:'29', zona:'Villa Crespo',              poligono:'Polígono 29', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1Y5-QKnPRqLvVQlqOHjeHbJP6OMGlKJk', grupo:'nueva' },
-  { id:'30', zona:'Agronomía',                 poligono:'Polígono 30', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1T4noPhcGo8Be-84jQEb14iMY-ij8kFk', grupo:'nueva' },
-  { id:'31', zona:'Chacarita',                 poligono:'Polígono 31', comuna:'C.15', kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=16zz_Ns9avN3ni92oTIcEu2dF2xveFDg', grupo:'nueva' },
-  { id:'32', zona:'San Telmo-Constitución',    poligono:'Polígono 32', comuna:'C.1',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=10cAIOzUsfhKN_LC9VxhnzB7alqL7XBE', grupo:'nueva' },
-  { id:'33', zona:'Parque Chacabuco',          poligono:'Polígono 33', comuna:'C.7',  kobo:'', mymaps:'https://www.google.com/maps/d/viewer?mid=1iDsGxMAY81nsb2gJxuPQAoLcXktl2u4', grupo:'nueva' },
+  { id:'21', zona:'Microcentro',               poligono:'Polígono 21', comuna:'C.1',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1fAbAstJwu-8gcmMGdRRdgymJTalnt4E', grupo:'nueva' },
+  { id:'22', zona:'Macrocentro',               poligono:'Polígono 22', comuna:'C.1',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1BTx5bqg-jN3Iig-SQ28M7z5snsexxnI', grupo:'nueva' },
+  { id:'23', zona:'Almagro Norte',             poligono:'Polígono 23', comuna:'C.5',  kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1WNAFbuZeAwgHxTwFSKMYocXAwZfW6qA', grupo:'nueva' },
+  { id:'24', zona:'Almagro Sur',               poligono:'Polígono 24', comuna:'C.5',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1PTdr8m1Q1aW5kZJokxzfEREIMhghAkM', grupo:'nueva' },
+  { id:'25', zona:'Boedo',                     poligono:'Polígono 25', comuna:'C.5',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=13nTcHf5x79TlEsq85YYu393URmJ4MyQ', grupo:'nueva' },
+  { id:'26', zona:'Caballito Sur',             poligono:'Polígono 26', comuna:'C.6',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1AZQuRGvfPVXkQHHxOIaJfCA662UTGwQ', grupo:'nueva' },
+  { id:'27', zona:'Caballito Norte',           poligono:'Polígono 27', comuna:'C.6',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1vNPwuSGyvU3SIVpxqIlNnM-p0sjpJjE', grupo:'nueva' },
+  { id:'28', zona:'Once',                      poligono:'Polígono 28', comuna:'C.3',  kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1vpaKauq8MKfhQ7j5MNJFqpQgrNUT4mU', grupo:'nueva' },
+  { id:'29', zona:'Villa Crespo',              poligono:'Polígono 29', comuna:'C.15', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1Y5-QKnPRqLvVQlqOHjeHbJP6OMGlKJk', grupo:'nueva' },
+  { id:'30', zona:'Agronomía',                 poligono:'Polígono 30', comuna:'C.15', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1T4noPhcGo8Be-84jQEb14iMY-ij8kFk', grupo:'nueva' },
+  { id:'31', zona:'Chacarita',                 poligono:'Polígono 31', comuna:'C.15', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=16zz_Ns9avN3ni92oTIcEu2dF2xveFDg', grupo:'nueva' },
+  { id:'32', zona:'San Telmo-Constitución',    poligono:'Polígono 32', comuna:'C.1',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=10cAIOzUsfhKN_LC9VxhnzB7alqL7XBE', grupo:'nueva' },
+  { id:'33', zona:'Parque Chacabuco',          poligono:'Polígono 33', comuna:'C.7',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1iDsGxMAY81nsb2gJxuPQAoLcXktl2u4', grupo:'nueva' },
 ];
 
 // ── Parseo de envíos de KoBo ──────────────────────────────────────────
@@ -96,8 +101,9 @@ function extractDupla(row){
   return isNaN(n) ? null : n;
 }
 
-// Flash 2 = duplas 01–10
-function parseFlash2(row){
+// Formulario "Flash Norte" (desde sept/2026) — es el mismo asset de KoBo
+// que antes se llamaba "Flash 2", solo cambió qué duplas lo usan.
+function parseNorte(row){
   let personas = 0;
   for(const key of Object.keys(row)){
     const k = key.toLowerCase();
@@ -108,11 +114,12 @@ function parseFlash2(row){
   }
   if(personas<=0) return null;
   const start = row['start'] || row['_submission_time'];
-  return { personas, situacion:'—', hora: start? new Date(start).getHours(): null, fecha:start, dupla: extractDupla(row), formulario:'Flash 2' };
+  return { personas, situacion:'—', hora: start? new Date(start).getHours(): null, fecha:start, dupla: extractDupla(row), formulario:'Flash Norte' };
 }
 
-// Flash 1 = duplas 11–20
-function parseFlash1(row){
+// Formulario "Flash Centro" (desde sept/2026) — es el mismo asset de KoBo
+// que antes se llamaba "Flash 1", solo cambió qué duplas lo usan.
+function parseCentro(row){
   let personas = parseInt(row['cant_pers']||0)||0;
   if(personas<=0){
     for(const key of Object.keys(row)){
@@ -123,7 +130,19 @@ function parseFlash1(row){
   if(personas<=0) return null;
   const start = row['start'] || row['_submission_time'];
   const sit = SIT_MAP[row['sit_calle']] || row['sit_calle'] || 'Otro';
-  return { personas, situacion: sit, hora: start? new Date(start).getHours(): null, fecha:start, dupla: extractDupla(row), formulario:'Flash 1' };
+  return { personas, situacion: sit, hora: start? new Date(start).getHours(): null, fecha:start, dupla: extractDupla(row), formulario:'Flash Centro' };
+}
+
+// Formulario "Flash Sur" (nuevo desde sept/2026) — todavía no tenemos el
+// ID interno de KoBo (el `.../forms/aXXXXXXX/` que se ve en la URL al
+// abrir el formulario en kf.kobotoolbox.org) ni una muestra real de sus
+// columnas. Uso el mismo parseo que "Flash Centro" como punto de partida
+// razonable (misma familia de formulario Flash), pero HAY QUE
+// VALIDARLO contra el primer envío real del martes y ajustar si hace
+// falta (columnas distintas, campo de situación con otro nombre, etc.).
+function parseSur(row){
+  const r = parseCentro(row);
+  return r ? { ...r, formulario:'Flash Sur' } : null;
 }
 
 window.PROJECT_CONFIG_CENSO_FLASH = {
@@ -161,9 +180,19 @@ window.PROJECT_CONFIG_CENSO_FLASH = {
   kobo: {
     token: '685fc2e5a79995c816b2652530a9fc520387a630',
     base: 'https://kf.kobotoolbox.org/api/v2/assets',
+    // Desde sept/2026 el link público (el que usan las duplas para cargar,
+    // ver `kobo` en cada dupla arriba) ya no corre en rangos contiguos —
+    // por eso el nombre de cada formulario acá ya no dice qué duplas
+    // cubre. `extractDupla()` sigue resolviendo la dupla correcta desde el
+    // username de cada envío sin importar en qué formulario haya entrado.
     forms: [
-      { id:'aPou2eJThDtn45mdmfrbaA', nombre:'Flash 2 (duplas 01–10)', parseRow: parseFlash2 },
-      { id:'aH2SygyBTRCkqCgBtu4m3R', nombre:'Flash 1 (duplas 11–20)', parseRow: parseFlash1 },
+      { id:'aPou2eJThDtn45mdmfrbaA', nombre:'Flash Norte (ex Flash 2)', parseRow: parseNorte },
+      { id:'aH2SygyBTRCkqCgBtu4m3R', nombre:'Flash Centro (ex Flash 1)', parseRow: parseCentro },
+      // TODO: falta el ID interno de "Flash Sur" (formulario nuevo, sin
+      // reemplazo previo) — sin esto el dashboard no puede traer sus
+      // envíos. Conseguirlo en kf.kobotoolbox.org → abrir el formulario →
+      // copiar el ID de la URL (.../forms/aXXXXXXXXXXXXXXXXXXX/...).
+      // { id:'PENDIENTE', nombre:'Flash Sur (nuevo)', parseRow: parseSur },
     ],
   },
 };
