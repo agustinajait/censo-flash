@@ -63,7 +63,8 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   criticidadOpciones: ['Baja', 'Media', 'Alta'],
 
   // Tipo de derivación (egreso del caso). Lista abierta — se va completando
-  // con los programas de gobierno reales a medida que se definen.
+  // con los programas de gobierno reales a medida que se definen. Fuente:
+  // documento "UMBRAL_0_1" (27/07/2026), circuitos y procedimientos.
   derivacionOpciones: [
     'DIPA',
     'Micro',
@@ -72,9 +73,15 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
     'Centro de día',
     'CIS',
     'Casa Vincular', // solo habilitado para seguimientos — ver DISENO-CASOS.md §5.2
-    'Salud Mental', // incluye el protocolo de SAME/Brigada CER — ver DISENO-CASOS.md §5.4
+    'ASA (ex Centro de Admisión, Evaluación y Derivación)', // ídem, mismo informe social que Casa Vincular
+    'Salud Mental', // incluye el protocolo de SAME/Brigada CER cuando surge DEL propio operativo de salud mental
+    'SAME', // llamado directo a emergencia médica (107), independiente de Salud Mental
+    'Brigada CER', // evaluación sanitaria de campo, independiente de Salud Mental
     'Mapa de Familias en Riesgo',
     'Policía de la Ciudad',
+    'Programa Ciudadanía Porteña',
+    'Sedes de Atención Social',
+    'Derecho a la Identidad',
     // TODO: sumar más opciones de derivación acá
   ],
 

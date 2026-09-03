@@ -343,6 +343,21 @@ fallar en silencio. Por ahora solo está en este informe; sumarlo a otros
 campos de texto libre (historia breve, resumen de intervención de CIS,
 comentarios de seguimiento) es extender la misma función, no rehacer nada.
 
+**ASA (ex Centro de Admisión, Evaluación y Derivación) usa el mismo
+informe social** — el documento lo dice explícitamente ("con el mismo
+formato que el adjuntado anteriormente para las Casas Vinculares"). En
+`casos.html`, `CAMPOS_INFORME_SOCIAL`/`CAMPOS_INFORME_SOCIAL_RESUMEN` están
+factorizados una sola vez y los usan los dos tipos de derivación —
+`'Casa Vincular'` y `'ASA (ex Centro de Admisión, Evaluación y
+Derivación)'` — cada uno con su propio título/ayuda pero mismos campos.
+También **solo habilitado para seguimientos**: el documento pide que haya
+vínculo previo y diálogo sobre la conciencia del consumo antes de proponer
+ASA, igual criterio que Casa Vincular. El circuito difiere en el
+destinatario: el informe de ASA lo viabiliza la referencia territorial con
+la coordinación de Umbral Cero (no va directo a un grupo de Casas
+Vinculares), y de ahí se gestiona la entrevista para el posible ingreso a
+una comunidad terapéutica.
+
 ### 5.3 Micro
 
 Estrategia de los equipos de turno vespertino: acceso a pernocte en micros
@@ -368,6 +383,12 @@ derivación a micro como respuesta a una detección espontánea en territorio de
 alguien que no quiere ir a CIS, o para cuando no hay vacantes de CIS al
 momento de la solicitud — mismo formulario, sin requerir seguimiento previo.
 
+**Mensaje/PDF listo para enviar (ya construido):** igual que CIS/Casa
+Vincular — `RESUMEN_DERIVACION_CONFIG['Micro']` arma el mensaje con nombre,
+DNI, edad y situación de salud, listo para copiar o descargar en PDF y
+mandarle a la coordinación de Umbral Cero, que es quien articula con la
+coordinación de micros para reservar el espacio.
+
 ### 5.4 Salud Mental, Mapa de Familias en Riesgo, Policía de la Ciudad
 
 Tres circuitos de emergencia/derivación sumados en una vuelta posterior del
@@ -384,20 +405,26 @@ identificar a la persona), y la evaluación de orientación en tiempo/espacio
 que define la derivación (¿sabe qué día es? ¿mes y año? ¿vestimenta acorde
 al clima? ¿conductas de riesgo?).
 
-**Brigada CER y SAME quedaron adentro de este mismo formulario** (no son
-tipos de derivación separados) — el documento los presenta como protocolos
-de escalamiento durante una evaluación de salud mental o urgencia sanitaria:
-si hay riesgo para sí o terceros, el equipo llama al SAME (107) y permanece
-en el lugar hasta que llegue; alternativamente puede pedir Brigada CER para
-una evaluación sanitaria de campo. El formulario tiene checkboxes para cada
+**Brigada CER y SAME también viven adentro de este formulario** como
+protocolo de escalamiento durante una evaluación de salud mental: si hay
+riesgo para sí o terceros, el equipo llama al SAME (107) y permanece en el
+lugar hasta que llegue; alternativamente puede pedir Brigada CER para una
+evaluación sanitaria de campo. El formulario tiene checkboxes para cada
 llamado + un campo para los datos de quien arriba (médico, matrícula,
 institución, móvil, patente, hospital de traslado si corresponde) — esos
 datos "se adjuntan a la devolución que realiza el equipo", que es
-exactamente lo que este mensaje/PDF ya resuelve. Si en algún momento se
-necesita registrar SAME/Brigada CER como su propio tipo de derivación
-(reutilizable fuera de Salud Mental), separarlos es un cambio chico —
-`TIPOS_DERIVACION_CONFIG` y `RESUMEN_DERIVACION_CONFIG` en `casos.html` ya
-están armados para agregar tipos sin tocar el resto.
+exactamente lo que este mensaje/PDF ya resuelve.
+
+**SAME y Brigada CER además existen como tipos de derivación propios**
+(`TIPOS_DERIVACION_CONFIG['SAME']` / `['Brigada CER']`) — el documento los
+describe también como circuitos independientes: cualquier urgencia médica
+general (no solo derivada de una evaluación de salud mental) pasa por
+"Articulación con SAME", y cualquier pedido de evaluación sanitaria de
+campo —incluido como apoyo cuando el SAME ya fue solicitado y demora— pasa
+por "Articulación con Brigada CER". Los campos son básicamente los mismos
+que la versión embebida en Salud Mental (motivo, operador que recepcionó,
+datos de quien arriba), sin las preguntas de orientación en tiempo/espacio
+que son específicas de la evaluación de salud mental.
 
 **Mapa de Familias en Riesgo:** para grupos familiares en calle con
 niños/niñas/adolescentes. El modelo de una-persona-por-caso no encaja del
@@ -413,7 +440,7 @@ llamado, si el equipo aguardó el móvil, y los datos del personal
 interviniente (nombre, LP, comisaría, móvil) que también van a la
 devolución del equipo.
 
-### 5.5 DNI, Médico/Salud, DIPA, Centro de día
+### 5.5 DNI, Médico/Salud, DIPA, Centro de día, Sedes de Atención Social, Derecho a la Identidad
 
 Formulario simple (observaciones libres por ahora), enriquecible más
 adelante:
@@ -422,7 +449,10 @@ adelante:
   territorio a hacer el trámite (o la denuncia de extravío en comisaría, si
   corresponde).
 - **Médico:** acompañamiento a hospitales/CESACs — incluye búsqueda de
-  medicación y vinculación con la institución para controles médicos.
+  medicación y vinculación con la institución para controles médicos. El
+  documento también menciona la gestión de turnos por la línea 147
+  (Hospitales/Centros de Salud y Acción Comunitaria) y la importancia de
+  dialogar con el servicio social de la institución.
 - **DIPA** (Combate de los Pozos 1280 — Dispositivo de Primer Acercamiento):
   recurso de trámites (Ciudadanía Porteña, 690), baños, duchas,
   desayuno/merienda y oferta programática. Cada 15 días se acerca Derecho a
@@ -431,6 +461,29 @@ adelante:
   (ver 5.1).
 - **Centro de día:** sin detalle adicional en el documento — formulario
   simple hasta que se defina más.
+- **Sedes de Atención Social** (agregado, doc jul/2026): abordaje integral
+  por comuna — consumo problemático, derecho a la identidad, derecho de la
+  mujer, discapacidad, y asistencia social a NNyA/familias/personas
+  mayores. Incluye la gestión de DNI con eximición de pago (documento
+  adjunto de ejemplo) y asesoramiento sobre el Certificado Único de
+  Discapacidad. El documento no pide datos estructurados propios más allá
+  de la derivación en sí — queda como tipo simple.
+- **Derecho a la Identidad** (agregado, doc jul/2026): asesoramiento,
+  derivación asistida y seguimiento social en la tramitación del DNI para
+  personas sin inscripción registral (NN) o extranjeras con dificultades de
+  documentación (Rodríguez Peña 780). También tipo simple — el documento
+  solo describe el papel de derivación que se le entrega a la persona.
+
+**Programa Ciudadanía Porteña** (agregado, doc jul/2026) sí tiene campos
+propios (`TIPOS_DERIVACION_CONFIG['Programa Ciudadanía Porteña']`), porque
+el documento define requisitos concretos a confirmar antes de avanzar: DNI
+con domicilio en CABA, negativa de ANSES, y si el DNI tiene menos de 2 años
+de emisión, un informe social adicional de otra institución. La modalidad
+puede ser acompañamiento por el equipo o derivación para que la persona
+vaya por sus propios medios — en el primer caso, el "formulario integral"
+lo recibe la referencia territorial para hacerlo llegar al Área de Demanda
+Externa (Jerónimo Salguero 979); la derivación en papel siempre se le
+entrega a la persona.
 
 ### 5.6 Espacios de contención — aclaración, no es una derivación
 
