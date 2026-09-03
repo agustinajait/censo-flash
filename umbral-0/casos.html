@@ -287,6 +287,39 @@ const CAMPOS_PERSONA_INFORME = [
   { key:'situacion_educativa', label:'Situación educativa', type:'textarea' },
 ];
 
+// "Informe social" — mismo formato para Casa Vincular y ASA (documento
+// UMBRAL_0_1.docx: "el equipo territorial deberá realizar un informe
+// social, con el mismo formato que el adjuntado anteriormente para las
+// Casas Vinculares"). Se define una sola vez y la usan los dos tipos.
+const CAMPOS_INFORME_SOCIAL = [
+  { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
+  { key:'dni', label:'DNI', prefill:p=>p.dni || (p.dni_denuncia_extravio ? '(con denuncia de extravío — completar N° acá)' : '') },
+  { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date', prefill:p=>p.fecha_nacimiento },
+  { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
+  { key:'nacionalidad', label:'Nacionalidad', prefill:p=>p.nacionalidad },
+  { key:'telefono_contacto', label:'Número de contacto telefónico', prefill:p=>p.telefono_contacto },
+  { key:'situacion_habitacional', label:'Situación habitacional', type:'textarea', prefill:p=>p.situacion_habitacional, corregible:true },
+  { key:'situacion_economica', label:'Situación económica', type:'textarea', prefill:p=>p.situacion_economica, corregible:true },
+  { key:'situacion_sanitaria', label:'Situación sanitaria', type:'textarea', prefill:p=>p.situacion_sanitaria, corregible:true },
+  { key:'redes_contencion', label:'Redes de contención', type:'textarea', prefill:p=>p.redes_contencion, corregible:true },
+  { key:'situacion_educativa', label:'Situación educativa', type:'textarea', prefill:p=>p.situacion_educativa, corregible:true },
+  { key:'resumen_estrategias', label:'Resumen de la intervención y posibles estrategias futuras', type:'textarea', corregible:true },
+];
+const CAMPOS_INFORME_SOCIAL_RESUMEN = [
+  ['Nombre y apellido', 'nombre_apellido'],
+  ['DNI', 'dni'],
+  ['Edad', 'edad'],
+  ['Fecha de nacimiento', 'fecha_nacimiento'],
+  ['Nacionalidad', 'nacionalidad'],
+  ['Número de contacto telefónico', 'telefono_contacto'],
+  ['Situación habitacional', 'situacion_habitacional'],
+  ['Situación económica', 'situacion_economica'],
+  ['Situación sanitaria', 'situacion_sanitaria'],
+  ['Redes de contención', 'redes_contencion'],
+  ['Situación educativa', 'situacion_educativa'],
+  ['Resumen de la intervención y posibles estrategias futuras', 'resumen_estrategias'],
+];
+
 // Formularios por tipo de derivación (DISENO-CASOS.md §5). Todo lo que no
 // esté acá cae en el formulario genérico (solo observaciones).
 const TIPOS_DERIVACION_CONFIG = {
@@ -310,20 +343,15 @@ const TIPOS_DERIVACION_CONFIG = {
   },
   'Casa Vincular': {
     soloSeguimiento: true,
-    campos: [
-      { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
-      { key:'dni', label:'DNI', prefill:p=>p.dni || (p.dni_denuncia_extravio ? '(con denuncia de extravío — completar N° acá)' : '') },
-      { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date', prefill:p=>p.fecha_nacimiento },
-      { key:'edad', label:'Edad', prefill:p=>calcEdad(p.fecha_nacimiento) },
-      { key:'nacionalidad', label:'Nacionalidad', prefill:p=>p.nacionalidad },
-      { key:'telefono_contacto', label:'Número de contacto telefónico', prefill:p=>p.telefono_contacto },
-      { key:'situacion_habitacional', label:'Situación habitacional', type:'textarea', prefill:p=>p.situacion_habitacional, corregible:true },
-      { key:'situacion_economica', label:'Situación económica', type:'textarea', prefill:p=>p.situacion_economica, corregible:true },
-      { key:'situacion_sanitaria', label:'Situación sanitaria', type:'textarea', prefill:p=>p.situacion_sanitaria, corregible:true },
-      { key:'redes_contencion', label:'Redes de contención', type:'textarea', prefill:p=>p.redes_contencion, corregible:true },
-      { key:'situacion_educativa', label:'Situación educativa', type:'textarea', prefill:p=>p.situacion_educativa, corregible:true },
-      { key:'resumen_estrategias', label:'Resumen de la intervención y posibles estrategias futuras', type:'textarea', corregible:true },
-    ],
+    campos: CAMPOS_INFORME_SOCIAL,
+  },
+  // Mismo informe social que Casa Vincular — el doc dice explícitamente que
+  // usa "el mismo formato". También solo para seguimientos: el doc pide que
+  // haya vínculo previo y diálogo sobre la conciencia del consumo antes de
+  // proponer ASA.
+  'ASA (ex Centro de Admisión, Evaluación y Derivación)': {
+    soloSeguimiento: true,
+    campos: CAMPOS_INFORME_SOCIAL,
   },
   'Micro': {
     requiereCheckConsumo: true,
@@ -376,8 +404,59 @@ const TIPOS_DERIVACION_CONFIG = {
       { key:'movil_numero', label:'N° de móvil' },
     ],
   },
+  // Llamado directo a emergencia médica (107) — independiente del protocolo
+  // de Salud Mental (que ya incluye su propio llamado a SAME cuando
+  // corresponde). Este es para cualquier urgencia médica general.
+  'SAME': {
+    campos: [
+      { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
+      { key:'punto_contacto', label:'Punto de contacto', prefill:p=>p.punto_contacto },
+      { key:'motivo_llamado', label:'Motivo del llamado (urgencia médica)', type:'textarea', corregible:true },
+      { key:'persona_rechazo_atencion', label:'La persona rechazó la atención', type:'checkbox', checkLabel:'La persona rechazó verbalmente la atención (igual se efectuó el llamado al 107)' },
+      { key:'operador_telefonico', label:'N° de operador que recepcionó el llamado al 107' },
+      { key:'tomo_pedido', label:'¿Tomó el pedido?', type:'select', options:()=>['Sí','No'] },
+      { key:'medico_nombre', label:'Nombre y apellido del médico (al arribar)' },
+      { key:'medico_matricula', label:'N° de matrícula' },
+      { key:'institucion_sanitaria', label:'Institución sanitaria a la que pertenece' },
+      { key:'movil_numero', label:'N° de móvil (ambulancia)' },
+      { key:'movil_patente', label:'Patente' },
+      { key:'traslado_hospital', label:'Hospital al que se trasladó (si corresponde)' },
+    ],
+  },
+  // Evaluación sanitaria de campo — independiente de Salud Mental. Se puede
+  // pedir directo (alguien solicita asistencia sanitaria) o como apoyo
+  // cuando ya se llamó al SAME y demora.
+  'Brigada CER': {
+    campos: [
+      { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
+      { key:'punto_contacto', label:'Punto de contacto', prefill:p=>p.punto_contacto },
+      { key:'motivo_solicitud', label:'Situación sanitaria relatada / motivo de la solicitud', type:'textarea', corregible:true },
+      { key:'llamado_previo_same', label:'Ya se había solicitado SAME (demora)', type:'checkbox', checkLabel:'Ya se había solicitado al SAME y demoraba (se pidió apoyo a Brigada CER)' },
+      { key:'tiempo_estimado_arribo', label:'Tiempo estimado de arribo informado' },
+      { key:'evaluaron_signos_vitales', label:'Evaluaron signos vitales / entrevista sanitaria', type:'checkbox', checkLabel:'Se realizó evaluación de signos vitales y entrevista con perspectiva sanitaria' },
+      { key:'se_deriva_a_same', label:'Indicaron necesario llamar al SAME', type:'checkbox', checkLabel:'Tras la evaluación, Brigada CER indicó que era necesario llamar al SAME' },
+      { key:'se_agrega_monitoreo', label:'Se agregó al esquema de monitoreo diario', type:'checkbox', checkLabel:'Se agregó a la persona al esquema de monitoreo diario de Brigada CER' },
+      { key:'resumen_intervencion', label:'Resumen de la intervención', type:'textarea', corregible:true },
+    ],
+  },
+  'Programa Ciudadanía Porteña': {
+    campos: [
+      { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
+      { key:'dni', label:'DNI', prefill:p=>p.dni },
+      { key:'dni_domicilio_caba', label:'DNI con domicilio en CABA', type:'checkbox', checkLabel:'El DNI tiene domicilio en CABA (requisito obligatorio)' },
+      { key:'tiene_negativa_anses', label:'Cuenta con negativa de ANSES', type:'checkbox', checkLabel:'Cuenta con negativa de ANSES (requisito obligatorio)' },
+      { key:'dni_reciente', label:'DNI con fecha de emisión menor a 2 años', type:'checkbox', checkLabel:'El DNI tiene fecha de emisión menor a 2 años (requiere informe social adicional de otra institución)' },
+      { key:'institucion_informe_adicional', label:'Institución que emite el informe social adicional (si corresponde)' },
+      { key:'modalidad', label:'Modalidad', type:'select', options:()=>['Acompañamiento por el equipo', 'Derivación (la persona va por sus propios medios)'] },
+      { key:'resumen_intervencion', label:'Resumen de la intervención', type:'textarea', corregible:true },
+    ],
+  },
 };
-const TIPOS_SIMPLES_SET = new Set(['DIPA', 'Hacer DNI', 'Médico', 'Centro de día']);
+// Sedes de Atención Social y Derecho a la Identidad: el doc solo describe
+// un documento de derivación que se le entrega a la persona (con ejemplo de
+// imagen), sin datos estructurados propios que registrar acá — quedan como
+// tipo simple (observaciones libres), igual que DIPA/Médico/Centro de día.
+const TIPOS_SIMPLES_SET = new Set(['DIPA', 'Hacer DNI', 'Médico', 'Centro de día', 'Sedes de Atención Social', 'Derecho a la Identidad']);
 
 // Qué tipos de derivación, al guardarse, muestran el mensaje/informe listo
 // para copiar y descargar en PDF (en vez de cerrar el modal directo). Los
@@ -406,20 +485,12 @@ const RESUMEN_DERIVACION_CONFIG = {
   'Casa Vincular': {
     titulo: 'Informe social — Casa Vincular',
     ayuda: 'Copiá este informe o descargalo en PDF para enviárselo directamente a la coordinadora.',
-    campos: [
-      ['Nombre y apellido', 'nombre_apellido'],
-      ['DNI', 'dni'],
-      ['Edad', 'edad'],
-      ['Fecha de nacimiento', 'fecha_nacimiento'],
-      ['Nacionalidad', 'nacionalidad'],
-      ['Número de contacto telefónico', 'telefono_contacto'],
-      ['Situación habitacional', 'situacion_habitacional'],
-      ['Situación económica', 'situacion_economica'],
-      ['Situación sanitaria', 'situacion_sanitaria'],
-      ['Redes de contención', 'redes_contencion'],
-      ['Situación educativa', 'situacion_educativa'],
-      ['Resumen de la intervención y posibles estrategias futuras', 'resumen_estrategias'],
-    ],
+    campos: CAMPOS_INFORME_SOCIAL_RESUMEN,
+  },
+  'ASA (ex Centro de Admisión, Evaluación y Derivación)': {
+    titulo: 'Informe social — ASA (Comunidad Terapéutica)',
+    ayuda: 'Copiá este informe o descargalo en PDF y mandaselo a tu referente territorial para que lo viabilice con la coordinación de Umbral Cero.',
+    campos: CAMPOS_INFORME_SOCIAL_RESUMEN,
   },
   'Salud Mental': {
     titulo: 'Derivación a Salud Mental',
@@ -467,6 +538,63 @@ const RESUMEN_DERIVACION_CONFIG = {
       ['LP (legajo personal)', 'policial_lp'],
       ['Comisaría', 'comisaria'],
       ['N° de móvil', 'movil_numero'],
+    ],
+  },
+  'SAME': {
+    titulo: 'Articulación con SAME',
+    ayuda: 'El llamado al 107 se hace en el momento — esto queda para el registro del equipo y, si te lo piden, para mandarle un resumen a tu referente territorial.',
+    campos: [
+      ['Nombre y apellido', 'nombre_apellido'],
+      ['Punto de contacto', 'punto_contacto'],
+      ['Motivo del llamado', 'motivo_llamado'],
+      ['La persona rechazó la atención', 'persona_rechazo_atencion'],
+      ['N° de operador (107)', 'operador_telefonico'],
+      ['¿Tomó el pedido?', 'tomo_pedido'],
+      ['Médico interviniente', 'medico_nombre'],
+      ['N° de matrícula', 'medico_matricula'],
+      ['Institución sanitaria', 'institucion_sanitaria'],
+      ['N° de móvil', 'movil_numero'],
+      ['Patente', 'movil_patente'],
+      ['Hospital de traslado', 'traslado_hospital'],
+    ],
+  },
+  'Brigada CER': {
+    titulo: 'Articulación con Brigada CER',
+    ayuda: 'El pedido se hace por teléfono a la coordinación territorial de Brigada CER — esto queda para el registro del equipo.',
+    campos: [
+      ['Nombre y apellido', 'nombre_apellido'],
+      ['Punto de contacto', 'punto_contacto'],
+      ['Motivo de la solicitud', 'motivo_solicitud'],
+      ['Ya se había solicitado SAME (demora)', 'llamado_previo_same'],
+      ['Tiempo estimado de arribo', 'tiempo_estimado_arribo'],
+      ['Evaluaron signos vitales', 'evaluaron_signos_vitales'],
+      ['Indicaron llamar al SAME', 'se_deriva_a_same'],
+      ['Se agregó al monitoreo diario', 'se_agrega_monitoreo'],
+      ['Resumen de la intervención', 'resumen_intervencion'],
+    ],
+  },
+  'Programa Ciudadanía Porteña': {
+    titulo: 'Programa Ciudadanía Porteña',
+    ayuda: 'Si es acompañamiento: el formulario integral se lo mandás a tu referente territorial (ellos lo hacen llegar al Área de Demanda Externa) y la derivación se le entrega a la persona. Si la persona va por sus propios medios, solo le das la derivación.',
+    campos: [
+      ['Nombre y apellido', 'nombre_apellido'],
+      ['DNI', 'dni'],
+      ['DNI con domicilio en CABA', 'dni_domicilio_caba'],
+      ['Negativa de ANSES', 'tiene_negativa_anses'],
+      ['DNI con menos de 2 años de emisión', 'dni_reciente'],
+      ['Institución del informe social adicional', 'institucion_informe_adicional'],
+      ['Modalidad', 'modalidad'],
+      ['Resumen de la intervención', 'resumen_intervencion'],
+    ],
+  },
+  'Micro': {
+    titulo: 'Datos para Micro (turno vespertino)',
+    ayuda: 'Copiá estos datos y mandaselos a la coordinación de Umbral Cero para que articule con la coordinación de micros y reserve el espacio. Recordá: la persona siempre tiene que contar con DNI o denuncia de extravío.',
+    campos: [
+      ['Nombre y apellido', 'nombre_apellido'],
+      ['DNI / N° de denuncia', 'dni'],
+      ['Edad', 'edad'],
+      ['Situación de salud', 'estado_salud'],
     ],
   },
 };
@@ -598,10 +726,12 @@ async function descargarInformePDF(titulo, nombrePersona, filas){
     y += 9;
   });
 
-  const slug = (nombrePersona || 'persona').toLowerCase()
+  const slugificar = s => String(s || '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'persona';
-  doc.save(`${titulo.toLowerCase().includes('cis') ? 'cis' : 'casa-vincular'}-${slug}.pdf`);
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const slugTitulo = slugificar(titulo) || 'informe';
+  const slugPersona = slugificar(nombrePersona) || 'persona';
+  doc.save(`${slugTitulo}-${slugPersona}.pdf`);
 }
 
 function calcEdad(fechaNacStr){
