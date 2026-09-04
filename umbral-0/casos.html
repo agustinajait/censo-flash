@@ -173,7 +173,10 @@
     </div>
     <div class="topbar-right">
       <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
+      <a href="#" id="link-kobo-form" class="btn btn-ghost" target="_blank" rel="noopener" style="display:none;background:#fee2e2;color:#991b1b;border-color:#fca5a5;">📝 Cargar KoBo</a>
+      <a href="./instructivo.html" class="btn btn-ghost" target="_blank" rel="noopener">📖 Glosario</a>
       <a href="./admin-duplas.html" class="btn btn-ghost" id="link-admin-duplas" style="display:none;">👥 Duplas</a>
+      <a href="./admin-duplas.html#reporte" class="btn btn-ghost" id="link-reporte" style="display:none;">📊 Reporte</a>
       <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
     </div>
   </div>
@@ -185,6 +188,7 @@
       <div class="section-label">Buscar o cargar un caso</div>
       <div class="search-row">
         <input type="text" id="buscar-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="Casos.onBuscarInput()">
+        <button class="btn btn-outline" onclick="Casos.abrirModalRecorrida()">📍 Registrar recorrida</button>
         <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Nuevo ingreso</button>
       </div>
       <div id="resultados-list"></div>
@@ -262,6 +266,11 @@ const CAMPOS_PERSONA_UBICACION = [
 ];
 const CAMPOS_PERSONA_CASO = [
   { key:'criticidad', label:'Criticidad', type:'select', options: () => window.PROJECT_CONFIG.criticidadOpciones || [] },
+  // Nivel de vínculo (documento institucional Umbral Cero, 27/07/2026) —
+  // alimenta "evolución de casos" en el reporte semanal. Detalle de cada
+  // nivel en el glosario (instructivo.html).
+  { key:'nivel_actual', label:'Nivel de vínculo (1 a 5)', type:'select', options:()=>['1','2','3','4','5'],
+    hint:'1=Identificación · 2=Construcción del vínculo · 3=Monitoreo territorial · 4=Anclaje comunitario · 5=Proyecto de inclusión. Detalle de cada nivel en el glosario.' },
   { key:'consumo_activo', label:'Consumo activo', type:'checkbox', checkLabel:'La persona presenta consumo activo' },
   { key:'historia_breve', label:'Historia breve', type:'textarea' },
 ];
@@ -285,6 +294,23 @@ const CAMPOS_PERSONA_INFORME = [
   { key:'situacion_sanitaria', label:'Situación sanitaria', type:'textarea' },
   { key:'redes_contencion', label:'Redes de contención', type:'textarea' },
   { key:'situacion_educativa', label:'Situación educativa', type:'textarea' },
+];
+
+// "Registrar recorrida" — para cuando la dupla pasa por un punto y NO hay
+// persona para dar de alta (o la hay, pero ya se cargó con "Nuevo
+// ingreso"). Sin esto, la cobertura territorial (zonas/puntos recorridos,
+// iglesias abordadas, puntos nuevos) no queda registrada en ningún lado —
+// solo en el KoBo, que es obligatorio pero no lo lee esta plataforma.
+// Va a `intervenciones` con persona_id null, tipo 'recorrida'.
+const CAMPOS_RECORRIDA = [
+  { key:'fecha', label:'Fecha', type:'date', required:true },
+  { key:'turno', label:'Turno / franja horaria', type:'select', options:()=>['06 a 14','10 a 16','14 a 22','18 a 22','Otro'] },
+  { key:'zona', label:'Zona', type:'select', options: () => window.PROJECT_CONFIG.zonasOpciones || [] },
+  { key:'punto', label:'Punto / dirección', required:true },
+  { key:'tipo_punto', label:'Tipo de punto', type:'select', options:()=>['Calle/esquina','Iglesia','Plaza','Otro'] },
+  { key:'punto_nuevo', label:'Punto nuevo', type:'checkbox', checkLabel:'Es la primera vez que se releva este punto' },
+  { key:'hubo_contacto', label:'Hubo contacto', type:'checkbox', checkLabel:'Se contactó a alguna persona en este punto (si ya la diste de alta con "Nuevo ingreso", no hace falta tildar esto)' },
+  { key:'observaciones', label:'Observaciones', type:'textarea', hint:'Ej: "No se observan personas ni pertenencias" — igual que se carga en KoBo.' },
 ];
 
 // "Informe social" — mismo formato para Casa Vincular y ASA (documento
@@ -656,6 +682,14 @@ async function boot(){
     (miPerfil.nombre || session.user.email) + ' · rol: ' + miPerfil.rol;
   document.getElementById('link-admin-duplas').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
+  document.getElementById('link-reporte').style.display =
+    ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
+  const koboFormLink = window.PROJECT_CONFIG.koboFormLink;
+  if(koboFormLink){
+    const linkKobo = document.getElementById('link-kobo-form');
+    linkKobo.href = koboFormLink;
+    linkKobo.style.display = 'inline-flex';
+  }
   showScreen('app-screen');
   await cargarDuplasMap();
   Casos.volverABuscar();
@@ -836,7 +870,10 @@ function renderCampo(campo, valor){
   if(campo.type === 'select'){
     const opts = (typeof campo.options === 'function' ? campo.options() : campo.options) || [];
     const optsHtml = ['<option value=""></option>'].concat(
-      opts.map(o => `<option value="${escAttr(o)}" ${o===valor?'selected':''}>${esc(o)}</option>`)
+      // == (no ===): nivel_actual viene de la base como number (smallint) y
+      // las opciones acá son strings — sin la comparación laxa, el actual
+      // no queda preseleccionado al editar.
+      opts.map(o => `<option value="${escAttr(o)}" ${o==valor?'selected':''}>${esc(o)}</option>`)
     ).join('');
     return `<div class="form-field">${label}${hint}<select id="${id}" data-f="${campo.key}">${optsHtml}</select></div>`;
   }
@@ -926,6 +963,67 @@ const Casos = {
     Casos._renderFormPersona(personaActual);
   },
 
+  // ── REGISTRAR RECORRIDA (punto sin persona para dar de alta) ───────────
+
+  abrirModalRecorrida(prefill){
+    const v = prefill || { fecha: new Date().toISOString().slice(0,10) };
+    const body = `
+      <form id="form-recorrida" onsubmit="return false;">
+        ${CAMPOS_RECORRIDA.map(c => renderCampo(c, v[c.key])).join('')}
+        <div class="modal-foot">
+          <button type="button" class="btn btn-blue" id="btn-guardar-recorrida">💾 Guardar recorrida</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        </div>
+      </form>
+    `;
+    openModal('📍 Registrar recorrida', body);
+    document.getElementById('btn-guardar-recorrida').onclick = () => Casos.guardarRecorrida();
+  },
+
+  async guardarRecorrida(){
+    const form = document.getElementById('form-recorrida');
+    const btn = document.getElementById('btn-guardar-recorrida');
+    const campos = recolectarCampos(form);
+    if(!campos.fecha || !campos.punto){
+      modalError('Fecha y punto/dirección son obligatorios.');
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('intervenciones').insert({
+        persona_id: null,
+        dupla_id: miPerfil.dupla_id || null,
+        fecha: campos.fecha,
+        ubicacion: campos.punto,
+        tipo: 'recorrida',
+        resumen: campos.observaciones || null,
+        datos: {
+          zona: campos.zona || null,
+          turno: campos.turno || null,
+          tipo_punto: campos.tipo_punto || null,
+          punto_nuevo: !!campos.punto_nuevo,
+          hubo_contacto: !!campos.hubo_contacto,
+        },
+      });
+      if(error) throw error;
+      // Se repite bastante seguido en el mismo turno/zona — dejamos esos
+      // campos precargados para la siguiente recorrida en vez de cerrar.
+      const body = `
+        <div style="font-size:0.88rem;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;padding:12px 14px;border-radius:10px;margin-bottom:14px;">✅ Recorrida registrada.</div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-blue" id="btn-otra-recorrida">📍 Cargar otra recorrida</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Listo, cerrar</button>
+        </div>
+      `;
+      openModal('📍 Registrar recorrida', body);
+      document.getElementById('btn-otra-recorrida').onclick = () => Casos.abrirModalRecorrida({ fecha:campos.fecha, turno:campos.turno, zona:campos.zona });
+    }catch(e){
+      modalError('No se pudo guardar la recorrida: ' + e.message);
+      btn.disabled = false; btn.textContent = '💾 Guardar recorrida';
+    }
+  },
+
   _renderFormPersona(persona){
     const esEdicion = !!persona;
     const v = persona || {};
@@ -973,6 +1071,12 @@ const Casos = {
       modalError('Nombre y apellido son obligatorios.');
       return;
     }
+    // nivel_actual es smallint en la base — recolectarCampos siempre
+    // devuelve string (o null). Si quedó vacío, se saca la clave: en un
+    // alta nueva usa el default (1) de la base; en una edición no toca el
+    // valor que ya tenía (mandar null rompería el check 1..5 / not null).
+    if(campos.nivel_actual) campos.nivel_actual = parseInt(campos.nivel_actual, 10);
+    else delete campos.nivel_actual;
     btn.disabled = true; btn.textContent = 'Guardando…';
     try{
       const client = await SupabaseClient.getClient();

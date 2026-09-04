@@ -32,6 +32,13 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   // (no se replica el formulario acá, solo se linkea). Ver DISENO-CASOS.md §4.
   cartasSoflexLink: '', // TODO: URL de la herramienta externa
 
+  // Formulario de KoBo — de carácter OBLIGATORIO (así lo define GOPA en el
+  // documento de rendición semanal): cada dupla lo completa cada vez que
+  // contacta a una persona en el recorrido, sea o no la primera vez. Es el
+  // registro crudo por intervención — independiente de la ficha de persona
+  // en Casos, que es el seguimiento interno del equipo.
+  koboFormLink: 'https://ee.kobotoolbox.org/x/2agnZwzr',
+
   // ── SUPABASE — proyecto dedicado (cuenta a.jait@inclusioncaii.org) ────────
   // La anon/publishable key es pública por diseño (se embebe en el cliente);
   // todo el acceso real lo controlan las políticas RLS de cada tabla, atadas

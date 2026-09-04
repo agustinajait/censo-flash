@@ -84,3 +84,33 @@ create policy "perfiles_admin_update" on public.perfiles
 -- Supabase Dashboard → Authentication → Sign In / Providers → Email →
 -- apagar "Confirm email" (o "Enable email confirmations", según la versión
 -- del dashboard). Es un toggle único para todo el proyecto, se hace una sola vez.
+
+-- 2026-09-03: la FK de derivaciones.solicitado_por apuntaba a `integrantes`
+-- (el padrón de personas por dupla que se carga en admin-duplas.html) en
+-- vez de `perfiles` (la cuenta logueada real, que es lo que el código
+-- siempre guardó ahí — ver comentario "vos"/"equipo" en casos.html). Rompía
+-- CUALQUIER derivación con "violates foreign key constraint
+-- derivaciones_solicitado_por_fkey" apenas la cuenta logueada no tuviera
+-- fila en integrantes (ej. cuentas de admin). Ya corrido en producción.
+alter table public.derivaciones
+  drop constraint derivaciones_solicitado_por_fkey;
+alter table public.derivaciones
+  add constraint derivaciones_solicitado_por_fkey
+  foreign key (solicitado_por) references public.perfiles(id) on delete set null;
+
+-- 2026-09-03: dos columnas nuevas para el reporte semanal que pide GOPA
+-- (cobertura territorial + evolución de casos por nivel de vínculo —
+-- ver documento institucional Umbral Cero 27/07/2026 y "Reporte_Zona_de
+-- frontera"). Ya corrido en producción.
+--
+-- `intervenciones.datos`: mismo patrón jsonb que `derivaciones.datos`, para
+-- registrar zona/turno/tipo de punto/si es punto nuevo sin tener que migrar
+-- de nuevo cada vez que se sume un campo al reporte.
+alter table public.intervenciones
+  add column if not exists datos jsonb not null default '{}'::jsonb;
+
+-- `personas.nivel_actual`: nivel de vínculo (1 a 5) según el documento
+-- institucional — no existía ningún campo que lo representara.
+alter table public.personas
+  add column if not exists nivel_actual smallint not null default 1
+  check (nivel_actual between 1 and 5);

@@ -3,55 +3,260 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Instructivo — Umbral 0</title>
+<title>Glosario y guía — Umbral 0</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --navy:#0f1f3d; --blue:#7c3aed; --green:#10b981; --amber:#f59e0b; --border:#dbeafe; }
+  :root { --navy:#0f1f3d; --blue:#7c3aed; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; --gray:#6b7280; }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; }
-  .nav { background:var(--navy); padding:12px 18px; position:sticky; top:0; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; line-height:1.55; }
+  .nav { background:var(--navy); padding:12px 18px; position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .back-btn { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); color:white; padding:7px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; font-family:'Sora',sans-serif; text-decoration:none; }
-  .cover { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:32px 24px; text-align:center; }
-  .cover h1 { font-family:'Sora',sans-serif; font-size:1.5rem; font-weight:800; margin-bottom:6px; }
-  .cover p { font-size:0.88rem; opacity:0.8; }
-  .content { max-width:640px; margin:0 auto; padding:26px 18px 60px; }
-  .card { background:white; border-radius:14px; padding:20px; margin-bottom:16px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
-  .card h2 { font-family:'Sora',sans-serif; font-size:0.95rem; color:var(--navy); margin-bottom:8px; }
-  .card p, .card li { font-size:0.88rem; line-height:1.6; color:#334155; }
-  .pending { background:#fffbeb; border:1.5px solid #fcd34d; border-radius:12px; padding:16px; font-size:0.85rem; color:#92400e; margin-bottom:20px; }
-  .pending strong { font-family:'Sora',sans-serif; }
+  .nav-links { display:flex; gap:8px; flex-wrap:wrap; }
+  .cover { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:36px 24px 30px; text-align:center; }
+  .cover h1 { font-family:'Sora',sans-serif; font-size:1.6rem; font-weight:800; margin-bottom:8px; }
+  .cover p { font-size:0.9rem; opacity:0.85; max-width:520px; margin:0 auto; }
+  .content { max-width:720px; margin:0 auto; padding:26px 18px 60px; }
+
+  .toc { background:white; border:1.5px solid var(--border); border-radius:14px; padding:16px 18px; margin-bottom:22px; font-size:0.84rem; }
+  .toc h2 { font-family:'Sora',sans-serif; font-size:0.85rem; color:var(--navy); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; }
+  .toc ul { list-style:none; display:flex; flex-direction:column; gap:4px; }
+  .toc a { color:var(--blue); text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+
+  .section-title { font-family:'Sora',sans-serif; font-size:1.05rem; font-weight:800; color:var(--navy); margin:34px 0 6px; scroll-margin-top:70px; }
+  .section-sub { font-size:0.85rem; color:var(--gray); margin-bottom:16px; }
+
+  .card { background:white; border-radius:14px; padding:18px 20px; margin-bottom:14px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  .card h3 { font-family:'Sora',sans-serif; font-size:0.95rem; color:var(--navy); margin-bottom:6px; }
+  .card p { font-size:0.87rem; color:#334155; margin-bottom:6px; }
+  .card p:last-child { margin-bottom:0; }
+  .card .tag { display:inline-block; font-size:0.7rem; font-weight:700; font-family:'Sora',sans-serif; letter-spacing:0.4px; text-transform:uppercase; padding:3px 10px; border-radius:20px; margin-bottom:8px; }
+  .tag-formulario { background:#ede9fe; color:#5b21b6; }
+  .tag-simple { background:#f1f5f9; color:#475569; }
+  .tag-urgente { background:#fee2e2; color:#991b1b; }
+
+  .numlist { display:flex; flex-direction:column; gap:10px; }
+  .numlist .item { display:flex; gap:12px; align-items:flex-start; }
+  .numlist .n { flex-shrink:0; width:26px; height:26px; border-radius:8px; background:var(--blue); color:white; display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-weight:700; font-size:0.78rem; }
+  .numlist .txt { font-size:0.87rem; color:#334155; }
+  .numlist .txt strong { color:var(--navy); }
+
+  .alert { display:flex; gap:10px; align-items:flex-start; padding:13px 16px; border-radius:12px; font-size:0.85rem; margin:14px 0; }
+  .alert-info { background:#eff6ff; border:1.5px solid #93c5fd; color:#1e40af; }
+  .alert-warn { background:#fffbeb; border:1.5px solid #fcd34d; color:#92400e; }
+  .alert strong { display:block; margin-bottom:2px; font-family:'Sora',sans-serif; }
+
+  .glosario-grid { display:flex; flex-direction:column; gap:12px; }
+
+  footer { text-align:center; font-size:0.78rem; color:var(--gray); padding:20px; }
 </style>
 </head>
 <body>
-<nav class="nav"><a class="back-btn" href="./index.html">← Volver</a></nav>
+<nav class="nav">
+  <a class="back-btn" href="./index.html">← Volver al portal</a>
+  <div class="nav-links">
+    <a class="back-btn" href="./casos.html">🗂️ Ir a Casos</a>
+  </div>
+</nav>
+
 <div class="cover">
-  <h1>📖 Instructivo — Umbral 0</h1>
-  <p>Guía operativa de KoBo, GeoTracker y cierre del operativo</p>
+  <h1>📖 Glosario y guía — Umbral 0</h1>
+  <p>Onboarding para duplas: qué es cada derivación, cuándo usarla, qué datos pedir y a quién avisar. Basado en el documento institucional de Umbral Cero (27/07/2026).</p>
 </div>
+
 <div class="content">
-  <div class="pending">
-    ⚠️ <strong>Instructivo pendiente de completar.</strong> Esta página usa la misma
-    estructura que el instructivo de Censo Flash — reemplazar cada sección con las
-    capturas y textos reales de Umbral 0 (formularios de KoBo, links de GeoTracker,
-    checklist de salida) apenas estén definidos.
+
+  <div class="toc">
+    <h2>En esta página</h2>
+    <ul>
+      <li><a href="#que-es">¿Qué es Umbral 0?</a></li>
+      <li><a href="#principios">Los 5 principios de intervención</a></li>
+      <li><a href="#niveles">Niveles de éxito (1 a 5)</a></li>
+      <li><a href="#glosario">Glosario de derivaciones y articulaciones</a></li>
+      <li><a href="#herramientas">Herramientas de registro</a></li>
+    </ul>
   </div>
+
+  <h2 class="section-title" id="que-es">¿Qué es Umbral 0?</h2>
   <div class="card">
-    <h2>1. Antes de salir</h2>
-    <p>Verificación de batería, datos móviles, permisos de ubicación y GeoTracker
-    grabando antes de arrancar el recorrido. (Completar con el detalle propio de
-    Umbral 0 si difiere de Censo Flash.)</p>
+    <p>Umbral Cero busca llegar a las personas en situación de calle con mayor desvinculación de los
+    dispositivos tradicionales — quienes no confían en el sistema, no sostienen los espacios formales,
+    o llegan a ellos de manera intermitente. El eje del equipo <strong>no es "captar demanda"</strong>,
+    sino construir, con presencia reiterada y trato digno, las condiciones para que esa demanda pueda
+    existir con el tiempo.</p>
+    <p><em>Sin vínculo no hay política pública efectiva.</em> El equipo de Umbral 0 se integra a la Red
+    como un eslabón inicial: no reemplaza a los dispositivos existentes, trabaja la etapa previa —
+    reduciendo la distancia entre el Estado y quienes quedaron afuera.</p>
   </div>
+  <div class="alert alert-info">
+    <span>💡</span>
+    <div><strong>Importante:</strong> nuestra organización es el equipo territorial — el <strong>referente
+    territorial (GOPA)</strong> es nuestro nexo con el resto de la Red. Casi todo lo que derivamos o
+    reportamos, lo mandamos a esa referencia, no directo a otras áreas.</div>
+  </div>
+
+  <h2 class="section-title" id="principios">Los 5 principios de intervención</h2>
   <div class="card">
-    <h2>2. Durante el recorrido</h2>
-    <p>Cómo y cuándo cargar cada situación en el/los formulario(s) de KoBo de este
-    proyecto. Agregar acá capturas de pantalla del formulario real una vez esté
-    publicado en KoBo Toolbox.</p>
+    <div class="numlist">
+      <div class="item"><div class="n">1</div><div class="txt"><strong>La persona marca el ritmo.</strong> No se espera una aceptación inmediata de recursos institucionales.</div></div>
+      <div class="item"><div class="n">2</div><div class="txt"><strong>Cada trayectoria es única.</strong> No hay intervenciones estandarizadas — cada persona tiene un plan de acompañamiento propio.</div></div>
+      <div class="item"><div class="n">3</div><div class="txt"><strong>El vínculo antecede a la derivación.</strong> Sin vínculo no existe derivación sostenible.</div></div>
+      <div class="item"><div class="n">4</div><div class="txt"><strong>Lo comunitario antecede a lo institucional.</strong> Antes de pensar en un CIS, se buscan espacios cotidianos que generen hábitos.</div></div>
+      <div class="item"><div class="n">5</div><div class="txt"><strong>La permanencia requiere tiempo.</strong> Modificar hábitos sostenidos en una larga trayectoria de calle es un proceso, no un evento.</div></div>
+    </div>
   </div>
+
+  <h2 class="section-title" id="niveles">Niveles de éxito (1 a 5)</h2>
+  <p class="section-sub">El éxito no es "ingresó a un dispositivo" o no — es el avance del vínculo. Los procesos no son lineales; el objetivo es el monitoreo continuo, no saltar directo al nivel 5.</p>
   <div class="card">
-    <h2>3. Cierre del operativo</h2>
-    <p>Captura de GeoTracker + formulario de cierre (<a href="./cierre.html">ver formulario</a>).
-    Es obligatorio enviarlo aunque no se hayan detectado registros.</p>
+    <div class="numlist">
+      <div class="item"><div class="n">1</div><div class="txt"><strong>Identificación.</strong> Da su nombre, aporta DNI, acepta ser registrada, permite georreferenciar dónde permanece.</div></div>
+      <div class="item"><div class="n">2</div><div class="txt"><strong>Construcción del vínculo.</strong> Vuelve a encontrarse con el equipo, reconoce a los operadores, acepta conversar y compartir información.</div></div>
+      <div class="item"><div class="n">3</div><div class="txt"><strong>Monitoreo territorial.</strong> Acepta acompañamiento periódico — el equipo conoce consumos, redes, salud, trayectoria.</div></div>
+      <div class="item"><div class="n">4</div><div class="txt"><strong>Anclaje comunitario.</strong> Incorpora una rutina estable aunque todavía no ingrese a un CIS: DIPA, micro, comedor, olla, parroquia, centro barrial, tratamiento de consumo, revinculación familiar.</div></div>
+      <div class="item"><div class="n">5</div><div class="txt"><strong>Proyecto de inclusión.</strong> Consolidada la rutina, se evalúan dispositivos de mayor encuadre: CIS, comunidad terapéutica, salud mental, hogar convivencial, pensión, alquiler asistido, inclusión laboral.</div></div>
+    </div>
   </div>
+
+  <h2 class="section-title" id="glosario">Glosario de derivaciones y articulaciones</h2>
+  <p class="section-sub">Cada una de estas opciones aparece en el desplegable de "Pedir derivación" en <a href="./casos.html">Casos</a>. <span class="tag tag-formulario" style="margin:0 3px;">Formulario</span> = tiene campos propios y arma un mensaje/PDF listo para copiar. <span class="tag tag-simple" style="margin:0 3px;">Simple</span> = solo observaciones libres.</p>
+
+  <div class="glosario-grid">
+
+    <div class="card">
+      <span class="tag tag-formulario">Formulario</span>
+      <h3>CIS — Centro de Inclusión Social</h3>
+      <p><strong>Para quién:</strong> demanda espontánea (alguien que pide ingresar sin estar en seguimiento) o para personas ya en seguimiento del equipo.</p>
+      <p><strong>Requisito clave:</strong> foto del DNI o de la denuncia de extravío — <strong>obligatoria</strong>, no se hacen ingresos sin eso.</p>
+      <p><strong>A quién avisar:</strong> al referente territorial, que lo eleva a la supervisión de la RED (demanda espontánea) o completa el Forms de vacante y lo envía al grupo "Derivaciones DIPA" (seguimientos).</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-formulario">Formulario</span>
+      <h3>Casa Vincular</h3>
+      <p><strong>Para quién:</strong> solo personas <strong>en seguimiento</strong>. Para quienes no quieren ir a un CIS, tuvieron egresos negativos, o son perfiles de "alta criticidad" (consumo, larga permanencia en calle).</p>
+      <p><strong>Cómo:</strong> se arma un informe social completo (situación habitacional, económica, sanitaria, redes, educativa). Siempre aclarar a la persona que el <strong>pernocte no está garantizado</strong> — primero se accede al espacio diurno.</p>
+      <p><strong>A quién avisar:</strong> a la coordinación de Umbral Cero, que lo deriva al grupo de las Casas Vinculares (Dorrego, Panambi, Fray Cayetano, Sin Barreras).</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-formulario">Formulario</span>
+      <h3>ASA — ex Centro de Admisión, Evaluación y Derivación</h3>
+      <p><strong>Para quién:</strong> personas en seguimiento que atraviesan consumo problemático y ya dialogaron con el equipo sobre esa problemática, de cara a evaluar una comunidad terapéutica.</p>
+      <p><strong>Cómo:</strong> mismo informe social que Casa Vincular.</p>
+      <p><strong>A quién avisar:</strong> al referente territorial, que lo viabiliza con la coordinación de Umbral Cero.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-formulario">Formulario</span>
+      <h3>Micro</h3>
+      <p><strong>Para quién:</strong> equipos de turno vespertino, para que la persona empiece a sostener el espacio y genere rutina.</p>
+      <p><strong>Requisito clave:</strong> la persona <strong>no</strong> puede tener signos de consumo activo al momento del ingreso — el encuadre es más flexible que un CIS, pero no tanto. Siempre requiere DNI o denuncia de extravío.</p>
+      <p><strong>A quién avisar:</strong> a la coordinación de Umbral Cero, que articula con la coordinación de micros.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-formulario">Formulario</span>
+      <h3>Salud Mental</h3>
+      <p><strong>Para quién:</strong> personas con indicadores de alguna problemática de salud mental.</p>
+      <p><strong>Cómo:</strong> se evalúa orientación en tiempo/espacio (¿qué día es? ¿mes y año? ¿vestimenta acorde al clima? ¿conductas de riesgo?). Si hay riesgo para sí o terceros, se llama al <strong>SAME</strong> de inmediato y el equipo permanece en el lugar hasta que llegue.</p>
+      <p><strong>A quién avisar:</strong> al grupo de WhatsApp con el área de Salud Mental (nombre, DNI, fecha de nacimiento, edad, vestimenta y punto de contacto).</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-urgente">Formulario · urgencia</span>
+      <h3>SAME</h3>
+      <p><strong>Para quién:</strong> cualquier persona que necesite atención médica urgente (no hace falta que sea vía Salud Mental).</p>
+      <p><strong>Cómo:</strong> llamar al <strong>107</strong>. Pedir el número de operador que recepciona. Si la persona rechaza la atención verbalmente, <strong>igual se llama</strong>. Al llegar: registrar médico, matrícula, institución, móvil, patente y hospital de traslado si corresponde.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-formulario">Formulario</span>
+      <h3>Brigada CER</h3>
+      <p><strong>Para quién:</strong> asistencia sanitaria o evaluación física de campo — para decidir si hace falta llamar al SAME, o como apoyo cuando el SAME ya fue solicitado y demora.</p>
+      <p><strong>A quién avisar:</strong> se llama por teléfono directo a la coordinación territorial de Brigada CER.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-urgente">Formulario · urgencia</span>
+      <h3>Mapa de Familias en Riesgo</h3>
+      <p><strong>Para quién:</strong> grupos familiares en calle con niños, niñas y/o adolescentes.</p>
+      <p><strong>Protocolo urgente</strong> si hay NNyA solos/as en situación de calle: llamar de inmediato al <strong>SAME</strong> y a la <strong>Policía</strong>, y contactar la <strong>Línea 102</strong> (Consejo de Derechos de NNyA).</p>
+      <p><strong>A quién avisar:</strong> a la referencia territorial, que se comunica con la coordinación de Mapa de Familias en Riesgo.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-urgente">Formulario · urgencia</span>
+      <h3>Policía de la Ciudad</h3>
+      <p><strong>Para quién:</strong> situaciones violentas, amenazas o comportamientos que requieran intervención policial (peleas, daño a la vía pública o a inmuebles privados).</p>
+      <p><strong>Cómo:</strong> llamar al <strong>911</strong>. Si el equipo aguarda al móvil, registrar nombre y apellido del personal, LP (legajo personal), comisaría y N° de móvil.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-formulario">Formulario</span>
+      <h3>Programa Ciudadanía Porteña</h3>
+      <p><strong>Requisitos:</strong> DNI con domicilio en CABA + negativa de ANSES. Si el DNI tiene menos de 2 años de emisión, hace falta además un informe social de otra institución.</p>
+      <p><strong>Cómo:</strong> acompañamiento por el equipo, o derivación si la persona puede ir por sus propios medios. El "formulario integral" lo recibe el referente territorial (lo hace llegar al Área de Demanda Externa, Jerónimo Salguero 979); la derivación en papel se le entrega directo a la persona.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-simple">Simple</span>
+      <h3>Sedes de Atención Social</h3>
+      <p><strong>Para quién:</strong> abordaje integral por comuna — consumo problemático, derecho a la identidad, derecho de la mujer, discapacidad, asistencia social a NNyA/familias/personas mayores. Incluye gestión de DNI con eximición de pago y asesoramiento sobre el Certificado Único de Discapacidad.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-simple">Simple</span>
+      <h3>Derecho a la Identidad</h3>
+      <p><strong>Para quién:</strong> personas sin inscripción registral (NN) o extranjeras con dificultades de documentación. Asesoramiento, derivación asistida y seguimiento social en la tramitación del DNI (Rodríguez Peña 780).</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-simple">Simple</span>
+      <h3>DIPA — Dispositivo de Primer Acercamiento</h3>
+      <p><strong>Qué es:</strong> espacio de 06:00 a 22:00 hs con asistencia alimentaria (desayuno y merienda), gestión de Ciudadanía Porteña y del Programa de Apoyo para Familias en Situación de Vulnerabilidad Habitacional. También el lugar donde se espera mientras se gestiona un ingreso a CIS.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-simple">Simple</span>
+      <h3>Médico</h3>
+      <p><strong>Cómo:</strong> turnos por la línea <strong>147</strong> para acompañar a la persona al sistema de salud. Si se acompaña, dialogar con el servicio social de la institución para que conozcan la situación.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-simple">Simple</span>
+      <h3>Hacer DNI</h3>
+      <p><strong>Cómo:</strong> derivación con eximición de pago + acompañamiento a hacer el trámite, o la denuncia de extravío en la comisaría más cercana si corresponde.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-simple">Simple</span>
+      <h3>Centro de día</h3>
+      <p>Sin detalle adicional todavía en el documento institucional — formulario simple hasta que se defina más.</p>
+    </div>
+
+  </div>
+
+  <div class="alert alert-warn">
+    <span>💬</span>
+    <div><strong>Contención no es una derivación.</strong> Los espacios de diálogo y contención con personas
+    en seguimiento se registran como <strong>seguimiento</strong> en la ficha de la persona (no como
+    derivación) — son parte de sostener el vínculo, no un recurso externo.</div>
+  </div>
+
+  <h2 class="section-title" id="herramientas">Herramientas de registro</h2>
+  <div class="card">
+    <p><strong>Esta plataforma (Casos)</strong> es donde se registra cada intervención, derivación y
+    seguimiento — reemplaza la planilla manual para el día a día del equipo.</p>
+    <p><strong>Grupo de WhatsApp del equipo territorial</strong> — para despejar dudas y gestionar
+    estrategias de abordaje con la referencia de GOPA.</p>
+    <p><strong>Referente territorial</strong> — nuestro nexo institucional con el resto de la Red. No
+    coordina al equipo puertas adentro, pero es a quien avisamos y quien deriva la mayoría de las
+    articulaciones de este glosario.</p>
+  </div>
+
 </div>
+
+<footer>Umbral 0 — Guía interna del equipo. Basado en el documento institucional del 27/07/2026.</footer>
 </body>
 </html>
