@@ -173,6 +173,7 @@
     </div>
     <div class="topbar-right">
       <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
+      <a href="#" id="link-kobo-form" class="btn btn-ghost" target="_blank" rel="noopener" style="display:none;background:#fee2e2;color:#991b1b;border-color:#fca5a5;">📝 Cargar KoBo</a>
       <a href="./instructivo.html" class="btn btn-ghost" target="_blank" rel="noopener">📖 Glosario</a>
       <a href="./admin-duplas.html" class="btn btn-ghost" id="link-admin-duplas" style="display:none;">👥 Duplas</a>
       <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
@@ -657,6 +658,12 @@ async function boot(){
     (miPerfil.nombre || session.user.email) + ' · rol: ' + miPerfil.rol;
   document.getElementById('link-admin-duplas').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
+  const koboFormLink = window.PROJECT_CONFIG.koboFormLink;
+  if(koboFormLink){
+    const linkKobo = document.getElementById('link-kobo-form');
+    linkKobo.href = koboFormLink;
+    linkKobo.style.display = 'inline-flex';
+  }
   showScreen('app-screen');
   await cargarDuplasMap();
   Casos.volverABuscar();
