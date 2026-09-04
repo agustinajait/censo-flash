@@ -126,7 +126,7 @@ plataforma va absorbiendo funciones a medida que se construye:
 |---|---|---|
 | **Kobo** | Formulario de registro de intervenciones en territorio, **carácter obligatorio** según GOPA (documento 27/07/2026) — un envío por cada persona contactada en el recorrido | **Se mantiene en paralelo, no se reemplaza.** Es el registro crudo que ve gobierno directamente; el link (`config.koboFormLink`) está enganchado bien visible en el portal y en `casos.html`. La plataforma NO lee sus datos (no hay conexión por API todavía) — el reporte semanal (§9) se calcula de lo que la dupla carga acá, por eso hace falta cargar los dos. |
 | **Grupo de WhatsApp de equipos territoriales** | Los operadores envían sus intervenciones ahí; coordinación y Gerencia Operativa ven en vivo qué pasa en territorio, despejan dudas, gestionan estrategias | No se reemplaza — es el canal de comunicación en caliente. La plataforma es el registro estructurado que **queda después** de esa conversación, no la reemplaza como canal. |
-| **Planilla de seguimiento** | Coordinación consolida en una base de datos la info que le llega por WhatsApp, y arma a mano el reporte semanal para GOPA | Esto es lo que reemplaza esta plataforma: las tablas `personas`/`intervenciones`/`derivaciones`/`seguimientos` son la base de datos, y `reporte.html` (§9) calcula el reporte semanal automático en vez de armarlo a mano. |
+| **Planilla de seguimiento** | Coordinación consolida en una base de datos la info que le llega por WhatsApp, y arma a mano el reporte semanal para GOPA | Esto es lo que reemplaza esta plataforma: las tablas `personas`/`intervenciones`/`derivaciones`/`seguimientos` son la base de datos, y la pestaña "📊 Reporte semanal" de `admin-duplas.html` (§9) calcula el reporte semanal automático en vez de armarlo a mano. |
 | **Cartas de soflex** | Instrumento que generan los operadores en una herramienta externa (no en esta plataforma) | No se migra ni se replica el formulario acá — se suma como **link directo** desde la ficha de persona (ver sección 4), para que el equipo salga a esa herramienta externa sin tener que buscarla. |
 
 ## 4. Pantalla: Nuevo ingreso / Ficha de persona
@@ -546,7 +546,7 @@ se modela:
 - **Espacios de reporte y seguimiento:** reunión semanal (con quién, inicio y
   cierre de semana — a definir) + monitoreo mensual (sumar a Flor Pedraza).
 
-## 9. Pantalla: Reporte semanal — `reporte.html` (ya construida, sept/2026)
+## 9. Pestaña: Reporte semanal — dentro de `admin-duplas.html` (ya construida, sept/2026)
 
 GOPA pide un reporte semanal (documentos "UMBRAL_0_1" 27/07/2026 y "Reporte
 Zona de frontera") que **no se basa en KoBo** — es el reporte del trabajo de
@@ -614,8 +614,8 @@ casos activos con filtros por zona/comuna/estado/tipo de derivación pendiente,
 y algún gráfico simple (derivaciones por tipo, casos por criticidad) — mismo
 estilo que ya existe para Censo Flash. El rol `cliente` ve esto en modo
 solo-lectura; no ve el roster de duplas/choferes (privacidad del equipo).
-Complementa a `reporte.html` (§9): esto es exploración de casos individuales,
-`reporte.html` es el consolidado cuantitativo para GOPA.
+Complementa a la pestaña de reporte (§9): esto es exploración de casos individuales,
+la pestaña de reporte es el consolidado cuantitativo para GOPA.
 
 ## 11. Lo que queda abierto
 

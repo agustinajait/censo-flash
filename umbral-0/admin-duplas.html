@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Umbral 0 · Duplas y equipo</title>
+<title>Umbral 0 · Administración</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; }
@@ -86,6 +86,29 @@
   .modal-err.show { display:block; }
   .modal-ok { font-size:0.82rem; background:#f0fdf4; border:1.5px solid #86efac; color:#166534; padding:9px 12px; border-radius:9px; margin-bottom:12px; display:none; }
   .modal-ok.show { display:block; }
+
+  /* PESTAÑAS (Duplas / Reporte) */
+  .admin-tabs { display:flex; gap:8px; background:white; border-bottom:1.5px solid var(--border); padding:0 18px; }
+  .admin-tab { background:none; border:none; border-bottom:3px solid transparent; padding:14px 6px; margin-bottom:-1.5px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#94a3b8; cursor:pointer; }
+  .admin-tab.active { color:var(--navy); border-bottom-color:var(--blue); }
+
+  /* REPORTE — estilos propios de esa pestaña (ex reporte.html) */
+  .rango-card { background:white; border-radius:14px; padding:16px 18px; margin-bottom:18px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+  .rango-card .form-field { margin-bottom:0; min-width:160px; }
+  .section-title { font-family:'Sora',sans-serif; font-size:1rem; font-weight:800; color:var(--navy); margin:26px 0 10px; }
+  .section-hint { font-size:0.78rem; color:#94a3b8; margin:-6px 0 12px; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+  .kpi { background:#f8faff; border:1px solid #e2eaf8; border-radius:10px; padding:12px 14px; }
+  .kpi .num { font-family:'Sora',sans-serif; font-size:1.5rem; font-weight:800; color:var(--navy); line-height:1; }
+  .kpi .lbl { font-size:0.74rem; color:#64748b; margin-top:4px; }
+  table.reporte-tabla { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  table.reporte-tabla th, table.reporte-tabla td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef2f7; }
+  table.reporte-tabla th { font-family:'Sora',sans-serif; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; }
+  table.reporte-tabla td.num { text-align:right; font-family:'Sora',sans-serif; font-weight:700; color:var(--navy); }
+  .nota-limite { font-size:0.78rem; color:#92400e; background:#fffbeb; border:1.5px solid #fcd34d; border-radius:9px; padding:10px 12px; margin-top:10px; }
+  .btn-amber { background:var(--amber); color:white; }
+  textarea#reporte-texto, textarea#alertas-texto, .form-field textarea { width:100%; min-height:100px; font-family:monospace; font-size:0.8rem; border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; background:#f8faff; }
+  #reporte-texto { min-height:340px; }
 </style>
 </head>
 <body>
@@ -129,18 +152,23 @@
 <div id="app-screen">
   <div class="topbar">
     <div>
-      <h1>🌒 Duplas y equipo — Umbral 0</h1>
+      <h1>🌒 Administración — Umbral 0</h1>
       <div class="sub" id="topbar-user"></div>
     </div>
     <div class="topbar-right">
       <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
       <a href="./casos.html" class="btn btn-ghost">🗂️ Casos</a>
-      <a href="./reporte.html" class="btn btn-ghost">📊 Reporte</a>
       <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
     </div>
   </div>
 
-  <div class="wrap">
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="duplas" onclick="switchTab('duplas')">👥 Duplas y equipo</button>
+    <button class="admin-tab" data-tab="reporte" onclick="switchTab('reporte')">📊 Reporte semanal</button>
+  </div>
+
+  <!-- PESTAÑA: DUPLAS Y EQUIPO -->
+  <div class="wrap" id="tab-duplas">
 
     <div class="section-label">
       <span>👥 Duplas territoriales</span>
@@ -155,6 +183,26 @@
     <div class="card" id="choferes-card">
       <div id="choferes-list"></div>
     </div>
+
+  </div>
+
+  <!-- PESTAÑA: REPORTE SEMANAL (ex reporte.html) -->
+  <div class="wrap" id="tab-reporte" style="display:none;">
+
+    <div class="rango-card">
+      <div class="form-field">
+        <label>Desde</label>
+        <input type="date" id="f-desde">
+      </div>
+      <div class="form-field">
+        <label>Hasta</label>
+        <input type="date" id="f-hasta">
+      </div>
+      <button class="btn btn-blue" id="btn-generar" onclick="generarReporte()">📊 Generar reporte</button>
+      <span id="generar-estado" style="font-size:0.8rem;color:#64748b;"></span>
+    </div>
+
+    <div id="reporte-cont"></div>
 
   </div>
 </div>
@@ -230,6 +278,24 @@ async function boot(){
     (miPerfil.nombre || session.user.email) + ' · rol: ' + miPerfil.rol;
   showScreen('app-screen');
   await cargarTodo();
+  // Pestaña inicial: permite deep-link directo (ej. desde casos.html,
+  // "📊 Reporte" apunta a admin-duplas.html#reporte).
+  switchTab(location.hash === '#reporte' ? 'reporte' : 'duplas');
+}
+
+// ── PESTAÑAS ────────────────────────────────────────────────────────────
+let _reporteCargado = false;
+function switchTab(nombre){
+  document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === nombre));
+  document.getElementById('tab-duplas').style.display = nombre === 'duplas' ? 'block' : 'none';
+  document.getElementById('tab-reporte').style.display = nombre === 'reporte' ? 'block' : 'none';
+  history.replaceState(null, '', nombre === 'reporte' ? '#reporte' : '#duplas');
+  if(nombre === 'reporte' && !_reporteCargado){
+    _reporteCargado = true;
+    document.getElementById('f-desde').value = hoyStr(-6);
+    document.getElementById('f-hasta').value = hoyStr(0);
+    generarReporte();
+  }
 }
 
 async function cargarTodo(){
@@ -482,9 +548,275 @@ async function crearChofer(){
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escAttr(s){ return esc(s); }
 function flashOk(el){ el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1500); }
+function hoyStr(offsetDias){
+  const d = new Date();
+  d.setDate(d.getDate() + (offsetDias||0));
+  return d.toISOString().slice(0,10);
+}
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
 boot();
+
+// ─────────────────────────────────────────────────────────────────────────
+// PESTAÑA REPORTE (ex reporte.html) — cálculo 100% desde nuestra base
+// (personas/intervenciones/derivaciones), NO desde KoBo. El KoBo es el
+// registro obligatorio crudo que ve gobierno; este reporte es la lectura
+// de lo que las duplas cargan en la plataforma día a día (ver
+// umbral-0/DISENO-CASOS.md §9, y el documento institucional Umbral Cero
+// 27/07/2026).
+//
+// Ojo con lo que NO se puede calcular todavía (se marca explícito en la
+// pantalla en vez de inventar un número):
+//   - Origen de cada derivación a CIS (espontánea vs. seguimiento) — no
+//     se guarda ese dato en `derivaciones.datos` todavía.
+//   - Historial de cambios de `nivel_actual` — solo tenemos el valor
+//     actual, no cuándo pasó de un nivel a otro, así que "personas
+//     incorporadas al seguimiento EN ESTE PERÍODO" no es calculable con
+//     precisión; se muestra como foto actual (snapshot), no como delta
+//     del período.
+//   - "Alertas y desvíos" no tiene tabla propia — queda como texto libre
+//     para completar a mano en cada reporte.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function generarReporte(){
+  const desde = document.getElementById('f-desde').value;
+  const hasta = document.getElementById('f-hasta').value;
+  const estadoEl = document.getElementById('generar-estado');
+  const btn = document.getElementById('btn-generar');
+  if(!desde || !hasta){ estadoEl.textContent = 'Elegí desde/hasta.'; return; }
+  btn.disabled = true; estadoEl.textContent = 'Calculando…';
+  const cont = document.getElementById('reporte-cont');
+  cont.innerHTML = '';
+  try{
+    const client = await SupabaseClient.getClient();
+
+    const [personasRes, intervencionesRes, derivacionesRes] = await Promise.all([
+      client.from('personas').select('id, zona, punto_contacto, estado, nivel_actual, created_at'),
+      client.from('intervenciones').select('*').gte('fecha', desde).lte('fecha', hasta),
+      client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
+    ]);
+    if(personasRes.error) throw personasRes.error;
+    if(intervencionesRes.error) throw intervencionesRes.error;
+    if(derivacionesRes.error) throw derivacionesRes.error;
+
+    const personas = personasRes.data || [];
+    const intervenciones = intervencionesRes.data || [];
+    const derivaciones = derivacionesRes.data || [];
+    const personaPorId = {};
+    personas.forEach(p => personaPorId[p.id] = p);
+
+    const reporte = calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId });
+    renderReporte(cont, reporte);
+    estadoEl.textContent = `Listo — ${intervenciones.length} intervenciones, ${derivaciones.length} derivaciones en el período.`;
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">Error calculando el reporte: ${esc(e.message)}</div>`;
+    estadoEl.textContent = '';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId }){
+  // ── a. Cobertura territorial ──────────────────────────────────────────
+  const zonaDe = i => (i.datos && i.datos.zona) || (i.persona_id && personaPorId[i.persona_id] && personaPorId[i.persona_id].zona) || null;
+  const puntoDe = i => i.ubicacion || (i.persona_id && personaPorId[i.persona_id] && personaPorId[i.persona_id].punto_contacto) || null;
+
+  const zonas = new Set(intervenciones.map(zonaDe).filter(Boolean));
+  const puntos = new Set(intervenciones.map(puntoDe).filter(Boolean));
+  const iglesias = new Set(intervenciones.filter(i => i.datos && i.datos.tipo_punto === 'Iglesia').map(puntoDe).filter(Boolean));
+  const puntosNuevos = new Set(intervenciones.filter(i => i.datos && i.datos.punto_nuevo).map(puntoDe).filter(Boolean));
+  const dias = new Set(intervenciones.map(i => i.fecha).filter(Boolean));
+  const turnos = {};
+  intervenciones.forEach(i => { const t = i.datos && i.datos.turno; if(t) turnos[t] = (turnos[t]||0) + 1; });
+
+  const totalZonasConfig = (window.PROJECT_CONFIG.zonasOpciones || []).length;
+  const pctZonasCubiertas = totalZonasConfig ? Math.round((zonas.size / totalZonasConfig) * 100) : null;
+
+  // ── b. Población abordada ─────────────────────────────────────────────
+  const personasNuevas = personas.filter(p => p.created_at >= desde && p.created_at <= (hasta + 'T23:59:59'));
+  const idsPersonasNuevas = new Set(personasNuevas.map(p => p.id));
+  const idsTocadasEnRango = new Set(intervenciones.map(i => i.persona_id).filter(Boolean));
+  const recontactadas = [...idsTocadasEnRango].filter(id => !idsPersonasNuevas.has(id));
+  const seguimientoActivo = personas.filter(p => p.estado === 'activo');
+
+  // ── c. Evolución de casos (foto actual por nivel, no delta del período —
+  // ver nota arriba: no hay historial de cambios de nivel_actual) ────────
+  const porNivel = [1,2,3,4,5].map(n => ({
+    nivel: n,
+    cantidad: seguimientoActivo.filter(p => (p.nivel_actual||1) === n).length,
+  }));
+
+  // ── d. Intervenciones y derivaciones (cuantitativo) ─────────────────────
+  const porTipo = {};
+  derivaciones.forEach(d => {
+    if(!porTipo[d.tipo]) porTipo[d.tipo] = { total:0, efectivizado:0, rechazado:0 };
+    porTipo[d.tipo].total++;
+    if(d.estado === 'efectivizado') porTipo[d.tipo].efectivizado++;
+    if(d.estado === 'rechazado') porTipo[d.tipo].rechazado++;
+  });
+  const totalDerivaciones = derivaciones.length;
+  const totalEfectivizadas = derivaciones.filter(d => d.estado === 'efectivizado').length;
+  const totalRechazadas = derivaciones.filter(d => d.estado === 'rechazado').length;
+
+  return {
+    desde, hasta,
+    cobertura: { zonas, puntos, iglesias, puntosNuevos, dias, turnos, pctZonasCubiertas, totalRecorridas: intervenciones.length },
+    poblacion: { nuevas: personasNuevas.length, recontactadas: recontactadas.length, seguimientoActivo: seguimientoActivo.length },
+    evolucion: { porNivel },
+    intervencionesDerivaciones: { porTipo, totalDerivaciones, totalEfectivizadas, totalRechazadas,
+      pctConcretadas: totalDerivaciones ? Math.round((totalEfectivizadas/totalDerivaciones)*100) : null },
+  };
+}
+
+const NOMBRE_NIVEL = {1:'Identificación', 2:'Construcción del vínculo', 3:'Monitoreo territorial', 4:'Anclaje comunitario', 5:'Proyecto de inclusión'};
+
+function renderReporte(cont, r){
+  cont.innerHTML = `
+    <div class="section-title">a. Cobertura territorial</div>
+    <div class="card">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="num">${r.cobertura.zonas.size}</div><div class="lbl">Zonas recorridas${r.cobertura.pctZonasCubiertas!=null?` (${r.cobertura.pctZonasCubiertas}% de las prioritarias)`:''}</div></div>
+        <div class="kpi"><div class="num">${r.cobertura.puntos.size}</div><div class="lbl">Puntos visitados</div></div>
+        <div class="kpi"><div class="num">${r.cobertura.iglesias.size}</div><div class="lbl">Iglesias/puntos de referencia abordados</div></div>
+        <div class="kpi"><div class="num">${r.cobertura.totalRecorridas}</div><div class="lbl">Cantidad de recorridas realizadas</div></div>
+        <div class="kpi"><div class="num">${r.cobertura.dias.size}</div><div class="lbl">Días con presencia territorial</div></div>
+        <div class="kpi"><div class="num">${r.cobertura.puntosNuevos.size}</div><div class="lbl">Nuevos puntos detectados</div></div>
+      </div>
+      ${Object.keys(r.cobertura.turnos).length ? `<div style="margin-top:12px;font-size:0.82rem;color:#334155;"><strong>Franjas horarias:</strong> ${Object.entries(r.cobertura.turnos).map(([t,n])=>`${esc(t)} (${n})`).join(' · ')}</div>` : ''}
+      <div class="form-field" style="margin-top:14px;">
+        <label>Puntos que requieren aumentar la frecuencia de presencia</label>
+        <textarea id="txt-puntos-frecuencia" rows="2" placeholder="Es un juicio de coordinación, no se calcula solo — completalo acá antes de copiar el reporte."></textarea>
+      </div>
+    </div>
+
+    <div class="section-title">b. Población abordada</div>
+    <div class="card">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="num">${r.poblacion.nuevas}</div><div class="lbl">Personas nuevas identificadas</div></div>
+        <div class="kpi"><div class="num">${r.poblacion.recontactadas}</div><div class="lbl">Personas recontactadas</div></div>
+        <div class="kpi"><div class="num">${r.poblacion.seguimientoActivo}</div><div class="lbl">Personas con seguimiento activo (al cierre del período)</div></div>
+      </div>
+      <div class="nota-limite">⚠️ "Incorporadas al seguimiento" y "con las que se perdió contacto" todavía no se pueden calcular con precisión — falta guardar cuándo cambia el nivel de vínculo de cada persona. Por ahora completalos a mano si hace falta para el reporte.</div>
+    </div>
+
+    <div class="section-title">c. Evolución de los casos — por nivel de vínculo</div>
+    <div class="section-hint">Foto actual de las personas con seguimiento activo (no es el delta del período — ver nota de abajo).</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Nivel</th><th>Descripción</th><th style="text-align:right;">Personas</th></tr></thead>
+        <tbody>
+          ${r.evolucion.porNivel.map(n => `<tr><td>${n.nivel}</td><td>${NOMBRE_NIVEL[n.nivel]}</td><td class="num">${n.cantidad}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">d. Intervenciones y derivaciones</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Tipo de derivación</th><th style="text-align:right;">Total</th><th style="text-align:right;">Efectivizadas</th><th style="text-align:right;">Rechazadas</th></tr></thead>
+        <tbody>
+          ${Object.keys(r.intervencionesDerivaciones.porTipo).length ? Object.entries(r.intervencionesDerivaciones.porTipo).sort((a,b)=>b[1].total-a[1].total).map(([tipo,d]) =>
+            `<tr><td>${esc(tipo)}</td><td class="num">${d.total}</td><td class="num">${d.efectivizado}</td><td class="num">${d.rechazado}</td></tr>`).join('')
+            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>'}
+        </tbody>
+      </table>
+      <div class="kpi-grid" style="margin-top:14px;">
+        <div class="kpi"><div class="num">${r.intervencionesDerivaciones.totalDerivaciones}</div><div class="lbl">Total derivaciones</div></div>
+        <div class="kpi"><div class="num">${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}</div><div class="lbl">% efectivamente concretadas</div></div>
+      </div>
+    </div>
+
+    <div class="section-title">Tablero de indicadores</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Dimensión</th><th>Indicador</th><th style="text-align:right;">Valor</th></tr></thead>
+        <tbody>
+          <tr><td>Cobertura</td><td>% de zonas prioritarias recorridas</td><td class="num">${r.cobertura.pctZonasCubiertas!=null?r.cobertura.pctZonasCubiertas+'%':'—'}</td></tr>
+          <tr><td>Contacto</td><td>Personas nuevas identificadas</td><td class="num">${r.poblacion.nuevas}</td></tr>
+          <tr><td>Revinculación</td><td>Personas con segundo contacto</td><td class="num">${r.poblacion.recontactadas}</td></tr>
+          <tr><td>Continuidad</td><td>Personas con seguimiento activo</td><td class="num">${r.poblacion.seguimientoActivo}</td></tr>
+          <tr><td>Acceso</td><td>% de derivaciones efectivamente concretadas</td><td class="num">${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}</td></tr>
+          <tr><td>Estrategia</td><td>Derivaciones rechazadas (requieren alternativa)</td><td class="num">${r.intervencionesDerivaciones.totalRechazadas}</td></tr>
+          <tr><td>Territorialidad</td><td>Puntos nuevos identificados</td><td class="num">${r.cobertura.puntosNuevos.size}</td></tr>
+          <tr><td>Vínculo</td><td>Personas que pasan a seguimiento activo</td><td class="num">—</td></tr>
+          <tr><td>Sostenimiento</td><td>% que sostiene el recurso luego del ingreso</td><td class="num">—</td></tr>
+          <tr><td>Gestión</td><td>Alertas respondidas/articuladas por la Red</td><td class="num">—</td></tr>
+          <tr><td>Resultado</td><td>Personas cuya trayectoria mejora</td><td class="num">—</td></tr>
+        </tbody>
+      </table>
+      <div class="nota-limite">⚠️ Los indicadores marcados "—" son de juicio de coordinación o requieren datos que todavía no registramos (historial de nivel, alertas). No se inventan — se completan a mano en el reporte final si hace falta.</div>
+    </div>
+
+    <div class="section-title">Reporte de alertas y desvíos</div>
+    <div class="card">
+      <div class="section-hint">Sin tabla propia todavía (situaciones de riesgo, deterioro, pérdida de contacto, falta de vacantes, conflictos territoriales, etc.) — se completa a mano por ahora.</div>
+      <textarea id="alertas-texto" placeholder="Ej: se perdió contacto con Fulano de Tal desde el 28/8, requiere búsqueda activa. Falta de vacantes en Casa Dorrego..."></textarea>
+    </div>
+
+    <div class="section-title">Mensaje para copiar / mandar</div>
+    <div class="card">
+      <div class="section-hint">Arma un resumen en texto plano con todo lo de arriba — copialo y mandalo por WhatsApp o mail a GOPA. Actualizá los campos de arriba y volvé a tocar "Armar mensaje" si los cambiaste.</div>
+      <button class="btn btn-amber" style="margin-bottom:10px;" onclick="armarMensaje()">✍️ Armar mensaje</button>
+      <textarea id="reporte-texto" readonly></textarea>
+      <div style="margin-top:10px;">
+        <button class="btn btn-blue" onclick="copiarMensaje()">📋 Copiar mensaje</button>
+      </div>
+    </div>
+  `;
+
+  window._ultimoReporte = r;
+}
+
+function armarMensaje(){
+  const r = window._ultimoReporte;
+  if(!r) return;
+  const fmt = iso => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+  const puntosFrecuencia = (document.getElementById('txt-puntos-frecuencia')||{}).value || '(sin observaciones)';
+  const alertas = (document.getElementById('alertas-texto')||{}).value || '(sin alertas cargadas en este período)';
+  const tiposLinea = Object.entries(r.intervencionesDerivaciones.porTipo).sort((a,b)=>b[1].total-a[1].total)
+    .map(([tipo,d]) => `  · ${tipo}: ${d.total} (${d.efectivizado} efectivizadas, ${d.rechazado} rechazadas)`).join('\n') || '  (sin derivaciones)';
+  const nivelesLinea = r.evolucion.porNivel.map(n => `  · Nivel ${n.nivel} (${NOMBRE_NIVEL[n.nivel]}): ${n.cantidad}`).join('\n');
+
+  const texto = `REPORTE SEMANAL — UMBRAL CERO
+Período: ${fmt(r.desde)} al ${fmt(r.hasta)}
+
+a. COBERTURA TERRITORIAL
+- Zonas recorridas: ${r.cobertura.zonas.size}${r.cobertura.pctZonasCubiertas!=null?` (${r.cobertura.pctZonasCubiertas}% de las prioritarias)`:''}
+- Puntos visitados: ${r.cobertura.puntos.size}
+- Iglesias/puntos de referencia abordados: ${r.cobertura.iglesias.size}
+- Cantidad de recorridas realizadas: ${r.cobertura.totalRecorridas}
+- Días con presencia territorial: ${r.cobertura.dias.size}
+- Nuevos puntos detectados: ${r.cobertura.puntosNuevos.size}
+- Puntos que requieren aumentar la frecuencia: ${puntosFrecuencia}
+
+b. POBLACIÓN ABORDADA
+- Personas nuevas identificadas: ${r.poblacion.nuevas}
+- Personas recontactadas: ${r.poblacion.recontactadas}
+- Personas con seguimiento activo: ${r.poblacion.seguimientoActivo}
+
+c. EVOLUCIÓN DE LOS CASOS (nivel de vínculo, personas con seguimiento activo)
+${nivelesLinea}
+
+d. INTERVENCIONES Y DERIVACIONES
+${tiposLinea}
+Total: ${r.intervencionesDerivaciones.totalDerivaciones} · Efectivizadas: ${r.intervencionesDerivaciones.totalEfectivizadas} (${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}) · Rechazadas: ${r.intervencionesDerivaciones.totalRechazadas}
+
+REPORTE DE ALERTAS Y DESVÍOS
+${alertas}`;
+
+  document.getElementById('reporte-texto').value = texto;
+}
+
+async function copiarMensaje(){
+  const ta = document.getElementById('reporte-texto');
+  if(!ta.value) armarMensaje();
+  try{
+    await navigator.clipboard.writeText(ta.value);
+  }catch(e){
+    ta.select();
+    document.execCommand('copy');
+  }
+}
 
 </script>
 </body>
