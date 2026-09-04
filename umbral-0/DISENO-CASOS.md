@@ -124,9 +124,9 @@ plataforma va absorbiendo funciones a medida que se construye:
 
 | Herramienta actual | Qué es hoy | Rol en Umbral 0 (esta plataforma) |
 |---|---|---|
-| **Kobo** | Formulario de registro de intervenciones en territorio | Hoy es la fuente de las `intervenciones`. La app ya tiene un lugar para configurar formularios Kobo (`config.kobo`, vacío todavía) si se decide importar desde ahí en vez de cargar directo en la pantalla de ficha de persona (sección 6). Definir con Agustina si Kobo se mantiene en paralelo o se reemplaza. |
+| **Kobo** | Formulario de registro de intervenciones en territorio, **carácter obligatorio** según GOPA (documento 27/07/2026) — un envío por cada persona contactada en el recorrido | **Se mantiene en paralelo, no se reemplaza.** Es el registro crudo que ve gobierno directamente; el link (`config.koboFormLink`) está enganchado bien visible en el portal y en `casos.html`. La plataforma NO lee sus datos (no hay conexión por API todavía) — el reporte semanal (§9) se calcula de lo que la dupla carga acá, por eso hace falta cargar los dos. |
 | **Grupo de WhatsApp de equipos territoriales** | Los operadores envían sus intervenciones ahí; coordinación y Gerencia Operativa ven en vivo qué pasa en territorio, despejan dudas, gestionan estrategias | No se reemplaza — es el canal de comunicación en caliente. La plataforma es el registro estructurado que **queda después** de esa conversación, no la reemplaza como canal. |
-| **Planilla de seguimiento** | Coordinación consolida en una base de datos la info que le llega por WhatsApp | Esto es exactamente lo que hacen las tablas `personas`/`intervenciones`/`derivaciones`/`seguimientos` — el objetivo de Umbral 0 es que esta planilla deje de mantenerse a mano. |
+| **Planilla de seguimiento** | Coordinación consolida en una base de datos la info que le llega por WhatsApp, y arma a mano el reporte semanal para GOPA | Esto es lo que reemplaza esta plataforma: las tablas `personas`/`intervenciones`/`derivaciones`/`seguimientos` son la base de datos, y `reporte.html` (§9) calcula el reporte semanal automático en vez de armarlo a mano. |
 | **Cartas de soflex** | Instrumento que generan los operadores en una herramienta externa (no en esta plataforma) | No se migra ni se replica el formulario acá — se suma como **link directo** desde la ficha de persona (ver sección 4), para que el equipo salga a esa herramienta externa sin tener que buscarla. |
 
 ## 4. Pantalla: Nuevo ingreso / Ficha de persona
@@ -546,15 +546,78 @@ se modela:
 - **Espacios de reporte y seguimiento:** reunión semanal (con quién, inicio y
   cierre de semana — a definir) + monitoreo mensual (sumar a Flor Pedraza).
 
-## 9. Vista de coordinación / cliente (dashboard)
+## 9. Pantalla: Reporte semanal — `reporte.html` (ya construida, sept/2026)
+
+GOPA pide un reporte semanal (documentos "UMBRAL_0_1" 27/07/2026 y "Reporte
+Zona de frontera") que **no se basa en KoBo** — es el reporte del trabajo de
+las duplas en territorio, calculado desde lo que se carga en esta
+plataforma (`personas`/`intervenciones`/`derivaciones`), no desde un export
+de KoBo. Por eso es clave que las duplas carguen diariamente en la
+plataforma lo mismo que cargan en el KoBo obligatorio (ver §3).
+
+**Acceso:** solo admin/coordinación (mismo patrón de login que
+`admin-duplas.html`). Selector de rango de fechas (default: últimos 7
+días) + botón "Generar reporte".
+
+**Dos campos nuevos en el modelo de datos** para que esto sea calculable:
+- `intervenciones.datos` (jsonb) — mismo patrón que `derivaciones.datos`.
+  Guarda `zona`, `turno`, `tipo_punto` (calle/iglesia/plaza/otro) y
+  `punto_nuevo` para las intervenciones de tipo `'recorrida'` (ver abajo).
+- `personas.nivel_actual` (smallint, 1 a 5, default 1) — nivel de vínculo
+  según el documento institucional (identificación / construcción del
+  vínculo / monitoreo territorial / anclaje comunitario / proyecto de
+  inclusión). Editable desde la ficha de persona, sección "Datos del caso".
+  **Limitación conocida:** no se guarda el historial de cambios de nivel,
+  solo el valor actual — "evolución de casos" en el reporte es una foto
+  del momento (personas por nivel, al cierre del período elegido), no un
+  delta calculado sobre el período. Si hace falta esa precisión, hay que
+  sumar una tabla de historial (`personas_nivel_historico` o similar).
+
+**Nueva acción "📍 Registrar recorrida"** en `casos.html` (junto a "Nuevo
+ingreso"): para cuando la dupla pasa por un punto y no hay nadie a quien
+dar de alta (o si hay contacto, pero ya se cargó por otro lado). Sin esto,
+la cobertura territorial (zonas/puntos recorridos, iglesias abordadas,
+puntos nuevos) no queda registrada en ningún lado más que en el KoBo. Crea
+una fila en `intervenciones` con `persona_id = null`, `tipo = 'recorrida'`.
+
+**Qué calcula el reporte** (las 4 secciones + tablero que pide GOPA):
+- **a) Cobertura territorial** — zonas recorridas, puntos visitados,
+  iglesias abordadas, cantidad de recorridas, días con presencia, puntos
+  nuevos. "Puntos que requieren más frecuencia" es juicio de coordinación,
+  no un cálculo — queda como campo de texto libre.
+- **b) Población abordada** — personas nuevas, recontactadas, con
+  seguimiento activo. "Incorporadas al seguimiento" y "con las que se
+  perdió contacto" no son calculables con precisión todavía (ver
+  limitación de arriba) — se marcan explícitas en pantalla, no se inventa
+  un número.
+- **c) Evolución de casos** — cantidad de personas por nivel (1 a 5),
+  snapshot de las personas con seguimiento activo.
+- **d) Intervenciones y derivaciones** — por tipo de derivación (reusa
+  `TIPOS_DERIVACION_CONFIG`/§5 completo), contando total/efectivizadas/
+  rechazadas por tipo. Esto sí es 100% preciso, ya que se arma directo de
+  `derivaciones.tipo`/`estado`.
+- **Tablero de indicadores** — los 11 indicadores que pide el documento;
+  los que no son calculables (Vínculo, Sostenimiento, Gestión, Resultado —
+  requieren historial de nivel o una tabla de alertas que no existe)
+  quedan marcados "—" en vez de inventados.
+- **Reporte de alertas y desvíos** — sin tabla propia todavía, campo de
+  texto libre.
+
+**Botón "Armar mensaje"**: junta todo lo de arriba en un texto plano listo
+para copiar y mandar a GOPA (mismo mecanismo de copiar-mensaje que las
+derivaciones de §5).
+
+## 10. Vista de coordinación / cliente (dashboard)
 
 Reusa el patrón visual de `dashboard.html` (tabs por proyecto): listado de
 casos activos con filtros por zona/comuna/estado/tipo de derivación pendiente,
 y algún gráfico simple (derivaciones por tipo, casos por criticidad) — mismo
 estilo que ya existe para Censo Flash. El rol `cliente` ve esto en modo
 solo-lectura; no ve el roster de duplas/choferes (privacidad del equipo).
+Complementa a `reporte.html` (§9): esto es exploración de casos individuales,
+`reporte.html` es el consolidado cuantitativo para GOPA.
 
-## 10. Lo que queda abierto
+## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
@@ -583,7 +646,7 @@ más adelante — quedan pendientes de definir con Agustina:
 - **Handy de supervisión RED** para pedidos a CIS: cuál es, si hace falta
   dejarlo documentado en algún lado de la plataforma para las duplas nuevas.
 
-## 11. Próximo paso sugerido
+## 12. Próximo paso sugerido
 
 Con este diseño ya con el detalle completo de CIS, Casa Vincular y Micro, el
 orden natural para construir es:
