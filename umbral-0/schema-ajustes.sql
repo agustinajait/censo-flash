@@ -124,3 +124,25 @@ alter table public.duplas
   add column if not exists mymaps text,          -- link de My Maps (viewer)
   add column if not exists detalle text,         -- horarios/registros de referencia/qué cubre
   add column if not exists es_referente boolean not null default false; -- referente de su turno
+
+-- 2026-09-07: portal público de duplas (umbral-0/index.html), sin login —
+-- mismo espíritu que el de Censo Flash. La tabla `duplas` sigue protegida
+-- por RLS (solo admin/coordinacion/dupla logueados la ven completa); esta
+-- vista expone SOLO las columnas no sensibles, nunca datos de personas.
+-- Ya corrido en producción.
+create or replace view public.duplas_publico as
+  select id, codigo, zona, turno, detalle, mymaps, es_referente, activa
+  from public.duplas
+  where activa = true;
+
+grant select on public.duplas_publico to anon;
+
+-- OJO — al crearse, la vista heredó los privilegios amplios que Supabase
+-- ya tenía configurados por default en el esquema `public` para
+-- anon/authenticated (INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER),
+-- no solo el SELECT de arriba. Como la vista corre con los permisos de su
+-- dueño (que puede saltarse RLS), eso dejaba una vía de escritura no
+-- intencional hacia `duplas` a través de la vista pública. Se cierra acá
+-- (ya corrido en producción) — deja a anon/authenticated con SOLO SELECT:
+revoke insert, update, delete, truncate, references, trigger
+  on public.duplas_publico from anon, authenticated;

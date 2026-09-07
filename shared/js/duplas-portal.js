@@ -8,8 +8,13 @@ let currentDupla = null;
 
 function getDuplaParam(){
   const s = new URLSearchParams(window.location.search);
-  if(s.get('dupla')) return s.get('dupla').padStart(2,'0');
-  return null;
+  const v = s.get('dupla');
+  if(!v) return null;
+  // El padding a 2 dígitos es para los códigos numéricos de Censo Flash
+  // (?dupla=5 -> "05"). Umbral 0 usa códigos de letra (A, B, ..., M) — un
+  // padStart ciego los rompía ("A".padStart(2,'0') === "0A", que no
+  // matchea ningún id real).
+  return /^\d+$/.test(v) ? v.padStart(2,'0') : v;
 }
 
 function irHome(){
