@@ -9,13 +9,32 @@
   :root { --navy:#0f1f3d; --blue:#7c3aed; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; --gray:#6b7280; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; line-height:1.55; }
-  .nav { background:var(--navy); padding:12px 18px; position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  a { color:inherit; }
+
+  .nav { background:var(--navy); padding:12px 18px; position:sticky; top:0; z-index:60; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .back-btn { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); color:white; padding:7px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; font-family:'Sora',sans-serif; text-decoration:none; }
   .nav-links { display:flex; gap:8px; flex-wrap:wrap; }
-  .cover { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:36px 24px 30px; text-align:center; }
-  .cover h1 { font-family:'Sora',sans-serif; font-size:1.6rem; font-weight:800; margin-bottom:8px; }
-  .cover p { font-size:0.9rem; opacity:0.85; max-width:520px; margin:0 auto; }
-  .content { max-width:720px; margin:0 auto; padding:26px 18px 60px; }
+
+  /* BARRA DE PROGRESO — sticky, debajo del nav */
+  .progreso-bar { position:sticky; top:45px; z-index:59; background:white; border-bottom:1.5px solid var(--border); padding:10px 18px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .progreso-track { flex:1; min-width:140px; height:9px; background:#e2e8f0; border-radius:20px; overflow:hidden; }
+  .progreso-fill { height:100%; background:linear-gradient(90deg,var(--green),#34d399); border-radius:20px; transition:width 0.35s ease; width:0%; }
+  .progreso-txt { font-size:0.76rem; font-weight:700; color:var(--navy); font-family:'Sora',sans-serif; white-space:nowrap; }
+  .puntos-chip { display:inline-flex; align-items:center; gap:5px; background:#fef3c7; color:#92400e; font-family:'Sora',sans-serif; font-weight:800; font-size:0.78rem; padding:4px 12px; border-radius:20px; white-space:nowrap; }
+
+  .cover { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:30px 24px 24px; text-align:center; }
+  .cover h1 { font-family:'Sora',sans-serif; font-size:1.5rem; font-weight:800; margin-bottom:8px; }
+  .cover p { font-size:0.88rem; opacity:0.85; max-width:520px; margin:0 auto; }
+
+  .content { max-width:720px; margin:0 auto; padding:22px 18px 60px; }
+
+  .buscador { position:relative; margin-bottom:18px; }
+  .buscador input {
+    width:100%; border:1.5px solid var(--border); border-radius:12px; padding:12px 16px 12px 40px;
+    font-size:0.9rem; font-family:'DM Sans',sans-serif; background:white; outline:none;
+  }
+  .buscador input:focus { border-color:var(--blue); }
+  .buscador::before { content:'🔍'; position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:0.9rem; opacity:0.6; }
 
   .toc { background:white; border:1.5px solid var(--border); border-radius:14px; padding:16px 18px; margin-bottom:22px; font-size:0.84rem; }
   .toc h2 { font-family:'Sora',sans-serif; font-size:0.85rem; color:var(--navy); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; }
@@ -23,17 +42,13 @@
   .toc a { color:var(--blue); text-decoration:none; }
   .toc a:hover { text-decoration:underline; }
 
-  .section-title { font-family:'Sora',sans-serif; font-size:1.05rem; font-weight:800; color:var(--navy); margin:34px 0 6px; scroll-margin-top:70px; }
+  .section-title { font-family:'Sora',sans-serif; font-size:1.05rem; font-weight:800; color:var(--navy); margin:34px 0 6px; scroll-margin-top:110px; }
   .section-sub { font-size:0.85rem; color:var(--gray); margin-bottom:16px; }
 
   .card { background:white; border-radius:14px; padding:18px 20px; margin-bottom:14px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
   .card h3 { font-family:'Sora',sans-serif; font-size:0.95rem; color:var(--navy); margin-bottom:6px; }
   .card p { font-size:0.87rem; color:#334155; margin-bottom:6px; }
   .card p:last-child { margin-bottom:0; }
-  .card .tag { display:inline-block; font-size:0.7rem; font-weight:700; font-family:'Sora',sans-serif; letter-spacing:0.4px; text-transform:uppercase; padding:3px 10px; border-radius:20px; margin-bottom:8px; }
-  .tag-formulario { background:#ede9fe; color:#5b21b6; }
-  .tag-simple { background:#f1f5f9; color:#475569; }
-  .tag-urgente { background:#fee2e2; color:#991b1b; }
 
   .numlist { display:flex; flex-direction:column; gap:10px; }
   .numlist .item { display:flex; gap:12px; align-items:flex-start; }
@@ -46,7 +61,62 @@
   .alert-warn { background:#fffbeb; border:1.5px solid #fcd34d; color:#92400e; }
   .alert strong { display:block; margin-bottom:2px; font-family:'Sora',sans-serif; }
 
-  .glosario-grid { display:flex; flex-direction:column; gap:12px; }
+  /* GLOSARIO — tarjetas plegables (gamificado: se marcan como vistas al abrirlas) */
+  .glosario-grid { display:flex; flex-direction:column; gap:10px; }
+  details.gcard { background:white; border-radius:14px; border:1.5px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); overflow:hidden; transition:border-color 0.2s; }
+  details.gcard[open] { border-color:var(--blue); }
+  details.gcard.visto { border-color:#86efac; }
+  details.gcard summary {
+    list-style:none; cursor:pointer; padding:14px 18px; display:flex; align-items:center; gap:10px;
+    font-family:'Sora',sans-serif; font-weight:700; font-size:0.92rem; color:var(--navy);
+  }
+  details.gcard summary::-webkit-details-marker { display:none; }
+  details.gcard summary .chevron { margin-left:auto; font-size:0.8rem; color:#94a3b8; transition:transform 0.2s; flex-shrink:0; }
+  details.gcard[open] summary .chevron { transform:rotate(90deg); }
+  details.gcard summary .check { flex-shrink:0; width:20px; height:20px; border-radius:50%; background:#e2e8f0; color:transparent; font-size:0.7rem; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+  details.gcard.visto summary .check { background:var(--green); color:white; }
+  .gcard .tag { display:inline-block; font-size:0.65rem; font-weight:700; font-family:'Sora',sans-serif; letter-spacing:0.4px; text-transform:uppercase; padding:2px 8px; border-radius:20px; flex-shrink:0; }
+  .tag-formulario { background:#ede9fe; color:#5b21b6; }
+  .tag-simple { background:#f1f5f9; color:#475569; }
+  .tag-urgente { background:#fee2e2; color:#991b1b; }
+  .gcard-body { padding:0 18px 16px 48px; }
+  .gcard-body p { font-size:0.87rem; color:#334155; margin-bottom:6px; }
+  .gcard-body p:last-child { margin-bottom:0; }
+  .gcard-pts { position:fixed; z-index:200; pointer-events:none; font-family:'Sora',sans-serif; font-weight:800; color:var(--green); font-size:1.1rem; opacity:0; transition:all 0.7s ease; }
+  .gcard-pts.show { opacity:1; transform:translateY(-30px); }
+
+  .sin-resultados { text-align:center; color:#94a3b8; font-size:0.85rem; padding:24px; display:none; }
+
+  /* QUIZ */
+  .quiz-card { background:white; border-radius:14px; padding:20px; margin-bottom:14px; border:1.5px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  .quiz-pregunta { font-family:'Sora',sans-serif; font-weight:700; font-size:0.9rem; color:var(--navy); margin-bottom:10px; }
+  .quiz-opciones { display:flex; flex-direction:column; gap:8px; }
+  .quiz-opcion { display:flex; align-items:center; gap:10px; padding:10px 14px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:0.85rem; cursor:pointer; transition:all 0.15s; }
+  .quiz-opcion:hover { border-color:var(--blue); background:#f8faff; }
+  .quiz-opcion input { flex-shrink:0; }
+  .quiz-opcion.correcta { border-color:#86efac; background:#f0fdf4; }
+  .quiz-opcion.incorrecta { border-color:#fca5a5; background:#fff1f2; }
+  .quiz-explicacion { font-size:0.8rem; color:#64748b; margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0; display:none; }
+  .quiz-card.corregida .quiz-explicacion { display:block; }
+  .quiz-card.corregida .quiz-opcion { cursor:default; pointer-events:none; }
+
+  .quiz-resumen { background:white; border-radius:14px; padding:20px; text-align:center; border:1.5px solid var(--border); margin-bottom:18px; }
+  .quiz-score { font-family:'Sora',sans-serif; font-size:2.2rem; font-weight:800; color:var(--navy); }
+  .quiz-score-lbl { font-size:0.82rem; color:var(--gray); margin-top:2px; }
+
+  .btn { border:none; border-radius:10px; padding:11px 22px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.88rem; cursor:pointer; }
+  .btn-blue { background:var(--blue); color:white; }
+  .btn-blue:disabled { opacity:0.5; cursor:default; }
+  .btn-outline { background:white; border:1.5px solid var(--border); color:var(--navy); }
+
+  .certificado { display:none; background:linear-gradient(135deg,#065f46,#10b981); color:white; border-radius:16px; padding:28px 24px; text-align:center; margin-bottom:20px; }
+  .certificado.show { display:block; }
+  .certificado .emoji { font-size:2.6rem; margin-bottom:8px; }
+  .certificado h2 { font-family:'Sora',sans-serif; font-size:1.15rem; margin-bottom:6px; }
+  .certificado p { font-size:0.86rem; opacity:0.9; }
+
+  .reiniciar { text-align:center; margin-top:24px; }
+  .reiniciar button { background:none; border:none; color:#94a3b8; font-size:0.76rem; text-decoration:underline; cursor:pointer; }
 
   footer { text-align:center; font-size:0.78rem; color:var(--gray); padding:20px; }
 </style>
@@ -59,6 +129,12 @@
   </div>
 </nav>
 
+<div class="progreso-bar">
+  <span class="progreso-txt" id="progreso-txt">0/16 vistas</span>
+  <div class="progreso-track"><div class="progreso-fill" id="progreso-fill"></div></div>
+  <span class="puntos-chip">⭐ <span id="puntos-total">0</span> pts</span>
+</div>
+
 <div class="cover">
   <h1>📖 Glosario y guía — Umbral 0</h1>
   <p>Onboarding para duplas: qué es cada derivación, cuándo usarla, qué datos pedir y a quién avisar. Basado en el documento institucional de Umbral Cero (27/07/2026).</p>
@@ -66,14 +142,19 @@
 
 <div class="content">
 
+  <div class="buscador">
+    <input type="text" id="buscar-input" placeholder="Buscar una derivación (ej: CIS, SAME, DNI)…" oninput="filtrar(this.value)">
+  </div>
+
   <div class="toc">
     <h2>En esta página</h2>
     <ul>
       <li><a href="#que-es">¿Qué es Umbral 0?</a></li>
       <li><a href="#principios">Los 5 principios de intervención</a></li>
       <li><a href="#niveles">Niveles de éxito (1 a 5)</a></li>
-      <li><a href="#glosario">Glosario de derivaciones y articulaciones</a></li>
+      <li><a href="#glosario">Glosario de derivaciones y articulaciones — tocá cada una para abrirla</a></li>
       <li><a href="#herramientas">Herramientas de registro</a></li>
+      <li><a href="#quiz">🎯 Ponete a prueba (quiz)</a></li>
     </ul>
   </div>
 
@@ -119,123 +200,141 @@
   </div>
 
   <h2 class="section-title" id="glosario">Glosario de derivaciones y articulaciones</h2>
-  <p class="section-sub">Cada una de estas opciones aparece en el desplegable de "Pedir derivación" en <a href="./casos.html">Casos</a>. <span class="tag tag-formulario" style="margin:0 3px;">Formulario</span> = tiene campos propios y arma un mensaje/PDF listo para copiar. <span class="tag tag-simple" style="margin:0 3px;">Simple</span> = solo observaciones libres.</p>
+  <p class="section-sub">Tocá cada una para abrirla — se marca como vista (✅) y suma puntos. <span class="tag tag-formulario" style="margin:0 3px;">Formulario</span> = tiene campos propios y arma un mensaje/PDF listo para copiar. <span class="tag tag-simple" style="margin:0 3px;">Simple</span> = solo observaciones libres.</p>
 
-  <div class="glosario-grid">
+  <div class="glosario-grid" id="glosario-grid">
 
-    <div class="card">
-      <span class="tag tag-formulario">Formulario</span>
-      <h3>CIS — Centro de Inclusión Social</h3>
-      <p><strong>Para quién:</strong> demanda espontánea (alguien que pide ingresar sin estar en seguimiento) o para personas ya en seguimiento del equipo.</p>
-      <p><strong>Requisito clave:</strong> foto del DNI o de la denuncia de extravío — <strong>obligatoria</strong>, no se hacen ingresos sin eso.</p>
-      <p><strong>A quién avisar:</strong> al referente territorial, que lo eleva a la supervisión de la RED (demanda espontánea) o completa el Forms de vacante y lo envía al grupo "Derivaciones DIPA" (seguimientos).</p>
-    </div>
+    <details class="gcard" data-id="cis" data-nombre="CIS Centro de Inclusión Social">
+      <summary><span class="check">✓</span> CIS — Centro de Inclusión Social <span class="tag tag-formulario">Formulario</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> demanda espontánea (alguien que pide ingresar sin estar en seguimiento) o para personas ya en seguimiento del equipo.</p>
+        <p><strong>Requisito clave:</strong> foto del DNI o de la denuncia de extravío — <strong>obligatoria</strong>, no se hacen ingresos sin eso.</p>
+        <p><strong>A quién avisar:</strong> al referente territorial, que lo eleva a la supervisión de la RED (demanda espontánea) o completa el Forms de vacante y lo envía al grupo "Derivaciones DIPA" (seguimientos).</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-formulario">Formulario</span>
-      <h3>Casa Vincular</h3>
-      <p><strong>Para quién:</strong> solo personas <strong>en seguimiento</strong>. Para quienes no quieren ir a un CIS, tuvieron egresos negativos, o son perfiles de "alta criticidad" (consumo, larga permanencia en calle).</p>
-      <p><strong>Cómo:</strong> se arma un informe social completo (situación habitacional, económica, sanitaria, redes, educativa). Siempre aclarar a la persona que el <strong>pernocte no está garantizado</strong> — primero se accede al espacio diurno.</p>
-      <p><strong>A quién avisar:</strong> a la coordinación de Umbral Cero, que lo deriva al grupo de las Casas Vinculares (Dorrego, Panambi, Fray Cayetano, Sin Barreras).</p>
-    </div>
+    <details class="gcard" data-id="casa-vincular" data-nombre="Casa Vincular">
+      <summary><span class="check">✓</span> Casa Vincular <span class="tag tag-formulario">Formulario</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> solo personas <strong>en seguimiento</strong>. Para quienes no quieren ir a un CIS, tuvieron egresos negativos, o son perfiles de "alta criticidad" (consumo, larga permanencia en calle).</p>
+        <p><strong>Cómo:</strong> se arma un informe social completo (situación habitacional, económica, sanitaria, redes, educativa). Siempre aclarar a la persona que el <strong>pernocte no está garantizado</strong> — primero se accede al espacio diurno.</p>
+        <p><strong>A quién avisar:</strong> a la coordinación de Umbral Cero, que lo deriva al grupo de las Casas Vinculares (Dorrego, Panambi, Fray Cayetano, Sin Barreras).</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-formulario">Formulario</span>
-      <h3>ASA — ex Centro de Admisión, Evaluación y Derivación</h3>
-      <p><strong>Para quién:</strong> personas en seguimiento que atraviesan consumo problemático y ya dialogaron con el equipo sobre esa problemática, de cara a evaluar una comunidad terapéutica.</p>
-      <p><strong>Cómo:</strong> mismo informe social que Casa Vincular.</p>
-      <p><strong>A quién avisar:</strong> al referente territorial, que lo viabiliza con la coordinación de Umbral Cero.</p>
-    </div>
+    <details class="gcard" data-id="asa" data-nombre="ASA ex Centro de Admisión Evaluación y Derivación comunidad terapeutica">
+      <summary><span class="check">✓</span> ASA — ex Centro de Admisión, Evaluación y Derivación <span class="tag tag-formulario">Formulario</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> personas en seguimiento que atraviesan consumo problemático y ya dialogaron con el equipo sobre esa problemática, de cara a evaluar una comunidad terapéutica.</p>
+        <p><strong>Cómo:</strong> mismo informe social que Casa Vincular.</p>
+        <p><strong>A quién avisar:</strong> al referente territorial, que lo viabiliza con la coordinación de Umbral Cero.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-formulario">Formulario</span>
-      <h3>Micro</h3>
-      <p><strong>Para quién:</strong> equipos de turno vespertino, para que la persona empiece a sostener el espacio y genere rutina.</p>
-      <p><strong>Requisito clave:</strong> la persona <strong>no</strong> puede tener signos de consumo activo al momento del ingreso — el encuadre es más flexible que un CIS, pero no tanto. Siempre requiere DNI o denuncia de extravío.</p>
-      <p><strong>A quién avisar:</strong> a la coordinación de Umbral Cero, que articula con la coordinación de micros.</p>
-    </div>
+    <details class="gcard" data-id="micro" data-nombre="Micro turno vespertino">
+      <summary><span class="check">✓</span> Micro <span class="tag tag-formulario">Formulario</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> equipos de turno vespertino, para que la persona empiece a sostener el espacio y genere rutina.</p>
+        <p><strong>Requisito clave:</strong> la persona <strong>no</strong> puede tener signos de consumo activo al momento del ingreso — el encuadre es más flexible que un CIS, pero no tanto. Siempre requiere DNI o denuncia de extravío.</p>
+        <p><strong>A quién avisar:</strong> a la coordinación de Umbral Cero, que articula con la coordinación de micros.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-formulario">Formulario</span>
-      <h3>Salud Mental</h3>
-      <p><strong>Para quién:</strong> personas con indicadores de alguna problemática de salud mental.</p>
-      <p><strong>Cómo:</strong> se evalúa orientación en tiempo/espacio (¿qué día es? ¿mes y año? ¿vestimenta acorde al clima? ¿conductas de riesgo?). Si hay riesgo para sí o terceros, se llama al <strong>SAME</strong> de inmediato y el equipo permanece en el lugar hasta que llegue.</p>
-      <p><strong>A quién avisar:</strong> al grupo de WhatsApp con el área de Salud Mental (nombre, DNI, fecha de nacimiento, edad, vestimenta y punto de contacto).</p>
-    </div>
+    <details class="gcard" data-id="salud-mental" data-nombre="Salud Mental">
+      <summary><span class="check">✓</span> Salud Mental <span class="tag tag-formulario">Formulario</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> personas con indicadores de alguna problemática de salud mental.</p>
+        <p><strong>Cómo:</strong> se evalúa orientación en tiempo/espacio (¿qué día es? ¿mes y año? ¿vestimenta acorde al clima? ¿conductas de riesgo?). Si hay riesgo para sí o terceros, se llama al <strong>SAME</strong> de inmediato y el equipo permanece en el lugar hasta que llegue.</p>
+        <p><strong>A quién avisar:</strong> al grupo de WhatsApp con el área de Salud Mental (nombre, DNI, fecha de nacimiento, edad, vestimenta y punto de contacto).</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-urgente">Formulario · urgencia</span>
-      <h3>SAME</h3>
-      <p><strong>Para quién:</strong> cualquier persona que necesite atención médica urgente (no hace falta que sea vía Salud Mental).</p>
-      <p><strong>Cómo:</strong> llamar al <strong>107</strong>. Pedir el número de operador que recepciona. Si la persona rechaza la atención verbalmente, <strong>igual se llama</strong>. Al llegar: registrar médico, matrícula, institución, móvil, patente y hospital de traslado si corresponde.</p>
-    </div>
+    <details class="gcard" data-id="same" data-nombre="SAME urgencia 107">
+      <summary><span class="check">✓</span> SAME <span class="tag tag-urgente">Urgencia</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> cualquier persona que necesite atención médica urgente (no hace falta que sea vía Salud Mental).</p>
+        <p><strong>Cómo:</strong> llamar al <strong>107</strong>. Pedir el número de operador que recepciona. Si la persona rechaza la atención verbalmente, <strong>igual se llama</strong>. Al llegar: registrar médico, matrícula, institución, móvil, patente y hospital de traslado si corresponde.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-formulario">Formulario</span>
-      <h3>Brigada CER</h3>
-      <p><strong>Para quién:</strong> asistencia sanitaria o evaluación física de campo — para decidir si hace falta llamar al SAME, o como apoyo cuando el SAME ya fue solicitado y demora.</p>
-      <p><strong>A quién avisar:</strong> se llama por teléfono directo a la coordinación territorial de Brigada CER.</p>
-    </div>
+    <details class="gcard" data-id="brigada-cer" data-nombre="Brigada CER evaluación sanitaria de campo">
+      <summary><span class="check">✓</span> Brigada CER <span class="tag tag-formulario">Formulario</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> asistencia sanitaria o evaluación física de campo — para decidir si hace falta llamar al SAME, o como apoyo cuando el SAME ya fue solicitado y demora.</p>
+        <p><strong>A quién avisar:</strong> se llama por teléfono directo a la coordinación territorial de Brigada CER.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-urgente">Formulario · urgencia</span>
-      <h3>Mapa de Familias en Riesgo</h3>
-      <p><strong>Para quién:</strong> grupos familiares en calle con niños, niñas y/o adolescentes.</p>
-      <p><strong>Protocolo urgente</strong> si hay NNyA solos/as en situación de calle: llamar de inmediato al <strong>SAME</strong> y a la <strong>Policía</strong>, y contactar la <strong>Línea 102</strong> (Consejo de Derechos de NNyA).</p>
-      <p><strong>A quién avisar:</strong> a la referencia territorial, que se comunica con la coordinación de Mapa de Familias en Riesgo.</p>
-    </div>
+    <details class="gcard" data-id="mapa-familias" data-nombre="Mapa de Familias en Riesgo niños niñas adolescentes">
+      <summary><span class="check">✓</span> Mapa de Familias en Riesgo <span class="tag tag-urgente">Urgencia</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> grupos familiares en calle con niños, niñas y/o adolescentes.</p>
+        <p><strong>Protocolo urgente</strong> si hay NNyA solos/as en situación de calle: llamar de inmediato al <strong>SAME</strong> y a la <strong>Policía</strong>, y contactar la <strong>Línea 102</strong> (Consejo de Derechos de NNyA).</p>
+        <p><strong>A quién avisar:</strong> a la referencia territorial, que se comunica con la coordinación de Mapa de Familias en Riesgo.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-urgente">Formulario · urgencia</span>
-      <h3>Policía de la Ciudad</h3>
-      <p><strong>Para quién:</strong> situaciones violentas, amenazas o comportamientos que requieran intervención policial (peleas, daño a la vía pública o a inmuebles privados).</p>
-      <p><strong>Cómo:</strong> llamar al <strong>911</strong>. Si el equipo aguarda al móvil, registrar nombre y apellido del personal, LP (legajo personal), comisaría y N° de móvil.</p>
-    </div>
+    <details class="gcard" data-id="policia" data-nombre="Policía de la Ciudad 911">
+      <summary><span class="check">✓</span> Policía de la Ciudad <span class="tag tag-urgente">Urgencia</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> situaciones violentas, amenazas o comportamientos que requieran intervención policial (peleas, daño a la vía pública o a inmuebles privados).</p>
+        <p><strong>Cómo:</strong> llamar al <strong>911</strong>. Si el equipo aguarda al móvil, registrar nombre y apellido del personal, LP (legajo personal), comisaría y N° de móvil.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-formulario">Formulario</span>
-      <h3>Programa Ciudadanía Porteña</h3>
-      <p><strong>Requisitos:</strong> DNI con domicilio en CABA + negativa de ANSES. Si el DNI tiene menos de 2 años de emisión, hace falta además un informe social de otra institución.</p>
-      <p><strong>Cómo:</strong> acompañamiento por el equipo, o derivación si la persona puede ir por sus propios medios. El "formulario integral" lo recibe el referente territorial (lo hace llegar al Área de Demanda Externa, Jerónimo Salguero 979); la derivación en papel se le entrega directo a la persona.</p>
-    </div>
+    <details class="gcard" data-id="ciudadania-portena" data-nombre="Programa Ciudadanía Porteña ANSES">
+      <summary><span class="check">✓</span> Programa Ciudadanía Porteña <span class="tag tag-formulario">Formulario</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Requisitos:</strong> DNI con domicilio en CABA + negativa de ANSES. Si el DNI tiene menos de 2 años de emisión, hace falta además un informe social de otra institución.</p>
+        <p><strong>Cómo:</strong> acompañamiento por el equipo, o derivación si la persona puede ir por sus propios medios. El "formulario integral" lo recibe el referente territorial (lo hace llegar al Área de Demanda Externa, Jerónimo Salguero 979); la derivación en papel se le entrega directo a la persona.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-simple">Simple</span>
-      <h3>Sedes de Atención Social</h3>
-      <p><strong>Para quién:</strong> abordaje integral por comuna — consumo problemático, derecho a la identidad, derecho de la mujer, discapacidad, asistencia social a NNyA/familias/personas mayores. Incluye gestión de DNI con eximición de pago y asesoramiento sobre el Certificado Único de Discapacidad.</p>
-    </div>
+    <details class="gcard" data-id="sedes-atencion-social" data-nombre="Sedes de Atención Social CUD discapacidad">
+      <summary><span class="check">✓</span> Sedes de Atención Social <span class="tag tag-simple">Simple</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> abordaje integral por comuna — consumo problemático, derecho a la identidad, derecho de la mujer, discapacidad, asistencia social a NNyA/familias/personas mayores. Incluye gestión de DNI con eximición de pago y asesoramiento sobre el Certificado Único de Discapacidad.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-simple">Simple</span>
-      <h3>Derecho a la Identidad</h3>
-      <p><strong>Para quién:</strong> personas sin inscripción registral (NN) o extranjeras con dificultades de documentación. Asesoramiento, derivación asistida y seguimiento social en la tramitación del DNI (Rodríguez Peña 780).</p>
-    </div>
+    <details class="gcard" data-id="derecho-identidad" data-nombre="Derecho a la Identidad DNI extranjeros NN">
+      <summary><span class="check">✓</span> Derecho a la Identidad <span class="tag tag-simple">Simple</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Para quién:</strong> personas sin inscripción registral (NN) o extranjeras con dificultades de documentación. Asesoramiento, derivación asistida y seguimiento social en la tramitación del DNI (Rodríguez Peña 780).</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-simple">Simple</span>
-      <h3>DIPA — Dispositivo de Primer Acercamiento</h3>
-      <p><strong>Qué es:</strong> espacio de 06:00 a 22:00 hs con asistencia alimentaria (desayuno y merienda), gestión de Ciudadanía Porteña y del Programa de Apoyo para Familias en Situación de Vulnerabilidad Habitacional. También el lugar donde se espera mientras se gestiona un ingreso a CIS.</p>
-    </div>
+    <details class="gcard" data-id="dipa" data-nombre="DIPA Dispositivo de Primer Acercamiento">
+      <summary><span class="check">✓</span> DIPA — Dispositivo de Primer Acercamiento <span class="tag tag-simple">Simple</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Qué es:</strong> espacio de 06:00 a 22:00 hs con asistencia alimentaria (desayuno y merienda), gestión de Ciudadanía Porteña y del Programa de Apoyo para Familias en Situación de Vulnerabilidad Habitacional. También el lugar donde se espera mientras se gestiona un ingreso a CIS.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-simple">Simple</span>
-      <h3>Médico</h3>
-      <p><strong>Cómo:</strong> turnos por la línea <strong>147</strong> para acompañar a la persona al sistema de salud. Si se acompaña, dialogar con el servicio social de la institución para que conozcan la situación.</p>
-    </div>
+    <details class="gcard" data-id="medico" data-nombre="Médico línea 147 turnos hospital">
+      <summary><span class="check">✓</span> Médico <span class="tag tag-simple">Simple</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Cómo:</strong> turnos por la línea <strong>147</strong> para acompañar a la persona al sistema de salud. Si se acompaña, dialogar con el servicio social de la institución para que conozcan la situación.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-simple">Simple</span>
-      <h3>Hacer DNI</h3>
-      <p><strong>Cómo:</strong> derivación con eximición de pago + acompañamiento a hacer el trámite, o la denuncia de extravío en la comisaría más cercana si corresponde.</p>
-    </div>
+    <details class="gcard" data-id="hacer-dni" data-nombre="Hacer DNI eximicion de pago">
+      <summary><span class="check">✓</span> Hacer DNI <span class="tag tag-simple">Simple</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p><strong>Cómo:</strong> derivación con eximición de pago + acompañamiento a hacer el trámite, o la denuncia de extravío en la comisaría más cercana si corresponde.</p>
+      </div>
+    </details>
 
-    <div class="card">
-      <span class="tag tag-simple">Simple</span>
-      <h3>Centro de día</h3>
-      <p>Sin detalle adicional todavía en el documento institucional — formulario simple hasta que se defina más.</p>
-    </div>
+    <details class="gcard" data-id="centro-dia" data-nombre="Centro de dia">
+      <summary><span class="check">✓</span> Centro de día <span class="tag tag-simple">Simple</span><span class="chevron">›</span></summary>
+      <div class="gcard-body">
+        <p>Sin detalle adicional todavía en el documento institucional — formulario simple hasta que se defina más.</p>
+      </div>
+    </details>
 
   </div>
+
+  <p class="sin-resultados" id="sin-resultados">No encontramos ninguna derivación con ese texto.</p>
 
   <div class="alert alert-warn">
     <span>💬</span>
@@ -255,8 +354,230 @@
     articulaciones de este glosario.</p>
   </div>
 
+  <h2 class="section-title" id="quiz">🎯 Ponete a prueba</h2>
+  <p class="section-sub">10 preguntas para repasar lo importante. Podés repetirlo las veces que quieras.</p>
+
+  <div class="certificado" id="certificado">
+    <div class="emoji">🏆</div>
+    <h2>¡Completaste el onboarding de Umbral 0!</h2>
+    <p>Viste las 16 derivaciones y aprobaste el quiz. Ya estás list@ para salir a territorio.</p>
+  </div>
+
+  <div id="quiz-preguntas"></div>
+
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <button class="btn btn-blue" id="btn-corregir-quiz" onclick="corregirQuiz()">✅ Corregir quiz</button>
+    <button class="btn btn-outline" id="btn-reintentar-quiz" onclick="reiniciarQuiz()" style="display:none;">🔁 Intentar de nuevo</button>
+  </div>
+
+  <div class="quiz-resumen" id="quiz-resumen" style="display:none;margin-top:16px;">
+    <div class="quiz-score" id="quiz-score-txt">0/10</div>
+    <div class="quiz-score-lbl">respuestas correctas</div>
+  </div>
+
+  <div class="reiniciar">
+    <button onclick="reiniciarTodoElProgreso()">Reiniciar todo mi progreso (tarjetas + quiz)</button>
+  </div>
+
 </div>
 
 <footer>Umbral 0 — Guía interna del equipo. Basado en el documento institucional del 27/07/2026.</footer>
+
+<script>
+// ── Progreso gamificado (localStorage, por dispositivo/navegador — no es
+// dato de caso, no hace falta guardarlo en Supabase). Se marca "vista"
+// cada tarjeta del glosario al abrirla por primera vez, y el quiz suma
+// puntos aparte. Todo es cosmético/onboarding, no bloquea nada del uso
+// real de la plataforma.
+const STORAGE_KEY = 'umbral0_glosario_v1';
+const TOTAL_CARDS = document.querySelectorAll('.gcard').length;
+const PTS_POR_TARJETA = 10;
+const PTS_POR_RESPUESTA = 20;
+
+function cargarEstado(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ /* localStorage puede fallar en privado/bloqueado — seguimos sin persistir */ }
+  return { vistos:[], quizRespuestas:{}, quizScore:null };
+}
+function guardarEstado(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(estado)); }catch(e){ /* idem */ }
+}
+let estado = cargarEstado();
+
+function puntosActuales(){
+  const pts = estado.vistos.length * PTS_POR_TARJETA + (estado.quizScore || 0) * PTS_POR_RESPUESTA;
+  return pts;
+}
+
+function actualizarBarra(){
+  const vistos = estado.vistos.length;
+  document.getElementById('progreso-txt').textContent = `${vistos}/${TOTAL_CARDS} vistas`;
+  document.getElementById('progreso-fill').style.width = Math.round((vistos / TOTAL_CARDS) * 100) + '%';
+  document.getElementById('puntos-total').textContent = puntosActuales();
+  actualizarCertificado();
+}
+
+function actualizarCertificado(){
+  const completo = estado.vistos.length === TOTAL_CARDS && estado.quizScore != null && estado.quizScore >= 8;
+  document.getElementById('certificado').classList.toggle('show', completo);
+}
+
+function marcarVisto(id, cardEl, x, y){
+  if(estado.vistos.includes(id)) return;
+  estado.vistos.push(id);
+  guardarEstado();
+  actualizarBarra();
+  cardEl.classList.add('visto');
+  mostrarPop('+' + PTS_POR_TARJETA, x, y);
+}
+
+function mostrarPop(texto, x, y){
+  const pop = document.createElement('div');
+  pop.className = 'gcard-pts';
+  pop.textContent = texto;
+  pop.style.left = x + 'px';
+  pop.style.top = y + 'px';
+  document.body.appendChild(pop);
+  requestAnimationFrame(() => pop.classList.add('show'));
+  setTimeout(() => pop.remove(), 750);
+}
+
+// Aplica el estado guardado (tarjetas ya vistas en visitas anteriores) al cargar.
+document.querySelectorAll('.gcard').forEach(card => {
+  const id = card.dataset.id;
+  if(estado.vistos.includes(id)) card.classList.add('visto');
+  card.addEventListener('toggle', () => {
+    if(card.open){
+      const r = card.getBoundingClientRect();
+      marcarVisto(id, card, r.left + 30, r.top + window.scrollY + 20);
+    }
+  });
+});
+
+// ── Buscador (filtra por título/contenido, sin recargar nada) ──────────
+function filtrar(q){
+  q = q.trim().toLowerCase();
+  let visibles = 0;
+  document.querySelectorAll('.gcard').forEach(card => {
+    const match = !q || card.dataset.nombre.toLowerCase().includes(q) || card.textContent.toLowerCase().includes(q);
+    card.style.display = match ? '' : 'none';
+    if(match) visibles++;
+  });
+  document.getElementById('sin-resultados').style.display = visibles === 0 ? 'block' : 'none';
+}
+
+// ── QUIZ ─────────────────────────────────────────────────────────────
+const PREGUNTAS = [
+  { q:'¿Qué es obligatorio adjuntar para pedir el ingreso a un CIS?',
+    ops:['Nada, alcanza con avisar por WhatsApp','Foto del DNI o de la denuncia de extravío','Una constancia del Certificado Único de Discapacidad'],
+    correcta:1, exp:'No se hacen ingresos a CIS sin la foto del DNI o de la denuncia de extravío.' },
+  { q:'Si la persona rechaza verbalmente la atención médica pero evaluás que la necesita urgente, ¿igual llamás al SAME?',
+    ops:['No, si rechaza no se llama','Sí, se llama igual','Solo si hay un familiar presente que lo pida'],
+    correcta:1, exp:'El llamado al SAME se hace igual, aunque la persona rechace verbalmente la atención.' },
+  { q:'Casa Vincular está disponible para...',
+    ops:['Cualquier persona que se cruce en el recorrido','Solo personas que ya están en seguimiento del equipo','Solo menores de edad'],
+    correcta:1, exp:'A diferencia del CIS, Casa Vincular es exclusivamente para seguimientos, no demanda espontánea.' },
+  { q:'Si encontrás niños, niñas o adolescentes SOLOS en situación de calle, ¿a quién avisás de urgencia?',
+    ops:['Solo a tu referente territorial, sin apuro','Al SAME y a la Policía, y después a la Línea 102','A nadie, esperás a que un adulto vuelva'],
+    correcta:1, exp:'Protocolo urgente: SAME + Policía de inmediato, y luego contactar la Línea 102 (Consejo de Derechos de NNyA).' },
+  { q:'¿Cada cuánto hay que cargar el KoBo?',
+    ops:['Una vez por turno, con el resumen del día','En cada contacto con una persona, sea o no la primera vez','Solo si la persona acepta ser registrada'],
+    correcta:1, exp:'Es obligatorio un envío de KoBo por cada intervención, no un resumen al final.' },
+  { q:'La mayoría de tus derivaciones y reportes, ¿a quién se los mandás?',
+    ops:['Directo a la coordinación de Umbral 0 en la Ciudad','A tu referente territorial (el nexo de GOPA)','A la persona misma, para que lo gestione ella'],
+    correcta:1, exp:'Nuestra organización es el equipo territorial — el referente territorial es el nexo con el resto de la Red.' },
+  { q:'¿Qué condición tiene que cumplir la persona para poder acceder a un Micro?',
+    ops:['Tener DNI (o denuncia) y no presentar consumo activo','Solo tener DNI, nada más','Ninguna, es un recurso sin requisitos'],
+    correcta:0, exp:'El encuadre del micro es más flexible que un CIS, pero con consumo activo al momento del ingreso no se puede acceder.' },
+  { q:"En el modelo de Umbral 0, la \"contención\" es...",
+    ops:['Un tipo de derivación más, con su propio formulario','Parte del seguimiento — se registra distinto a una derivación','Algo que hace solo la coordinación, nunca el equipo territorial'],
+    correcta:1, exp:'Contención no es una derivación a un recurso externo, es parte de sostener el vínculo — se registra como seguimiento.' },
+  { q:'Antes de proponer un CIS a alguien que ya está en seguimiento, el equipo primero...',
+    ops:['Intenta fortalecer espacios comunitarios (DIPA, comedor, centro barrial)','Pide autorización judicial','Espera que la persona lo pida tres veces'],
+    correcta:0, exp:'Principio "lo comunitario antecede a lo institucional" — se agotan las instancias comunitarias antes de pensar en un CIS.' },
+  { q:'Para el Programa Ciudadanía Porteña, ¿qué necesita tener la persona como mínimo?',
+    ops:['DNI con domicilio en CABA y negativa de ANSES','Solo el DNI, nada más','Ya estar cobrando otro programa social'],
+    correcta:0, exp:'Los dos requisitos base son DNI con domicilio en CABA y negativa de ANSES (más informe social si el DNI es reciente).' },
+];
+
+function renderQuiz(){
+  const cont = document.getElementById('quiz-preguntas');
+  cont.innerHTML = PREGUNTAS.map((p, i) => `
+    <div class="quiz-card" data-i="${i}">
+      <div class="quiz-pregunta">${i+1}. ${p.q}</div>
+      <div class="quiz-opciones">
+        ${p.ops.map((op, j) => `
+          <label class="quiz-opcion" data-j="${j}">
+            <input type="radio" name="preg-${i}" value="${j}" ${estado.quizRespuestas[i]==j?'checked':''}>
+            ${op}
+          </label>
+        `).join('')}
+      </div>
+      <div class="quiz-explicacion">💡 ${p.exp}</div>
+    </div>
+  `).join('');
+  cont.querySelectorAll('input[type=radio]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const card = inp.closest('.quiz-card');
+      estado.quizRespuestas[card.dataset.i] = inp.value;
+      guardarEstado();
+    });
+  });
+  if(estado.quizScore != null) mostrarResultadoQuiz();
+}
+
+function corregirQuiz(){
+  let correctas = 0;
+  document.querySelectorAll('.quiz-card').forEach(card => {
+    const i = card.dataset.i;
+    const p = PREGUNTAS[i];
+    const elegida = estado.quizRespuestas[i];
+    card.classList.add('corregida');
+    card.querySelectorAll('.quiz-opcion').forEach(op => {
+      const j = Number(op.dataset.j);
+      if(j === p.correcta) op.classList.add('correcta');
+      else if(String(j) === String(elegida)) op.classList.add('incorrecta');
+    });
+    if(String(elegida) === String(p.correcta)) correctas++;
+  });
+  estado.quizScore = correctas;
+  guardarEstado();
+  mostrarResultadoQuiz();
+  actualizarBarra();
+}
+
+function mostrarResultadoQuiz(){
+  document.getElementById('quiz-resumen').style.display = 'block';
+  document.getElementById('quiz-score-txt').textContent = estado.quizScore + '/' + PREGUNTAS.length;
+  document.getElementById('btn-corregir-quiz').style.display = 'none';
+  document.getElementById('btn-reintentar-quiz').style.display = 'inline-block';
+  document.querySelectorAll('.quiz-card').forEach(card => card.classList.add('corregida'));
+}
+
+function reiniciarQuiz(){
+  estado.quizRespuestas = {};
+  estado.quizScore = null;
+  guardarEstado();
+  document.getElementById('quiz-resumen').style.display = 'none';
+  document.getElementById('btn-corregir-quiz').style.display = 'inline-block';
+  document.getElementById('btn-reintentar-quiz').style.display = 'none';
+  renderQuiz();
+  actualizarBarra();
+  document.getElementById('quiz').scrollIntoView({ behavior:'smooth' });
+}
+
+function reiniciarTodoElProgreso(){
+  if(!confirm('¿Reiniciar todo el progreso del glosario (tarjetas vistas + resultado del quiz)?')) return;
+  estado = { vistos:[], quizRespuestas:{}, quizScore:null };
+  guardarEstado();
+  document.querySelectorAll('.gcard').forEach(c => { c.classList.remove('visto'); c.open = false; });
+  reiniciarQuiz();
+}
+
+renderQuiz();
+actualizarBarra();
+</script>
 </body>
 </html>
