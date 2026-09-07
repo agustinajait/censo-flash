@@ -26,13 +26,13 @@
   .wa-btn { display:inline-flex; align-items:center; gap:8px; background:#25d366; color:white; padding:10px 22px; border-radius:24px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.88rem; text-decoration:none; position:relative; }
   .wa-num { color:rgba(255,255,255,0.45); font-size:0.75rem; margin-top:8px; position:relative; }
 
-  .home-body { max-width:560px; margin:0 auto; padding:24px 18px 40px; }
+  .home-body { max-width:620px; margin:0 auto; padding:24px 18px 40px; }
 
   .inst-btn {
     display:flex; align-items:center; gap:12px;
     background:linear-gradient(135deg,var(--amber),#d97706);
     color:white; padding:14px 20px; border-radius:14px;
-    text-decoration:none; margin-bottom:20px;
+    text-decoration:none; margin-bottom:14px;
     box-shadow:0 4px 14px rgba(245,158,11,0.3);
   }
   .inst-btn-icon { font-size:1.5rem; }
@@ -40,21 +40,29 @@
   .inst-btn-sub { font-size:0.76rem; opacity:0.9; margin-top:1px; }
   .inst-btn-arr { margin-left:auto; font-size:1rem; opacity:0.7; }
 
-  .section-label { font-family:'Sora',sans-serif; font-weight:700; font-size:0.88rem; color:#0f1f3d; margin-bottom:12px; }
+  .section-label { font-family:'Sora',sans-serif; font-weight:700; font-size:0.88rem; color:#0f1f3d; margin:22px 0 12px; }
+  .turno-group { margin-bottom:16px; }
+  .turno-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .turno-tag { font-family:'Sora',sans-serif; font-weight:800; font-size:0.78rem; color:white; background:var(--blue); padding:3px 10px; border-radius:20px; }
+  .turno-horario { font-size:0.76rem; color:#64748b; font-weight:600; }
+
   .dupla-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
   .dupla-btn {
     background:white; border:1.5px solid var(--border);
     color:#0f1f3d; padding:10px 4px; border-radius:10px;
     font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem;
     text-align:center; text-decoration:none; cursor:pointer;
-    transition:all 0.15s;
+    transition:all 0.15s; position:relative;
   }
   .dupla-btn:hover { background:var(--blue); color:white; border-color:var(--blue); }
   .dupla-num { font-size:1.1rem; display:block; }
-  .dupla-zona { font-size:0.62rem; font-weight:600; color:#6b7280; margin-top:1px; display:block; }
+  .dupla-zona { font-size:0.6rem; font-weight:600; color:#6b7280; margin-top:1px; display:block; line-height:1.2; }
   .dupla-btn:hover .dupla-zona { color:rgba(255,255,255,0.7); }
+  .dupla-ref-star { position:absolute; top:2px; right:4px; font-size:0.6rem; }
 
-  .home-footer-links { display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:18px; }
+  .empty-msg { font-size:0.84rem; color:#94a3b8; padding:14px; text-align:center; background:white; border:1.5px dashed var(--border); border-radius:12px; }
+
+  .home-footer-links { display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:26px; }
   .platform-link { font-size:0.74rem; color:#94a3b8; text-decoration:none; }
   .platform-link:hover { color:var(--blue); }
   .admin-link { display:inline-flex; align-items:center; gap:6px; background:white; border:1.5px solid var(--border); color:#64748b; padding:8px 16px; border-radius:20px; font-family:'Sora',sans-serif; font-weight:600; font-size:0.76rem; text-decoration:none; transition:all 0.15s; }
@@ -78,10 +86,10 @@
   .dupla-sub { font-size:0.88rem; opacity:0.75; margin-bottom:16px; }
   .dupla-pills { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; }
   .pill { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); padding:5px 12px; border-radius:20px; font-size:0.78rem; }
+  .pill-ref { background:rgba(251,191,36,0.25); border-color:rgba(251,191,36,0.5); color:#fde68a; }
 
   .dupla-body { max-width:620px; margin:0 auto; padding:22px 18px 50px; }
 
-  /* CARDS */
   .card { background:white; border-radius:14px; padding:20px; margin-bottom:16px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); position:relative; overflow:hidden; }
   .card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:14px 14px 0 0; }
   .card-blue::before  { background:linear-gradient(90deg,var(--blue),#3b82f6); }
@@ -95,47 +103,18 @@
   .ic-amber { background:#fef3c7; } .ic-red { background:#fee2e2; }
   .card-title { font-family:'Sora',sans-serif; font-size:0.95rem; font-weight:700; color:#0f1f3d; }
   .card-sub { font-size:0.72rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.8px; font-weight:600; }
+  .card p { font-size:0.88rem; color:#334155; line-height:1.55; }
 
   .link-row { background:#f0f6ff; border:1.5px solid #bfdbfe; border-radius:10px; padding:11px 14px; margin-bottom:10px; }
   .link-lbl { font-size:0.7rem; font-weight:700; color:#1a56db; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
   .open-btn { display:inline-flex; align-items:center; gap:5px; margin-top:6px; background:var(--blue); color:white; padding:6px 14px; border-radius:7px; font-size:0.78rem; font-weight:600; text-decoration:none; font-family:'Sora',sans-serif; }
   .open-btn-disabled { background:#cbd5e1; color:#64748b; cursor:default; }
 
-  .check-list { display:flex; flex-direction:column; gap:8px; }
-  .check-item { display:flex; align-items:center; gap:10px; padding:8px 12px; background:#f8faff; border-radius:9px; border:1px solid #e2eaf8; font-size:0.88rem; }
-  .check-dot { width:20px; height:20px; background:var(--green); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:0.65rem; flex-shrink:0; font-weight:700; }
-
-  .steps { display:flex; flex-direction:column; gap:8px; }
-  .step { display:flex; gap:10px; align-items:flex-start; padding:9px 12px; background:#f0f6ff; border-radius:9px; border:1px solid var(--border); }
-  .step-n { width:24px; height:24px; background:var(--blue); color:white; font-family:'Sora',sans-serif; font-weight:700; font-size:0.75rem; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
-  .step-t { font-size:0.87rem; }
-  .step-t strong { color:#0f1f3d; }
-
   .alert { display:flex; align-items:flex-start; gap:9px; padding:10px 13px; border-radius:10px; font-size:0.85rem; margin-top:12px; }
   .alert-red   { background:#fff1f2; border:1.5px solid #fca5a5; color:#991b1b; }
   .alert-warn  { background:#fffbeb; border:1.5px solid #fcd34d; color:#92400e; }
   .alert-info  { background:#eff6ff; border:1.5px solid #93c5fd; color:#1e40af; }
   .alert strong { font-family:'Sora',sans-serif; }
-
-  .speed { text-align:center; padding:14px; background:#fffbeb; border:2px solid #fbbf24; border-radius:12px; margin:12px 0; }
-  .speed-n { font-family:'Sora',sans-serif; font-size:2.5rem; font-weight:800; color:var(--amber); line-height:1; }
-  .speed-l { font-size:0.78rem; color:#92400e; font-weight:600; }
-
-  .cierre-btn {
-    display:flex; align-items:center; justify-content:center; gap:10px;
-    width:100%; padding:16px; border:none; border-radius:14px;
-    background:linear-gradient(135deg,var(--navy),var(--blue));
-    color:white; font-family:'Sora',sans-serif; font-weight:700;
-    font-size:1rem; cursor:pointer; margin-top:8px;
-    box-shadow:0 4px 14px rgba(15,31,61,0.3);
-    text-decoration:none;
-  }
-  .cierre-btn:disabled { opacity:0.75; cursor:default; box-shadow:none; }
-
-  .form-field { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
-  .form-field label { font-size:0.76rem; font-weight:700; color:var(--navy); font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
-  .form-field input { border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; font-size:0.9rem; font-family:'DM Sans',sans-serif; color:#1e293b; background:#f8faff; outline:none; }
-  .form-field input:focus { border-color:var(--blue); background:white; }
 
   .footer { background:var(--navy); color:rgba(255,255,255,0.4); text-align:center; padding:18px; font-size:0.75rem; }
   .footer strong { color:white; }
@@ -169,8 +148,10 @@
       </div>
       <span class="inst-btn-arr">→</span>
     </a>
+
     <div class="section-label">Seleccioná tu dupla</div>
-    <div class="dupla-grid" id="dupla-grid"></div>
+    <div id="duplas-por-turno"></div>
+
     <div class="home-footer-links">
       <a href="../plataforma.html" class="platform-link">← Ver todos los proyectos de la plataforma</a>
       <a href="../dashboard.html" class="admin-link">🔐 Acceso administrador / dashboard</a>
@@ -183,14 +164,11 @@
 <!-- DUPLA SCREEN -->
 <div id="dupla-screen">
   <div class="dupla-cover">
-    <a class="back-btn" onclick="DuplasPortal.irHome()">← Volver al inicio</a>
+    <a class="back-btn" onclick="irHome()">← Volver al inicio</a>
     <div class="dupla-num-big" id="d-num"></div>
     <div class="dupla-title" id="d-title"></div>
     <div class="dupla-sub" id="d-sub"></div>
-    <div class="dupla-pills">
-      <div class="pill" data-cfg="horario.dias">📅 A definir</div>
-      <div class="pill" data-cfg="horario.franja">🕙 A definir</div>
-    </div>
+    <div class="dupla-pills" id="d-pills"></div>
   </div>
 
   <div class="dupla-body">
@@ -205,100 +183,47 @@
         </div>
       </div>
       <div class="link-row">
-        <div class="link-lbl">🗺️ Mi polígono — My Maps</div>
+        <div class="link-lbl">🗺️ Mi zona — My Maps</div>
         <a id="d-mymaps" class="open-btn" href="#" target="_blank">Abrir mapa →</a>
       </div>
       <div class="link-row">
-        <div class="link-lbl">📱 Formulario KoBo</div>
+        <div class="link-lbl">📝 Formulario KoBo (obligatorio por contacto)</div>
         <a id="d-kobo" class="open-btn" href="#" target="_blank">Abrir KoBo →</a>
       </div>
       <div class="link-row">
         <div class="link-lbl">🗂️ Casos — ingreso, derivación y seguimiento</div>
-        <a class="open-btn" href="./casos.html" target="_blank">Abrir casos →</a>
+        <a class="open-btn" href="./casos.html" target="_blank">Entrar a Casos →</a>
+      </div>
+      <div class="alert alert-info">
+        <span>💡</span>
+        <div>"Casos" pide tu cuenta real (email + contraseña) — si todavía no la tenés, pedísela a tu referente o a quien administra la plataforma.</div>
       </div>
     </div>
 
-    <!-- ANTES DE SALIR -->
-    <div class="card card-amber">
+    <!-- DETALLE DE LA ZONA -->
+    <div class="card card-amber" id="d-detalle-card" style="display:none;">
       <div class="card-header">
-        <div class="card-icon ic-amber">✅</div>
+        <div class="card-icon ic-amber">📍</div>
         <div>
-          <div class="card-title">Antes de salir</div>
-          <div class="card-sub">Verificación obligatoria</div>
+          <div class="card-title">Detalle de tu zona</div>
+          <div class="card-sub">Horarios y qué cubrís</div>
         </div>
       </div>
-      <div class="check-list">
-        <div class="check-item"><div class="check-dot">✓</div> Batería suficiente y cargador</div>
-        <div class="check-item"><div class="check-dot">✓</div> Datos móviles activos</div>
-        <div class="check-item"><div class="check-dot">✓</div> Permiso de ubicación activado</div>
-        <div class="check-item"><div class="check-dot">✓</div> Ubicación en tiempo real compartida con la operadora</div>
-        <div class="check-item"><div class="check-dot">✓</div> <strong>GeoTracker grabando</strong> antes de arrancar</div>
-        <div class="check-item"><div class="check-dot">✓</div> Mapa del polígono abierto</div>
-        <div class="check-item"><div class="check-dot">✓</div> KoBo listo para cargar</div>
-      </div>
-      <div class="alert alert-red">
-        <span>🔴</span>
-        <div><strong>No salgas sin activar GeoTracker.</strong> Si no graba desde el inicio, el recorrido no queda registrado.</div>
-      </div>
-    </div>
-
-    <!-- PRESENTE -->
-    <div class="card card-green">
-      <div class="card-header">
-        <div class="card-icon ic-green">▶️</div>
-        <div>
-          <div class="card-title">Marcar inicio del recorrido</div>
-          <div class="card-sub">Avisale a la operadora sin usar WhatsApp</div>
-        </div>
-      </div>
-      <button id="presente-btn" class="cierre-btn" style="background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 4px 14px rgba(5,150,105,0.3);" onclick="DuplasPortal.marcarPresente()">
-        ▶️ Marcar inicio del recorrido
-      </button>
-    </div>
-
-    <!-- AUSENTE -->
-    <div class="card card-amber">
-      <div class="card-header">
-        <div class="card-icon ic-amber">🚫</div>
-        <div>
-          <div class="card-title">¿No salís hoy?</div>
-          <div class="card-sub">Marcá tu ausencia y cuándo recuperás el día</div>
-        </div>
-      </div>
-      <div id="ausente-form">
-        <div class="form-field">
-          <label>📅 ¿Qué día recuperás?</label>
-          <input type="date" id="ausente-recupera">
-        </div>
-        <div class="form-field">
-          <label>📝 Motivo (opcional)</label>
-          <input type="text" id="ausente-motivo" placeholder="Ej: médico, personal...">
-        </div>
-        <button id="ausente-btn" class="cierre-btn" style="background:linear-gradient(135deg,#d97706,#f59e0b);box-shadow:0 4px 14px rgba(217,119,6,0.3);margin-top:10px;" onclick="DuplasPortal.marcarAusente()">
-          🚫 Marcar ausente hoy
-        </button>
-      </div>
-      <div id="ausente-ok" class="alert alert-warn" style="display:none;margin-top:0;"></div>
+      <p id="d-detalle-texto"></p>
     </div>
 
     <!-- DURANTE -->
     <div class="card card-blue">
       <div class="card-header">
-        <div class="card-icon ic-blue">🚗</div>
+        <div class="card-icon ic-blue">🚶</div>
         <div>
-          <div class="card-title">Durante el recorrido</div>
-          <div class="card-sub">Al detectar una persona en situación de calle</div>
+          <div class="card-title">Al detectar una persona</div>
+          <div class="card-sub">Durante el recorrido</div>
         </div>
-      </div>
-      <div class="steps">
-        <div class="step"><div class="step-n">1</div><div class="step-t"><strong>Reducir velocidad</strong> y frenar en lugar seguro</div></div>
-        <div class="step"><div class="step-n">2</div><div class="step-t"><strong>Abrir KoBo</strong> · esperar 4 segundos para tomar ubicación</div></div>
-        <div class="step"><div class="step-n">3</div><div class="step-t"><strong>Completar</strong> el formulario correspondiente</div></div>
-        <div class="step"><div class="step-n">4</div><div class="step-t"><strong>Enviar</strong> y esperar confirmación</div></div>
       </div>
       <div class="alert alert-warn">
         <span>⚠️</span>
-        <div>Solo cargar KoBo cuando hay una situación real. No inventar registros.</div>
+        <div>Abrí el KoBo y completalo <strong>en el momento</strong> — es obligatorio en cada contacto, aunque la persona ya esté en seguimiento.</div>
       </div>
     </div>
 
@@ -317,25 +242,6 @@
       </div>
     </div>
 
-    <!-- CIERRE -->
-    <div class="card card-green">
-      <div class="card-header">
-        <div class="card-icon ic-green">📤</div>
-        <div>
-          <div class="card-title">Al terminar el recorrido</div>
-          <div class="card-sub">Cierre obligatorio</div>
-        </div>
-      </div>
-      <div class="steps">
-        <div class="step"><div class="step-n">1</div><div class="step-t">Detener GeoTracker → abrir el mapa → <strong>sacar captura de pantalla</strong></div></div>
-        <div class="step"><div class="step-n">2</div><div class="step-t">Completar el formulario de cierre con todos los datos</div></div>
-        <div class="step"><div class="step-n">3</div><div class="step-t">Enviar el cierre — <strong>es obligatorio aunque no hayas detectado a nadie</strong></div></div>
-      </div>
-      <a id="cierre-link" href="#" class="cierre-btn" style="margin-top:16px;">
-        📤 Registrar cierre del operativo
-      </a>
-    </div>
-
   </div>
   <div class="footer"><strong data-cfg="nombre">Umbral 0</strong> · Uso exclusivo operativo</div>
 </div>
@@ -343,10 +249,134 @@
 <script src="../config/umbral-0.js"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/ui-theme.js"></script>
-<script src="../shared/js/duplas-portal.js"></script>
+<script src="../shared/js/supabase-client.js"></script>
 <script>
-  UITheme.init();
-  DuplasPortal.init();
+
+// Portal público de duplas — SIN login (lee `duplas_publico`, una vista
+// que solo expone columnas no sensibles de `duplas`; ver
+// umbral-0/schema-ajustes.sql). A diferencia de Censo Flash, Umbral 0 no
+// tiene un "cierre nocturno" ni GeoTracker/presente-ausente: el trabajo
+// real (alta de casos, derivaciones, seguimiento) pasa por Casos, que sí
+// pide login real. Por eso esta pantalla no reusa duplas-portal.js —
+// muestra otra cosa (turno, zona, detalle, links) y no tiene sentido
+// forzarla dentro de ese módulo pensado para el operativo de Censo Flash.
+
+const TURNO_HORARIO = { T1:'6-10hs', T2:'10-14hs', T3:'14-18hs', T4:'18-22hs' };
+let duplas = [];
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escAttr(s){ return esc(s); }
+
+function getDuplaParam(){
+  const s = new URLSearchParams(window.location.search);
+  return s.get('dupla') || null;
+}
+
+function irHome(){
+  history.pushState({}, '', '?');
+  document.getElementById('dupla-screen').style.display = 'none';
+  document.getElementById('home').style.display = 'block';
+  window.scrollTo(0,0);
+}
+
+function setLinkOrDisabled(id, url, textoOk){
+  const a = document.getElementById(id);
+  if(url){
+    a.href = url;
+    a.textContent = textoOk;
+    a.classList.remove('open-btn-disabled');
+    a.onclick = null;
+  }else{
+    a.removeAttribute('href');
+    a.textContent = 'Todavía no está cargado';
+    a.classList.add('open-btn-disabled');
+    a.onclick = e => e.preventDefault();
+  }
+}
+
+function renderGrid(){
+  const cont = document.getElementById('duplas-por-turno');
+  if(!duplas.length){
+    cont.innerHTML = '<div class="empty-msg">Todavía no hay duplas cargadas para este operativo.</div>';
+    return;
+  }
+  const porTurno = {};
+  duplas.forEach(d => { const t = d.turno || '—'; (porTurno[t] = porTurno[t] || []).push(d); });
+  const ordenTurnos = ['T1','T2','T3','T4','—'];
+  cont.innerHTML = ordenTurnos.filter(t => porTurno[t]).map(t => `
+    <div class="turno-group">
+      <div class="turno-head">
+        <span class="turno-tag">${esc(t)}</span>
+        ${TURNO_HORARIO[t] ? `<span class="turno-horario">${esc(TURNO_HORARIO[t])}</span>` : ''}
+      </div>
+      <div class="dupla-grid">
+        ${porTurno[t].map(d => `
+          <a href="?dupla=${escAttr(d.codigo)}" class="dupla-btn" data-codigo="${escAttr(d.codigo)}">
+            ${d.es_referente ? '<span class="dupla-ref-star">⭐</span>' : ''}
+            <span class="dupla-num">${esc(d.codigo)}</span>
+            <span class="dupla-zona">${esc(d.zona||'')}</span>
+          </a>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+  cont.querySelectorAll('.dupla-btn').forEach(btn => {
+    btn.onclick = e => {
+      e.preventDefault();
+      history.pushState({}, '', '?dupla=' + btn.dataset.codigo);
+      mostrarDupla(btn.dataset.codigo);
+    };
+  });
+}
+
+function mostrarDupla(codigo){
+  const d = duplas.find(x => x.codigo === codigo);
+  if(!d){ irHome(); return; }
+  document.getElementById('home').style.display = 'none';
+  document.getElementById('dupla-screen').style.display = 'block';
+  document.getElementById('d-num').textContent = d.codigo;
+  document.getElementById('d-title').textContent = 'Dupla ' + d.codigo;
+  document.getElementById('d-sub').textContent = d.zona || '';
+  const pills = document.getElementById('d-pills');
+  pills.innerHTML = (d.turno ? `<div class="pill">🕙 ${esc(d.turno)} · ${esc(TURNO_HORARIO[d.turno]||'')}</div>` : '')
+    + (d.es_referente ? '<div class="pill pill-ref">⭐ Referente del turno</div>' : '');
+  setLinkOrDisabled('d-mymaps', d.mymaps, 'Abrir mapa →');
+  setLinkOrDisabled('d-kobo', window.PROJECT_CONFIG.koboFormLink, 'Abrir KoBo →');
+  const detalleCard = document.getElementById('d-detalle-card');
+  if(d.detalle){
+    detalleCard.style.display = 'block';
+    document.getElementById('d-detalle-texto').textContent = d.detalle;
+  }else{
+    detalleCard.style.display = 'none';
+  }
+  document.title = 'Dupla ' + d.codigo + ' — ' + (d.zona||'');
+  window.scrollTo(0,0);
+}
+
+function route(){
+  const codigo = getDuplaParam();
+  if(codigo && duplas.some(d => d.codigo === codigo)) mostrarDupla(codigo);
+  else document.getElementById('home').style.display = 'block';
+}
+
+async function cargarDuplas(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('duplas_publico').select('*').order('turno').order('codigo');
+    if(error) throw error;
+    duplas = data || [];
+  }catch(e){
+    duplas = [];
+    console.warn('No se pudieron cargar las duplas del portal público:', e.message);
+  }
+  renderGrid();
+  route();
+}
+
+UITheme.init();
+cargarDuplas();
+window.addEventListener('popstate', route);
+
 </script>
 </body>
 </html>
