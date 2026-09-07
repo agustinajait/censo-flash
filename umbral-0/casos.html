@@ -60,11 +60,30 @@
   .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   @media(max-width:560px){ .form-grid-2 { grid-template-columns:1fr; } }
 
-  #app-screen, #denied-screen { display:none; }
+  #app-screen, #denied-screen, #onboarding-screen { display:none; }
   .denied-box { max-width:420px; margin:80px auto; text-align:center; padding:0 20px; }
   .denied-box .emoji { font-size:2.4rem; margin-bottom:10px; }
   .denied-box h2 { font-family:'Sora',sans-serif; color:var(--navy); margin-bottom:8px; }
   .denied-box p { font-size:0.88rem; color:#64748b; margin-bottom:18px; }
+
+  /* ONBOARDING — test de una sola vez, primer login de una cuenta de dupla */
+  .onboarding-wrap { max-width:640px; margin:30px auto 60px; padding:0 18px; }
+  .onboarding-head { text-align:center; margin-bottom:22px; }
+  .onboarding-head h2 { font-family:'Sora',sans-serif; font-size:1.3rem; color:var(--navy); margin-bottom:8px; }
+  .onboarding-head p { font-size:0.86rem; color:#64748b; }
+  .onboarding-head a { color:var(--blue); }
+  .onb-pregunta { background:white; border-radius:14px; padding:16px 18px; margin-bottom:12px; border:1.5px solid var(--border); }
+  .onb-pregunta .onb-q { font-family:'Sora',sans-serif; font-weight:700; font-size:0.9rem; color:var(--navy); margin-bottom:10px; }
+  .onb-op { display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border-radius:9px; margin-bottom:4px; cursor:pointer; font-size:0.86rem; }
+  .onb-op:hover { background:#f8faff; }
+  .onb-op input { margin-top:3px; }
+  .onb-pregunta.corregida.correcta { border-color:var(--green); }
+  .onb-pregunta.corregida.incorrecta { border-color:var(--red); }
+  .onb-exp { font-size:0.8rem; margin-top:8px; padding:8px 10px; border-radius:8px; background:#f8faff; color:#334155; display:none; }
+  .onb-pregunta.corregida .onb-exp { display:block; }
+  .onboarding-foot { margin-top:6px; }
+  .onb-resultado { text-align:center; background:white; border-radius:14px; padding:24px; border:1.5px solid var(--border); margin-top:16px; }
+  .onb-resultado .puntaje { font-family:'Sora',sans-serif; font-size:2rem; font-weight:800; color:var(--navy); }
 
   /* BUSCAR */
   .search-row { display:flex; gap:8px; margin-bottom:16px; }
@@ -170,6 +189,24 @@
     <h2>No tenés acceso a esta sección</h2>
     <p>Tu cuenta está logueada pero no tiene un rol de carga de casos asignado en Umbral 0 (admin / coordinación / dupla). Pedile a quien administra la plataforma que te asigne un rol en <code>perfiles</code>.</p>
     <button class="btn btn-outline" onclick="doLogout()">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- ONBOARDING (primer login de una cuenta de dupla) -->
+<div id="onboarding-screen">
+  <div class="onboarding-wrap">
+    <div class="onboarding-head">
+      <h2>🎓 Antes de empezar</h2>
+      <p>Un test rápido de 10 preguntas para repasar lo esencial del protocolo de Umbral 0. Se muestra
+      una sola vez, la primera vez que entrás con tu cuenta — después queda guardado. Podés repasar el
+      <a href="./instructivo.html" target="_blank" rel="noopener">glosario completo</a> cuando quieras.</p>
+    </div>
+    <div id="onboarding-preguntas"></div>
+    <div class="onboarding-foot">
+      <div class="modal-err" id="onboarding-err">Respondé todas las preguntas antes de continuar.</div>
+      <button class="btn btn-blue login-full-btn" id="onboarding-btn" onclick="corregirOnboarding()">Corregir y continuar</button>
+    </div>
+    <div id="onboarding-resultado" style="display:none;"></div>
   </div>
 </div>
 
@@ -650,7 +687,7 @@ function togglePwd(){
 }
 
 function showScreen(id){
-  ['login-screen','denied-screen','app-screen'].forEach(s=>{
+  ['login-screen','denied-screen','onboarding-screen','app-screen'].forEach(s=>{
     document.getElementById(s).style.display = (s===id) ? 'block' : 'none';
   });
 }
@@ -692,6 +729,20 @@ async function boot(){
     showScreen('denied-screen');
     return;
   }
+  // Test de onboarding: una sola vez, la primera vez que una cuenta de
+  // dupla entra a Casos. El instructivo/glosario es solo lectura — este es
+  // el único punto donde se pide repasarlo activamente. Admin/coordinación
+  // no lo ven (ellas no salen a territorio).
+  if(miPerfil.rol === 'dupla' && !miPerfil.onboarding_completado){
+    showScreen('onboarding-screen');
+    renderOnboarding();
+    return;
+  }
+  await entrarAlApp();
+}
+
+async function entrarAlApp(){
+  const session = await SupabaseClient.getSession();
   document.getElementById('topbar-user').textContent =
     (miPerfil.nombre || session.user.email) + ' · rol: ' + miPerfil.rol;
   document.getElementById('link-admin-duplas').style.display =
@@ -708,6 +759,123 @@ async function boot(){
   await cargarDuplasMap();
   mostrarMiTurno();
   Casos.volverABuscar();
+}
+
+// ── ONBOARDING (test de una sola vez, primer login de una dupla) ─────────
+// Mismas 10 preguntas que tenía el glosario gamificado — se movieron acá
+// porque el instructivo vuelve a ser solo material de consulta libre, y el
+// test tiene más sentido como paso obligatorio de bienvenida.
+const PREGUNTAS_ONBOARDING = [
+  { q:'¿Qué es obligatorio adjuntar para pedir el ingreso a un CIS?',
+    ops:['Nada, alcanza con avisar por WhatsApp','Foto del DNI o de la denuncia de extravío','Una constancia del Certificado Único de Discapacidad'],
+    correcta:1, exp:'No se hacen ingresos a CIS sin la foto del DNI o de la denuncia de extravío.' },
+  { q:'Si la persona rechaza verbalmente la atención médica pero evaluás que la necesita urgente, ¿igual llamás al SAME?',
+    ops:['No, si rechaza no se llama','Sí, se llama igual','Solo si hay un familiar presente que lo pida'],
+    correcta:1, exp:'El llamado al SAME se hace igual, aunque la persona rechace verbalmente la atención.' },
+  { q:'Casa Vincular está disponible para...',
+    ops:['Cualquier persona que se cruce en el recorrido','Solo personas que ya están en seguimiento del equipo','Solo menores de edad'],
+    correcta:1, exp:'A diferencia del CIS, Casa Vincular es exclusivamente para seguimientos, no demanda espontánea.' },
+  { q:'Si encontrás niños, niñas o adolescentes SOLOS en situación de calle, ¿a quién avisás de urgencia?',
+    ops:['Solo a tu referente territorial, sin apuro','Al SAME y a la Policía, y después a la Línea 102','A nadie, esperás a que un adulto vuelva'],
+    correcta:1, exp:'Protocolo urgente: SAME + Policía de inmediato, y luego contactar la Línea 102 (Consejo de Derechos de NNyA).' },
+  { q:'¿Cada cuánto hay que cargar el KoBo?',
+    ops:['Una vez por turno, con el resumen del día','En cada contacto con una persona, sea o no la primera vez','Solo si la persona acepta ser registrada'],
+    correcta:1, exp:'Es obligatorio un envío de KoBo por cada intervención, no un resumen al final.' },
+  { q:'La mayoría de tus derivaciones y reportes, ¿a quién se los mandás?',
+    ops:['Directo a la coordinación de Umbral 0 en la Ciudad','A tu referente territorial (el nexo de GOPA)','A la persona misma, para que lo gestione ella'],
+    correcta:1, exp:'Nuestra organización es el equipo territorial — el referente territorial es el nexo con el resto de la Red.' },
+  { q:'¿Qué condición tiene que cumplir la persona para poder acceder a un Micro?',
+    ops:['Tener DNI (o denuncia) y no presentar consumo activo','Solo tener DNI, nada más','Ninguna, es un recurso sin requisitos'],
+    correcta:0, exp:'El encuadre del micro es más flexible que un CIS, pero con consumo activo al momento del ingreso no se puede acceder.' },
+  { q:'En el modelo de Umbral 0, la "contención" es...',
+    ops:['Un tipo de derivación más, con su propio formulario','Parte del seguimiento — se registra distinto a una derivación','Algo que hace solo la coordinación, nunca el equipo territorial'],
+    correcta:1, exp:'Contención no es una derivación a un recurso externo, es parte de sostener el vínculo — se registra como seguimiento.' },
+  { q:'Antes de proponer un CIS a alguien que ya está en seguimiento, el equipo primero...',
+    ops:['Intenta fortalecer espacios comunitarios (DIPA, comedor, centro barrial)','Pide autorización judicial','Espera que la persona lo pida tres veces'],
+    correcta:0, exp:'Principio "lo comunitario antecede a lo institucional" — se agotan las instancias comunitarias antes de pensar en un CIS.' },
+  { q:'Para el Programa Ciudadanía Porteña, ¿qué necesita tener la persona como mínimo?',
+    ops:['DNI con domicilio en CABA y negativa de ANSES','Solo el DNI, nada más','Ya estar cobrando otro programa social'],
+    correcta:0, exp:'Los dos requisitos base son DNI con domicilio en CABA y negativa de ANSES (más informe social si el DNI es reciente).' },
+];
+
+function renderOnboarding(){
+  const box = document.getElementById('onboarding-preguntas');
+  document.getElementById('onboarding-btn').style.display = '';
+  document.getElementById('onboarding-err').style.display = 'none';
+  document.getElementById('onboarding-resultado').style.display = 'none';
+  box.innerHTML = PREGUNTAS_ONBOARDING.map((p, i) => `
+    <div class="onb-pregunta" id="onb-p${i}">
+      <div class="onb-q">${i+1}. ${esc(p.q)}</div>
+      ${p.ops.map((op,j)=>`
+        <label class="onb-op">
+          <input type="radio" name="onb-${i}" value="${j}">
+          <span>${esc(op)}</span>
+        </label>
+      `).join('')}
+      <div class="onb-exp" id="onb-exp${i}"></div>
+    </div>
+  `).join('');
+}
+
+function corregirOnboarding(){
+  const errBox = document.getElementById('onboarding-err');
+  const respuestas = [];
+  for(let i=0;i<PREGUNTAS_ONBOARDING.length;i++){
+    const sel = document.querySelector(`input[name="onb-${i}"]:checked`);
+    if(!sel){
+      errBox.style.display = 'block';
+      document.getElementById('onb-p'+i).scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+    respuestas.push(parseInt(sel.value, 10));
+  }
+  errBox.style.display = 'none';
+
+  let correctas = 0;
+  PREGUNTAS_ONBOARDING.forEach((p,i)=>{
+    const ok = respuestas[i] === p.correcta;
+    if(ok) correctas++;
+    const card = document.getElementById('onb-p'+i);
+    card.classList.add('corregida', ok ? 'correcta' : 'incorrecta');
+    card.querySelectorAll('input').forEach(inp => inp.disabled = true);
+    document.getElementById('onb-exp'+i).textContent =
+      (ok ? '✅ ' : '❌ La respuesta correcta era: "' + p.ops[p.correcta] + '". ') + p.exp;
+  });
+
+  document.getElementById('onboarding-btn').style.display = 'none';
+  const resBox = document.getElementById('onboarding-resultado');
+  resBox.style.display = 'block';
+  resBox.innerHTML = `
+    <div class="onb-resultado">
+      <div class="puntaje">${correctas} / ${PREGUNTAS_ONBOARDING.length}</div>
+      <p style="font-size:0.86rem;color:#64748b;margin:8px 0 16px;">Quedó guardado en tu perfil. Podés repasar
+      el glosario completo cuando quieras desde "📖 Glosario".</p>
+      <button class="btn btn-green login-full-btn" onclick="continuarDesdeOnboarding()">Continuar a Casos →</button>
+    </div>
+  `;
+  resBox.scrollIntoView({behavior:'smooth', block:'start'});
+
+  guardarOnboarding(correctas);
+}
+
+// Guarda el resultado apenas se corrige (no hace falta esperar a que la
+// dupla toque "Continuar") — así si cierra la pestaña sin avanzar, la
+// próxima vez que entre ya no ve el test de nuevo.
+async function guardarOnboarding(correctas){
+  try{
+    const client = await SupabaseClient.getClient();
+    await client.from('perfiles')
+      .update({ onboarding_completado: true, onboarding_score: correctas })
+      .eq('id', miPerfil.id);
+    miPerfil.onboarding_completado = true;
+    miPerfil.onboarding_score = correctas;
+  }catch(e){
+    console.error('No se pudo guardar el resultado del onboarding', e);
+  }
+}
+
+async function continuarDesdeOnboarding(){
+  await entrarAlApp();
 }
 
 async function cargarDuplasMap(){
