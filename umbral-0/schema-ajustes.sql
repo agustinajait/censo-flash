@@ -146,3 +146,14 @@ grant select on public.duplas_publico to anon;
 -- (ya corrido en producción) — deja a anon/authenticated con SOLO SELECT:
 revoke insert, update, delete, truncate, references, trigger
   on public.duplas_publico from anon, authenticated;
+
+-- 2026-09-07: test de onboarding para cuentas de dupla — se muestra una
+-- sola vez, al primer login, dentro de casos.html (el glosario/instructivo
+-- vuelve a ser solo visual, sin quiz). Ya corrido en producción.
+--
+-- No hace falta ninguna política nueva: `perfiles_admin_update` ya
+-- permite `auth.uid() = id`, así que cada cuenta puede marcar su propio
+-- onboarding_completado.
+alter table public.perfiles
+  add column if not exists onboarding_completado boolean not null default false,
+  add column if not exists onboarding_score smallint;
