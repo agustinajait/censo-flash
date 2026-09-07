@@ -28,6 +28,15 @@
 
   .wrap { max-width:860px; margin:0 auto; padding:22px 18px 60px; }
 
+  /* MI TURNO DE HOY */
+  .mi-turno { max-width:860px; margin:16px auto 0; padding:0 18px; }
+  .mi-turno-card { background:linear-gradient(135deg,#eef2ff,#f0f6ff); border:1.5px solid var(--border); border-radius:14px; padding:16px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .mi-turno-badge { font-family:'Sora',sans-serif; font-weight:800; font-size:1.3rem; color:var(--navy); background:white; border:1.5px solid var(--border); border-radius:10px; padding:6px 14px; flex-shrink:0; }
+  .mi-turno-info { flex:1; min-width:220px; }
+  .mi-turno-info .zona { font-family:'Sora',sans-serif; font-weight:700; font-size:0.95rem; color:var(--navy); }
+  .mi-turno-info .detalle { font-size:0.82rem; color:#475569; margin-top:2px; }
+  .mi-turno-ref { display:inline-block; margin-left:8px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.5px; background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:20px; }
+
   /* LOGIN (igual patrón que admin-duplas.html) */
   #login-screen { max-width:380px; margin:60px auto; padding:0 18px; }
   .login-card { background:white; border-radius:16px; padding:28px 24px; border:1px solid var(--border); box-shadow:0 4px 18px rgba(15,31,61,0.08); }
@@ -181,6 +190,10 @@
     </div>
   </div>
 
+  <!-- MI TURNO DE HOY — solo para cuentas de dupla (admin/coordinación ven
+       todas las duplas desde "👥 Duplas", no tiene sentido acá). -->
+  <div id="mi-turno-box" style="display:none;"></div>
+
   <div class="wrap">
 
     <!-- VISTA: BUSCAR -->
@@ -243,6 +256,7 @@ const ROLES_PERMITIDOS = ['admin', 'coordinacion', 'dupla'];
 
 let miPerfil = null;
 let duplasMap = {}; // id -> codigo, para mostrar quién cargó cada evento
+let duplasPorId = {}; // id -> fila completa de `duplas` (turno/zona/mapa/detalle), para "Mi turno de hoy"
 let personaActual = null;
 let intervencionesActuales = [];
 let derivacionesActuales = [];
@@ -692,16 +706,45 @@ async function boot(){
   }
   showScreen('app-screen');
   await cargarDuplasMap();
+  mostrarMiTurno();
   Casos.volverABuscar();
 }
 
 async function cargarDuplasMap(){
   try{
     const client = await SupabaseClient.getClient();
-    const { data } = await client.from('duplas').select('id, codigo');
+    // Trae la fila completa (no solo codigo) para poder armar "Mi turno de
+    // hoy" (zona/turno/mapa/detalle) sin una segunda consulta.
+    const { data } = await client.from('duplas').select('*');
     duplasMap = {};
-    (data||[]).forEach(d => duplasMap[d.id] = d.codigo);
+    duplasPorId = {};
+    (data||[]).forEach(d => { duplasMap[d.id] = d.codigo; duplasPorId[d.id] = d; });
   }catch(e){ /* si la dupla no tiene permiso de ver duplas, seguimos sin el mapa */ }
+}
+
+const TURNO_HORARIO = { T1:'6-10hs', T2:'10-14hs', T3:'14-18hs', T4:'18-22hs' };
+
+// Panel "Mi turno de hoy" — solo para cuentas de dupla con dupla_id
+// asignado. Admin/coordinación ven todas las duplas desde "👥 Duplas", no
+// tiene sentido mostrarles una sola acá.
+function mostrarMiTurno(){
+  const box = document.getElementById('mi-turno-box');
+  if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
+  const d = duplasPorId[miPerfil.dupla_id];
+  if(!d) return;
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="mi-turno">
+      <div class="mi-turno-card">
+        ${d.turno ? `<div class="mi-turno-badge">${esc(d.turno)}<div style="font-size:0.62rem;font-weight:600;color:#64748b;">${esc(TURNO_HORARIO[d.turno]||'')}</div></div>` : ''}
+        <div class="mi-turno-info">
+          <div class="zona">${esc(d.zona||'Sin zona asignada')}${d.es_referente ? '<span class="mi-turno-ref">⭐ Referente del turno</span>' : ''}</div>
+          ${d.detalle ? `<div class="detalle">${esc(d.detalle)}</div>` : ''}
+        </div>
+        ${d.mymaps ? `<a href="${escAttr(d.mymaps)}" target="_blank" rel="noopener" class="btn btn-blue">🗺️ Abrir mapa</a>` : ''}
+      </div>
+    </div>
+  `;
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });

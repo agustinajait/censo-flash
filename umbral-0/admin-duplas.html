@@ -220,6 +220,10 @@
 let miPerfil = null;
 let perfilesPorDupla = {}; // dupla_id -> fila de `perfiles` (el login de esa dupla, si ya existe)
 
+// Turnos fijos del operativo (Umbral0_Plan_Final.docx, 07/09/2026): 4
+// franjas de 4hs, cada dupla trabaja un único turno.
+const TURNO_HORARIO = { T1:'6-10hs', T2:'10-14hs', T3:'14-18hs', T4:'18-22hs' };
+
 function togglePwd(){
   const input = document.getElementById('login-pass');
   const btn = document.getElementById('pwd-toggle-btn');
@@ -325,6 +329,7 @@ async function cargarDuplas(){
   const { data, error } = await client
     .from('duplas')
     .select('*, integrantes(*)')
+    .order('turno', { ascending: true, nullsFirst: false })
     .order('codigo', { ascending: true });
   if(error){ cont.innerHTML = '<div class="empty-msg">Error cargando duplas: '+esc(error.message)+'</div>'; return; }
   if(!data || !data.length){ cont.innerHTML = '<div class="empty-msg">Todavía no hay duplas cargadas. Usá "+ Nueva dupla".</div>'; return; }
@@ -336,12 +341,28 @@ function renderDuplaCard(d){
   const card = document.createElement('div');
   card.className = 'card';
   const operadores = (d.integrantes || []).filter(i => i.rol !== 'chofer');
+  const turnoOpts = ['', 'T1', 'T2', 'T3', 'T4'].map(t =>
+    `<option value="${t}" ${t===(d.turno||'')?'selected':''}>${t ? t + ' · ' + TURNO_HORARIO[t] : '—'}</option>`
+  ).join('');
   card.innerHTML = `
     <div class="card-row">
       <div class="form-field"><label>Código</label><input data-f="codigo" value="${escAttr(d.codigo)}" placeholder="U01"></div>
       <div class="form-field"><label>Zona</label><input data-f="zona" value="${escAttr(d.zona)}"></div>
       <div class="form-field"><label>Polígono</label><input data-f="poligono" value="${escAttr(d.poligono)}"></div>
       <div class="form-field"><label>Comuna</label><input data-f="comuna" value="${escAttr(d.comuna)}" placeholder="C.2"></div>
+    </div>
+    <div class="card-row" style="grid-template-columns:1fr 2fr;">
+      <div class="form-field"><label>Turno</label><select data-f="turno">${turnoOpts}</select></div>
+      <div class="form-field"><label>Mapa (My Maps)</label><input data-f="mymaps" value="${escAttr(d.mymaps)}" placeholder="https://www.google.com/maps/d/viewer?mid=..."></div>
+    </div>
+    <div class="form-field">
+      <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:0.82rem;">
+        <input type="checkbox" data-f="es_referente" ${d.es_referente?'checked':''} style="width:auto;"> Es referente de su turno
+      </label>
+    </div>
+    <div class="form-field">
+      <label>Detalle (horarios, iglesia, registros de referencia)</label>
+      <textarea data-f="detalle" rows="2" style="width:100%;border:1.5px solid #cbd5e1;border-radius:9px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:0.85rem;background:#f8faff;">${esc(d.detalle||'')}</textarea>
     </div>
     <div class="card-actions">
       <button class="btn btn-blue" data-act="guardar">Guardar</button>
@@ -363,7 +384,14 @@ function renderDuplaCard(d){
 
   card.querySelector('[data-act="guardar"]').onclick = async () => {
     const fields = {};
-    card.querySelectorAll('.card-row input[data-f]').forEach(inp => fields[inp.dataset.f] = inp.value.trim() || null);
+    // No solo .card-row: turno/mymaps están ahí, pero detalle y es_referente
+    // quedaron en .form-field sueltos — por eso se recorre toda la tarjeta
+    // (menos los inputs de integrantes, que se guardan aparte).
+    card.querySelectorAll('[data-f]').forEach(el => {
+      if(el.closest('.integrantes-box')) return;
+      if(el.type === 'checkbox'){ fields[el.dataset.f] = el.checked; }
+      else { fields[el.dataset.f] = el.value.trim() || null; }
+    });
     const { error } = await (await SupabaseClient.getClient()).from('duplas').update(fields).eq('id', d.id);
     if(error){ alert('No se pudo guardar: ' + error.message); return; }
     flashOk(card.querySelector('[data-role="ok"]'));

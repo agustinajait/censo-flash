@@ -82,9 +82,23 @@ sección 2) hay un flujo self-service: el botón **"🔑 Crear acceso"** en
 ## 2. Pantalla: Duplas y equipo — `admin-duplas.html` (ya construida)
 
 Login con cuenta Supabase → si el rol es `admin`/`coordinacion`, lista de
-duplas (código, zona, polígono, comuna) con sus hasta 2 integrantes editables
-inline, más una sección aparte de choferes (sin zona fija). Todo contra las
-tablas `duplas`/`integrantes`, protegido por RLS.
+duplas (código, zona, polígono, comuna, turno, mapa de My Maps, detalle,
+si es referente de su turno) con sus hasta 2 integrantes editables inline,
+más una sección aparte de choferes (sin zona fija). Todo contra las tablas
+`duplas`/`integrantes`, protegido por RLS. Ordenada por turno y código.
+
+**Turno/mapa/detalle/referente** (sept/2026, `Umbral0_Plan_Final.docx`):
+plan fijo de 13 duplas (A a M) + 1 referente general sin dupla fija, en 4
+turnos de 4hs (T1 6-10, T2 10-14, T3 14-18, T4 18-22) — cada dupla trabaja
+un único turno, con su zona/iglesia y mapa de My Maps propios; una dupla
+por turno además es "referente" (rol dentro de la misma dupla, no suma
+gente). Estos 4 campos aparecen también del lado de la dupla: al loguearse
+en `casos.html`, un panel "Mi turno de hoy" le muestra su zona, horario,
+detalle (horarios de comedor/asistencia si es dupla de iglesia) y el botón
+para abrir su mapa (`casos.html`, función `mostrarMiTurno()`). El "referente general"
+(persona 27, sin dupla fija) no está modelado todavía — no hay dónde
+cargarlo hasta que se defina si necesita su propia cuenta o alcanza con un
+integrante suelto (`dupla_id = null`).
 
 **Acceso de la dupla (una cuenta por dupla, no por integrante):** cada card
 de dupla tiene una sección de "Acceso" — si todavía no tiene login, un botón
