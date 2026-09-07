@@ -114,3 +114,13 @@ alter table public.intervenciones
 alter table public.personas
   add column if not exists nivel_actual smallint not null default 1
   check (nivel_actual between 1 and 5);
+
+-- 2026-09-07: plan de distribución por turno y polígono
+-- (Umbral0_Plan_Final.docx) — cada dupla trabaja un único turno fijo (T1 a
+-- T4), con su zona/iglesia y mapa de My Maps propios. Ya corrido en
+-- producción, con las 13 duplas (A a M) cargadas.
+alter table public.duplas
+  add column if not exists turno text,          -- 'T1'..'T4'
+  add column if not exists mymaps text,          -- link de My Maps (viewer)
+  add column if not exists detalle text,         -- horarios/registros de referencia/qué cubre
+  add column if not exists es_referente boolean not null default false; -- referente de su turno
