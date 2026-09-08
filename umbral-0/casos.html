@@ -895,11 +895,28 @@ const TURNO_HORARIO = { T1:'6-10hs', T2:'10-14hs', T3:'14-18hs', T4:'18-22hs' };
 // Panel "Mi turno de hoy" — solo para cuentas de dupla con dupla_id
 // asignado. Admin/coordinación ven todas las duplas desde "👥 Duplas", no
 // tiene sentido mostrarles una sola acá.
+// Convierte un teléfono cargado en `duplas.referente_telefono` (con
+// espacios, guiones, +, lo que sea) en un link de wa.me — o null si está
+// vacío. No valida formato: si no anda, el problema es lo que se cargó en
+// admin-duplas.html, no esta función.
+function waLink(tel){
+  const digits = String(tel||'').replace(/\D/g, '');
+  return digits ? 'https://wa.me/' + digits : null;
+}
+
 function mostrarMiTurno(){
   const box = document.getElementById('mi-turno-box');
   if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
   const d = duplasPorId[miPerfil.dupla_id];
   if(!d) return;
+
+  // El referente de este turno: la propia dupla si es_referente, o la que
+  // tenga ese flag dentro del mismo turno — para poder mostrarle su
+  // contacto a las demás duplas del turno (no hace falta que se lo sepan
+  // de memoria ni tengan que buscarlo en un grupo de WhatsApp).
+  const referente = d.es_referente ? d : Object.values(duplasPorId).find(x => x.turno === d.turno && x.es_referente);
+  const refWa = (!d.es_referente && referente) ? waLink(referente.referente_telefono) : null;
+
   box.style.display = 'block';
   box.innerHTML = `
     <div class="mi-turno">
@@ -908,8 +925,10 @@ function mostrarMiTurno(){
         <div class="mi-turno-info">
           <div class="zona">${esc(d.zona||'Sin zona asignada')}${d.es_referente ? '<span class="mi-turno-ref">⭐ Referente del turno</span>' : ''}</div>
           ${d.detalle ? `<div class="detalle">${esc(d.detalle)}</div>` : ''}
+          ${(!d.es_referente && referente) ? `<div class="detalle">👤 Referente del turno: Dupla ${esc(referente.codigo)}${referente.referente_telefono ? ' · 📞 ' + esc(referente.referente_telefono) : ' (sin teléfono cargado todavía)'}</div>` : ''}
         </div>
         ${d.mymaps ? `<a href="${escAttr(d.mymaps)}" target="_blank" rel="noopener" class="btn btn-blue">🗺️ Abrir mapa</a>` : ''}
+        ${refWa ? `<a href="${escAttr(refWa)}" target="_blank" rel="noopener" class="btn btn-green">💬 WhatsApp al referente</a>` : ''}
       </div>
     </div>
   `;
