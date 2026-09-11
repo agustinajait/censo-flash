@@ -725,7 +725,14 @@ function renderWithData(project, cierres, rows, presentes, ausencias){
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   const puntos = rows.length;
   const fechas = new Set(rows.map(r=>r.fecha).filter(Boolean));
-  const nnya = cierres.filter(r=>r.situaciones && r.situaciones.toLowerCase().match(/niño|menor|bebé|bebe|nnya/)).length;
+  // Antes solo miraba `situaciones` y solo detectaba menciones a menores —
+  // se suma `observaciones` y `eventos` (donde también se suele anotar
+  // este tipo de reporte) y la mención a la Línea 108 (protocolo de
+  // familia con menores), aunque el texto no diga explícitamente "menor".
+  const nnya = cierres.filter(r=>{
+    const texto = ((r.situaciones||'')+' '+(r.observaciones||'')+' '+(r.eventos||'')).toLowerCase();
+    return /niñ|menor|bebé|bebe|nnya|\b108\b/.test(texto);
+  }).length;
   const incidentes = cierres.filter(r=>r.inconvenientes && r.inconvenientes!=='Ninguno' && r.inconvenientes.length>2).length;
 
   document.getElementById('m-personas').textContent = total.toLocaleString('es-AR');
