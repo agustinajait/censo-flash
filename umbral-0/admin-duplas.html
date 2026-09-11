@@ -361,6 +361,10 @@ function renderDuplaCard(d){
       </label>
     </div>
     <div class="form-field">
+      <label>Teléfono / WhatsApp del referente <span style="font-weight:400;font-size:0.72rem;color:#94a3b8;text-transform:none;">(solo si es referente — se muestra a las demás duplas del turno en "Mi turno de hoy")</span></label>
+      <input data-f="referente_telefono" value="${escAttr(d.referente_telefono)}" placeholder="+54 9 11 1234-5678">
+    </div>
+    <div class="form-field">
       <label>Detalle (horarios, iglesia, registros de referencia)</label>
       <textarea data-f="detalle" rows="2" style="width:100%;border:1.5px solid #cbd5e1;border-radius:9px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:0.85rem;background:#f8faff;">${esc(d.detalle||'')}</textarea>
     </div>

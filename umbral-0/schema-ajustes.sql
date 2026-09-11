@@ -157,3 +157,14 @@ revoke insert, update, delete, truncate, references, trigger
 alter table public.perfiles
   add column if not exists onboarding_completado boolean not null default false,
   add column if not exists onboarding_score smallint;
+
+-- 2026-09-08: teléfono/WhatsApp del referente de turno — para que las
+-- demás duplas del mismo turno puedan contactarlo directo desde "Mi turno
+-- de hoy" en casos.html, sin depender de tenerlo agendado o buscarlo en un
+-- grupo. Solo tiene sentido cargado en la fila de la dupla que tenga
+-- es_referente = true; casos.html busca por turno + es_referente, no por
+-- persona. No se agrega a `duplas_publico` (portal sin login) a propósito
+-- — es un dato de contacto operativo, no algo para mostrar sin login. Ya
+-- corrido en producción.
+alter table public.duplas
+  add column if not exists referente_telefono text;

@@ -711,6 +711,11 @@ function renderWithData(project, cierres, rows, presentes, ausencias){
   document.getElementById('m-puntos').textContent = puntos.toLocaleString('es-AR');
   document.getElementById('m-noches').textContent = fechas.size;
   document.getElementById('m-nnya').textContent = nnya;
+  // Un cierre = una dupla saliendo una noche. `m-duplas` cuenta duplas
+  // distintas (una sola vez aunque hayan salido varias noches); esto es
+  // el total de salidas real del período filtrado — mismo cálculo que ya
+  // se usaba en la vista global (g-cierres), ahora también por proyecto.
+  document.getElementById('m-salidas').textContent = cierres.length.toLocaleString('es-AR');
   document.getElementById('m-duplas').textContent = new Set(cierres.map(r=>r.dupla)).size;
   document.getElementById('m-reg-sheet').textContent = cierres.reduce((a,r)=>a+r.registros, 0).toLocaleString('es-AR');
   document.getElementById('m-incidentes').textContent = incidentes;
