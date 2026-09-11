@@ -60,10 +60,29 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   // Todas estas listas son editables acá sin tocar el resto del código —
   // agregar o sacar opciones es solo agregar/sacar strings.
 
-  // Zonas prioritarias del operativo (documento 27/07/2026). Se usa como
-  // desplegable en "Ubicación" de la ficha de persona, junto al punto de
-  // contacto (dirección/referencia libre) y la comuna.
-  zonasOpciones: ['C1A', 'C2', 'C14', 'C13', 'Zona frontera'],
+  // Zonas del operativo — mismas 13 zonas asignadas a las duplas A-M
+  // (Umbral0_Plan_Final.docx, cargadas en la tabla `duplas`), para que al
+  // cargar una persona se elija la zona real donde se la encontró en vez
+  // de escribirla a mano. Se usa como desplegable en "Ubicación" de la
+  // ficha, junto al punto de contacto (dirección/referencia libre).
+  // OJO: si se reasignan zonas a las duplas en admin-duplas.html, hay que
+  // actualizar esta lista a mano — no se lee en vivo desde `duplas` para
+  // no depender de Supabase en cada carga de este config.
+  zonasOpciones: [
+    'Once-Balvanera · F3a',
+    'Once-Balvanera · F3b',
+    'Retiro - San Telmo · Sector 1',
+    'Retiro - San Telmo · Sector 2',
+    'Retiro - San Telmo · Sector 3',
+    'Chacarita · Sector 1',
+    'Chacarita · Sector 2',
+    'Almagro - Boedo',
+    'Iglesias mañana',
+    'Iglesias mediodía',
+    'Iglesias tarde',
+    'Iglesias noche 1',
+    'Iglesias noche 2',
+  ],
 
   // Nivel de criticidad del caso (ingreso). Sin escala definitiva todavía —
   // ajustar cuando la tengan (ej. cambiar a números 1-5, agregar niveles, etc.)
