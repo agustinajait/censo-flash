@@ -446,6 +446,11 @@
 <script src="./config/censo-flash.js"></script>
 <script src="./config/umbral-0.js"></script>
 <script src="./config/projects.js"></script>
-<script src="./shared/js/dashboard-engine.js"></script>
+<!-- ?v= es cache-busting manual: sin esto, el navegador (o el CDN) puede
+     seguir sirviendo una copia vieja de este archivo después de un deploy,
+     aunque el HTML sí se actualice — pasó hoy con el fix del filtro de
+     fechas, que quedaba "sin aplicar" del lado de quien ya tenía el sitio
+     abierto. Subir este número cada vez que se edite dashboard-engine.js. -->
+<script src="./shared/js/dashboard-engine.js?v=2026-09-11-3"></script>
 </body>
 </html>
