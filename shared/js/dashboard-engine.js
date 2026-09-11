@@ -736,6 +736,13 @@ function renderWithData(project, cierres, rows, presentes, ausencias){
   // varias noches); esto es el total de salidas del período filtrado,
   // deduplicado por dupla+noche (ver comentario de contarSalidas).
   document.getElementById('m-salidas').textContent = contarSalidas(cierres).toLocaleString('es-AR');
+  // "Noches operativas" (m-noches, arriba) sale de KoBo — censo de
+  // personas. Esta es la misma pregunta pero del lado del reporte de la
+  // dupla: noches distintas con al menos un cierre cargado. Deberían
+  // coincidir bastante; si no, es señal de que a alguna dupla se le pasó
+  // cargar el cierre esa noche, o hubo censo sin cierre reportado.
+  const nochesCierre = new Set(cierres.map(r=>r._fecha).filter(Boolean)).size;
+  document.getElementById('m-noches-cierre').textContent = nochesCierre;
   document.getElementById('m-duplas').textContent = new Set(cierres.map(r=>r.dupla)).size;
   document.getElementById('m-reg-sheet').textContent = cierres.reduce((a,r)=>a+r.registros, 0).toLocaleString('es-AR');
   document.getElementById('m-incidentes').textContent = incidentes;
