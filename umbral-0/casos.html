@@ -37,6 +37,15 @@
   .mi-turno-info .detalle { font-size:0.82rem; color:#475569; margin-top:2px; }
   .mi-turno-ref { display:inline-block; margin-left:8px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.5px; background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:20px; }
 
+  /* JORNADA DE HOY — inicio/fin */
+  .jornada { max-width:860px; margin:12px auto 0; padding:0 18px; }
+  .jornada-card { border-radius:14px; padding:14px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; border:1.5px solid var(--border); }
+  .jornada-card.pendiente { background:linear-gradient(135deg,#fffbeb,#fff8ec); }
+  .jornada-card.en-curso { background:linear-gradient(135deg,#eff6ff,#f0f9ff); }
+  .jornada-card.completa { background:linear-gradient(135deg,#f0fdf4,#f2fbf5); }
+  .jornada-txt { flex:1; min-width:180px; font-size:0.86rem; color:#334155; }
+  .jornada-txt strong { font-family:'Sora',sans-serif; color:var(--navy); }
+
   /* LOGIN (igual patrón que admin-duplas.html) */
   #login-screen { max-width:380px; margin:60px auto; padding:0 18px; }
   .login-card { background:white; border-radius:16px; padding:28px 24px; border:1px solid var(--border); box-shadow:0 4px 18px rgba(15,31,61,0.08); }
@@ -236,6 +245,10 @@
   <!-- MI TURNO DE HOY — solo para cuentas de dupla (admin/coordinación ven
        todas las duplas desde "👥 Duplas", no tiene sentido acá). -->
   <div id="mi-turno-box" style="display:none;"></div>
+
+  <!-- JORNADA DE HOY — inicio/fin, una marca por dupla por día (alcanza con
+       que lo toque cualquiera de los dos integrantes, es la misma cuenta). -->
+  <div id="jornada-box" style="display:none;"></div>
 
   <div class="wrap">
 
@@ -764,6 +777,8 @@ async function entrarAlApp(){
   showScreen('app-screen');
   await cargarDuplasMap();
   mostrarMiTurno();
+  await cargarJornadaHoy();
+  mostrarJornada();
   Casos.volverABuscar();
 }
 
@@ -938,6 +953,81 @@ function mostrarMiTurno(){
       </div>
     </div>
   `;
+}
+
+// ── JORNADA DE HOY (inicio/fin) ───────────────────────────────────────────
+// Una fila por dupla por día en `jornadas`. Como el login es por dupla (no
+// por persona), alcanza con que cualquiera de los dos integrantes toque el
+// botón desde esa cuenta compartida — no hace falta modelar "quién de los
+// dos" lo marcó.
+let jornadaHoy = null; // fila de `jornadas` de hoy para mi dupla, o null si todavía no existe
+
+function hoyStr(){ return new Date().toISOString().slice(0,10); }
+function fmtHora(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+}
+
+async function cargarJornadaHoy(){
+  jornadaHoy = null;
+  if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data } = await client.from('jornadas').select('*')
+      .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr()).maybeSingle();
+    jornadaHoy = data || null;
+  }catch(e){ /* si falla, se muestra el estado "pendiente" por defecto — no bloquea el resto de la app */ }
+}
+
+function mostrarJornada(){
+  const box = document.getElementById('jornada-box');
+  if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
+  box.style.display = 'block';
+
+  let estado, html;
+  if(jornadaHoy && jornadaHoy.fin){
+    estado = 'completa';
+    html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}</div>`;
+  } else if(jornadaHoy && jornadaHoy.inicio){
+    estado = 'en-curso';
+    html = `<div class="jornada-txt">🌤️ <strong>Jornada en curso</strong> — inicio ${fmtHora(jornadaHoy.inicio)}</div>
+      <button class="btn btn-blue" onclick="marcarFinJornada()">⏹️ Marcar fin de jornada</button>`;
+  } else {
+    estado = 'pendiente';
+    html = `<div class="jornada-txt">☀️ Todavía no marcaste el <strong>inicio de la jornada de hoy</strong>.</div>
+      <button class="btn btn-green" onclick="marcarInicioJornada()">▶️ Marcar inicio de jornada</button>`;
+  }
+  box.innerHTML = `<div class="jornada"><div class="jornada-card ${estado}">${html}</div></div>`;
+}
+
+async function marcarInicioJornada(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('jornadas')
+      .insert({ dupla_id: miPerfil.dupla_id, fecha: hoyStr(), inicio: new Date().toISOString() });
+    if(error) throw error;
+  }catch(e){
+    alert('No se pudo marcar el inicio: ' + e.message);
+  }finally{
+    await cargarJornadaHoy();
+    mostrarJornada();
+  }
+}
+
+async function marcarFinJornada(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('jornadas')
+      .update({ fin: new Date().toISOString() })
+      .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr());
+    if(error) throw error;
+  }catch(e){
+    alert('No se pudo marcar el fin: ' + e.message);
+  }finally{
+    await cargarJornadaHoy();
+    mostrarJornada();
+  }
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });

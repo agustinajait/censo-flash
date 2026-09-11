@@ -168,3 +168,34 @@ alter table public.perfiles
 -- corrido en producción.
 alter table public.duplas
   add column if not exists referente_telefono text;
+
+-- 2026-09-11: marcado diario de inicio/fin de jornada por dupla ("Mi turno
+-- de hoy" en casos.html). Una fila por dupla por día — como el login ya es
+-- por dupla (no por persona), alcanza con que cualquiera de los dos
+-- integrantes lo toque desde esa cuenta compartida. Ya corrido en
+-- producción (migración `jornadas_inicio_fin`).
+create table if not exists public.jornadas (
+  id uuid primary key default gen_random_uuid(),
+  dupla_id uuid not null references public.duplas(id) on delete cascade,
+  fecha date not null default current_date,
+  inicio timestamptz,
+  fin timestamptz,
+  created_at timestamptz not null default now(),
+  unique (dupla_id, fecha)
+);
+
+alter table public.jornadas enable row level security;
+
+-- Mismo patrón que el resto de las tablas: admin/coordinacion ven y tocan
+-- todo; una cuenta de dupla solo puede ver/marcar la jornada de SU PROPIA
+-- dupla (comparando contra perfiles.dupla_id de la cuenta logueada).
+create policy "jornadas_propia_dupla" on public.jornadas
+  for all
+  using (
+    public.mi_rol() in ('admin', 'coordinacion')
+    or dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
+  )
+  with check (
+    public.mi_rol() in ('admin', 'coordinacion')
+    or dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
+  );
