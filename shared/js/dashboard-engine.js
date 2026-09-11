@@ -710,22 +710,46 @@ function clearFilter(){
   if(project && data) renderWithData(project, data.cierres, data.koboRows, data.presentes||[], data.ausencias||[]);
 }
 
+// Una salida = una dupla saliendo una noche. `cierres.length` cuenta cada
+// FILA del Sheet de Cierres, así que un doble envío accidental del
+// formulario (típico: se manda el cierre, no carga, se reenvía) infla el
+// número — se vio con un total de 596 salidas para un operativo de 33
+// duplas saliendo 2 veces por semana, imposible en el rango filtrado. Se
+// deduplica por dupla+fecha: dos cierres de la misma dupla la misma noche
+// cuentan como una sola salida.
+function contarSalidas(cierres){
+  return new Set(cierres.map(r => (r.dupla||'—') + '|' + (r._fecha||''))).size;
+}
+
 function renderWithData(project, cierres, rows, presentes, ausencias){
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   const puntos = rows.length;
   const fechas = new Set(rows.map(r=>r.fecha).filter(Boolean));
-  const nnya = cierres.filter(r=>r.situaciones && r.situaciones.toLowerCase().match(/niño|menor|bebé|bebe|nnya/)).length;
+  // Antes solo miraba `situaciones` y solo detectaba menciones a menores —
+  // se suma `observaciones` y `eventos` (donde también se suele anotar
+  // este tipo de reporte) y la mención a la Línea 108 (protocolo de
+  // familia con menores), aunque el texto no diga explícitamente "menor".
+  const nnya = cierres.filter(r=>{
+    const texto = ((r.situaciones||'')+' '+(r.observaciones||'')+' '+(r.eventos||'')).toLowerCase();
+    return /niñ|menor|bebé|bebe|nnya|\b108\b/.test(texto);
+  }).length;
   const incidentes = cierres.filter(r=>r.inconvenientes && r.inconvenientes!=='Ninguno' && r.inconvenientes.length>2).length;
 
   document.getElementById('m-personas').textContent = total.toLocaleString('es-AR');
   document.getElementById('m-puntos').textContent = puntos.toLocaleString('es-AR');
   document.getElementById('m-noches').textContent = fechas.size;
   document.getElementById('m-nnya').textContent = nnya;
-  // Un cierre = una dupla saliendo una noche. `m-duplas` cuenta duplas
-  // distintas (una sola vez aunque hayan salido varias noches); esto es
-  // el total de salidas real del período filtrado — mismo cálculo que ya
-  // se usaba en la vista global (g-cierres), ahora también por proyecto.
-  document.getElementById('m-salidas').textContent = cierres.length.toLocaleString('es-AR');
+  // `m-duplas` cuenta duplas distintas (una sola vez aunque hayan salido
+  // varias noches); esto es el total de salidas del período filtrado,
+  // deduplicado por dupla+noche (ver comentario de contarSalidas).
+  document.getElementById('m-salidas').textContent = contarSalidas(cierres).toLocaleString('es-AR');
+  // "Noches operativas" (m-noches, arriba) sale de KoBo — censo de
+  // personas. Esta es la misma pregunta pero del lado del reporte de la
+  // dupla: noches distintas con al menos un cierre cargado. Deberían
+  // coincidir bastante; si no, es señal de que a alguna dupla se le pasó
+  // cargar el cierre esa noche, o hubo censo sin cierre reportado.
+  const nochesCierre = new Set(cierres.map(r=>r._fecha).filter(Boolean)).size;
+  document.getElementById('m-noches-cierre').textContent = nochesCierre;
   document.getElementById('m-duplas').textContent = new Set(cierres.map(r=>r.dupla)).size;
   document.getElementById('m-reg-sheet').textContent = cierres.reduce((a,r)=>a+r.registros, 0).toLocaleString('es-AR');
   document.getElementById('m-incidentes').textContent = incidentes;
@@ -1060,7 +1084,7 @@ function renderGlobalView(){
 
     const personas = data ? data.koboTotal||0 : 0;
     const puntos = data ? data.koboRows.length : 0;
-    const cierresN = data ? data.cierres.length : 0;
+    const cierresN = data ? contarSalidas(data.cierres) : 0;
     const noches = data ? new Set(data.koboRows.map(r=>r.fecha).filter(Boolean)).size : 0;
     if(data){ gPersonas+=personas; gPuntos+=puntos; gCierres+=cierresN; gConDatos++; }
 
