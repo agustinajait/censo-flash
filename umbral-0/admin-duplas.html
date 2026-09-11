@@ -47,6 +47,12 @@
   .card-actions { display:flex; gap:8px; align-items:center; margin-top:6px; }
   .card-actions .grow { flex:1; }
   .empty-msg { font-size:0.84rem; color:#94a3b8; padding:14px; text-align:center; }
+  .btn-sm { padding:5px 11px; font-size:0.74rem; }
+  .tbl-wrap { overflow-x:auto; }
+  .badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; white-space:nowrap; }
+  .badge-gray { background:#f1f5f9; color:#475569; }
+  .badge-amber { background:#fef3c7; color:#92400e; }
+  .badge-green { background:#d1fae5; color:#047857; }
   .save-ok { font-size:0.76rem; color:var(--green); font-weight:700; opacity:0; transition:opacity 0.2s; }
   .save-ok.show { opacity:1; }
 
@@ -169,6 +175,19 @@
 
   <!-- PESTAÑA: DUPLAS Y EQUIPO -->
   <div class="wrap" id="tab-duplas">
+
+    <div class="section-label">
+      <span>🕒 Jornada de hoy</span>
+      <button class="btn btn-outline btn-sm" onclick="cargarJornadaHoyAdmin()">🔄 Actualizar</button>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Dupla</th><th>Turno</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead>
+          <tbody id="jornada-hoy-tbody"><tr><td colspan="5" class="empty-msg">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
 
     <div class="section-label">
       <span>👥 Duplas territoriales</span>
@@ -303,7 +322,47 @@ function switchTab(nombre){
 }
 
 async function cargarTodo(){
-  await Promise.all([cargarPerfilesPorDupla(), cargarDuplas(), cargarChoferes()]);
+  await Promise.all([cargarPerfilesPorDupla(), cargarDuplas(), cargarChoferes(), cargarJornadaHoyAdmin()]);
+}
+
+// ── JORNADA DE HOY (inicio/fin que marca cada dupla desde casos.html) ────
+async function cargarJornadaHoyAdmin(){
+  const tbody = document.getElementById('jornada-hoy-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Cargando…</td></tr>';
+  try{
+    const client = await SupabaseClient.getClient();
+    const [{ data: duplas, error: errD }, { data: jornadas, error: errJ }] = await Promise.all([
+      client.from('duplas').select('id, codigo, turno').eq('activa', true)
+        .order('turno', { ascending:true, nullsFirst:false }).order('codigo', { ascending:true }),
+      client.from('jornadas').select('*').eq('fecha', hoyStr(0)),
+    ]);
+    if(errD) throw errD;
+    if(errJ) throw errJ;
+    const jornadaPorDupla = {};
+    (jornadas||[]).forEach(j => { jornadaPorDupla[j.dupla_id] = j; });
+
+    if(!duplas || !duplas.length){
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Todavía no hay duplas activas.</td></tr>';
+      return;
+    }
+    const fmtHora = iso => iso ? new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }) : '—';
+    tbody.innerHTML = duplas.map(d => {
+      const j = jornadaPorDupla[d.id];
+      let badge;
+      if(j && j.fin) badge = '<span class="badge badge-green">✅ Completa</span>';
+      else if(j && j.inicio) badge = '<span class="badge badge-amber">🌤️ En curso</span>';
+      else badge = '<span class="badge badge-gray">— No marcó</span>';
+      return `<tr>
+        <td><b>${esc(d.codigo)}</b></td>
+        <td>${esc(d.turno || '—')}</td>
+        <td>${fmtHora(j && j.inicio)}</td>
+        <td>${fmtHora(j && j.fin)}</td>
+        <td>${badge}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Error cargando jornadas: '+esc(e.message)+'</td></tr>';
+  }
 }
 
 // ── ACCESOS (login de cada dupla) ─────────────────────────────────────────

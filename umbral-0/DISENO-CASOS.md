@@ -671,12 +671,12 @@ más adelante — quedan pendientes de definir con Agustina:
   datos reales cargados.
 - **Handy de supervisión RED** para pedidos a CIS: cuál es, si hace falta
   dejarlo documentado en algún lado de la plataforma para las duplas nuevas.
-- **Vista de "jornadas" para admin/coordinación** (marcado de inicio/fin,
-  arriba): hoy solo lo ve cada dupla de sí misma en `casos.html` — falta
-  definir si conviene una tabla en `admin-duplas.html` o en el reporte
-  semanal (§9) con quién marcó/no marcó su jornada cada día, para
-  seguimiento de asistencia real (más preciso que "Duplas con cierre" de
-  Censo Flash, que ahí sí ya existe).
+- ~~Vista de "jornadas" para admin/coordinación~~ — resuelto (sept/2026):
+  panel "🕒 Jornada de hoy" en `admin-duplas.html` (pestaña "Duplas y
+  equipo", función `cargarJornadaHoyAdmin()`), tabla con inicio/fin/estado
+  del día por dupla activa. Queda abierto si en algún momento hace falta
+  ver un día pasado (hoy solo muestra el día de hoy, sin selector de
+  fecha) — se puede sumar cuando se necesite.
 
 ## 12. Próximo paso sugerido
 
