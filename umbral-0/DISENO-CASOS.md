@@ -100,6 +100,18 @@ para abrir su mapa (`casos.html`, función `mostrarMiTurno()`). El "referente ge
 cargarlo hasta que se defina si necesita su propia cuenta o alcanza con un
 integrante suelto (`dupla_id = null`).
 
+**Jornada de hoy (inicio/fin)** (sept/2026): debajo de "Mi turno de hoy",
+un panel simple con un botón "▶️ Marcar inicio de jornada" y, una vez
+tocado, "⏹️ Marcar fin de jornada" — una fila por dupla por día en la
+tabla `jornadas` (`casos.html`, funciones `cargarJornadaHoy()` /
+`mostrarJornada()` / `marcarInicioJornada()` / `marcarFinJornada()`). Como
+el login sigue siendo por dupla y no por persona, alcanza con que
+cualquiera de los dos integrantes lo marque desde esa cuenta compartida —
+no hace falta modelar "quién de los dos" lo hizo. Sin uso todavía del
+lado de admin/coordinación (no hay una vista que liste qué duplas ya
+marcaron su jornada del día) — queda abierto en la sección 11 si se
+necesita más adelante para seguimiento de asistencia.
+
 **Acceso de la dupla (una cuenta por dupla, no por integrante):** cada card
 de dupla tiene una sección de "Acceso" — si todavía no tiene login, un botón
 "🔑 Crear acceso" abre un formulario con un email sugerido por convención
@@ -659,6 +671,12 @@ más adelante — quedan pendientes de definir con Agustina:
   datos reales cargados.
 - **Handy de supervisión RED** para pedidos a CIS: cuál es, si hace falta
   dejarlo documentado en algún lado de la plataforma para las duplas nuevas.
+- **Vista de "jornadas" para admin/coordinación** (marcado de inicio/fin,
+  arriba): hoy solo lo ve cada dupla de sí misma en `casos.html` — falta
+  definir si conviene una tabla en `admin-duplas.html` o en el reporte
+  semanal (§9) con quién marcó/no marcó su jornada cada día, para
+  seguimiento de asistencia real (más preciso que "Duplas con cierre" de
+  Censo Flash, que ahí sí ya existe).
 
 ## 12. Próximo paso sugerido
 
