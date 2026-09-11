@@ -331,7 +331,17 @@ async function autoRefreshSheet(project){
     saveToStorage(project.id, data);
     document.getElementById('no-data').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
-    renderDashboard(project, data);
+    // OJO: este refresh es automático (se dispara solo al abrir la pestaña,
+    // y de nuevo cada vez que se toca "🔄 Actualizar") — si mientras tanto
+    // alguien ya había elegido un rango en el filtro de fechas,
+    // renderDashboard() lo pisaba sin avisar (siempre resetea el filtro a
+    // "hoy"). Eso se veía como "no me deja cambiar la fecha": elegís el
+    // rango, este refresh en vivo termina un instante después, y lo borra.
+    // Si ya hay algo cargado en el filtro, se respeta.
+    const desde = document.getElementById('filter-desde').value;
+    const hasta = document.getElementById('filter-hasta').value;
+    if(desde || hasta) applyFilter();
+    else renderDashboard(project, data);
     hideLiveWarning();
   }catch(e){
     console.error('Auto-refresh falló', e);
