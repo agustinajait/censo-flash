@@ -191,7 +191,10 @@
 
     <div class="section-label">
       <span>👥 Duplas territoriales</span>
-      <button class="btn btn-green" onclick="crearDupla()">+ Nueva dupla</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline" id="btn-accesos-faltantes" onclick="crearAccesosFaltantes()">⚡ Crear accesos faltantes</button>
+        <button class="btn btn-green" onclick="crearDupla()">+ Nueva dupla</button>
+      </div>
     </div>
     <div id="duplas-list"></div>
 
@@ -562,6 +565,44 @@ async function guardarAcceso(d){
   }finally{
     btn.disabled = false; btn.textContent = '🔑 Crear acceso';
   }
+}
+
+// Alta masiva — mismo mecanismo que "🔑 Crear acceso" (uno por uno, botón
+// por botón) pero para todas las duplas activas que todavía no tengan
+// login, con una contraseña fija ("123456") en vez de elegir una por
+// dupla. Pensado para el momento de dar de alta el equipo completo de
+// una — cada dupla la cambia después si quiere (no hay flujo de "forzar
+// cambio de contraseña" todavía, queda como mejora futura si hace falta).
+async function crearAccesosFaltantes(){
+  const client = await SupabaseClient.getClient();
+  const { data: duplas, error } = await client.from('duplas').select('id, codigo').eq('activa', true);
+  if(error){ alert('No se pudo leer la lista de duplas: ' + error.message); return; }
+  const faltantes = (duplas || []).filter(d => !perfilesPorDupla[d.id]);
+  if(!faltantes.length){ alert('Todas las duplas activas ya tienen acceso creado.'); return; }
+
+  const lista = faltantes.map(d => '· ' + d.codigo + ' → ' + emailSugerido(d.codigo)).join('\n');
+  if(!confirm(`Se va a crear acceso (contraseña "123456") para estas ${faltantes.length} duplas:\n\n${lista}\n\n¿Confirmás?`)) return;
+
+  const btn = document.getElementById('btn-accesos-faltantes');
+  btn.disabled = true; btn.textContent = 'Creando accesos…';
+  const resultados = [];
+  for(const d of faltantes){
+    const email = emailSugerido(d.codigo);
+    try{
+      const user = await SupabaseClient.crearCuenta(email, '123456');
+      const { error: errPerfil } = await client.from('perfiles').upsert({
+        id: user.id, rol: 'dupla', dupla_id: d.id, nombre: d.codigo, email,
+      });
+      if(errPerfil) throw errPerfil;
+      resultados.push('✅ ' + d.codigo + ' → ' + email);
+    }catch(e){
+      resultados.push('❌ ' + d.codigo + ': ' + e.message);
+    }
+  }
+  btn.disabled = false; btn.textContent = '⚡ Crear accesos faltantes';
+  alert('Resultado:\n\n' + resultados.join('\n'));
+  await cargarPerfilesPorDupla();
+  await cargarDuplas();
 }
 
 // ── MODAL genérico ──────────────────────────────────────────────────────

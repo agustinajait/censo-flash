@@ -78,6 +78,12 @@ Para `admin`/`coordinacion`, las cuentas propias se siguen creando desde el
 duplas (una cuenta por dupla, compartida entre sus 2 integrantes — ver
 sección 2) hay un flujo self-service: el botón **"🔑 Crear acceso"** en
 `admin-duplas.html`, que da de alta el login sin pasar por el dashboard.
+También existe **"⚡ Crear accesos faltantes"** (sept/2026) al lado de "+
+Nueva dupla": hace lo mismo que "🔑 Crear acceso" pero para TODAS las
+duplas activas sin login de una sola vez, con contraseña fija `123456`
+para todas — pensado para el alta inicial del equipo completo. Muestra la
+lista antes de confirmar y un resumen ✅/❌ al final (si una falla, sigue
+con las demás).
 
 **Primer login de una dupla** (`casos.html`, sept/2026): antes de entrar a
 la app, si a algún integrante de la dupla le falta DNI o teléfono
