@@ -199,3 +199,15 @@ create policy "jornadas_propia_dupla" on public.jornadas
     public.mi_rol() in ('admin', 'coordinacion')
     or dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
   );
+
+-- 2026-09-12: gate de "datos de contacto" al crear el acceso de una dupla
+-- (DNI/teléfono de sus integrantes) — reemplaza al quiz como paso
+-- obligatorio del primer login (el quiz pasa a ser opcional). Antes solo
+-- admin/coordinacion podían actualizar `integrantes`; se agrega una
+-- política para que una cuenta de dupla pueda actualizar (no leer de
+-- más, no borrar) los integrantes de SU PROPIA dupla. Ya corrido en
+-- producción (migración `integrantes_update_propia_dupla`).
+create policy "integrantes_update_propia_dupla" on public.integrantes
+  for update
+  using (dupla_id = (select dupla_id from public.perfiles where id = auth.uid()))
+  with check (dupla_id = (select dupla_id from public.perfiles where id = auth.uid()));

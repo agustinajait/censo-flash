@@ -79,6 +79,18 @@ duplas (una cuenta por dupla, compartida entre sus 2 integrantes — ver
 sección 2) hay un flujo self-service: el botón **"🔑 Crear acceso"** en
 `admin-duplas.html`, que da de alta el login sin pasar por el dashboard.
 
+**Primer login de una dupla** (`casos.html`, sept/2026): antes de entrar a
+la app, si a algún integrante de la dupla le falta DNI o teléfono
+(`integrantes.dni`/`telefono`), se le pide completarlo — es obligatorio,
+no se puede pasar de largo, pero se resuelve solo (una vez cargados los
+dos datos de cada integrante, no vuelve a aparecer). Requirió agregar una
+política de RLS para que una cuenta de dupla pueda actualizar (no solo
+leer) los integrantes de su propia dupla — antes solo podía admin/
+coordinación (`schema-ajustes.sql`, migración `integrantes_update_propia_dupla`).
+El test de onboarding (10 preguntas sobre el protocolo) dejó de ser
+obligatorio en el primer login — ahora es **opcional**, accesible desde
+"🎓 Test" en el topbar de `casos.html` cuando la dupla quiera hacerlo.
+
 ## 2. Pantalla: Duplas y equipo — `admin-duplas.html` (ya construida)
 
 Login con cuenta Supabase → si el rol es `admin`/`coordinacion`, lista de
@@ -671,12 +683,12 @@ más adelante — quedan pendientes de definir con Agustina:
   datos reales cargados.
 - **Handy de supervisión RED** para pedidos a CIS: cuál es, si hace falta
   dejarlo documentado en algún lado de la plataforma para las duplas nuevas.
-- **Vista de "jornadas" para admin/coordinación** (marcado de inicio/fin,
-  arriba): hoy solo lo ve cada dupla de sí misma en `casos.html` — falta
-  definir si conviene una tabla en `admin-duplas.html` o en el reporte
-  semanal (§9) con quién marcó/no marcó su jornada cada día, para
-  seguimiento de asistencia real (más preciso que "Duplas con cierre" de
-  Censo Flash, que ahí sí ya existe).
+- ~~Vista de "jornadas" para admin/coordinación~~ — resuelto (sept/2026):
+  panel "🕒 Jornada de hoy" en `admin-duplas.html` (pestaña "Duplas y
+  equipo", función `cargarJornadaHoyAdmin()`), tabla con inicio/fin/estado
+  del día por dupla activa. Queda abierto si en algún momento hace falta
+  ver un día pasado (hoy solo muestra el día de hoy, sin selector de
+  fecha) — se puede sumar cuando se necesite.
 
 ## 12. Próximo paso sugerido
 
