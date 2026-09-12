@@ -211,3 +211,68 @@ create policy "integrantes_update_propia_dupla" on public.integrantes
   for update
   using (dupla_id = (select dupla_id from public.perfiles where id = auth.uid()))
   with check (dupla_id = (select dupla_id from public.perfiles where id = auth.uid()));
+
+-- 2026-09-12: `personas` era la única tabla de casos SIN scope por dupla
+-- — intervenciones/derivaciones/seguimientos ya restringían a una cuenta
+-- de dupla a ver/tocar solo lo de SU dupla (dupla_id = mi_dupla_id()),
+-- pero personas_select/update/insert dejaban pasar a cualquier dupla
+-- logueada sin filtro: cualquier cuenta veía y editaba los casos de
+-- TODAS las duplas. Encontrado al revisar el acceso antes de habilitar
+-- el equipo completo. Ya corrido en producción.
+--
+-- Se agrega `personas.dupla_id` (quién dio de alta el caso — mismo
+-- patrón que ya usa `intervenciones.dupla_id`) y se aplica el mismo
+-- scope. Backfill desde la intervención de alta ('contacto_espontaneo',
+-- se crea siempre junto con la persona — ver casos.html); los 4 casos de
+-- prueba que había en producción no tenían esa intervención (datos
+-- viejos, de antes de este patrón) y quedaron con dupla_id null —
+-- visibles solo para admin/coordinación, se pueden reasignar a mano si
+-- hace falta.
+--
+-- LIMITACIÓN CONOCIDA: si dos duplas distintas se cruzan con la misma
+-- persona (se mudó de zona, cobertura de iglesia superpuesta, etc.), la
+-- segunda dupla no la va a encontrar al buscar por DNI/nombre — para
+-- ella no existe, y puede terminar dándola de alta de nuevo (caso
+-- duplicado). El plan de zonas exclusivas por dupla (Umbral0_Plan_Final)
+-- lo hace poco frecuente, pero no lo elimina. Si se vuelve un problema
+-- real, la solución no es sacar el scope (volvería a exponer todos los
+-- casos a todas las duplas) sino algo más fino — ej. que la búsqueda le
+-- avise "ya existe un caso con ese DNI, pedile a tu referente que te dé
+-- acceso" sin mostrar el detalle. Queda anotado en DISENO-CASOS.md §11.
+alter table public.personas
+  add column if not exists dupla_id uuid references public.duplas(id) on delete set null;
+
+update public.personas p
+set dupla_id = i.dupla_id
+from public.intervenciones i
+where i.persona_id = p.id
+  and i.tipo = 'contacto_espontaneo'
+  and p.dupla_id is null
+  and i.dupla_id is not null;
+
+drop policy if exists "personas_select" on public.personas;
+create policy "personas_select" on public.personas
+  for select
+  using (
+    mi_rol() = any (array['admin','coordinacion','cliente'])
+    or (mi_rol() = 'dupla' and dupla_id = mi_dupla_id())
+  );
+
+drop policy if exists "personas_update" on public.personas;
+create policy "personas_update" on public.personas
+  for update
+  using (
+    mi_rol() = any (array['admin','coordinacion'])
+    or (mi_rol() = 'dupla' and dupla_id = mi_dupla_id())
+  );
+
+-- El insert ya estaba limitado a roles válidos, pero no impedía que una
+-- dupla insertara una persona con el dupla_id de OTRA dupla (spoofing) —
+-- se agrega el mismo chequeo.
+drop policy if exists "personas_insert" on public.personas;
+create policy "personas_insert" on public.personas
+  for insert
+  with check (
+    mi_rol() = any (array['admin','coordinacion'])
+    or (mi_rol() = 'dupla' and dupla_id = mi_dupla_id())
+  );

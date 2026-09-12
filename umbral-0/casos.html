@@ -1523,7 +1523,13 @@ const Casos = {
         if(error) throw error;
         persona = data;
       }else{
-        const { data, error } = await client.from('personas').insert({ ...campos, estado:'activo' }).select().single();
+        // dupla_id queda fijo en el alta (quién dio de alta el caso) — la
+        // política de RLS de personas ahora exige que coincida con la
+        // propia dupla para las cuentas de dupla (ver schema-ajustes.sql,
+        // "cada dupla ve solo sus propios casos").
+        const { data, error } = await client.from('personas')
+          .insert({ ...campos, estado:'activo', dupla_id: miPerfil.dupla_id || null })
+          .select().single();
         if(error) throw error;
         persona = data;
         // Alta = primer evento del timeline (DISENO-CASOS.md §4)

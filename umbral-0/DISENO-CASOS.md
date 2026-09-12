@@ -73,6 +73,20 @@ una cuenta real de Supabase Auth (email + contraseña), y su rol vive en
 | `dupla` | operador/a de un equipo territorial | carga casos e intervenciones, pero solo ve/edita lo de **su propia dupla** (`perfiles.dupla_id`) |
 | `cliente` | GCBA / Dg Red de Atención | solo lectura de todos los casos (para reporting), no ve el roster de duplas/choferes |
 
+**Corrección (sept/2026):** `personas` era la única tabla de casos sin este
+scope aplicado de verdad — `intervenciones`/`derivaciones`/`seguimientos`
+ya restringían a cada dupla a lo suyo, pero cualquier cuenta de dupla
+podía ver y editar los casos (fichas de persona) de TODAS las demás.
+Encontrado al revisar el acceso antes de habilitar el equipo completo.
+Se agregó `personas.dupla_id` (quién dio de alta el caso) con el mismo
+patrón que ya usaban las otras tablas (`schema-ajustes.sql`, migración
+`personas_dupla_id_y_rls`). **Limitación conocida** que queda de esto: si
+dos duplas distintas se cruzan con la misma persona (se mudó de zona,
+cobertura de iglesia superpuesta), la segunda no la va a encontrar al
+buscar por DNI/nombre y puede terminar dándola de alta de nuevo (caso
+duplicado) — el plan de zonas exclusivas lo hace poco frecuente pero no
+lo elimina. Ver sección 11.
+
 Para `admin`/`coordinacion`, las cuentas propias se siguen creando desde el
 **Supabase Dashboard → Authentication → Add user** (son pocas). Para las
 duplas (una cuenta por dupla, compartida entre sus 2 integrantes — ver
@@ -669,6 +683,13 @@ la pestaña de reporte es el consolidado cuantitativo para GOPA.
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
+- **Casos duplicados entre duplas** (sección 1): con `personas` ahora
+  restringida por dupla, si una persona pasa por la zona de dos duplas
+  distintas, la segunda no la encuentra al buscar y puede darla de alta
+  de nuevo. Si en la práctica pasa seguido, la solución no es sacar el
+  scope — sería algo más fino, como avisar "ya existe un caso con ese DNI
+  en otra dupla, pedile acceso a tu referente" sin mostrar el detalle
+  completo.
 - **Contradicción sobre CIS y seguimiento** (5.1): el documento en un lugar
   describe pedidos espontáneos de CIS (sin vínculo previo) y en otro dice que
   el ingreso a CIS "se realiza siempre y cuando la persona sea seguimiento
