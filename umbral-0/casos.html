@@ -217,12 +217,12 @@
   <div class="onboarding-wrap">
     <div class="onboarding-head">
       <h2>📋 Antes de empezar</h2>
-      <p>Nos falta el DNI y el teléfono de contacto de tu dupla — completalo una sola vez para poder
-      seguir. Después no te lo vuelve a pedir.</p>
+      <p>Nos faltan los datos de contacto de tu dupla — completalos una sola vez para poder seguir.
+      Después no te los vuelve a pedir.</p>
     </div>
     <div id="datos-integrantes"></div>
     <div class="onboarding-foot">
-      <div class="modal-err" id="datos-err">Completá DNI y teléfono de cada integrante antes de continuar.</div>
+      <div class="modal-err" id="datos-err">Completá nombre, apellido, DNI y teléfono de cada integrante antes de continuar.</div>
       <button class="btn btn-blue login-full-btn" id="datos-btn" onclick="guardarDatosGate()">Guardar y continuar</button>
     </div>
   </div>
@@ -811,19 +811,20 @@ async function entrarAlApp(){
   Casos.volverABuscar();
 }
 
-// ── DATOS DE CONTACTO (DNI/teléfono de integrantes) — gate obligatorio ───
-// Reutiliza `integrantes.dni`/`integrantes.telefono` (ya existían, los
-// carga admin/coordinación desde admin-duplas.html) — acá se los pide
-// directo a la dupla al crear su acceso, en vez de depender de que
-// alguien más los tipee a mano.
+// ── DATOS DE CONTACTO (nombre/apellido/DNI/teléfono de integrantes) ─────
+// Gate obligatorio. Reutiliza `integrantes` (ya existía, lo cargaba
+// admin/coordinación a mano desde admin-duplas.html) — acá se le pide
+// directo a la dupla al crear su acceso. Al alta masiva de accesos (ver
+// admin-duplas.html) todavía no le quedaban nombre/apellido cargados en
+// ningún lado — se agregan acá también, no solo DNI/teléfono.
 async function cargarIntegrantesFaltantes(duplaId){
   try{
     const client = await SupabaseClient.getClient();
     const { data } = await client.from('integrantes').select('*')
       .eq('dupla_id', duplaId).neq('rol', 'chofer');
-    return (data || []).filter(i => !i.dni || !i.telefono);
+    return (data || []).filter(i => !i.nombre || !i.apellido || !i.dni || !i.telefono);
   }catch(e){
-    console.error('No se pudo chequear DNI/teléfono de los integrantes', e);
+    console.error('No se pudo chequear los datos de los integrantes', e);
     return []; // si falla la consulta, no bloqueamos el ingreso por un error de red
   }
 }
@@ -835,8 +836,16 @@ function renderDatosGate(faltantes){
   document.getElementById('datos-err').style.display = 'none';
   document.getElementById('datos-integrantes').innerHTML = faltantes.map((i, idx) => `
     <div class="datos-persona">
-      <div class="datos-nombre">👤 ${esc(i.nombre || '')} ${esc(i.apellido || '')}</div>
+      <div class="datos-nombre">👤 Integrante ${idx + 1}</div>
       <div class="form-grid-2">
+        <div class="form-field">
+          <label>Nombre</label>
+          <input type="text" id="datos-nombre-${idx}" value="${escAttr(i.nombre)}">
+        </div>
+        <div class="form-field">
+          <label>Apellido</label>
+          <input type="text" id="datos-apellido-${idx}" value="${escAttr(i.apellido)}">
+        </div>
         <div class="form-field">
           <label>DNI</label>
           <input type="text" inputmode="numeric" id="datos-dni-${idx}" value="${escAttr(i.dni)}" placeholder="Sin puntos">
@@ -855,11 +864,13 @@ async function guardarDatosGate(){
   errBox.style.display = 'none';
   const updates = integrantesFaltantesActuales.map((i, idx) => ({
     id: i.id,
+    nombre: document.getElementById('datos-nombre-'+idx).value.trim(),
+    apellido: document.getElementById('datos-apellido-'+idx).value.trim(),
     dni: document.getElementById('datos-dni-'+idx).value.trim(),
     telefono: document.getElementById('datos-tel-'+idx).value.trim(),
   }));
-  if(updates.some(u => !u.dni || !u.telefono)){
-    errBox.textContent = 'Completá DNI y teléfono de cada integrante antes de continuar.';
+  if(updates.some(u => !u.nombre || !u.apellido || !u.dni || !u.telefono)){
+    errBox.textContent = 'Completá nombre, apellido, DNI y teléfono de cada integrante antes de continuar.';
     errBox.style.display = 'block';
     return;
   }
@@ -868,7 +879,9 @@ async function guardarDatosGate(){
   try{
     const client = await SupabaseClient.getClient();
     for(const u of updates){
-      const { error } = await client.from('integrantes').update({ dni: u.dni, telefono: u.telefono }).eq('id', u.id);
+      const { error } = await client.from('integrantes')
+        .update({ nombre: u.nombre, apellido: u.apellido, dni: u.dni, telefono: u.telefono })
+        .eq('id', u.id);
       if(error) throw error;
     }
     await entrarAlApp();

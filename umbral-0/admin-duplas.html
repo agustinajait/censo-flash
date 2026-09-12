@@ -594,6 +594,18 @@ async function crearAccesosFaltantes(){
         id: user.id, rol: 'dupla', dupla_id: d.id, nombre: d.codigo, email,
       });
       if(errPerfil) throw errPerfil;
+      // Si la dupla todavía no tiene ningún integrante cargado, se le
+      // crean 2 filas en blanco — así el gate de "Antes de empezar" en
+      // casos.html (nombre/apellido/DNI/teléfono) tiene algo concreto que
+      // completar apenas entren, en vez de no mostrar nada.
+      const { data: yaTiene } = await client.from('integrantes').select('id').eq('dupla_id', d.id).limit(1);
+      if(!yaTiene || !yaTiene.length){
+        const { error: errInteg } = await client.from('integrantes').insert([
+          { dupla_id: d.id, rol: 'operador', nombre: '', apellido: '' },
+          { dupla_id: d.id, rol: 'operador', nombre: '', apellido: '' },
+        ]);
+        if(errInteg) throw errInteg;
+      }
       resultados.push('✅ ' + d.codigo + ' → ' + email);
     }catch(e){
       resultados.push('❌ ' + d.codigo + ': ' + e.message);
