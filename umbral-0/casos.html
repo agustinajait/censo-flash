@@ -69,7 +69,11 @@
   .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   @media(max-width:560px){ .form-grid-2 { grid-template-columns:1fr; } }
 
-  #app-screen, #denied-screen, #onboarding-screen { display:none; }
+  #app-screen, #denied-screen, #onboarding-screen, #datos-screen { display:none; }
+
+  /* DATOS DE CONTACTO — gate de primer login (DNI/teléfono de integrantes) */
+  .datos-persona { background:white; border-radius:14px; padding:16px 18px; margin-bottom:12px; border:1.5px solid var(--border); }
+  .datos-nombre { font-family:'Sora',sans-serif; font-weight:700; font-size:0.92rem; color:var(--navy); margin-bottom:10px; }
   .denied-box { max-width:420px; margin:80px auto; text-align:center; padding:0 20px; }
   .denied-box .emoji { font-size:2.4rem; margin-bottom:10px; }
   .denied-box h2 { font-family:'Sora',sans-serif; color:var(--navy); margin-bottom:8px; }
@@ -207,14 +211,32 @@
   </div>
 </div>
 
-<!-- ONBOARDING (primer login de una cuenta de dupla) -->
+<!-- DATOS DE CONTACTO (primer login: DNI/teléfono de los integrantes de la
+     dupla — obligatorio, reemplaza al quiz como gate de entrada). -->
+<div id="datos-screen">
+  <div class="onboarding-wrap">
+    <div class="onboarding-head">
+      <h2>📋 Antes de empezar</h2>
+      <p>Nos falta el DNI y el teléfono de contacto de tu dupla — completalo una sola vez para poder
+      seguir. Después no te lo vuelve a pedir.</p>
+    </div>
+    <div id="datos-integrantes"></div>
+    <div class="onboarding-foot">
+      <div class="modal-err" id="datos-err">Completá DNI y teléfono de cada integrante antes de continuar.</div>
+      <button class="btn btn-blue login-full-btn" id="datos-btn" onclick="guardarDatosGate()">Guardar y continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ DE ONBOARDING (opcional — se accede desde "🎓 Test" en la barra
+     superior, ya no bloquea el primer login). -->
 <div id="onboarding-screen">
   <div class="onboarding-wrap">
     <div class="onboarding-head">
-      <h2>🎓 Antes de empezar</h2>
-      <p>Un test rápido de 10 preguntas para repasar lo esencial del protocolo de Umbral 0. Se muestra
-      una sola vez, la primera vez que entrás con tu cuenta — después queda guardado. Podés repasar el
-      <a href="./instructivo.html" target="_blank" rel="noopener">glosario completo</a> cuando quieras.</p>
+      <h2>🎓 Test del equipo</h2>
+      <p>Un test rápido de 10 preguntas para repasar lo esencial del protocolo de Umbral 0 — opcional,
+      podés hacerlo cuando quieras. Podés repasar el
+      <a href="./instructivo.html" target="_blank" rel="noopener">glosario completo</a> en cualquier momento.</p>
     </div>
     <div id="onboarding-preguntas"></div>
     <div class="onboarding-foot">
@@ -236,6 +258,7 @@
       <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
       <a href="#" id="link-kobo-form" class="btn btn-ghost" target="_blank" rel="noopener" style="display:none;background:#fee2e2;color:#991b1b;border-color:#fca5a5;">📝 Cargar KoBo</a>
       <a href="./instructivo.html" class="btn btn-ghost" target="_blank" rel="noopener">📖 Glosario</a>
+      <a href="#" id="link-quiz" class="btn btn-ghost" style="display:none;" onclick="event.preventDefault(); showScreen('onboarding-screen'); renderOnboarding();">🎓 Test</a>
       <a href="./admin-duplas.html" class="btn btn-ghost" id="link-admin-duplas" style="display:none;">👥 Duplas</a>
       <a href="./admin-duplas.html#reporte" class="btn btn-ghost" id="link-reporte" style="display:none;">📊 Reporte</a>
       <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
@@ -706,7 +729,7 @@ function togglePwd(){
 }
 
 function showScreen(id){
-  ['login-screen','denied-screen','onboarding-screen','app-screen'].forEach(s=>{
+  ['login-screen','denied-screen','datos-screen','onboarding-screen','app-screen'].forEach(s=>{
     document.getElementById(s).style.display = (s===id) ? 'block' : 'none';
   });
 }
@@ -748,14 +771,19 @@ async function boot(){
     showScreen('denied-screen');
     return;
   }
-  // Test de onboarding: una sola vez, la primera vez que una cuenta de
-  // dupla entra a Casos. El instructivo/glosario es solo lectura — este es
-  // el único punto donde se pide repasarlo activamente. Admin/coordinación
-  // no lo ven (ellas no salen a territorio).
-  if(miPerfil.rol === 'dupla' && !miPerfil.onboarding_completado){
-    showScreen('onboarding-screen');
-    renderOnboarding();
-    return;
+  // Datos de contacto (DNI/teléfono de los integrantes): gate obligatorio
+  // la primera vez que la dupla entra — reemplaza al quiz de onboarding
+  // (2026-09-12: ahora opcional, ver link "🎓 Test" en el topbar) porque
+  // recién se están creando los accesos y todavía no está cargado. Se
+  // resuelve solo: apenas los dos integrantes tienen DNI y teléfono
+  // cargados, no vuelve a aparecer.
+  if(miPerfil.rol === 'dupla' && miPerfil.dupla_id){
+    const faltantes = await cargarIntegrantesFaltantes(miPerfil.dupla_id);
+    if(faltantes.length){
+      showScreen('datos-screen');
+      renderDatosGate(faltantes);
+      return;
+    }
   }
   await entrarAlApp();
 }
@@ -764,6 +792,7 @@ async function entrarAlApp(){
   const session = await SupabaseClient.getSession();
   document.getElementById('topbar-user').textContent =
     (miPerfil.nombre || session.user.email) + ' · rol: ' + miPerfil.rol;
+  document.getElementById('link-quiz').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
   document.getElementById('link-admin-duplas').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-reporte').style.display =
@@ -782,10 +811,79 @@ async function entrarAlApp(){
   Casos.volverABuscar();
 }
 
-// ── ONBOARDING (test de una sola vez, primer login de una dupla) ─────────
-// Mismas 10 preguntas que tenía el glosario gamificado — se movieron acá
-// porque el instructivo vuelve a ser solo material de consulta libre, y el
-// test tiene más sentido como paso obligatorio de bienvenida.
+// ── DATOS DE CONTACTO (DNI/teléfono de integrantes) — gate obligatorio ───
+// Reutiliza `integrantes.dni`/`integrantes.telefono` (ya existían, los
+// carga admin/coordinación desde admin-duplas.html) — acá se los pide
+// directo a la dupla al crear su acceso, en vez de depender de que
+// alguien más los tipee a mano.
+async function cargarIntegrantesFaltantes(duplaId){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data } = await client.from('integrantes').select('*')
+      .eq('dupla_id', duplaId).neq('rol', 'chofer');
+    return (data || []).filter(i => !i.dni || !i.telefono);
+  }catch(e){
+    console.error('No se pudo chequear DNI/teléfono de los integrantes', e);
+    return []; // si falla la consulta, no bloqueamos el ingreso por un error de red
+  }
+}
+
+let integrantesFaltantesActuales = [];
+
+function renderDatosGate(faltantes){
+  integrantesFaltantesActuales = faltantes;
+  document.getElementById('datos-err').style.display = 'none';
+  document.getElementById('datos-integrantes').innerHTML = faltantes.map((i, idx) => `
+    <div class="datos-persona">
+      <div class="datos-nombre">👤 ${esc(i.nombre || '')} ${esc(i.apellido || '')}</div>
+      <div class="form-grid-2">
+        <div class="form-field">
+          <label>DNI</label>
+          <input type="text" inputmode="numeric" id="datos-dni-${idx}" value="${escAttr(i.dni)}" placeholder="Sin puntos">
+        </div>
+        <div class="form-field">
+          <label>Teléfono</label>
+          <input type="tel" id="datos-tel-${idx}" value="${escAttr(i.telefono)}" placeholder="+54 9 11 ...">
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function guardarDatosGate(){
+  const errBox = document.getElementById('datos-err');
+  errBox.style.display = 'none';
+  const updates = integrantesFaltantesActuales.map((i, idx) => ({
+    id: i.id,
+    dni: document.getElementById('datos-dni-'+idx).value.trim(),
+    telefono: document.getElementById('datos-tel-'+idx).value.trim(),
+  }));
+  if(updates.some(u => !u.dni || !u.telefono)){
+    errBox.textContent = 'Completá DNI y teléfono de cada integrante antes de continuar.';
+    errBox.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('datos-btn');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    const client = await SupabaseClient.getClient();
+    for(const u of updates){
+      const { error } = await client.from('integrantes').update({ dni: u.dni, telefono: u.telefono }).eq('id', u.id);
+      if(error) throw error;
+    }
+    await entrarAlApp();
+  }catch(e){
+    errBox.textContent = 'No se pudo guardar: ' + e.message;
+    errBox.style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Guardar y continuar';
+  }
+}
+
+// ── QUIZ DE ONBOARDING (opcional, sept/2026 — antes era gate obligatorio
+// del primer login; ahora se accede desde "🎓 Test" en el topbar cuando la
+// dupla quiera, sin bloquear el ingreso). Mismas 10 preguntas que tenía el
+// glosario gamificado antes de moverse acá.
 const PREGUNTAS_ONBOARDING = [
   { q:'¿Qué es obligatorio adjuntar para pedir el ingreso a un CIS?',
     ops:['Nada, alcanza con avisar por WhatsApp','Foto del DNI o de la denuncia de extravío','Una constancia del Certificado Único de Discapacidad'],

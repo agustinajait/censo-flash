@@ -79,6 +79,18 @@ duplas (una cuenta por dupla, compartida entre sus 2 integrantes — ver
 sección 2) hay un flujo self-service: el botón **"🔑 Crear acceso"** en
 `admin-duplas.html`, que da de alta el login sin pasar por el dashboard.
 
+**Primer login de una dupla** (`casos.html`, sept/2026): antes de entrar a
+la app, si a algún integrante de la dupla le falta DNI o teléfono
+(`integrantes.dni`/`telefono`), se le pide completarlo — es obligatorio,
+no se puede pasar de largo, pero se resuelve solo (una vez cargados los
+dos datos de cada integrante, no vuelve a aparecer). Requirió agregar una
+política de RLS para que una cuenta de dupla pueda actualizar (no solo
+leer) los integrantes de su propia dupla — antes solo podía admin/
+coordinación (`schema-ajustes.sql`, migración `integrantes_update_propia_dupla`).
+El test de onboarding (10 preguntas sobre el protocolo) dejó de ser
+obligatorio en el primer login — ahora es **opcional**, accesible desde
+"🎓 Test" en el topbar de `casos.html` cuando la dupla quiera hacerlo.
+
 ## 2. Pantalla: Duplas y equipo — `admin-duplas.html` (ya construida)
 
 Login con cuenta Supabase → si el rol es `admin`/`coordinacion`, lista de
