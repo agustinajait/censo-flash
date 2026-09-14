@@ -264,6 +264,32 @@ derivaciones/seguimientos que ya eran `CASCADE`) — si no, borrar un caso
 dejaba intervenciones huérfanas dando vueltas para siempre, sumando igual
 en el conteo del reporte semanal (ver `schema-ajustes.sql`).
 
+**"KoBo pendientes" — pre-completar el alta desde KoBo** (sept/2026,
+`casos.html`, caja arriba del buscador, solo cuentas de dupla) — primer
+paso para reducir la doble carga que pidió Agustina (cargar KoBo Y la
+ficha acá). Al entrar, lee los envíos de KoBo de la propia dupla
+(matcheo operador→dupla igual que en §10.1, pero acá restringido a los 2
+integrantes de la cuenta logueada) y compara el DNI de cada envío contra
+los DNI ya cargados como caso por esa dupla. Los que traen DNI y ese DNI
+todavía no es un caso, aparecen como tarjetas "📥 envío pendiente" con un
+botón "✅ Confirmar y cargar caso" que abre el alta de siempre con
+nombre/apellido/DNI ya completos — la dupla revisa/completa el resto
+(zona, criticidad, etc.) en vez de tipear todo de cero.
+
+- **Por qué solo con DNI:** es el único dato que permite saber con
+  confianza "esto ya es un caso" vs "esto es alguien nuevo" — matchear
+  por nombre solo es demasiado arriesgado para automatizarlo (puede
+  mezclar el historial de dos personas distintas). Los envíos sin DNI
+  siguen cargándose a mano, como siempre — es la situación esperada de
+  "sin identificar" (más arriba en esta sección).
+- **No hace falta "descartar" nada:** apenas se confirma un pendiente, su
+  DNI pasa a existir en `personas` y deja de aparecer en la lista — se
+  resuelve solo, sin estado nuevo que mantener.
+- Reusa `netlify/functions/kobo-proxy.js` (mismo proxy de CORS que la
+  vista de dashboard.html, ver §10.1).
+- **Todavía no cubre:** envíos sin DNI, ni pre-completar zona/criticidad/
+  historia — reducir eso más es la fase grande que sigue abierta (§11).
+
 ## 5. Pantalla: Pedir derivación
 
 Un botón "Pedir derivación" abre un selector de `tipo` (las opciones de
@@ -795,11 +821,13 @@ más adelante — quedan pendientes de definir con Agustina:
   (§10.1) ya lee los envíos de KoBo del equipo en vivo, pero todavía no
   suma esos números al cálculo del Reporte semanal de `admin-duplas.html`
   (§9) — hoy son dos fuentes separadas.
-- **Reducir doble carga (KoBo + Casos):** objetivo de fondo explícito de
-  Agustina — que cargar KoBo les implique cargar menos en la plataforma a
-  los operadores. Sin diseñar todavía (¿pre-completar la ficha de persona
-  con lo que ya mandaron a KoBo? ¿importar el envío directo como caso
-  nuevo?) — fase aparte, más grande que la vista de sólo-lectura de §10.1.
+- **Reducir doble carga (KoBo + Casos):** primer paso hecho (sept/2026):
+  "KoBo pendientes" en `casos.html` (§4) pre-completa nombre/apellido/DNI
+  del alta cuando el envío de KoBo trae DNI y todavía no es un caso.
+  Sigue abierto: los envíos sin DNI (la mayoría de los "sin identificar")
+  siguen siendo carga manual completa, y no se pre-completa nada más allá
+  de la identidad (zona, criticidad, historia, etc.) — para eso hace
+  falta mapear más preguntas de KoBo en `parseUmbral0()`.
 
 ## 12. Próximo paso sugerido
 

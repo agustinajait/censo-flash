@@ -46,6 +46,14 @@
   .jornada-txt { flex:1; min-width:180px; font-size:0.86rem; color:#334155; }
   .jornada-txt strong { font-family:'Sora',sans-serif; color:var(--navy); }
 
+  /* KOBO PENDIENTES — envíos de KoBo del equipo sin caso todavía */
+  .kobo-pend { max-width:860px; margin:12px auto 0; padding:0 18px; }
+  .kobo-pend-head { font-size:0.82rem; color:#92400e; font-weight:700; font-family:'Sora',sans-serif; margin-bottom:6px; }
+  .kobo-pend-card { border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; border:1.5px solid var(--border); background:linear-gradient(135deg,#fffbeb,#fff8ec); margin-bottom:8px; }
+  .kobo-pend-txt { flex:1; min-width:180px; font-size:0.86rem; color:#334155; }
+  .kobo-pend-txt strong { font-family:'Sora',sans-serif; color:var(--navy); }
+  .kobo-pend-txt .meta { font-size:0.74rem; color:#64748b; }
+
   /* LOGIN (igual patrón que admin-duplas.html) */
   #login-screen { max-width:380px; margin:60px auto; padding:0 18px; }
   .login-card { background:white; border-radius:16px; padding:28px 24px; border:1px solid var(--border); box-shadow:0 4px 18px rgba(15,31,61,0.08); }
@@ -272,6 +280,10 @@
   <!-- JORNADA DE HOY — inicio/fin, una marca por dupla por día (alcanza con
        que lo toque cualquiera de los dos integrantes, es la misma cuenta). -->
   <div id="jornada-box" style="display:none;"></div>
+
+  <!-- KOBO PENDIENTES — envíos de KoBo del equipo (propio) con DNI que
+       todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
+  <div id="kobo-pend-box" style="display:none;"></div>
 
   <div class="wrap">
 
@@ -801,6 +813,7 @@ async function entrarAlApp(){
   mostrarMiTurno();
   await cargarJornadaHoy();
   mostrarJornada();
+  cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
   Casos.volverABuscar();
 }
 
@@ -1134,7 +1147,105 @@ async function marcarFinJornada(){
   }
 }
 
-document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+// ── KOBO PENDIENTES — reducir la doble carga (KoBo + Casos) ──────────────
+// Idea: la dupla ya carga KoBo en el territorio (es obligatorio, ver
+// DISENO-CASOS.md §4) — si además carga el caso acá a mano, tipea el
+// nombre y el DNI dos veces. Esto lee los envíos de KoBo de la propia
+// dupla y, para los que traen DNI y ese DNI todavía no es un caso cargado
+// acá, ofrece un botón que abre el alta ya con nombre/apellido/DNI
+// completos — la dupla revisa y completa el resto (zona, criticidad, etc.)
+// en vez de tipear todo de cero.
+//
+// A propósito solo cubre los envíos CON DNI: es el único dato que permite
+// saber con confianza "esto ya es un caso" vs "esto es alguien nuevo" —
+// matchear por nombre solo es demasiado arriesgado para hacerlo solo (dos
+// "Andrea" de duplas distintas, por ejemplo). Los envíos sin DNI se
+// siguen cargando a mano, como siempre — no hay drama, es la situación
+// esperada por "sin identificar" (ver arriba).
+//
+// Por qué no hace falta marcar "descartado" en ningún lado: apenas se
+// confirma un pendiente, su DNI pasa a existir en `personas` y la próxima
+// vez que se recalcula esta lista, ya no aparece — se resuelve solo.
+function normalizarNombreKobo(s){
+  return String(s||'')
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/,/g, ' ')
+    .split(/\s+/).filter(Boolean).sort().join(' ');
+}
+
+async function fetchKoboProxyAll(project, assetId){
+  let results = [], next = `${project.kobo.base}/${assetId}/data/?format=json&limit=3000`;
+  while(next){
+    const proxyUrl = `/.netlify/functions/kobo-proxy?url=${encodeURIComponent(next)}&token=${encodeURIComponent(project.kobo.token)}`;
+    const resp = await fetch(proxyUrl);
+    const data = await resp.json().catch(()=>null);
+    if(!resp.ok || !data) throw new Error((data && data.error) || `KoBo error ${resp.status}`);
+    results = results.concat(data.results || []);
+    next = data.next || null;
+  }
+  return results;
+}
+
+let koboPendientesActuales = [];
+
+async function cargarKoboPendientes(){
+  const box = document.getElementById('kobo-pend-box');
+  if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form) return; // proyecto sin KoBo conectado todavía
+
+  try{
+    const client = await SupabaseClient.getClient();
+
+    const [{ data: integrantes }, { data: personasExistentes }, koboRowsRaw] = await Promise.all([
+      client.from('integrantes').select('nombre,apellido').eq('dupla_id', miPerfil.dupla_id),
+      client.from('personas').select('dni').eq('dupla_id', miPerfil.dupla_id).not('dni', 'is', null),
+      fetchKoboProxyAll(project, form.id),
+    ]);
+
+    const misNombres = new Set((integrantes||[])
+      .map(i => normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`))
+      .filter(Boolean));
+    const dnisExistentes = new Set((personasExistentes||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
+
+    const porDni = new Map(); // dni -> envío más reciente
+    koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
+      if(!misNombres.has(normalizarNombreKobo(p.operador))) return; // no es de mi dupla
+      const dni = String((p.persona && p.persona.dni) || '').trim();
+      if(!dni || dnisExistentes.has(dni)) return; // sin DNI, o ya es un caso cargado
+      const previo = porDni.get(dni);
+      if(!previo || (p.fecha||'') > (previo.fecha||'')) porDni.set(dni, p);
+    });
+
+    koboPendientesActuales = [...porDni.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+    mostrarKoboPendientes();
+  }catch(e){
+    console.error('No se pudieron revisar los envíos de KoBo pendientes', e);
+    box.style.display = 'none'; // falla en silencio: no es un gate, es una ayuda opcional
+  }
+}
+
+function mostrarKoboPendientes(){
+  const box = document.getElementById('kobo-pend-box');
+  if(!koboPendientesActuales.length){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="kobo-pend">
+      <div class="kobo-pend-head">📥 ${koboPendientesActuales.length} envío${koboPendientesActuales.length===1?'':'s'} de KoBo con DNI que todavía no ${koboPendientesActuales.length===1?'tiene':'tienen'} caso cargado acá</div>
+      ${koboPendientesActuales.map((p, idx) => `
+        <div class="kobo-pend-card">
+          <div class="kobo-pend-txt">
+            <strong>${esc(`${p.persona.nombre||''} ${p.persona.apellido||''}`.trim() || '(sin nombre en KoBo)')}</strong> · DNI ${esc(p.persona.dni)}
+            <div class="meta">${esc(p.tipo||'Intervención')} · ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}</div>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboPendiente(${idx})">✅ Confirmar y cargar caso</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 
 // ── UTILIDADES ──────────────────────────────────────────────────────────
 
@@ -1402,10 +1513,18 @@ const Casos = {
     if(!personaActual) return;
     Casos._renderFormPersona(personaActual);
   },
+  // Abre el alta (NO edición — sigue siendo un caso nuevo, `personaExistente`
+  // queda null) con nombre/apellido/DNI ya completos desde KoBo, para no
+  // tipearlos de nuevo. Ver cargarKoboPendientes().
+  confirmarKoboPendiente(idx){
+    const p = koboPendientesActuales[idx];
+    if(!p) return;
+    Casos._renderFormPersona(null, { nombre: p.persona.nombre||'', apellido: p.persona.apellido||'', dni: p.persona.dni||'' });
+  },
 
-  _renderFormPersona(persona){
+  _renderFormPersona(persona, prefill){
     const esEdicion = !!persona;
-    const v = persona || {};
+    const v = persona || prefill || {};
     const body = `
       <form id="form-persona" onsubmit="return false;">
         <fieldset>
