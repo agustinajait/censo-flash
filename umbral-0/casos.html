@@ -280,7 +280,7 @@
       <div class="section-label">Buscar o cargar un caso</div>
       <div class="search-row">
         <input type="text" id="buscar-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="Casos.onBuscarInput()">
-        <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Nuevo ingreso</button>
+        <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Ingresar nuevo caso</button>
       </div>
       <div id="resultados-list"></div>
     </div>
@@ -1363,7 +1363,7 @@ const Casos = {
     const { data, error } = await query;
     if(error){ cont.innerHTML = `<div class="empty-msg">Error buscando personas: ${esc(error.message)}</div>`; return; }
     if(!data || !data.length){
-      cont.innerHTML = `<div class="empty-msg">${q ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Nuevo ingreso" para dar de alta.</div>`;
+      cont.innerHTML = `<div class="empty-msg">${q ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
       return;
     }
     cont.innerHTML = '';
@@ -1435,7 +1435,7 @@ const Casos = {
         </div>
       </form>
     `;
-    openModal(esEdicion ? '✏️ Editar datos de la persona' : '➕ Nuevo ingreso', body);
+    openModal(esEdicion ? '✏️ Editar datos de la persona' : '➕ Ingresar nuevo caso', body);
     document.getElementById('btn-guardar-persona').onclick = () => Casos.guardarPersona(persona);
   },
 
