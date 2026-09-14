@@ -729,6 +729,11 @@ equipos de GOPA).
   conectar esta vista). `fetchKoboAll()` pasa por
   `netlify/functions/kobo-proxy.js`, que sí puede llamar a KoBo
   server-to-server.
+- **No es en vivo-en-vivo:** se actualiza sola al abrir/volver a la
+  pestaña "Umbral 0" (no hay un timer refrescando de fondo mientras la
+  tenés abierta — mismo comportamiento que el resto del dashboard, nada
+  se refresca solo en segundo plano). El botón "🔄 Actualizar" del nav sí
+  la refresca a pedido sin tener que salir de la pestaña.
 - **Envíos sin dupla reconocida:** si el operador de un envío "umbral_0" no
   matchea contra ningún integrante cargado, no se cuenta como del equipo —
   queda listado aparte ("⚠️ Operadores sin dupla reconocida") para poder

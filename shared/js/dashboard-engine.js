@@ -376,10 +376,14 @@ async function autoRefreshSheet(project){
 // pudo actualizar" aparece y hay que esperar a que Google se recupere).
 async function refrescarAhora(){
   const project = getProject(activeProjectId);
-  if(!project || !project.sheetReadKey) return;
+  if(!project) return;
   const btn = document.getElementById('nav-refresh-btn');
   if(btn){ btn.disabled = true; btn.textContent = '🔄 Actualizando…'; }
-  await autoRefreshSheet(project);
+  if(activeProjectId === 'umbral-0'){
+    await cargarUmbral0(project);
+  } else if(project.sheetReadKey){
+    await autoRefreshSheet(project);
+  }
   if(btn){ btn.disabled = false; btn.textContent = '🔄 Actualizar'; }
 }
 
