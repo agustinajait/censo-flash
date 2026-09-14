@@ -111,11 +111,18 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
     // TODO: sumar más opciones de derivación acá
   ],
 
+  // Misma cuenta de KoBo que Censo Flash (agustinajait@gmail.com) — por eso
+  // el token es igual, no es un error de copiar/pegar.
   kobo: {
-    token: '', // TODO: token de KoBo Toolbox (si Umbral 0 lo termina usando)
+    token: '685fc2e5a79995c816b2652530a9fc520387a630',
     base: 'https://kf.kobotoolbox.org/api/v2/assets',
+    // Asset id del formulario de Umbral 0 (uno solo, a diferencia de Censo
+    // Flash que tiene Norte/Centro/Sur): ap8VHRKKybWZ9bh7UYEd3w.
+    // TODO: falta escribir `parseRow` — necesito ver un export real de los
+    // datos (columnas que manda este formulario) para mapear los campos a
+    // lo que espera dashboard.html. Ver DISENO-CASOS.md §10 (abierto).
     forms: [
-      // TODO: { id:'<asset id>', nombre:'<nombre del formulario>', parseRow: function(row){ ... } }
+      // { id:'ap8VHRKKybWZ9bh7UYEd3w', nombre:'Umbral 0', parseRow: function(row){ ... } }
     ],
   },
 };
