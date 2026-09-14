@@ -634,18 +634,25 @@ días) + botón "Generar reporte".
   delta calculado sobre el período. Si hace falta esa precisión, hay que
   sumar una tabla de historial (`personas_nivel_historico` o similar).
 
-**Nueva acción "📍 Registrar recorrida"** en `casos.html` (junto a "Nuevo
-ingreso"): para cuando la dupla pasa por un punto y no hay nadie a quien
-dar de alta (o si hay contacto, pero ya se cargó por otro lado). Sin esto,
-la cobertura territorial (zonas/puntos recorridos, iglesias abordadas,
-puntos nuevos) no queda registrada en ningún lado más que en el KoBo. Crea
-una fila en `intervenciones` con `persona_id = null`, `tipo = 'recorrida'`.
+**"📍 Registrar recorrida" (sept/2026, sacada):** existió brevemente como
+acción en `casos.html` (junto a "Nuevo ingreso") para cuando la dupla
+pasaba por un punto sin nadie a quien dar de alta — creaba una fila en
+`intervenciones` con `persona_id = null`, `tipo = 'recorrida'`, guardando
+zona/turno/tipo de punto/punto nuevo en `intervenciones.datos`. Se sacó
+por confundir a las duplas en el uso diario. Consecuencia: la cobertura de
+"pasé por un punto y no encontré a nadie" ya no queda registrada en
+ningún lado de la plataforma (sigue estando en el KoBo, que es
+obligatorio en cada contacto — ver §3). El reporte semanal se ajustó para
+no mostrar en cero los indicadores que dependían solo de esto (iglesias
+abordadas, puntos nuevos, franjas horarias) — ver abajo.
 
 **Qué calcula el reporte** (las 4 secciones + tablero que pide GOPA):
 - **a) Cobertura territorial** — zonas recorridas, puntos visitados,
-  iglesias abordadas, cantidad de recorridas, días con presencia, puntos
-  nuevos. "Puntos que requieren más frecuencia" es juicio de coordinación,
-  no un cálculo — queda como campo de texto libre.
+  intervenciones registradas, días con presencia. "Puntos que requieren
+  más frecuencia" es juicio de coordinación, no un cálculo — queda como
+  campo de texto libre. ("Iglesias abordadas", "puntos nuevos" y "franjas
+  horarias" se sacaron del reporte al sacar "Registrar recorrida" — sin
+  esa fuente, quedaban siempre en cero.)
 - **b) Población abordada** — personas nuevas, recontactadas, con
   seguimiento activo. "Incorporadas al seguimiento" y "con las que se
   perdió contacto" no son calculables con precisión todavía (ver
@@ -659,8 +666,9 @@ una fila en `intervenciones` con `persona_id = null`, `tipo = 'recorrida'`.
   `derivaciones.tipo`/`estado`.
 - **Tablero de indicadores** — los 11 indicadores que pide el documento;
   los que no son calculables (Vínculo, Sostenimiento, Gestión, Resultado —
-  requieren historial de nivel o una tabla de alertas que no existe)
-  quedan marcados "—" en vez de inventados.
+  requieren historial de nivel o una tabla de alertas que no existe;
+  Territorialidad — dependía de "Registrar recorrida", ver arriba) quedan
+  marcados "—" en vez de inventados.
 - **Reporte de alertas y desvíos** — sin tabla propia todavía, campo de
   texto libre.
 
