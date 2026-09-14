@@ -23,11 +23,18 @@
 // `identificacion/equipo === 'umbral_0'`. Tiene ~270 preguntas con lógica
 // condicional (cambia según el tipo de intervención: Primer Acercamiento
 // / Primer Acercamiento con derivación de la RED / Seguimiento /
-// Recontacto) — acá NO se mapean las 270, solo las que hacen falta para
-// el dashboard y el resumen semanal (cobertura, población abordada,
-// nivel de vínculo). Nombres de campo confirmados sept/2026 contra un
-// export real (XLSX labels) + una muestra de la API en JSON — si KoBo
-// cambia el formulario, hay que revalidar esto contra un envío nuevo.
+// Recontacto). Se mapea la identidad básica + la mayoría de lo que se usa
+// para precargar el alta de un caso en casos.html (ver
+// confirmarKoboPendiente()) — no las 270 preguntas completas (queda la
+// evaluación semiológica/clínica detallada, los "términos de
+// intervención" de cierre de jornada, y las preguntas de derivación
+// puntual, que están en `_raw` por si hacen falta más adelante). Nombres
+// de campo confirmados sept/2026 contra tres fuentes: un export en
+// formato "Labels" (preguntas en español), un export en formato
+// "XML values" (nombres técnicos + valores reales de ejemplo, así se
+// supo que las Sí/No usan 'si'/'no' en minúscula) y una muestra de la
+// API en vivo en JSON — si KoBo cambia el formulario, hay que revalidar
+// esto contra un envío nuevo.
 //
 // `campo()` busca la primera clave que EXISTA (no vacía) entre varias
 // alternativas — la misma pregunta puede vivir bajo grupos distintos
@@ -40,6 +47,49 @@ function campo(row, claves){
   return null;
 }
 
+// Como `campo()`, pero matchea por el nombre CORTO de la pregunta (sin el
+// grupo que la contiene) en vez de una clave exacta. Hace falta para los
+// campos de identidad: viven repetidos bajo dos ramas del formulario con
+// nombres de grupo que no confirmamos contra la API en vivo (a diferencia
+// de identificacion/operador_nombre y identificacion/tipo_intervencion,
+// que sí vienen de una muestra real) — pero SÍ confirmamos el nombre corto
+// de cada pregunta contra un export en formato "XML values" (sept/2026),
+// y KoBo arma la clave de la API siempre como "grupo/.../nombre_corto",
+// así que alcanza con matchear el final de la clave.
+function campoSufijo(row, sufijo){
+  for(const k in row){
+    if(k === sufijo || k.endsWith('/' + sufijo)){
+      const v = row[k];
+      if(v !== undefined && v !== null && v !== '') return v;
+    }
+  }
+  return null;
+}
+
+// Preguntas Sí/No — confirmado contra datos reales (sept/2026) que KoBo
+// guarda el valor como 'si'/'no' en minúscula, no como boolean nativo.
+function campoSufijoBool(row, sufijo){
+  const v = campoSufijo(row, sufijo);
+  if(v === 'si') return true;
+  if(v === 'no') return false;
+  return null; // no contestada — NO es lo mismo que "no" (ver dónde se usa)
+}
+
+// select_multiple: KoBo devuelve las opciones elegidas como un solo
+// string separado por espacios (ej. "pareja hijos padre"), con el
+// nombre interno de cada opción — que en este formulario ya es legible
+// en español (confirmado contra datos reales), solo hace falta
+// reemplazar guiones bajos por espacios y capitalizar.
+function legible(s){
+  s = String(s||'').replace(/_/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+function opcionesMultiples(row, sufijo){
+  const v = campoSufijo(row, sufijo);
+  if(!v) return [];
+  return String(v).split(/\s+/).filter(Boolean).map(legible);
+}
+
 function parseUmbral0(row){
   if(row['identificacion/equipo'] !== 'umbral_0') return null; // este asset lo comparten otros equipos de GOPA
 
@@ -48,6 +98,19 @@ function parseUmbral0(row){
   // confiable que parsear a mano el string crudo de "georreferenciacion".
   const geo = Array.isArray(row['_geolocation']) ? row['_geolocation'] : null;
 
+  // La identidad de la persona vive en DOS bloques distintos según la
+  // rama del formulario que se haya disparado (confirmado contra un
+  // export real, sept/2026) — cada envío completa solo UNA de las dos,
+  // así que no hay ambigüedad en cuál de las dos alternativas usar:
+  //  - "Primer Acercamiento": preguntas nivel1_fecha_nacimiento/
+  //    nivel1_edad_aproximada/nivel1_nacionalidad/persona_nombre/
+  //    persona_apellido/documento_numero — trae fecha de nacimiento real.
+  //  - "Seguimiento": preguntas nombre_segui/apellido_segui/alias_segui/
+  //    dni_segui — solo re-confirma la identidad de una persona ya
+  //    conocida, no vuelve a pedir fecha de nacimiento (por eso acá NO
+  //    hay un equivalente a nivel1_fecha_nacimiento para esta rama).
+  // Antes de esto el parser solo leía la rama de Primer Acercamiento —
+  // un envío de Seguimiento quedaba sin nombre/DNI reconocidos.
   return {
     operador: campo(row, ['identificacion/operador_nombre']),
     tipo: campo(row, ['identificacion/tipo_intervencion']),
@@ -56,11 +119,73 @@ function parseUmbral0(row){
     lat: geo ? geo[0] : null,
     lng: geo ? geo[1] : null,
     persona: {
-      nombre: campo(row, ['nivel1_intro/nivel1_datos/persona_nombre', 'Nombre de la persona']),
-      apellido: campo(row, ['nivel1_intro/nivel1_datos/persona_apellido', 'Apellido de la persona']),
-      dni: campo(row, ['nivel1_intro/nivel1_datos/documento_numero', 'Número de DNI de la persona']),
-      alias: campo(row, ['entrevista/datos_identificacion/nombre_autopercibido_alias', 'Alias']),
-      edad: campo(row, ['nivel1_intro/nivel1_datos/nivel1_edad_aproximada', 'Edad']),
+      nombre: campoSufijo(row, 'persona_nombre') || campoSufijo(row, 'nombre_segui'),
+      apellido: campoSufijo(row, 'persona_apellido') || campoSufijo(row, 'apellido_segui'),
+      // `documento_numero` no siempre es DNI — el formulario tiene un
+      // selector de tipo de documento separado (confirmado contra datos
+      // reales: 'tipo_doc' puede no ser 'dni', ej. pasaporte). Solo se
+      // toma como DNI cuando el tipo elegido efectivamente es DNI, para
+      // no matchear "casos ya cargados" contra un número que en realidad
+      // es de otro documento.
+      dni: (campoSufijo(row, 'tipo_doc') === 'dni' ? campoSufijo(row, 'documento_numero') : null) || campoSufijo(row, 'dni_segui'),
+      alias: campoSufijo(row, 'nombre_autopercibido_alias') || campoSufijo(row, 'nivel1_alias') || campoSufijo(row, 'alias_segui'),
+      edad: campoSufijo(row, 'nivel1_edad_aproximada'),
+      // Fecha de nacimiento REAL (no aproximada) — solo existe cuando se
+      // disparó la rama de Primer Acercamiento. No se inventa a partir de
+      // la edad aproximada: si no está, queda null y se carga a mano.
+      fechaNacimiento: campoSufijo(row, 'nivel1_fecha_nacimiento'),
+      nacionalidad: campoSufijo(row, 'nivel1_nacionalidad'),
+      generoAutopercibido: campoSufijo(row, 'genero_autopercibido'),
+      generoDni: campoSufijo(row, 'genero_dni'),
+
+      // ── Resto de los datos que releva el formulario (sept/2026) — se
+      // usan para precargar más campos del alta en casos.html además de
+      // la identidad básica (ver confirmarKoboPendiente() en casos.html).
+      // Solo lo que el formulario pregunta directo — nada se infiere ni
+      // se calcula acá, eso queda para quien arma el texto final a partir
+      // de estos datos.
+      estadoSalud: campoSufijo(row, 'salud_estado'),
+      observacionPersona: campoSufijo(row, 'observacion_persona'),
+      caracteristicas: campoSufijo(row, 'nivel1_caracteristicas'), // descripción física — útil antes de tener foto
+      aceptaEntrevistaProlongada: campoSufijoBool(row, 'acepta_entrevista_prolongada'),
+      identificoConsumosProblematicos: campoSufijoBool(row, 'identifico_consumos_problematicos'),
+      consumosCuales: campoSufijo(row, 'consumos_cuales'),
+      motivoCalle: opcionesMultiples(row, 'motivo_calle'),
+      infoCualitativaMotivos: campoSufijo(row, 'info_cualitativa_motivos'),
+      estrategiasAbordaje: campoSufijo(row, 'estrategias_abordaje'),
+      notaDevolucion: campoSufijo(row, 'nota_devolucion'),
+
+      // Situación habitacional
+      lugarHabitual: legible(campoSufijo(row, 'lugar_habitual')) || campoSufijo(row, 'otro_lugar'),
+      tiempoEnCalle: legible(campoSufijo(row, 'tiempo_en_calle')),
+      lugarViviendaPrevia: legible(campoSufijo(row, 'lugar_vivienda_previa')),
+      tenenciaViviendaPrevia: legible(campoSufijo(row, 'tenencia_vivienda_previa')),
+      conQuienVivias: opcionesMultiples(row, 'con_quien_vivias'),
+
+      // Situación económica
+      actividad: campoSufijoBool(row, 'actividad'),
+      tipoActividad: legible(campoSufijo(row, 'tipo_act')),
+      prestaciones: opcionesMultiples(row, 'prestaciones'),
+      notaIngresosMonetarios: campoSufijo(row, 'nota_ingresos_monetarios'),
+
+      // Situación educativa
+      asisteEducativo: legible(campoSufijo(row, 'asiste_educativo')),
+      maxNivelEducativo: legible(campoSufijo(row, 'max_nivel_educativo')),
+
+      // Redes de contención
+      vinculos: legible(campoSufijo(row, 'vinculos')), // select (ej. "solo"), NO es Sí/No — confirmado contra datos reales
+      tipoVinculos: opcionesMultiples(row, 'tipo_vinculos'),
+      asisteInstitucionComunitaria: campoSufijoBool(row, 'asiste_institucion_comunitaria'),
+      institucionComunitariaCual: campoSufijo(row, 'institucion_comunitaria_cual'),
+      notaRelacionesVinculos: campoSufijo(row, 'nota_relaciones_vinculos'),
+
+      // Situación sanitaria
+      embarazo: campoSufijoBool(row, 'embarazo'),
+      seAtiendeHospital: campoSufijoBool(row, 'se_atiende_hospital'),
+      seAtiendeHospitalCual: campoSufijo(row, 'se_atiende_hospital_cual'),
+      discapacidad: campoSufijoBool(row, 'discapacidad'),
+      discapacidadCual: campoSufijo(row, 'discapacidad_cual'),
+      dificultadPara: opcionesMultiples(row, 'dificultad_para'),
     },
     nivelContinuaSeguimiento: campo(row, ['cierre/nivel_continua_seguimiento']),
     // Fila cruda completa, por si hace falta leer algún campo puntual más

@@ -287,8 +287,56 @@ nombre/apellido/DNI ya completos — la dupla revisa/completa el resto
   resuelve solo, sin estado nuevo que mantener.
 - Reusa `netlify/functions/kobo-proxy.js` (mismo proxy de CORS que la
   vista de dashboard.html, ver §10.1).
-- **Todavía no cubre:** envíos sin DNI, ni pre-completar zona/criticidad/
-  historia — reducir eso más es la fase grande que sigue abierta (§11).
+- **Prefill ampliado (sept/2026):** además de nombre/apellido/DNI, ahora
+  también precarga `fecha_nacimiento` y `nacionalidad` cuando el envío es
+  de tipo "Primer Acercamiento" (esa rama del formulario sí las pide). Un
+  "Seguimiento" no vuelve a preguntar la fecha de nacimiento de una
+  persona ya conocida, así que ahí ese campo queda vacío y se completa a
+  mano, como siempre — no se inventa una fecha a partir de la edad
+  aproximada.
+- **Bug corregido de paso:** `parseUmbral0()` solo leía la identificación
+  de la rama "Primer Acercamiento" (`nivel1_intro/nivel1_datos/...`) — un
+  envío de tipo "Seguimiento" (que usa preguntas distintas,
+  `nombre_segui`/`apellido_segui`/`dni_segui`) quedaba sin nombre ni DNI
+  reconocidos, así que nunca aparecía en "KoBo pendientes" ni contaba
+  bien en el dashboard de coordinación. Se agregó `campoSufijo()`, que
+  matchea por el nombre corto de la pregunta en vez de por la ruta
+  completa del grupo (confirmado contra un export real en formato
+  "XML values", no adivinado) — cubre las dos ramas sin tener que
+  duplicar la lógica.
+- **Prefill ampliado a (casi) todo lo que pregunta KoBo** (sept/2026):
+  además de identidad, "Confirmar y cargar caso" ahora también precarga
+  — solo cuando el envío es "Primer Acercamiento", que es la rama que
+  releva todo esto —:
+  - `estado_salud`, `consumo_activo`, `acepta_entrevista` (campos
+    directos de "Datos del caso"/"Salud").
+  - `historia_breve`: combina la descripción física, la observación
+    general, el motivo de calle en texto libre y las notas de cierre del
+    equipo (características/observación/motivos/estrategias/devolución),
+    como párrafos separados.
+  - `situacion_habitacional`, `situacion_economica`, `situacion_educativa`,
+    `redes_contencion`, `situacion_sanitaria`: cada una combina varias
+    preguntas puntuales de KoBo en líneas "Pregunta: respuesta" (ver
+    `lineasKobo()`/`parrafosKobo()` en casos.html) — no existe una
+    pregunta de KoBo por cada campo de Casos, así que se arma un resumen
+    legible en vez de mapear 1 a 1.
+  - Las secciones colapsables "Salud y antecedentes" e "Informe social"
+    del formulario de alta arrancan **abiertas** cuando vienen con datos
+    precargados (para que no pase desapercibido que hay texto ahí
+    adentro) — en una edición común siguen colapsadas, como siempre.
+  - Nada de esto es definitivo: es un punto de partida que la dupla
+    revisa y edita antes de guardar, no un dato ya validado.
+  - En un "Seguimiento" casi todo esto queda vacío (esa rama solo
+    re-confirma identidad de una persona ya conocida) — se completa a
+    mano, como siempre.
+- **Corrección de tipo de documento:** `documento_numero` de la rama
+  "Primer Acercamiento" solo se toma como DNI cuando el tipo de
+  documento elegido en KoBo (`tipo_doc`) efectivamente es DNI — antes se
+  asumía siempre, aunque la persona hubiera dado otro tipo de documento
+  (ej. pasaporte).
+- **Todavía no cubre:** envíos sin DNI, ni zona/criticidad/nivel de
+  vínculo (no hay pregunta de KoBo equivalente a estos, son criterio del
+  equipo) — reducir eso más es la fase grande que sigue abierta (§11).
 
 **Vista de solo lectura para admin/coordinación** (sept/2026,
 `admin-duplas.html`, pestaña "Duplas y equipo") — mismo cálculo pero de
