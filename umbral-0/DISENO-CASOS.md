@@ -304,8 +304,39 @@ nombre/apellido/DNI ya completos — la dupla revisa/completa el resto
   completa del grupo (confirmado contra un export real en formato
   "XML values", no adivinado) — cubre las dos ramas sin tener que
   duplicar la lógica.
-- **Todavía no cubre:** envíos sin DNI, ni pre-completar zona/criticidad/
-  historia — reducir eso más es la fase grande que sigue abierta (§11).
+- **Prefill ampliado a (casi) todo lo que pregunta KoBo** (sept/2026):
+  además de identidad, "Confirmar y cargar caso" ahora también precarga
+  — solo cuando el envío es "Primer Acercamiento", que es la rama que
+  releva todo esto —:
+  - `estado_salud`, `consumo_activo`, `acepta_entrevista` (campos
+    directos de "Datos del caso"/"Salud").
+  - `historia_breve`: combina la descripción física, la observación
+    general, el motivo de calle en texto libre y las notas de cierre del
+    equipo (características/observación/motivos/estrategias/devolución),
+    como párrafos separados.
+  - `situacion_habitacional`, `situacion_economica`, `situacion_educativa`,
+    `redes_contencion`, `situacion_sanitaria`: cada una combina varias
+    preguntas puntuales de KoBo en líneas "Pregunta: respuesta" (ver
+    `lineasKobo()`/`parrafosKobo()` en casos.html) — no existe una
+    pregunta de KoBo por cada campo de Casos, así que se arma un resumen
+    legible en vez de mapear 1 a 1.
+  - Las secciones colapsables "Salud y antecedentes" e "Informe social"
+    del formulario de alta arrancan **abiertas** cuando vienen con datos
+    precargados (para que no pase desapercibido que hay texto ahí
+    adentro) — en una edición común siguen colapsadas, como siempre.
+  - Nada de esto es definitivo: es un punto de partida que la dupla
+    revisa y edita antes de guardar, no un dato ya validado.
+  - En un "Seguimiento" casi todo esto queda vacío (esa rama solo
+    re-confirma identidad de una persona ya conocida) — se completa a
+    mano, como siempre.
+- **Corrección de tipo de documento:** `documento_numero` de la rama
+  "Primer Acercamiento" solo se toma como DNI cuando el tipo de
+  documento elegido en KoBo (`tipo_doc`) efectivamente es DNI — antes se
+  asumía siempre, aunque la persona hubiera dado otro tipo de documento
+  (ej. pasaporte).
+- **Todavía no cubre:** envíos sin DNI, ni zona/criticidad/nivel de
+  vínculo (no hay pregunta de KoBo equivalente a estos, son criterio del
+  equipo) — reducir eso más es la fase grande que sigue abierta (§11).
 
 **Vista de solo lectura para admin/coordinación** (sept/2026,
 `admin-duplas.html`, pestaña "Duplas y equipo") — mismo cálculo pero de

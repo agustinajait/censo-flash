@@ -1166,6 +1166,22 @@ async function marcarFinJornada(){
 // Por qué no hace falta marcar "descartado" en ningún lado: apenas se
 // confirma un pendiente, su DNI pasa a existir en `personas` y la próxima
 // vez que se recalcula esta lista, ya no aparece — se resuelve solo.
+// "Label: valor" por línea, salteando lo que vino vacío — para componer
+// los campos de texto libre (situación habitacional/económica/etc.) del
+// alta a partir de varias preguntas puntuales de KoBo. Ver
+// confirmarKoboPendiente().
+function lineasKobo(pares){
+  return pares
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([label, v]) => `${label}: ${v}`)
+    .join('\n');
+}
+// Como lineasKobo(), pero para textos libres que ya se leen bien como
+// prosa (sin "Label:") — se separan con línea en blanco entre cada uno.
+function parrafosKobo(textos){
+  return textos.filter(Boolean).join('\n\n');
+}
+
 function normalizarNombreKobo(s){
   return String(s||'')
     .normalize('NFKD').replace(/[̀-ͯ]/g, '')
@@ -1514,27 +1530,78 @@ const Casos = {
     Casos._renderFormPersona(personaActual);
   },
   // Abre el alta (NO edición — sigue siendo un caso nuevo, `personaExistente`
-  // queda null) con nombre/apellido/DNI ya completos desde KoBo, para no
-  // tipearlos de nuevo. Ver cargarKoboPendientes().
+  // queda null) con todo lo que KoBo ya relevó, para que la dupla tipee lo
+  // menos posible. fecha_nacimiento/nacionalidad/toda la sección de
+  // situación solo vienen completas cuando el envío es de "Primer
+  // Acercamiento" (ver parseUmbral0 en config/umbral-0.js) — en un
+  // "Seguimiento" la mayoría queda vacía y se completa a mano, como
+  // siempre (un seguimiento es sobre una persona ya conocida, no vuelve a
+  // preguntar todo esto). Nada de esto es definitivo: es un punto de
+  // partida en el formulario, la dupla lo revisa/edita antes de guardar.
   confirmarKoboPendiente(idx){
     const p = koboPendientesActuales[idx];
     if(!p) return;
-    // fecha_nacimiento/nacionalidad solo vienen completos cuando el envío
-    // es de "Primer Acercamiento" (ver parseUmbral0 en config/umbral-0.js)
-    // — en un "Seguimiento" quedan null y la dupla los completa a mano,
-    // como siempre.
+    const per = p.persona;
     Casos._renderFormPersona(null, {
-      nombre: p.persona.nombre||'',
-      apellido: p.persona.apellido||'',
-      dni: p.persona.dni||'',
-      fecha_nacimiento: p.persona.fechaNacimiento||'',
-      nacionalidad: p.persona.nacionalidad||'',
+      nombre: per.nombre||'',
+      apellido: per.apellido||'',
+      dni: per.dni||'',
+      // KoBo devuelve la fecha con hora (ej. "1992-04-21T00:00:00") — el
+      // input type=date solo acepta "YYYY-MM-DD".
+      fecha_nacimiento: per.fechaNacimiento ? String(per.fechaNacimiento).slice(0, 10) : '',
+      nacionalidad: per.nacionalidad || '',
+      estado_salud: per.estadoSalud || '',
+      consumo_activo: per.identificoConsumosProblematicos === true,
+      acepta_entrevista: per.aceptaEntrevistaProlongada === true,
+      historia_breve: parrafosKobo([
+        per.caracteristicas,
+        per.observacionPersona,
+        per.infoCualitativaMotivos,
+        per.estrategiasAbordaje,
+        per.notaDevolucion,
+      ]),
+      situacion_habitacional: lineasKobo([
+        ['Dónde duerme habitualmente', per.lugarHabitual],
+        ['Tiempo en situación de calle', per.tiempoEnCalle],
+        ['Vivienda previa', per.lugarViviendaPrevia],
+        ['Tenencia de la vivienda previa', per.tenenciaViviendaPrevia],
+        ['Con quién vivía antes', (per.conQuienVivias||[]).join(', ')],
+      ]),
+      situacion_economica: lineasKobo([
+        ['Tiene actividad económica', per.actividad === true ? 'Sí' : (per.actividad === false ? 'No' : '')],
+        ['Tipo de actividad', per.tipoActividad],
+        ['Prestaciones', (per.prestaciones||[]).join(', ')],
+        ['Ingresos (nota del equipo)', per.notaIngresosMonetarios],
+      ]),
+      situacion_educativa: lineasKobo([
+        ['Asiste a un espacio educativo', per.asisteEducativo],
+        ['Máximo nivel educativo alcanzado', per.maxNivelEducativo],
+      ]),
+      redes_contencion: lineasKobo([
+        ['Vínculos actuales', per.vinculos],
+        ['Cómo ayudan esos vínculos', (per.tipoVinculos||[]).join(', ')],
+        ['Asiste a una institución comunitaria', per.asisteInstitucionComunitaria === true ? (per.institucionComunitariaCual || 'Sí') : (per.asisteInstitucionComunitaria === false ? 'No' : '')],
+        ['Relaciones y vínculos (nota del equipo)', per.notaRelacionesVinculos],
+      ]),
+      situacion_sanitaria: lineasKobo([
+        ['Embarazo', per.embarazo === true ? 'Sí' : (per.embarazo === false ? 'No' : '')],
+        ['Se atiende en un hospital', per.seAtiendeHospital === true ? (per.seAtiendeHospitalCual || 'Sí') : (per.seAtiendeHospital === false ? 'No' : '')],
+        ['Discapacidad', per.discapacidad === true ? (per.discapacidadCual || 'Sí') : (per.discapacidad === false ? 'No' : '')],
+        ['Dificultades relevadas', (per.dificultadPara||[]).filter(d => d !== 'Ninguna' && d !== 'Nsnc').join(', ')],
+      ]),
     });
   },
 
   _renderFormPersona(persona, prefill){
     const esEdicion = !!persona;
     const v = persona || prefill || {};
+    // Si viene precargado desde KoBo, esas secciones arrancan abiertas —
+    // si no se abren solas, es fácil no darse cuenta de que ya hay texto
+    // cargado ahí adentro (quedan colapsadas por defecto en una edición
+    // normal, donde sí tiene sentido no abrumar con todo a la vista).
+    const tieneDatos = campos => campos.some(c => v[c.key]);
+    const abrirSalud = tieneDatos(CAMPOS_PERSONA_SALUD) ? ' open' : '';
+    const abrirInforme = tieneDatos(CAMPOS_PERSONA_INFORME) ? ' open' : '';
     const body = `
       <form id="form-persona" onsubmit="return false;">
         <fieldset>
@@ -1549,11 +1616,11 @@ const Casos = {
           <legend>Datos del caso</legend>
           ${CAMPOS_PERSONA_CASO.map(c => renderCampo(c, v[c.key])).join('')}
         </fieldset>
-        <details class="form-section">
+        <details class="form-section"${abrirSalud}>
           <summary>Salud y antecedentes (completar cuando corresponda — precarga el formulario de CIS)</summary>
           ${CAMPOS_PERSONA_SALUD.map(c => renderCampo(c, v[c.key])).join('')}
         </details>
-        <details class="form-section">
+        <details class="form-section"${abrirInforme}>
           <summary>Informe social (completar cuando corresponda — no hace falta en el primer contacto)</summary>
           ${CAMPOS_PERSONA_INFORME.map(c => renderCampo(c, v[c.key])).join('')}
         </details>
