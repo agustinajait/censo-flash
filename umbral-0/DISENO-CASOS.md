@@ -290,6 +290,19 @@ nombre/apellido/DNI ya completos — la dupla revisa/completa el resto
 - **Todavía no cubre:** envíos sin DNI, ni pre-completar zona/criticidad/
   historia — reducir eso más es la fase grande que sigue abierta (§11).
 
+**Vista de solo lectura para admin/coordinación** (sept/2026,
+`admin-duplas.html`, pestaña "Duplas y equipo") — mismo cálculo pero de
+todas las duplas a la vez, para que Agustina pueda ver el estado general
+sin entrar cuenta por cuenta. A propósito **no tiene botón de confirmar**:
+el alta tiene que quedar con el `dupla_id` de la dupla que realmente hizo
+el contacto, así que quien confirma sigue siendo cada dupla desde su
+cuenta en Casos — esto es solo para detectar "hace días que esta dupla
+tiene pendientes sin cargar" y poder avisarles. El chequeo de "¿ya es un
+caso?" es correctamente por dupla (no global): si dos duplas distintas
+cargan el mismo DNI a KoBo, cada una ve su propio pendiente — es el
+mismo caso "duplicados entre duplas" ya documentado más abajo (§11), no
+algo nuevo que esto introduzca.
+
 ## 5. Pantalla: Pedir derivación
 
 Un botón "Pedir derivación" abre un selector de `tipo` (las opciones de
