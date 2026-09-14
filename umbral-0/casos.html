@@ -372,6 +372,9 @@ const CAMPOS_PERSONA_CASO = [
   { key:'nivel_actual', label:'Nivel de vínculo (1 a 5)', type:'select', options:()=>['1','2','3','4','5'],
     hint:'1=Identificación · 2=Construcción del vínculo · 3=Monitoreo territorial · 4=Anclaje comunitario · 5=Proyecto de inclusión. Detalle de cada nivel en el glosario.' },
   { key:'consumo_activo', label:'Consumo activo', type:'checkbox', checkLabel:'La persona presenta consumo activo' },
+  // Indicador propio del Nivel 2 (Construcción del vínculo — ver glosario):
+  // "acepta una entrevista" es uno de los pasos que marca ese nivel.
+  { key:'acepta_entrevista', label:'¿Acepta entrevista?', type:'checkbox', checkLabel:'La persona acepta ser entrevistada' },
   { key:'historia_breve', label:'Historia breve', type:'textarea' },
 ];
 // Salud y antecedentes — sección opcional, precarga el formulario de CIS
@@ -1546,6 +1549,7 @@ const Casos = {
     badges.push(p.estado === 'egresado' ? '<span class="badge badge-green">egresado</span>' : '<span class="badge badge-blue">activo</span>');
     if(p.criticidad) badges.push(`<span class="badge badge-amber">criticidad: ${esc(p.criticidad)}</span>`);
     if(p.consumo_activo) badges.push('<span class="badge badge-red">consumo activo</span>');
+    if(p.acepta_entrevista) badges.push('<span class="badge badge-green">acepta entrevista</span>');
     if(p.sin_identificar) badges.push('<span class="badge badge-gray">sin identificar</span>');
     badges.push(Casos.esSeguimiento() ? '<span class="badge badge-gray">seguimiento</span>' : '<span class="badge badge-gray">contacto espontáneo</span>');
     document.getElementById('ficha-badges').innerHTML = badges.join('');
