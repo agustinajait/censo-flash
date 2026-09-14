@@ -204,6 +204,14 @@ todo lo que pasa con ella en el tiempo.
    - Datos básicos: `nombre`, `apellido`, `dni` (o `dni_denuncia_extravio` si no
      tiene y hay que acompañar a hacer la denuncia — igual que el circuito de
      DNI del documento), `fecha_nacimiento`, `nacionalidad`, `telefono_contacto`.
+   - **`sin_identificar`** (sept/2026): si la persona no quiere dar su nombre,
+     este checkbox saca la obligatoriedad de `nombre`/`apellido` — a cambio
+     exige `punto_contacto`, para que quede al menos dónde se la encontró.
+     Sin esto, la dupla no tenía forma de registrar la intervención en la
+     plataforma si la persona no se identificaba (situación esperada, no una
+     excepción — el propio Nivel 1 del modelo de vínculo contempla que
+     todavía no haya pasado eso). En listas/ficha se muestra como "Persona
+     sin identificar" (`nombreDisplay()`) en vez de un nombre en blanco.
    - Ubicación: `punto_contacto` (dirección/referencia libre), `zona`
      (desplegable con `config.zonasOpciones` — hoy: C1A, C2, C14, C13, Zona
      frontera, las zonas prioritarias del documento; editable sin tocar
