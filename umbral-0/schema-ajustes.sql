@@ -291,3 +291,11 @@ alter table public.intervenciones
 alter table public.intervenciones
   add constraint intervenciones_persona_id_fkey
   foreign key (persona_id) references public.personas(id) on delete cascade;
+
+-- 2026-09-14: `nombre`/`apellido` eran obligatorios para poder dar de
+-- alta un caso — pero en la calle puede pasar (y va a pasar seguido) que
+-- la persona no quiera identificarse. Sin esta columna, la dupla no
+-- tenía forma de registrar esa intervención en la plataforma. Ya corrido
+-- en producción.
+alter table public.personas
+  add column if not exists sin_identificar boolean not null default false;

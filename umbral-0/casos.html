@@ -346,6 +346,13 @@ let seguimientosActuales = [];
 const CAMPOS_PERSONA_BASICOS = [
   { key:'nombre', label:'Nombre', required:true },
   { key:'apellido', label:'Apellido', required:true },
+  // Si la persona no quiere identificarse, nombre/apellido dejan de ser
+  // obligatorios (ver guardarPersona) — igual se puede registrar la
+  // intervención, exigiendo en cambio el punto de contacto para poder
+  // ubicarla. Es una situación esperada, no una excepción: el propio
+  // Nivel 1 del modelo de vínculo ("da su nombre, acepta ser
+  // registrada") contempla que todavía no haya pasado eso.
+  { key:'sin_identificar', label:'Sin identificar', type:'checkbox', checkLabel:'No quiso dar su nombre — igual registrar el contacto' },
   { key:'dni', label:'DNI' },
   { key:'dni_denuncia_extravio', label:'Denuncia de extravío', type:'checkbox', checkLabel:'No tiene DNI y se hizo la denuncia de extravío' },
   { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date' },
@@ -1208,7 +1215,16 @@ function fmtFecha(iso){
 }
 
 function iniciales(p){
-  return ((p.nombre||'?')[0] + (p.apellido||'')[0]).toUpperCase();
+  const n = (p.nombre||'').trim(), a = (p.apellido||'').trim();
+  if(!n && !a) return '?';
+  return ((n[0]||'') + (a[0]||'')).toUpperCase();
+}
+
+// Nombre para mostrar en listas/ficha — con "sin_identificar" nombre y
+// apellido pueden venir vacíos los dos (ver CAMPOS_PERSONA_BASICOS).
+function nombreDisplay(p){
+  const full = `${p.nombre||''} ${p.apellido||''}`.trim();
+  return full || 'Persona sin identificar';
 }
 
 // Corrector de redacción por IA — llama a la función serverless de Netlify
@@ -1361,10 +1377,11 @@ const Casos = {
     if(p.estado === 'egresado') badges.push('<span class="badge badge-green">egresado</span>');
     else badges.push('<span class="badge badge-blue">activo</span>');
     if(p.criticidad) badges.push(`<span class="badge badge-amber">${esc(p.criticidad)}</span>`);
+    if(p.sin_identificar) badges.push('<span class="badge badge-gray">sin identificar</span>');
     card.innerHTML = `
       <div class="persona-avatar">${esc(iniciales(p))}</div>
       <div class="persona-info">
-        <div class="persona-nombre">${esc(p.nombre)} ${esc(p.apellido)}</div>
+        <div class="persona-nombre">${esc(nombreDisplay(p))}</div>
         <div class="persona-sub">${p.dni ? 'DNI ' + esc(p.dni) : (p.dni_denuncia_extravio ? 'Denuncia de extravío' : 'Sin DNI registrado')} ${p.zona ? '· ' + esc(p.zona) : ''} ${p.comuna ? '· ' + esc(p.comuna) : ''}</div>
       </div>
       <div class="persona-badges">${badges.join('')}</div>
@@ -1426,8 +1443,12 @@ const Casos = {
     const form = document.getElementById('form-persona');
     const btn = document.getElementById('btn-guardar-persona');
     const campos = recolectarCampos(form);
-    if(!campos.nombre || !campos.apellido){
-      modalError('Nombre y apellido son obligatorios.');
+    if(!campos.sin_identificar && (!campos.nombre || !campos.apellido)){
+      modalError('Nombre y apellido son obligatorios (o tildá "Sin identificar" si la persona no quiso darlos).');
+      return;
+    }
+    if(campos.sin_identificar && !campos.punto_contacto){
+      modalError('Si no se identificó, completá al menos el punto de contacto (dirección/referencia) para poder ubicarla después.');
       return;
     }
     // nivel_actual es smallint en la base — recolectarCampos siempre
@@ -1509,7 +1530,7 @@ const Casos = {
 
   _renderFichaHeader(){
     const p = personaActual;
-    document.getElementById('ficha-nombre').textContent = `${p.nombre || ''} ${p.apellido || ''}`.trim();
+    document.getElementById('ficha-nombre').textContent = nombreDisplay(p);
     const edad = calcEdad(p.fecha_nacimiento);
     const metaParts = [];
     if(p.dni) metaParts.push('DNI ' + p.dni);
@@ -1525,6 +1546,7 @@ const Casos = {
     badges.push(p.estado === 'egresado' ? '<span class="badge badge-green">egresado</span>' : '<span class="badge badge-blue">activo</span>');
     if(p.criticidad) badges.push(`<span class="badge badge-amber">criticidad: ${esc(p.criticidad)}</span>`);
     if(p.consumo_activo) badges.push('<span class="badge badge-red">consumo activo</span>');
+    if(p.sin_identificar) badges.push('<span class="badge badge-gray">sin identificar</span>');
     badges.push(Casos.esSeguimiento() ? '<span class="badge badge-gray">seguimiento</span>' : '<span class="badge badge-gray">contacto espontáneo</span>');
     document.getElementById('ficha-badges').innerHTML = badges.join('');
 
@@ -1562,7 +1584,7 @@ const Casos = {
   // vez de un simple confirm().
   abrirModalEliminarCaso(){
     const p = personaActual;
-    const nombreCompleto = `${p.nombre || ''} ${p.apellido || ''}`.trim() || '(sin nombre)';
+    const nombreCompleto = nombreDisplay(p);
     const body = `
       <div style="font-size:0.86rem;background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;padding:12px 14px;border-radius:10px;margin-bottom:14px;">
         ⚠️ Esto borra <strong>todo</strong> el caso de <strong>${esc(nombreCompleto)}</strong>: la ficha, ${intervencionesActuales.length}
