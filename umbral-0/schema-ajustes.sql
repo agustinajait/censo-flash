@@ -299,3 +299,9 @@ alter table public.intervenciones
 -- en producción.
 alter table public.personas
   add column if not exists sin_identificar boolean not null default false;
+
+-- 2026-09-14: "¿Acepta entrevista?" — indicador del Nivel 2 (Construcción
+-- del vínculo, ver glosario) que faltaba en la ficha. Ya corrido en
+-- producción.
+alter table public.personas
+  add column if not exists acepta_entrevista boolean not null default false;
