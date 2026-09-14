@@ -124,6 +124,8 @@
   .mini-cal-legend span{display:inline-flex;align-items:center;gap:5px;}
   .mini-cal-dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
   .card-title{font-size:0.85rem;font-weight:700;color:var(--navy);margin-bottom:12px;}
+  .section-hint{font-size:0.78rem;color:var(--gray);}
+  #dashboard-umbral0{display:none;}
   .chart-wrap{position:relative;height:180px;}
 
   /* TABLE */
@@ -390,6 +392,55 @@
 
     </div><!-- /dashboard -->
 
+    <!-- ══════ UMBRAL 0 — datos de KoBo del equipo ══════
+         Vista propia, no reusa el render de arriba: ese está armado para
+         el modelo de Censo Flash (cuántas personas por punto), acá cada
+         fila de KoBo es una intervención sobre una persona puntual, y hay
+         que atribuirla a una de las 13 duplas por nombre de operador. -->
+    <div id="dashboard-umbral0">
+      <div class="banner">
+        <div class="banner-badge">Umbral 0</div>
+        <h1 id="u0-banner-title">Equipo territorial — datos de KoBo</h1>
+        <p>Intervenciones cargadas por las duplas, filtradas del formulario compartido de GOPA</p>
+        <div id="u0-last-update"></div>
+      </div>
+
+      <div id="u0-live-warning" class="live-warning" style="display:none;"></div>
+
+      <div class="metrics-4">
+        <div class="metric m-blue"><div class="metric-icon">📋</div><div class="metric-val" id="u0-total">—</div><div class="metric-lbl">Intervenciones del equipo</div></div>
+        <div class="metric m-green"><div class="metric-icon">👥</div><div class="metric-val" id="u0-personas">—</div><div class="metric-lbl">Personas distintas (por nombre)</div></div>
+        <div class="metric m-amber"><div class="metric-icon">🚗</div><div class="metric-val" id="u0-duplas">—</div><div class="metric-lbl">Duplas con envíos</div></div>
+        <div class="metric m-purple"><div class="metric-icon">📅</div><div class="metric-val" id="u0-dias">—</div><div class="metric-lbl">Días con actividad</div></div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">📊 Por dupla</div>
+        <div class="tbl-wrap">
+          <table class="reporte-tabla" id="u0-tabla-duplas">
+            <thead><tr><th>Dupla</th><th>Intervenciones</th><th>Personas distintas</th><th>Último envío</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">📥 Últimas intervenciones</div>
+        <div class="tbl-wrap">
+          <table class="reporte-tabla" id="u0-tabla-detalle">
+            <thead><tr><th>Fecha</th><th>Dupla</th><th>Operador</th><th>Tipo</th><th>Persona</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="u0-sin-dupla" class="card" style="display:none;">
+        <div class="card-title">⚠️ Operadores sin dupla reconocida</div>
+        <div class="section-hint">Estos nombres aparecen en los envíos de KoBo del equipo pero no coinciden con ningún integrante cargado — revisar ortografía o si falta agregarlos en "Duplas y equipo".</div>
+        <div id="u0-sin-dupla-lista" style="font-size:0.82rem;margin-top:8px;"></div>
+      </div>
+    </div>
+
     <!-- ══════ VISTA GLOBAL (todos los proyectos) ══════ -->
     <div id="global-dashboard">
       <div class="banner">
@@ -446,11 +497,14 @@
 <script src="./config/censo-flash.js"></script>
 <script src="./config/umbral-0.js"></script>
 <script src="./config/projects.js"></script>
+<!-- Para la vista de Umbral 0: matchear operador de KoBo contra
+     `integrantes` (Supabase) para atribuir cada envío a una dupla. -->
+<script src="./shared/js/supabase-client.js"></script>
 <!-- ?v= es cache-busting manual: sin esto, el navegador (o el CDN) puede
      seguir sirviendo una copia vieja de este archivo después de un deploy,
      aunque el HTML sí se actualice — pasó hoy con el fix del filtro de
      fechas, que quedaba "sin aplicar" del lado de quien ya tenía el sitio
      abierto. Subir este número cada vez que se edite dashboard-engine.js. -->
-<script src="./shared/js/dashboard-engine.js?v=2026-09-11-3"></script>
+<script src="./shared/js/dashboard-engine.js?v=2026-09-14-1"></script>
 </body>
 </html>
