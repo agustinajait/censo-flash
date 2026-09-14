@@ -217,12 +217,12 @@
   <div class="onboarding-wrap">
     <div class="onboarding-head">
       <h2>📋 Antes de empezar</h2>
-      <p>Nos falta el DNI y el teléfono de contacto de tu dupla — completalo una sola vez para poder
-      seguir. Después no te lo vuelve a pedir.</p>
+      <p>Nos faltan los datos de contacto de tu dupla — completalos una sola vez para poder seguir.
+      Después no te los vuelve a pedir.</p>
     </div>
     <div id="datos-integrantes"></div>
     <div class="onboarding-foot">
-      <div class="modal-err" id="datos-err">Completá DNI y teléfono de cada integrante antes de continuar.</div>
+      <div class="modal-err" id="datos-err">Completá nombre, apellido, DNI y teléfono de cada integrante antes de continuar.</div>
       <button class="btn btn-blue login-full-btn" id="datos-btn" onclick="guardarDatosGate()">Guardar y continuar</button>
     </div>
   </div>
@@ -280,7 +280,6 @@
       <div class="section-label">Buscar o cargar un caso</div>
       <div class="search-row">
         <input type="text" id="buscar-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="Casos.onBuscarInput()">
-        <button class="btn btn-outline" onclick="Casos.abrirModalRecorrida()">📍 Registrar recorrida</button>
         <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Nuevo ingreso</button>
       </div>
       <div id="resultados-list"></div>
@@ -387,23 +386,6 @@ const CAMPOS_PERSONA_INFORME = [
   { key:'situacion_sanitaria', label:'Situación sanitaria', type:'textarea' },
   { key:'redes_contencion', label:'Redes de contención', type:'textarea' },
   { key:'situacion_educativa', label:'Situación educativa', type:'textarea' },
-];
-
-// "Registrar recorrida" — para cuando la dupla pasa por un punto y NO hay
-// persona para dar de alta (o la hay, pero ya se cargó con "Nuevo
-// ingreso"). Sin esto, la cobertura territorial (zonas/puntos recorridos,
-// iglesias abordadas, puntos nuevos) no queda registrada en ningún lado —
-// solo en el KoBo, que es obligatorio pero no lo lee esta plataforma.
-// Va a `intervenciones` con persona_id null, tipo 'recorrida'.
-const CAMPOS_RECORRIDA = [
-  { key:'fecha', label:'Fecha', type:'date', required:true },
-  { key:'turno', label:'Turno / franja horaria', type:'select', options:()=>['06 a 14','10 a 16','14 a 22','18 a 22','Otro'] },
-  { key:'zona', label:'Zona', type:'select', options: () => window.PROJECT_CONFIG.zonasOpciones || [] },
-  { key:'punto', label:'Punto / dirección', required:true },
-  { key:'tipo_punto', label:'Tipo de punto', type:'select', options:()=>['Calle/esquina','Iglesia','Plaza','Otro'] },
-  { key:'punto_nuevo', label:'Punto nuevo', type:'checkbox', checkLabel:'Es la primera vez que se releva este punto' },
-  { key:'hubo_contacto', label:'Hubo contacto', type:'checkbox', checkLabel:'Se contactó a alguna persona en este punto (si ya la diste de alta con "Nuevo ingreso", no hace falta tildar esto)' },
-  { key:'observaciones', label:'Observaciones', type:'textarea', hint:'Ej: "No se observan personas ni pertenencias" — igual que se carga en KoBo.' },
 ];
 
 // "Informe social" — mismo formato para Casa Vincular y ASA (documento
@@ -811,19 +793,20 @@ async function entrarAlApp(){
   Casos.volverABuscar();
 }
 
-// ── DATOS DE CONTACTO (DNI/teléfono de integrantes) — gate obligatorio ───
-// Reutiliza `integrantes.dni`/`integrantes.telefono` (ya existían, los
-// carga admin/coordinación desde admin-duplas.html) — acá se los pide
-// directo a la dupla al crear su acceso, en vez de depender de que
-// alguien más los tipee a mano.
+// ── DATOS DE CONTACTO (nombre/apellido/DNI/teléfono de integrantes) ─────
+// Gate obligatorio. Reutiliza `integrantes` (ya existía, lo cargaba
+// admin/coordinación a mano desde admin-duplas.html) — acá se le pide
+// directo a la dupla al crear su acceso. Al alta masiva de accesos (ver
+// admin-duplas.html) todavía no le quedaban nombre/apellido cargados en
+// ningún lado — se agregan acá también, no solo DNI/teléfono.
 async function cargarIntegrantesFaltantes(duplaId){
   try{
     const client = await SupabaseClient.getClient();
     const { data } = await client.from('integrantes').select('*')
       .eq('dupla_id', duplaId).neq('rol', 'chofer');
-    return (data || []).filter(i => !i.dni || !i.telefono);
+    return (data || []).filter(i => !i.nombre || !i.apellido || !i.dni || !i.telefono);
   }catch(e){
-    console.error('No se pudo chequear DNI/teléfono de los integrantes', e);
+    console.error('No se pudo chequear los datos de los integrantes', e);
     return []; // si falla la consulta, no bloqueamos el ingreso por un error de red
   }
 }
@@ -835,8 +818,16 @@ function renderDatosGate(faltantes){
   document.getElementById('datos-err').style.display = 'none';
   document.getElementById('datos-integrantes').innerHTML = faltantes.map((i, idx) => `
     <div class="datos-persona">
-      <div class="datos-nombre">👤 ${esc(i.nombre || '')} ${esc(i.apellido || '')}</div>
+      <div class="datos-nombre">👤 Integrante ${idx + 1}</div>
       <div class="form-grid-2">
+        <div class="form-field">
+          <label>Nombre</label>
+          <input type="text" id="datos-nombre-${idx}" value="${escAttr(i.nombre)}">
+        </div>
+        <div class="form-field">
+          <label>Apellido</label>
+          <input type="text" id="datos-apellido-${idx}" value="${escAttr(i.apellido)}">
+        </div>
         <div class="form-field">
           <label>DNI</label>
           <input type="text" inputmode="numeric" id="datos-dni-${idx}" value="${escAttr(i.dni)}" placeholder="Sin puntos">
@@ -855,11 +846,13 @@ async function guardarDatosGate(){
   errBox.style.display = 'none';
   const updates = integrantesFaltantesActuales.map((i, idx) => ({
     id: i.id,
+    nombre: document.getElementById('datos-nombre-'+idx).value.trim(),
+    apellido: document.getElementById('datos-apellido-'+idx).value.trim(),
     dni: document.getElementById('datos-dni-'+idx).value.trim(),
     telefono: document.getElementById('datos-tel-'+idx).value.trim(),
   }));
-  if(updates.some(u => !u.dni || !u.telefono)){
-    errBox.textContent = 'Completá DNI y teléfono de cada integrante antes de continuar.';
+  if(updates.some(u => !u.nombre || !u.apellido || !u.dni || !u.telefono)){
+    errBox.textContent = 'Completá nombre, apellido, DNI y teléfono de cada integrante antes de continuar.';
     errBox.style.display = 'block';
     return;
   }
@@ -868,7 +861,9 @@ async function guardarDatosGate(){
   try{
     const client = await SupabaseClient.getClient();
     for(const u of updates){
-      const { error } = await client.from('integrantes').update({ dni: u.dni, telefono: u.telefono }).eq('id', u.id);
+      const { error } = await client.from('integrantes')
+        .update({ nombre: u.nombre, apellido: u.apellido, dni: u.dni, telefono: u.telefono })
+        .eq('id', u.id);
       if(error) throw error;
     }
     await entrarAlApp();
@@ -1387,67 +1382,6 @@ const Casos = {
     Casos._renderFormPersona(personaActual);
   },
 
-  // ── REGISTRAR RECORRIDA (punto sin persona para dar de alta) ───────────
-
-  abrirModalRecorrida(prefill){
-    const v = prefill || { fecha: new Date().toISOString().slice(0,10) };
-    const body = `
-      <form id="form-recorrida" onsubmit="return false;">
-        ${CAMPOS_RECORRIDA.map(c => renderCampo(c, v[c.key])).join('')}
-        <div class="modal-foot">
-          <button type="button" class="btn btn-blue" id="btn-guardar-recorrida">💾 Guardar recorrida</button>
-          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-        </div>
-      </form>
-    `;
-    openModal('📍 Registrar recorrida', body);
-    document.getElementById('btn-guardar-recorrida').onclick = () => Casos.guardarRecorrida();
-  },
-
-  async guardarRecorrida(){
-    const form = document.getElementById('form-recorrida');
-    const btn = document.getElementById('btn-guardar-recorrida');
-    const campos = recolectarCampos(form);
-    if(!campos.fecha || !campos.punto){
-      modalError('Fecha y punto/dirección son obligatorios.');
-      return;
-    }
-    btn.disabled = true; btn.textContent = 'Guardando…';
-    try{
-      const client = await SupabaseClient.getClient();
-      const { error } = await client.from('intervenciones').insert({
-        persona_id: null,
-        dupla_id: miPerfil.dupla_id || null,
-        fecha: campos.fecha,
-        ubicacion: campos.punto,
-        tipo: 'recorrida',
-        resumen: campos.observaciones || null,
-        datos: {
-          zona: campos.zona || null,
-          turno: campos.turno || null,
-          tipo_punto: campos.tipo_punto || null,
-          punto_nuevo: !!campos.punto_nuevo,
-          hubo_contacto: !!campos.hubo_contacto,
-        },
-      });
-      if(error) throw error;
-      // Se repite bastante seguido en el mismo turno/zona — dejamos esos
-      // campos precargados para la siguiente recorrida en vez de cerrar.
-      const body = `
-        <div style="font-size:0.88rem;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;padding:12px 14px;border-radius:10px;margin-bottom:14px;">✅ Recorrida registrada.</div>
-        <div class="modal-foot">
-          <button type="button" class="btn btn-blue" id="btn-otra-recorrida">📍 Cargar otra recorrida</button>
-          <button type="button" class="btn btn-outline" onclick="closeModal()">Listo, cerrar</button>
-        </div>
-      `;
-      openModal('📍 Registrar recorrida', body);
-      document.getElementById('btn-otra-recorrida').onclick = () => Casos.abrirModalRecorrida({ fecha:campos.fecha, turno:campos.turno, zona:campos.zona });
-    }catch(e){
-      modalError('No se pudo guardar la recorrida: ' + e.message);
-      btn.disabled = false; btn.textContent = '💾 Guardar recorrida';
-    }
-  },
-
   _renderFormPersona(persona){
     const esEdicion = !!persona;
     const v = persona || {};
@@ -1510,7 +1444,13 @@ const Casos = {
         if(error) throw error;
         persona = data;
       }else{
-        const { data, error } = await client.from('personas').insert({ ...campos, estado:'activo' }).select().single();
+        // dupla_id queda fijo en el alta (quién dio de alta el caso) — la
+        // política de RLS de personas ahora exige que coincida con la
+        // propia dupla para las cuentas de dupla (ver schema-ajustes.sql,
+        // "cada dupla ve solo sus propios casos").
+        const { data, error } = await client.from('personas')
+          .insert({ ...campos, estado:'activo', dupla_id: miPerfil.dupla_id || null })
+          .select().single();
         if(error) throw error;
         persona = data;
         // Alta = primer evento del timeline (DISENO-CASOS.md §4)

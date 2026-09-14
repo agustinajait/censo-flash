@@ -594,6 +594,18 @@ async function crearAccesosFaltantes(){
         id: user.id, rol: 'dupla', dupla_id: d.id, nombre: d.codigo, email,
       });
       if(errPerfil) throw errPerfil;
+      // Si la dupla todavía no tiene ningún integrante cargado, se le
+      // crean 2 filas en blanco — así el gate de "Antes de empezar" en
+      // casos.html (nombre/apellido/DNI/teléfono) tiene algo concreto que
+      // completar apenas entren, en vez de no mostrar nada.
+      const { data: yaTiene } = await client.from('integrantes').select('id').eq('dupla_id', d.id).limit(1);
+      if(!yaTiene || !yaTiene.length){
+        const { error: errInteg } = await client.from('integrantes').insert([
+          { dupla_id: d.id, rol: 'operador', nombre: '', apellido: '' },
+          { dupla_id: d.id, rol: 'operador', nombre: '', apellido: '' },
+        ]);
+        if(errInteg) throw errInteg;
+      }
       resultados.push('✅ ' + d.codigo + ' → ' + email);
     }catch(e){
       resultados.push('❌ ' + d.codigo + ': ' + e.message);
@@ -750,16 +762,20 @@ async function generarReporte(){
 
 function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId }){
   // ── a. Cobertura territorial ──────────────────────────────────────────
+  // zonaDe/puntoDe tienen fallback al dato de la PERSONA (personas.zona /
+  // personas.punto_contacto) — sigue funcionando para intervenciones
+  // ligadas a un caso. Iglesias/puntos nuevos/franjas horarias en cambio
+  // NO tienen ese fallback — solo salían de "Registrar recorrida"
+  // (datos.tipo_punto/punto_nuevo/turno), que se sacó de la plataforma
+  // (confundía a las duplas — esa cobertura de "pasé y no encontré a
+  // nadie" queda solo en el KoBo). Se sacan del reporte en vez de dejarlos
+  // en 0 para siempre.
   const zonaDe = i => (i.datos && i.datos.zona) || (i.persona_id && personaPorId[i.persona_id] && personaPorId[i.persona_id].zona) || null;
   const puntoDe = i => i.ubicacion || (i.persona_id && personaPorId[i.persona_id] && personaPorId[i.persona_id].punto_contacto) || null;
 
   const zonas = new Set(intervenciones.map(zonaDe).filter(Boolean));
   const puntos = new Set(intervenciones.map(puntoDe).filter(Boolean));
-  const iglesias = new Set(intervenciones.filter(i => i.datos && i.datos.tipo_punto === 'Iglesia').map(puntoDe).filter(Boolean));
-  const puntosNuevos = new Set(intervenciones.filter(i => i.datos && i.datos.punto_nuevo).map(puntoDe).filter(Boolean));
   const dias = new Set(intervenciones.map(i => i.fecha).filter(Boolean));
-  const turnos = {};
-  intervenciones.forEach(i => { const t = i.datos && i.datos.turno; if(t) turnos[t] = (turnos[t]||0) + 1; });
 
   const totalZonasConfig = (window.PROJECT_CONFIG.zonasOpciones || []).length;
   const pctZonasCubiertas = totalZonasConfig ? Math.round((zonas.size / totalZonasConfig) * 100) : null;
@@ -792,7 +808,7 @@ function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones,
 
   return {
     desde, hasta,
-    cobertura: { zonas, puntos, iglesias, puntosNuevos, dias, turnos, pctZonasCubiertas, totalRecorridas: intervenciones.length },
+    cobertura: { zonas, puntos, dias, pctZonasCubiertas, totalIntervenciones: intervenciones.length },
     poblacion: { nuevas: personasNuevas.length, recontactadas: recontactadas.length, seguimientoActivo: seguimientoActivo.length },
     evolucion: { porNivel },
     intervencionesDerivaciones: { porTipo, totalDerivaciones, totalEfectivizadas, totalRechazadas,
@@ -809,12 +825,9 @@ function renderReporte(cont, r){
       <div class="kpi-grid">
         <div class="kpi"><div class="num">${r.cobertura.zonas.size}</div><div class="lbl">Zonas recorridas${r.cobertura.pctZonasCubiertas!=null?` (${r.cobertura.pctZonasCubiertas}% de las prioritarias)`:''}</div></div>
         <div class="kpi"><div class="num">${r.cobertura.puntos.size}</div><div class="lbl">Puntos visitados</div></div>
-        <div class="kpi"><div class="num">${r.cobertura.iglesias.size}</div><div class="lbl">Iglesias/puntos de referencia abordados</div></div>
-        <div class="kpi"><div class="num">${r.cobertura.totalRecorridas}</div><div class="lbl">Cantidad de recorridas realizadas</div></div>
+        <div class="kpi"><div class="num">${r.cobertura.totalIntervenciones}</div><div class="lbl">Intervenciones registradas</div></div>
         <div class="kpi"><div class="num">${r.cobertura.dias.size}</div><div class="lbl">Días con presencia territorial</div></div>
-        <div class="kpi"><div class="num">${r.cobertura.puntosNuevos.size}</div><div class="lbl">Nuevos puntos detectados</div></div>
       </div>
-      ${Object.keys(r.cobertura.turnos).length ? `<div style="margin-top:12px;font-size:0.82rem;color:#334155;"><strong>Franjas horarias:</strong> ${Object.entries(r.cobertura.turnos).map(([t,n])=>`${esc(t)} (${n})`).join(' · ')}</div>` : ''}
       <div class="form-field" style="margin-top:14px;">
         <label>Puntos que requieren aumentar la frecuencia de presencia</label>
         <textarea id="txt-puntos-frecuencia" rows="2" placeholder="Es un juicio de coordinación, no se calcula solo — completalo acá antes de copiar el reporte."></textarea>
@@ -869,7 +882,7 @@ function renderReporte(cont, r){
           <tr><td>Continuidad</td><td>Personas con seguimiento activo</td><td class="num">${r.poblacion.seguimientoActivo}</td></tr>
           <tr><td>Acceso</td><td>% de derivaciones efectivamente concretadas</td><td class="num">${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}</td></tr>
           <tr><td>Estrategia</td><td>Derivaciones rechazadas (requieren alternativa)</td><td class="num">${r.intervencionesDerivaciones.totalRechazadas}</td></tr>
-          <tr><td>Territorialidad</td><td>Puntos nuevos identificados</td><td class="num">${r.cobertura.puntosNuevos.size}</td></tr>
+          <tr><td>Territorialidad</td><td>Puntos nuevos identificados</td><td class="num">—</td></tr>
           <tr><td>Vínculo</td><td>Personas que pasan a seguimiento activo</td><td class="num">—</td></tr>
           <tr><td>Sostenimiento</td><td>% que sostiene el recurso luego del ingreso</td><td class="num">—</td></tr>
           <tr><td>Gestión</td><td>Alertas respondidas/articuladas por la Red</td><td class="num">—</td></tr>
@@ -915,10 +928,8 @@ Período: ${fmt(r.desde)} al ${fmt(r.hasta)}
 a. COBERTURA TERRITORIAL
 - Zonas recorridas: ${r.cobertura.zonas.size}${r.cobertura.pctZonasCubiertas!=null?` (${r.cobertura.pctZonasCubiertas}% de las prioritarias)`:''}
 - Puntos visitados: ${r.cobertura.puntos.size}
-- Iglesias/puntos de referencia abordados: ${r.cobertura.iglesias.size}
-- Cantidad de recorridas realizadas: ${r.cobertura.totalRecorridas}
+- Intervenciones registradas: ${r.cobertura.totalIntervenciones}
 - Días con presencia territorial: ${r.cobertura.dias.size}
-- Nuevos puntos detectados: ${r.cobertura.puntosNuevos.size}
 - Puntos que requieren aumentar la frecuencia: ${puntosFrecuencia}
 
 b. POBLACIÓN ABORDADA

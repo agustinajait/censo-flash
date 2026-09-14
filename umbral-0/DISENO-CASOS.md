@@ -73,6 +73,20 @@ una cuenta real de Supabase Auth (email + contraseña), y su rol vive en
 | `dupla` | operador/a de un equipo territorial | carga casos e intervenciones, pero solo ve/edita lo de **su propia dupla** (`perfiles.dupla_id`) |
 | `cliente` | GCBA / Dg Red de Atención | solo lectura de todos los casos (para reporting), no ve el roster de duplas/choferes |
 
+**Corrección (sept/2026):** `personas` era la única tabla de casos sin este
+scope aplicado de verdad — `intervenciones`/`derivaciones`/`seguimientos`
+ya restringían a cada dupla a lo suyo, pero cualquier cuenta de dupla
+podía ver y editar los casos (fichas de persona) de TODAS las demás.
+Encontrado al revisar el acceso antes de habilitar el equipo completo.
+Se agregó `personas.dupla_id` (quién dio de alta el caso) con el mismo
+patrón que ya usaban las otras tablas (`schema-ajustes.sql`, migración
+`personas_dupla_id_y_rls`). **Limitación conocida** que queda de esto: si
+dos duplas distintas se cruzan con la misma persona (se mudó de zona,
+cobertura de iglesia superpuesta), la segunda no la va a encontrar al
+buscar por DNI/nombre y puede terminar dándola de alta de nuevo (caso
+duplicado) — el plan de zonas exclusivas lo hace poco frecuente pero no
+lo elimina. Ver sección 11.
+
 Para `admin`/`coordinacion`, las cuentas propias se siguen creando desde el
 **Supabase Dashboard → Authentication → Add user** (son pocas). Para las
 duplas (una cuenta por dupla, compartida entre sus 2 integrantes — ver
@@ -86,16 +100,19 @@ lista antes de confirmar y un resumen ✅/❌ al final (si una falla, sigue
 con las demás).
 
 **Primer login de una dupla** (`casos.html`, sept/2026): antes de entrar a
-la app, si a algún integrante de la dupla le falta DNI o teléfono
-(`integrantes.dni`/`telefono`), se le pide completarlo — es obligatorio,
-no se puede pasar de largo, pero se resuelve solo (una vez cargados los
-dos datos de cada integrante, no vuelve a aparecer). Requirió agregar una
-política de RLS para que una cuenta de dupla pueda actualizar (no solo
-leer) los integrantes de su propia dupla — antes solo podía admin/
-coordinación (`schema-ajustes.sql`, migración `integrantes_update_propia_dupla`).
-El test de onboarding (10 preguntas sobre el protocolo) dejó de ser
-obligatorio en el primer login — ahora es **opcional**, accesible desde
-"🎓 Test" en el topbar de `casos.html` cuando la dupla quiera hacerlo.
+la app, si a algún integrante de la dupla le falta nombre, apellido, DNI
+o teléfono (`integrantes.nombre`/`apellido`/`dni`/`telefono`), se le pide
+completarlo — es obligatorio, no se puede pasar de largo, pero se
+resuelve solo (una vez cargados los 4 datos de cada integrante, no vuelve
+a aparecer). El alta masiva de accesos (arriba) crea 2 integrantes en
+blanco por dupla nueva para que este gate siempre tenga algo concreto que
+mostrar. Requirió agregar una política de RLS para que una cuenta de
+dupla pueda actualizar (no solo leer) los integrantes de su propia dupla
+— antes solo podía admin/coordinación (`schema-ajustes.sql`, migración
+`integrantes_update_propia_dupla`). El test de onboarding (10 preguntas
+sobre el protocolo) dejó de ser obligatorio en el primer login — ahora es
+**opcional**, accesible desde "🎓 Test" en el topbar de `casos.html`
+cuando la dupla quiera hacerlo.
 
 ## 2. Pantalla: Duplas y equipo — `admin-duplas.html` (ya construida)
 
@@ -617,18 +634,25 @@ días) + botón "Generar reporte".
   delta calculado sobre el período. Si hace falta esa precisión, hay que
   sumar una tabla de historial (`personas_nivel_historico` o similar).
 
-**Nueva acción "📍 Registrar recorrida"** en `casos.html` (junto a "Nuevo
-ingreso"): para cuando la dupla pasa por un punto y no hay nadie a quien
-dar de alta (o si hay contacto, pero ya se cargó por otro lado). Sin esto,
-la cobertura territorial (zonas/puntos recorridos, iglesias abordadas,
-puntos nuevos) no queda registrada en ningún lado más que en el KoBo. Crea
-una fila en `intervenciones` con `persona_id = null`, `tipo = 'recorrida'`.
+**"📍 Registrar recorrida" (sept/2026, sacada):** existió brevemente como
+acción en `casos.html` (junto a "Nuevo ingreso") para cuando la dupla
+pasaba por un punto sin nadie a quien dar de alta — creaba una fila en
+`intervenciones` con `persona_id = null`, `tipo = 'recorrida'`, guardando
+zona/turno/tipo de punto/punto nuevo en `intervenciones.datos`. Se sacó
+por confundir a las duplas en el uso diario. Consecuencia: la cobertura de
+"pasé por un punto y no encontré a nadie" ya no queda registrada en
+ningún lado de la plataforma (sigue estando en el KoBo, que es
+obligatorio en cada contacto — ver §3). El reporte semanal se ajustó para
+no mostrar en cero los indicadores que dependían solo de esto (iglesias
+abordadas, puntos nuevos, franjas horarias) — ver abajo.
 
 **Qué calcula el reporte** (las 4 secciones + tablero que pide GOPA):
 - **a) Cobertura territorial** — zonas recorridas, puntos visitados,
-  iglesias abordadas, cantidad de recorridas, días con presencia, puntos
-  nuevos. "Puntos que requieren más frecuencia" es juicio de coordinación,
-  no un cálculo — queda como campo de texto libre.
+  intervenciones registradas, días con presencia. "Puntos que requieren
+  más frecuencia" es juicio de coordinación, no un cálculo — queda como
+  campo de texto libre. ("Iglesias abordadas", "puntos nuevos" y "franjas
+  horarias" se sacaron del reporte al sacar "Registrar recorrida" — sin
+  esa fuente, quedaban siempre en cero.)
 - **b) Población abordada** — personas nuevas, recontactadas, con
   seguimiento activo. "Incorporadas al seguimiento" y "con las que se
   perdió contacto" no son calculables con precisión todavía (ver
@@ -642,8 +666,9 @@ una fila en `intervenciones` con `persona_id = null`, `tipo = 'recorrida'`.
   `derivaciones.tipo`/`estado`.
 - **Tablero de indicadores** — los 11 indicadores que pide el documento;
   los que no son calculables (Vínculo, Sostenimiento, Gestión, Resultado —
-  requieren historial de nivel o una tabla de alertas que no existe)
-  quedan marcados "—" en vez de inventados.
+  requieren historial de nivel o una tabla de alertas que no existe;
+  Territorialidad — dependía de "Registrar recorrida", ver arriba) quedan
+  marcados "—" en vez de inventados.
 - **Reporte de alertas y desvíos** — sin tabla propia todavía, campo de
   texto libre.
 
@@ -666,6 +691,13 @@ la pestaña de reporte es el consolidado cuantitativo para GOPA.
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
+- **Casos duplicados entre duplas** (sección 1): con `personas` ahora
+  restringida por dupla, si una persona pasa por la zona de dos duplas
+  distintas, la segunda no la encuentra al buscar y puede darla de alta
+  de nuevo. Si en la práctica pasa seguido, la solución no es sacar el
+  scope — sería algo más fino, como avisar "ya existe un caso con ese DNI
+  en otra dupla, pedile acceso a tu referente" sin mostrar el detalle
+  completo.
 - **Contradicción sobre CIS y seguimiento** (5.1): el documento en un lugar
   describe pedidos espontáneos de CIS (sin vínculo previo) y en otro dice que
   el ingreso a CIS "se realiza siempre y cuando la persona sea seguimiento
