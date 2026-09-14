@@ -202,6 +202,7 @@ function selectProject(id){
   if(id === '__global__'){
     document.getElementById('upload-section').style.display = 'none';
     document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('dashboard-umbral0').style.display = 'none';
     document.getElementById('no-data').style.display = 'none';
     document.getElementById('global-dashboard').style.display = 'block';
     renderGlobalView();
@@ -211,6 +212,19 @@ function selectProject(id){
   document.getElementById('global-dashboard').style.display = 'none';
   const project = getProject(id);
   if(!project) return;
+
+  // Umbral 0 tiene su propia vista — no pasa por el render de acá abajo,
+  // que está armado para el modelo de Censo Flash (Cierres/Presentes por
+  // Apps Script, conteo de personas por punto de KoBo). Ver cargarUmbral0().
+  if(id === 'umbral-0'){
+    document.getElementById('upload-section').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('no-data').style.display = 'none';
+    document.getElementById('dashboard-umbral0').style.display = 'block';
+    cargarUmbral0(project);
+    return;
+  }
+  document.getElementById('dashboard-umbral0').style.display = 'none';
 
   document.getElementById('upload-section').style.display = currentRole==='admin' ? 'block' : 'none';
   buildUploadFields(project);
@@ -1102,6 +1116,118 @@ function renderGlobalView(){
   document.getElementById('g-puntos').textContent = gPuntos.toLocaleString('es-AR');
   document.getElementById('g-cierres').textContent = gCierres.toLocaleString('es-AR');
   document.getElementById('g-proyectos').textContent = gConDatos + ' / ' + projects.length;
+}
+
+// ── UMBRAL 0 — KoBo del equipo territorial ───────────────────────────────
+// El asset de KoBo es un formulario único ("GOPA") compartido por varios
+// equipos — parseUmbral0() (config/umbral-0.js) ya filtra por
+// identificacion/equipo==='umbral_0', pero de esos envíos hay que separar
+// además los de las 13 duplas reales de Agustina de los de OTROS
+// operadores de GOPA que también cargan bajo "umbral_0" — se matchea por
+// nombre de operador contra `integrantes` (vista pública, sin login).
+
+// Sin acentos, mayúsculas ni orden de palabras — así "Cesar Goyogana" y
+// "Goyogana, César" (o con "Juan" de nombre de pila extra) matchean igual.
+function normalizarNombre(s){
+  return String(s||'')
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/,/g, ' ')
+    .split(/\s+/).filter(Boolean).sort().join(' ');
+}
+
+async function cargarRosterUmbral0(){
+  const client = await SupabaseClient.getClient(window.PROJECT_CONFIG_UMBRAL_0);
+  const { data, error } = await client.from('integrantes_publico').select('*');
+  if(error) throw error;
+  const roster = {};
+  (data||[]).forEach(i => {
+    const nombre = `${i.nombre||''} ${i.apellido||''}`.trim();
+    if(!nombre) return;
+    roster[normalizarNombre(nombre)] = i.dupla_codigo;
+  });
+  return roster;
+}
+
+async function cargarUmbral0(project){
+  const warnBox = document.getElementById('u0-live-warning');
+  warnBox.style.display = 'none';
+  try{
+    const form = (project.kobo.forms||[])[0];
+    if(!form) throw new Error('Este proyecto no tiene un formulario de KoBo configurado.');
+
+    const [roster, koboRowsRaw] = await Promise.all([
+      cargarRosterUmbral0(),
+      fetchKoboAll(project, form.id),
+    ]);
+
+    const parsed = koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean);
+    const sinDupla = new Map(); // nombre operador -> cantidad de envíos
+    parsed.forEach(p => {
+      const dupla = roster[normalizarNombre(p.operador)] || null;
+      p.dupla = dupla;
+      if(!dupla && p.operador) sinDupla.set(p.operador, (sinDupla.get(p.operador)||0) + 1);
+    });
+
+    // Solo interesa el equipo real — los envíos de otros operadores de
+    // GOPA bajo "umbral_0" quedan afuera del resumen (se listan aparte,
+    // en "sin dupla reconocida", para poder detectar typos reales del
+    // equipo propio vs. gente que no es de acá).
+    const delEquipo = parsed.filter(p => p.dupla);
+
+    renderUmbral0(delEquipo, sinDupla);
+    document.getElementById('u0-last-update').textContent =
+      'Actualizado: ' + new Date().toLocaleString('es-AR') + ' · ' + parsed.length + ' envíos de KoBo revisados, ' + delEquipo.length + ' del equipo';
+  }catch(e){
+    console.error('Error cargando KoBo de Umbral 0', e);
+    warnBox.textContent = '⚠️ No se pudo actualizar en vivo (' + e.message + ').';
+    warnBox.style.display = 'block';
+  }
+}
+
+function renderUmbral0(rows, sinDupla){
+  const personas = new Set(rows.map(r => normalizarNombre(`${r.persona.nombre||''} ${r.persona.apellido||''}`)).filter(s => s));
+  const duplas = new Set(rows.map(r => r.dupla));
+  const dias = new Set(rows.map(r => r.fecha ? String(r.fecha).slice(0,10) : null).filter(Boolean));
+
+  document.getElementById('u0-total').textContent = rows.length.toLocaleString('es-AR');
+  document.getElementById('u0-personas').textContent = personas.size.toLocaleString('es-AR');
+  document.getElementById('u0-duplas').textContent = duplas.size;
+  document.getElementById('u0-dias').textContent = dias.size;
+
+  // Por dupla
+  const porDupla = {};
+  rows.forEach(r => {
+    if(!porDupla[r.dupla]) porDupla[r.dupla] = { total:0, personas:new Set(), ultima:null };
+    const d = porDupla[r.dupla];
+    d.total++;
+    d.personas.add(normalizarNombre(`${r.persona.nombre||''} ${r.persona.apellido||''}`));
+    if(r.fecha && (!d.ultima || r.fecha > d.ultima)) d.ultima = r.fecha;
+  });
+  const tbodyDuplas = document.querySelector('#u0-tabla-duplas tbody');
+  tbodyDuplas.innerHTML = Object.keys(porDupla).sort().map(cod => {
+    const d = porDupla[cod];
+    return `<tr><td><b>${esc(cod)}</b></td><td>${d.total}</td><td>${d.personas.size}</td><td>${d.ultima ? fmtDate(String(d.ultima).slice(0,10)) : '—'}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="no-data">Sin envíos del equipo todavía.</td></tr>';
+
+  // Últimas intervenciones (detalle)
+  const ultimas = [...rows].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'')).slice(0, 30);
+  const tbodyDetalle = document.querySelector('#u0-tabla-detalle tbody');
+  tbodyDetalle.innerHTML = ultimas.map(r => {
+    const nombrePersona = `${r.persona.nombre||''} ${r.persona.apellido||''}`.trim() || '(sin nombre)';
+    const fecha = r.fecha ? new Date(r.fecha).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    return `<tr><td>${fecha}</td><td>${esc(r.dupla||'')}</td><td>${esc(r.operador||'')}</td><td>${esc(r.tipo||'')}</td><td>${esc(nombrePersona)}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="no-data">Sin envíos del equipo todavía.</td></tr>';
+
+  // Operadores sin dupla reconocida
+  const sinDuplaBox = document.getElementById('u0-sin-dupla');
+  if(sinDupla.size){
+    sinDuplaBox.style.display = 'block';
+    document.getElementById('u0-sin-dupla-lista').innerHTML =
+      [...sinDupla.entries()].sort((a,b)=>b[1]-a[1]).map(([nombre,n]) => `· ${esc(nombre)} (${n})`).join('<br>');
+  } else {
+    sinDuplaBox.style.display = 'none';
+  }
 }
 
 // ── SECCIÓN KOBO COLAPSABLE ─────────────────────────────────────────────

@@ -305,3 +305,24 @@ alter table public.personas
 -- producción.
 alter table public.personas
   add column if not exists acepta_entrevista boolean not null default false;
+
+-- 2026-09-14: vista pública de `integrantes` para que dashboard.html
+-- (que NO tiene login de Supabase — es la contraseña compartida de
+-- PLATFORM_AUTH) pueda matchear el operador de cada envío de KoBo contra
+-- una dupla, sin poder leer nada de `integrantes` que no sea nombre/
+-- apellido/dupla (nada de dni/telefono/rol). Mismo patrón que
+-- `duplas_publico` (ver arriba): vista con columnas mínimas + grant a
+-- anon + revoke explícito de escritura (las vistas heredan grants
+-- amplios por default en Postgres/Supabase). Excluye choferes (no
+-- cargan KoBo) y duplas dadas de baja. Ya corrido en producción,
+-- verificado con `set local role anon`.
+create or replace view public.integrantes_publico as
+  select i.id, i.nombre, i.apellido, d.codigo as dupla_codigo
+  from public.integrantes i
+  join public.duplas d on d.id = i.dupla_id
+  where i.rol != 'chofer' and d.activa = true;
+
+grant select on public.integrantes_publico to anon;
+
+revoke insert, update, delete, truncate, references, trigger
+  on public.integrantes_publico from anon, authenticated;

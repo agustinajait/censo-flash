@@ -705,6 +705,40 @@ solo-lectura; no ve el roster de duplas/choferes (privacidad del equipo).
 Complementa a la pestaña de reporte (§9): esto es exploración de casos individuales,
 la pestaña de reporte es el consolidado cuantitativo para GOPA.
 
+### 10.1 KoBo del equipo (envíos en vivo) — construido sept/2026
+
+Además del listado de casos de arriba, `dashboard.html` tiene una pestaña
+"Umbral 0" propia (no reusa el render de Censo Flash, que espera filas
+`{personas, situacion, dupla, formulario}` — acá cada fila de KoBo es una
+intervención sobre una persona puntual). Lee en vivo la API de KoBo del
+formulario compartido "GOPA" (`config/umbral-0.js` → `kobo.forms[0]`,
+`parseUmbral0()`), filtra por `identificacion/equipo === 'umbral_0'`, y
+después matchea el operador de cada envío contra las 13 duplas reales
+(no todo lo tageado "umbral_0" es del equipo — el asset lo comparten otros
+equipos de GOPA).
+
+- **Matching operador → dupla:** por nombre y apellido normalizado (sin
+  acentos/mayúsculas/orden de palabras — ver `normalizarNombre()` en
+  `shared/js/dashboard-engine.js`), contra la vista `integrantes_publico`
+  (Supabase, sólo nombre/apellido/dupla, sin DNI/teléfono — `dashboard.html`
+  no tiene login de Supabase, así que necesita una vista con grant a `anon`,
+  mismo patrón que `duplas_publico`; ver `schema-ajustes.sql`).
+- **Envíos sin dupla reconocida:** si el operador de un envío "umbral_0" no
+  matchea contra ningún integrante cargado, no se cuenta como del equipo —
+  queda listado aparte ("⚠️ Operadores sin dupla reconocida") para poder
+  distinguir un typo real del equipo propio de gente de otro equipo de GOPA.
+- Muestra: 4 métricas (intervenciones, personas distintas, duplas con envíos,
+  días con actividad), tabla por dupla, y últimas 30 intervenciones con
+  fecha/dupla/operador/tipo/persona.
+- **Todavía NO alimenta la pestaña de Reporte semanal** (§9) — hoy son dos
+  vistas separadas (esta lee KoBo en vivo, el reporte lee `intervenciones`
+  de Supabase). Sumar los números de KoBo al cálculo del reporte queda para
+  una próxima iteración.
+- **Reducir la doble carga de los operadores** (cargar KoBo Y la ficha en
+  Casos) sigue siendo el objetivo de fondo, pero es una fase más grande y
+  no diseñada todavía (pre-completar o importar el envío de KoBo directo a
+  una ficha de `personas`) — ver también §11.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
@@ -746,6 +780,15 @@ más adelante — quedan pendientes de definir con Agustina:
   del día por dupla activa. Queda abierto si en algún momento hace falta
   ver un día pasado (hoy solo muestra el día de hoy, sin selector de
   fecha) — se puede sumar cuando se necesite.
+- **KoBo → Reporte semanal:** la vista "Umbral 0" de `dashboard.html`
+  (§10.1) ya lee los envíos de KoBo del equipo en vivo, pero todavía no
+  suma esos números al cálculo del Reporte semanal de `admin-duplas.html`
+  (§9) — hoy son dos fuentes separadas.
+- **Reducir doble carga (KoBo + Casos):** objetivo de fondo explícito de
+  Agustina — que cargar KoBo les implique cargar menos en la plataforma a
+  los operadores. Sin diseñar todavía (¿pre-completar la ficha de persona
+  con lo que ya mandaron a KoBo? ¿importar el envío directo como caso
+  nuevo?) — fase aparte, más grande que la vista de sólo-lectura de §10.1.
 
 ## 12. Próximo paso sugerido
 
