@@ -590,12 +590,18 @@ async function processFiles(){
 }
 
 // ── CARGA: API DE KOBO ───────────────────────────────────────────────
+// El navegador no puede pegarle directo a kf.kobotoolbox.org — la API de
+// KoBo no habilita CORS para dominios arbitrarios, así que un fetch()
+// directo falla en silencio con "Failed to fetch" (pasó en producción,
+// sept/2026). Se pasa por netlify/functions/kobo-proxy.js, que sí puede
+// llamar a KoBo server-to-server sin problema de CORS.
 async function fetchKoboAll(project, assetId){
   let results = [], next = `${project.kobo.base}/${assetId}/data/?format=json&limit=3000`;
   while(next){
-    const resp = await fetch(next, {headers:{'Authorization':`Token ${project.kobo.token}`}});
-    if(!resp.ok) throw new Error(`KoBo error ${resp.status} en ${assetId}`);
-    const data = await resp.json();
+    const proxyUrl = `/.netlify/functions/kobo-proxy?url=${encodeURIComponent(next)}&token=${encodeURIComponent(project.kobo.token)}`;
+    const resp = await fetch(proxyUrl);
+    const data = await resp.json().catch(()=>null);
+    if(!resp.ok || !data) throw new Error((data && data.error) || `KoBo error ${resp.status} en ${assetId}`);
     results = results.concat(data.results || []);
     next = data.next || null;
   }
@@ -631,8 +637,8 @@ async function loadFromAPI(){
   }
 
   // Camino de respaldo, para proyectos sin el Sheet en vivo todavía (hoy,
-  // Umbral 0): KoBo directo desde el navegador (puede fallar por CORS) +
-  // archivos subidos a mano.
+  // Umbral 0): KoBo vía netlify/functions/kobo-proxy.js (ver fetchKoboAll)
+  // + archivos subidos a mano.
   const tieneKobo = project.kobo.token && (project.kobo.forms||[]).length;
   if(!tieneKobo){
     st.textContent = '❌ Este proyecto no tiene KoBo ni el Sheet en vivo configurados todavía.';

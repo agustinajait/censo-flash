@@ -723,6 +723,12 @@ equipos de GOPA).
   (Supabase, sólo nombre/apellido/dupla, sin DNI/teléfono — `dashboard.html`
   no tiene login de Supabase, así que necesita una vista con grant a `anon`,
   mismo patrón que `duplas_publico`; ver `schema-ajustes.sql`).
+- **Proxy de CORS:** el navegador no puede llamar a la API de KoBo
+  directo (`kf.kobotoolbox.org` no habilita CORS para dominios
+  arbitrarios — falla en silencio con "Failed to fetch", como pasó al
+  conectar esta vista). `fetchKoboAll()` pasa por
+  `netlify/functions/kobo-proxy.js`, que sí puede llamar a KoBo
+  server-to-server.
 - **Envíos sin dupla reconocida:** si el operador de un envío "umbral_0" no
   matchea contra ningún integrante cargado, no se cuenta como del equipo —
   queda listado aparte ("⚠️ Operadores sin dupla reconocida") para poder
