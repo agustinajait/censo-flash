@@ -1519,7 +1519,17 @@ const Casos = {
   confirmarKoboPendiente(idx){
     const p = koboPendientesActuales[idx];
     if(!p) return;
-    Casos._renderFormPersona(null, { nombre: p.persona.nombre||'', apellido: p.persona.apellido||'', dni: p.persona.dni||'' });
+    // fecha_nacimiento/nacionalidad solo vienen completos cuando el envío
+    // es de "Primer Acercamiento" (ver parseUmbral0 en config/umbral-0.js)
+    // — en un "Seguimiento" quedan null y la dupla los completa a mano,
+    // como siempre.
+    Casos._renderFormPersona(null, {
+      nombre: p.persona.nombre||'',
+      apellido: p.persona.apellido||'',
+      dni: p.persona.dni||'',
+      fecha_nacimiento: p.persona.fechaNacimiento||'',
+      nacionalidad: p.persona.nacionalidad||'',
+    });
   },
 
   _renderFormPersona(persona, prefill){

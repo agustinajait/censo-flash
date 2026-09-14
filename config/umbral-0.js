@@ -40,6 +40,25 @@ function campo(row, claves){
   return null;
 }
 
+// Como `campo()`, pero matchea por el nombre CORTO de la pregunta (sin el
+// grupo que la contiene) en vez de una clave exacta. Hace falta para los
+// campos de identidad: viven repetidos bajo dos ramas del formulario con
+// nombres de grupo que no confirmamos contra la API en vivo (a diferencia
+// de identificacion/operador_nombre y identificacion/tipo_intervencion,
+// que sí vienen de una muestra real) — pero SÍ confirmamos el nombre corto
+// de cada pregunta contra un export en formato "XML values" (sept/2026),
+// y KoBo arma la clave de la API siempre como "grupo/.../nombre_corto",
+// así que alcanza con matchear el final de la clave.
+function campoSufijo(row, sufijo){
+  for(const k in row){
+    if(k === sufijo || k.endsWith('/' + sufijo)){
+      const v = row[k];
+      if(v !== undefined && v !== null && v !== '') return v;
+    }
+  }
+  return null;
+}
+
 function parseUmbral0(row){
   if(row['identificacion/equipo'] !== 'umbral_0') return null; // este asset lo comparten otros equipos de GOPA
 
@@ -48,6 +67,19 @@ function parseUmbral0(row){
   // confiable que parsear a mano el string crudo de "georreferenciacion".
   const geo = Array.isArray(row['_geolocation']) ? row['_geolocation'] : null;
 
+  // La identidad de la persona vive en DOS bloques distintos según la
+  // rama del formulario que se haya disparado (confirmado contra un
+  // export real, sept/2026) — cada envío completa solo UNA de las dos,
+  // así que no hay ambigüedad en cuál de las dos alternativas usar:
+  //  - "Primer Acercamiento": preguntas nivel1_fecha_nacimiento/
+  //    nivel1_edad_aproximada/nivel1_nacionalidad/persona_nombre/
+  //    persona_apellido/documento_numero — trae fecha de nacimiento real.
+  //  - "Seguimiento": preguntas nombre_segui/apellido_segui/alias_segui/
+  //    dni_segui — solo re-confirma la identidad de una persona ya
+  //    conocida, no vuelve a pedir fecha de nacimiento (por eso acá NO
+  //    hay un equivalente a nivel1_fecha_nacimiento para esta rama).
+  // Antes de esto el parser solo leía la rama de Primer Acercamiento —
+  // un envío de Seguimiento quedaba sin nombre/DNI reconocidos.
   return {
     operador: campo(row, ['identificacion/operador_nombre']),
     tipo: campo(row, ['identificacion/tipo_intervencion']),
@@ -56,11 +88,17 @@ function parseUmbral0(row){
     lat: geo ? geo[0] : null,
     lng: geo ? geo[1] : null,
     persona: {
-      nombre: campo(row, ['nivel1_intro/nivel1_datos/persona_nombre', 'Nombre de la persona']),
-      apellido: campo(row, ['nivel1_intro/nivel1_datos/persona_apellido', 'Apellido de la persona']),
-      dni: campo(row, ['nivel1_intro/nivel1_datos/documento_numero', 'Número de DNI de la persona']),
-      alias: campo(row, ['entrevista/datos_identificacion/nombre_autopercibido_alias', 'Alias']),
-      edad: campo(row, ['nivel1_intro/nivel1_datos/nivel1_edad_aproximada', 'Edad']),
+      nombre: campoSufijo(row, 'persona_nombre') || campoSufijo(row, 'nombre_segui'),
+      apellido: campoSufijo(row, 'persona_apellido') || campoSufijo(row, 'apellido_segui'),
+      dni: campoSufijo(row, 'documento_numero') || campoSufijo(row, 'dni_segui'),
+      alias: campoSufijo(row, 'nombre_autopercibido_alias') || campoSufijo(row, 'nivel1_alias') || campoSufijo(row, 'alias_segui'),
+      edad: campoSufijo(row, 'nivel1_edad_aproximada'),
+      // Fecha de nacimiento REAL (no aproximada) — solo existe cuando se
+      // disparó la rama de Primer Acercamiento. No se inventa a partir de
+      // la edad aproximada: si no está, queda null y se carga a mano.
+      fechaNacimiento: campoSufijo(row, 'nivel1_fecha_nacimiento'),
+      nacionalidad: campoSufijo(row, 'nivel1_nacionalidad'),
+      generoAutopercibido: campoSufijo(row, 'genero_autopercibido'),
     },
     nivelContinuaSeguimiento: campo(row, ['cierre/nivel_continua_seguimiento']),
     // Fila cruda completa, por si hace falta leer algún campo puntual más

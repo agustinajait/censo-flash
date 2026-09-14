@@ -287,6 +287,23 @@ nombre/apellido/DNI ya completos — la dupla revisa/completa el resto
   resuelve solo, sin estado nuevo que mantener.
 - Reusa `netlify/functions/kobo-proxy.js` (mismo proxy de CORS que la
   vista de dashboard.html, ver §10.1).
+- **Prefill ampliado (sept/2026):** además de nombre/apellido/DNI, ahora
+  también precarga `fecha_nacimiento` y `nacionalidad` cuando el envío es
+  de tipo "Primer Acercamiento" (esa rama del formulario sí las pide). Un
+  "Seguimiento" no vuelve a preguntar la fecha de nacimiento de una
+  persona ya conocida, así que ahí ese campo queda vacío y se completa a
+  mano, como siempre — no se inventa una fecha a partir de la edad
+  aproximada.
+- **Bug corregido de paso:** `parseUmbral0()` solo leía la identificación
+  de la rama "Primer Acercamiento" (`nivel1_intro/nivel1_datos/...`) — un
+  envío de tipo "Seguimiento" (que usa preguntas distintas,
+  `nombre_segui`/`apellido_segui`/`dni_segui`) quedaba sin nombre ni DNI
+  reconocidos, así que nunca aparecía en "KoBo pendientes" ni contaba
+  bien en el dashboard de coordinación. Se agregó `campoSufijo()`, que
+  matchea por el nombre corto de la pregunta en vez de por la ruta
+  completa del grupo (confirmado contra un export real en formato
+  "XML values", no adivinado) — cubre las dos ramas sin tener que
+  duplicar la lógica.
 - **Todavía no cubre:** envíos sin DNI, ni pre-completar zona/criticidad/
   historia — reducir eso más es la fase grande que sigue abierta (§11).
 
