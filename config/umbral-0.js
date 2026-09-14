@@ -17,6 +17,59 @@
 //      lo que se carga directo en Supabase.
 (function(){
 
+// ── FORMULARIO KOBO ("GOPA") ──────────────────────────────────────────
+// Un solo asset de KoBo compartido por varios equipos de GOPA (no solo
+// Umbral 0, también "Salud Mental" y otros) — se filtra por
+// `identificacion/equipo === 'umbral_0'`. Tiene ~270 preguntas con lógica
+// condicional (cambia según el tipo de intervención: Primer Acercamiento
+// / Primer Acercamiento con derivación de la RED / Seguimiento /
+// Recontacto) — acá NO se mapean las 270, solo las que hacen falta para
+// el dashboard y el resumen semanal (cobertura, población abordada,
+// nivel de vínculo). Nombres de campo confirmados sept/2026 contra un
+// export real (XLSX labels) + una muestra de la API en JSON — si KoBo
+// cambia el formulario, hay que revalidar esto contra un envío nuevo.
+//
+// `campo()` busca la primera clave que EXISTA (no vacía) entre varias
+// alternativas — la misma pregunta puede vivir bajo grupos distintos
+// según qué rama del formulario se haya disparado.
+function campo(row, claves){
+  for(const k of claves){
+    const v = row[k];
+    if(v !== undefined && v !== null && v !== '') return v;
+  }
+  return null;
+}
+
+function parseUmbral0(row){
+  if(row['identificacion/equipo'] !== 'umbral_0') return null; // este asset lo comparten otros equipos de GOPA
+
+  const fecha = row['_submission_time'] || row['start'] || row['today'] || null;
+  // `_geolocation` ya viene parseado por KoBo como [lat, lng] — más
+  // confiable que parsear a mano el string crudo de "georreferenciacion".
+  const geo = Array.isArray(row['_geolocation']) ? row['_geolocation'] : null;
+
+  return {
+    operador: campo(row, ['identificacion/operador_nombre']),
+    tipo: campo(row, ['identificacion/tipo_intervencion']),
+    fecha,
+    hora: fecha ? new Date(fecha).getHours() : null,
+    lat: geo ? geo[0] : null,
+    lng: geo ? geo[1] : null,
+    persona: {
+      nombre: campo(row, ['nivel1_intro/nivel1_datos/persona_nombre', 'Nombre de la persona']),
+      apellido: campo(row, ['nivel1_intro/nivel1_datos/persona_apellido', 'Apellido de la persona']),
+      dni: campo(row, ['nivel1_intro/nivel1_datos/documento_numero', 'Número de DNI de la persona']),
+      alias: campo(row, ['entrevista/datos_identificacion/nombre_autopercibido_alias', 'Alias']),
+      edad: campo(row, ['nivel1_intro/nivel1_datos/nivel1_edad_aproximada', 'Edad']),
+    },
+    nivelContinuaSeguimiento: campo(row, ['cierre/nivel_continua_seguimiento']),
+    // Fila cruda completa, por si hace falta leer algún campo puntual más
+    // adelante (ej. los indicadores de vínculo del Nivel 2, o el detalle
+    // de la entrevista completa) sin tener que reescribir el parser.
+    _raw: row,
+  };
+}
+
 window.PROJECT_CONFIG_UMBRAL_0 = {
   id: 'umbral-0',
   nombre: 'Umbral 0',
@@ -111,11 +164,16 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
     // TODO: sumar más opciones de derivación acá
   ],
 
+  // Misma cuenta de KoBo que Censo Flash (agustinajait@gmail.com) — por eso
+  // el token es igual, no es un error de copiar/pegar.
   kobo: {
-    token: '', // TODO: token de KoBo Toolbox (si Umbral 0 lo termina usando)
+    token: '685fc2e5a79995c816b2652530a9fc520387a630',
     base: 'https://kf.kobotoolbox.org/api/v2/assets',
+    // Asset id del formulario "GOPA" (uno solo, a diferencia de Censo
+    // Flash que tiene Norte/Centro/Sur) — compartido con otros equipos,
+    // ver parseUmbral0() arriba.
     forms: [
-      // TODO: { id:'<asset id>', nombre:'<nombre del formulario>', parseRow: function(row){ ... } }
+      { id:'ap8VHRKKybWZ9bh7UYEd3w', nombre:'Umbral 0 (GOPA)', parseRow: parseUmbral0 },
     ],
   },
 };
