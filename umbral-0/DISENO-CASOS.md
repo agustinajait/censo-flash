@@ -245,6 +245,17 @@ todo lo que pasa con ella en el tiempo.
    prioriza a quienes tuvieron reiterados egresos o egresos negativos de otros
    dispositivos (ver 5.2).
 
+**Eliminar caso** (sept/2026, `casos.html`, botón "🗑️ Eliminar caso" en la
+ficha) — solo visible para `admin` (coincide con la política de RLS: ni
+`coordinacion` puede borrar `personas`/`intervenciones`/`derivaciones`/
+`seguimientos`). Borra la persona y, por FK en cascada, todo su historial
+— irreversible, por eso pide escribir el nombre completo tal cual para
+confirmar, no un simple "¿estás segura?". Se corrigió de paso la FK de
+`intervenciones.persona_id` (estaba en `SET NULL`, a diferencia de
+derivaciones/seguimientos que ya eran `CASCADE`) — si no, borrar un caso
+dejaba intervenciones huérfanas dando vueltas para siempre, sumando igual
+en el conteo del reporte semanal (ver `schema-ajustes.sql`).
+
 ## 5. Pantalla: Pedir derivación
 
 Un botón "Pedir derivación" abre un selector de `tipo` (las opciones de

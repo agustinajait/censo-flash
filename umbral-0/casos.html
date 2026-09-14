@@ -296,8 +296,9 @@
           <div class="ficha-meta" id="ficha-meta"></div>
           <div class="ficha-badges" id="ficha-badges"></div>
         </div>
-        <div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
           <button class="btn btn-outline btn-sm" onclick="Casos.abrirModalEditarPersona()">✏️ Editar</button>
+          <button class="btn btn-red btn-sm" id="btn-eliminar-caso" style="display:none;" onclick="Casos.abrirModalEliminarCaso()">🗑️ Eliminar caso</button>
         </div>
       </div>
 
@@ -1541,12 +1542,64 @@ const Casos = {
     const soflexBtn = document.getElementById('btn-soflex');
     soflexBtn.disabled = !(window.PROJECT_CONFIG.cartasSoflexLink);
     soflexBtn.title = window.PROJECT_CONFIG.cartasSoflexLink ? '' : 'Falta configurar el link de cartas de soflex (config/umbral-0.js)';
+
+    // Eliminar caso: solo admin (coincide con la política de RLS —
+    // ni coordinación puede borrar, ver schema-ajustes.sql).
+    document.getElementById('btn-eliminar-caso').style.display = miPerfil.rol === 'admin' ? 'inline-flex' : 'none';
   },
 
   abrirCartaSoflex(){
     const link = window.PROJECT_CONFIG.cartasSoflexLink;
     if(!link) return;
     window.open(link, '_blank');
+  },
+
+  // ── ELIMINAR CASO (solo admin) ───────────────────────────────────────
+  // Borra la persona y, por FK en cascada, todas sus intervenciones/
+  // derivaciones/seguimientos (ver schema-ajustes.sql — antes
+  // intervenciones no tenía cascade, se corrigió para esto). No se puede
+  // deshacer, por eso pide escribir el nombre completo para confirmar en
+  // vez de un simple confirm().
+  abrirModalEliminarCaso(){
+    const p = personaActual;
+    const nombreCompleto = `${p.nombre || ''} ${p.apellido || ''}`.trim() || '(sin nombre)';
+    const body = `
+      <div style="font-size:0.86rem;background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e;padding:12px 14px;border-radius:10px;margin-bottom:14px;">
+        ⚠️ Esto borra <strong>todo</strong> el caso de <strong>${esc(nombreCompleto)}</strong>: la ficha, ${intervencionesActuales.length}
+        intervención(es), ${derivacionesActuales.length} derivación(es) y ${seguimientosActuales.length} seguimiento(s).
+        <strong>No se puede deshacer.</strong>
+      </div>
+      <div class="form-field">
+        <label>Para confirmar, escribí el nombre completo tal cual: "${esc(nombreCompleto)}"</label>
+        <input type="text" id="f_confirmar_eliminar" autocomplete="off">
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-red" id="btn-confirmar-eliminar">🗑️ Eliminar definitivamente</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      </div>
+    `;
+    openModal('🗑️ Eliminar caso', body);
+    document.getElementById('btn-confirmar-eliminar').onclick = () => Casos.confirmarEliminarCaso(nombreCompleto);
+  },
+
+  async confirmarEliminarCaso(nombreEsperado){
+    const input = document.getElementById('f_confirmar_eliminar').value.trim();
+    if(input !== nombreEsperado){
+      modalError('El nombre no coincide. Escribilo exactamente igual para confirmar.');
+      return;
+    }
+    const btn = document.getElementById('btn-confirmar-eliminar');
+    btn.disabled = true; btn.textContent = 'Eliminando…';
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('personas').delete().eq('id', personaActual.id);
+      if(error) throw error;
+      closeModal();
+      Casos.volverABuscar();
+    }catch(e){
+      modalError('No se pudo eliminar: ' + e.message);
+      btn.disabled = false; btn.textContent = '🗑️ Eliminar definitivamente';
+    }
   },
 
   // Botón "✨ Corregir redacción" — solo aparece en los campos marcados

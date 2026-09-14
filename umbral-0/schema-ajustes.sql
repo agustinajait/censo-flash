@@ -276,3 +276,18 @@ create policy "personas_insert" on public.personas
     mi_rol() = any (array['admin','coordinacion'])
     or (mi_rol() = 'dupla' and dupla_id = mi_dupla_id())
   );
+
+-- 2026-09-14: "Eliminar caso" desde admin (casos.html) — RLS de DELETE en
+-- `personas` ya era admin-only (`personas_delete`, sin cambios acá). Lo
+-- que faltaba era la integridad de la cascada: `intervenciones.persona_id`
+-- estaba en "ON DELETE SET NULL", a diferencia de derivaciones/
+-- seguimientos (ambas ya "ON DELETE CASCADE") — borrar un caso dejaba
+-- intervenciones huérfanas (persona_id null) dando vueltas para siempre,
+-- invisibles en cualquier ficha pero sumando igual en "Intervenciones
+-- registradas" del reporte semanal. Se unifica a CASCADE. Ya corrido en
+-- producción.
+alter table public.intervenciones
+  drop constraint intervenciones_persona_id_fkey;
+alter table public.intervenciones
+  add constraint intervenciones_persona_id_fkey
+  foreign key (persona_id) references public.personas(id) on delete cascade;
