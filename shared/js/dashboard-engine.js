@@ -1159,6 +1159,11 @@ async function cargarRosterUmbral0(){
   return roster;
 }
 
+// Cache del último fetch a KoBo — el filtro por fecha (sept/2026, pedido
+// de Agustina) se aplica sobre esto en el navegador, sin volver a pedirle
+// nada a KoBo cada vez que se cambia el rango.
+let umbral0Crudo = null; // { parsed, delEquipo, sinDupla }
+
 async function cargarUmbral0(project){
   const warnBox = document.getElementById('u0-live-warning');
   warnBox.style.display = 'none';
@@ -1185,14 +1190,54 @@ async function cargarUmbral0(project){
     // equipo propio vs. gente que no es de acá).
     const delEquipo = parsed.filter(p => p.dupla);
 
-    renderUmbral0(delEquipo, sinDupla);
-    document.getElementById('u0-last-update').textContent =
-      'Actualizado: ' + new Date().toLocaleString('es-AR') + ' · ' + parsed.length + ' envíos de KoBo revisados, ' + delEquipo.length + ' del equipo';
+    umbral0Crudo = { parsed, delEquipo, sinDupla };
+    aplicarFiltroUmbral0(); // respeta el rango si ya había uno cargado
   }catch(e){
     console.error('Error cargando KoBo de Umbral 0', e);
     warnBox.textContent = '⚠️ No se pudo actualizar en vivo (' + e.message + ').';
     warnBox.style.display = 'block';
   }
+}
+
+// Filtra sobre umbral0Crudo (ya en memoria) por fecha de intervención —
+// no re-pide nada a KoBo. `p.fecha` es un timestamp completo
+// (_submission_time), se compara solo la parte de fecha (inRange espera
+// "YYYY-MM-DD"; comparar el timestamp completo contra una fecha suelta
+// excluía por error los envíos del propio día "hasta").
+function aplicarFiltroUmbral0(){
+  if(!umbral0Crudo) return;
+  const desde = document.getElementById('u0-filter-desde').value;
+  const hasta = document.getElementById('u0-filter-hasta').value;
+  const { parsed, delEquipo, sinDupla } = umbral0Crudo;
+
+  if(!desde && !hasta){
+    renderUmbral0(delEquipo, sinDupla);
+    document.getElementById('u0-filter-info').textContent = '';
+    document.getElementById('u0-last-update').textContent =
+      'Actualizado: ' + new Date().toLocaleString('es-AR') + ' · ' + parsed.length + ' envíos de KoBo revisados, ' + delEquipo.length + ' del equipo';
+    return;
+  }
+
+  const enRango = p => inRange(String(p.fecha||'').slice(0,10), desde, hasta);
+  const delEquipoFiltrado = delEquipo.filter(enRango);
+  // "Sin dupla reconocida" también respeta el filtro — si no, mezclaría
+  // operadores de otras fechas con el resto de la vista filtrada.
+  const sinDuplaFiltrado = new Map();
+  parsed.filter(p => !p.dupla && enRango(p)).forEach(p => {
+    if(p.operador) sinDuplaFiltrado.set(p.operador, (sinDuplaFiltrado.get(p.operador)||0) + 1);
+  });
+
+  renderUmbral0(delEquipoFiltrado, sinDuplaFiltrado);
+  document.getElementById('u0-filter-info').textContent =
+    `${delEquipoFiltrado.length} de ${delEquipo.length} envíos en el rango elegido`;
+  document.getElementById('u0-last-update').textContent =
+    'Actualizado: ' + new Date().toLocaleString('es-AR') + ' · filtrado por fecha';
+}
+
+function limpiarFiltroUmbral0(){
+  document.getElementById('u0-filter-desde').value = '';
+  document.getElementById('u0-filter-hasta').value = '';
+  aplicarFiltroUmbral0();
 }
 
 function renderUmbral0(rows, sinDupla){
@@ -1306,7 +1351,7 @@ document.addEventListener('click', function(ev){
 window.DashboardEngine = {
   doLogin, logout, toggleModo, processFiles, loadFromAPI, applyFilter, clearFilter,
   toggleKobo, verFoto, cerrarFoto, togglePwd, abrirCalendario, cerrarCalendario,
-  refrescarAhora,
+  refrescarAhora, aplicarFiltroUmbral0, limpiarFiltroUmbral0,
 };
 
 restoreSession();

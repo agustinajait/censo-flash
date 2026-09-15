@@ -89,6 +89,8 @@ function render(r){
   const porNivel = (d.evolucion && d.evolucion.porNivel) || [];
   const idyv = d.intervencionesDerivaciones || {};
   const porTipo = idyv.porTipo || {};
+  const koboOutcomes = d.koboOutcomes || null;
+  const labelsKobo = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.terminoIntervencionLabels) || {};
 
   document.getElementById('cont').innerHTML = `
     <div class="section-title">a. Cobertura territorial</div>
@@ -108,6 +110,7 @@ function render(r){
         <div class="kpi"><div class="num">${poblacion.nuevas ?? '—'}</div><div class="lbl">Personas nuevas identificadas</div></div>
         <div class="kpi"><div class="num">${poblacion.recontactadas ?? '—'}</div><div class="lbl">Personas recontactadas</div></div>
         <div class="kpi"><div class="num">${poblacion.seguimientoActivo ?? '—'}</div><div class="lbl">Personas con seguimiento activo</div></div>
+        <div class="kpi"><div class="num">${poblacion.aceptaEntrevista ?? '—'}</div><div class="lbl">Aceptan entrevista</div></div>
       </div>
     </div>
 
@@ -135,6 +138,20 @@ function render(r){
         <div class="kpi"><div class="num">${idyv.totalDerivaciones ?? '—'}</div><div class="lbl">Total derivaciones</div></div>
         <div class="kpi"><div class="num">${idyv.pctConcretadas!=null?idyv.pctConcretadas+'%':'—'}</div><div class="lbl">% efectivamente concretadas</div></div>
       </div>
+    </div>
+
+    <div class="section-title">e. Derivaciones y contactos según KoBo (terreno)</div>
+    <div class="card">
+      ${koboOutcomes ? `
+        <table class="reporte-tabla">
+          <thead><tr><th>Qué pasó</th><th style="text-align:right;">Cantidad</th></tr></thead>
+          <tbody>
+            ${Object.keys(koboOutcomes.conteo||{}).length ? Object.entries(koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
+              `<tr><td>${esc(labelsKobo[codigo]||codigo)}</td><td class="num">${n}</td></tr>`).join('')
+              : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin envíos de KoBo del equipo en el período</td></tr>'}
+          </tbody>
+        </table>
+      ` : '<div class="nota-libre">Sin datos de KoBo para este reporte.</div>'}
     </div>
 
     ${d.alertas ? `
