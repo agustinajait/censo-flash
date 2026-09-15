@@ -89,6 +89,44 @@ function opcionesMultiples(row, sufijo){
   if(!v) return [];
   return String(v).split(/\s+/).filter(Boolean).map(legible);
 }
+// Como opcionesMultiples(), pero sin pasar por legible() — para cuando
+// hace falta el código interno tal cual (ej. mapearlo contra un
+// diccionario de etiquetas propio, más prolijo que la conversión
+// genérica de guiones bajos a espacios).
+function opcionesCrudas(row, sufijo){
+  const v = campoSufijo(row, sufijo);
+  return v ? String(v).split(/\s+/).filter(Boolean) : [];
+}
+
+// Qué pasó al final de la intervención — pregunta select_multiple
+// "termino_intervencion_diaria" de KoBo. Es la única fuente confiable de
+// derivaciones/llamados de emergencia reales: `derivaciones` en Supabase
+// depende de que la dupla use "Pedir derivación" en casos.html, que en
+// la práctica no se está usando (confirmado sept/2026 — la tabla está
+// vacía) — lo que pasa en el momento (llamado a SAME, contacto con
+// policía/911, derivación a CIS/RED/Casa Vincular) se resuelve por
+// teléfono/WhatsApp y solo queda registrado acá, porque KoBo es
+// obligatorio. Etiquetas propias (no legible() genérico) para que se
+// lean bien en el reporte semanal.
+const TERMINO_INTERVENCION_LABELS = {
+  entrevista_persona: 'Entrevista con la persona',
+  derivacion_ciudadania_portena: 'Derivación a Ciudadanía Porteña',
+  acompanamiento_afeccion_fisica: 'Acompañamiento por afección física',
+  llamado_same_emergencia_medica: 'Llamado a SAME (emergencia médica)',
+  llamado_same_emergencia_sm: 'Llamado a SAME (emergencia de salud mental)',
+  traslado_efector_neuropsiquiatrico: 'Traslado a efector neuropsiquiátrico',
+  derivacion_adicciones_ambulatoria: 'Derivación a adicciones (ambulatoria)',
+  acompanamiento_cesac: 'Acompañamiento a CeSAC',
+  traslado_centro_barrial: 'Traslado a centro barrial',
+  traslado_dipa: 'Traslado a DIPA',
+  derivacion_red: 'Derivación a la RED',
+  derivacion_apoyo_familias: 'Derivación a apoyo a familias',
+  hospital: 'Traslado/derivación a hospital',
+  derivacion_internacion_asa: 'Derivación a internación (ASA)',
+  derivacion_casa_vincular: 'Derivación a Casa Vincular',
+  policia: 'Contacto con Policía / 911',
+  otro: 'Otro',
+};
 
 function parseUmbral0(row){
   if(row['identificacion/equipo'] !== 'umbral_0') return null; // este asset lo comparten otros equipos de GOPA
@@ -118,6 +156,9 @@ function parseUmbral0(row){
     hora: fecha ? new Date(fecha).getHours() : null,
     lat: geo ? geo[0] : null,
     lng: geo ? geo[1] : null,
+    // Qué pasó al final (derivaciones/llamados de emergencia realmente
+    // hechos en el territorio) — ver TERMINO_INTERVENCION_LABELS arriba.
+    terminoIntervencionDiaria: opcionesCrudas(row, 'termino_intervencion_diaria'),
     persona: {
       nombre: campoSufijo(row, 'persona_nombre') || campoSufijo(row, 'nombre_segui'),
       apellido: campoSufijo(row, 'persona_apellido') || campoSufijo(row, 'apellido_segui'),
@@ -329,5 +370,10 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
     ],
   },
 };
+
+// Expuesto aparte (no adentro del objeto de arriba) para que admin-duplas.html
+// pueda armar etiquetas legibles al mostrar terminoIntervencionDiaria en el
+// reporte semanal, sin tener que duplicar el diccionario.
+window.PROJECT_CONFIG_UMBRAL_0.terminoIntervencionLabels = TERMINO_INTERVENCION_LABELS;
 
 })();

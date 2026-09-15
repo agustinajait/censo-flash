@@ -873,10 +873,11 @@ async function generarReporte(){
   try{
     const client = await SupabaseClient.getClient();
 
-    const [personasRes, intervencionesRes, derivacionesRes] = await Promise.all([
-      client.from('personas').select('id, zona, punto_contacto, estado, nivel_actual, created_at'),
+    const [personasRes, intervencionesRes, derivacionesRes, koboOutcomes] = await Promise.all([
+      client.from('personas').select('id, zona, punto_contacto, estado, nivel_actual, created_at, acepta_entrevista'),
       client.from('intervenciones').select('*').gte('fecha', desde).lte('fecha', hasta),
       client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
+      calcularOutcomesKobo(desde, hasta).catch(e => { console.error('No se pudo traer KoBo para el reporte', e); return null; }),
     ]);
     if(personasRes.error) throw personasRes.error;
     if(intervencionesRes.error) throw intervencionesRes.error;
@@ -889,14 +890,50 @@ async function generarReporte(){
     personas.forEach(p => personaPorId[p.id] = p);
 
     const reporte = calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId });
+    reporte.koboOutcomes = koboOutcomes;
     renderReporte(cont, reporte);
-    estadoEl.textContent = `Listo — ${intervenciones.length} intervenciones, ${derivaciones.length} derivaciones en el período.`;
+    estadoEl.textContent = `Listo — ${intervenciones.length} intervenciones, ${derivaciones.length} derivaciones en el período` +
+      (koboOutcomes ? `, ${koboOutcomes.totalEnvios} envíos de KoBo del equipo revisados.` : ' (no se pudo revisar KoBo).');
   }catch(e){
     cont.innerHTML = `<div class="empty-msg">Error calculando el reporte: ${esc(e.message)}</div>`;
     estadoEl.textContent = '';
   }finally{
     btn.disabled = false;
   }
+}
+
+// ── e. Derivaciones y contactos según KoBo (terreno) ───────────────────
+// `derivaciones` en Supabase depende de que la dupla use "Pedir
+// derivación" en casos.html — en la práctica no se está usando (sept/2026,
+// la tabla estaba vacía a pesar de que sí hubo derivaciones espontáneas,
+// llamados a SAME/policía en el territorio). Esas SÍ quedan en KoBo
+// (pregunta "termino_intervencion_diaria", obligatoria) — se cuentan acá
+// aparte, con su propia fuente aclarada en el reporte, en vez de forzarlas
+// adentro de "d." como si vinieran de la misma tabla.
+async function calcularOutcomesKobo(desde, hasta){
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form) return null;
+  const client = await SupabaseClient.getClient();
+  const [{ data: integrantes, error: errI }, koboRowsRaw] = await Promise.all([
+    client.from('integrantes').select('nombre, apellido').neq('rol', 'chofer'),
+    fetchKoboProxyAll(project, form.id),
+  ]);
+  if(errI) throw errI;
+  const misNombres = new Set((integrantes||[]).map(i => normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`)).filter(Boolean));
+
+  const conteo = {}; // código de termino_intervencion_diaria -> cantidad
+  let totalEnvios = 0;
+  koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
+    if(!misNombres.has(normalizarNombreKobo(p.operador))) return; // no es de las 13 duplas
+    const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
+    if(!fechaSolo || fechaSolo < desde || fechaSolo > hasta) return;
+    totalEnvios++;
+    (p.terminoIntervencionDiaria || []).forEach(codigo => {
+      conteo[codigo] = (conteo[codigo] || 0) + 1;
+    });
+  });
+  return { totalEnvios, conteo };
 }
 
 function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId }){
@@ -925,6 +962,11 @@ function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones,
   const idsTocadasEnRango = new Set(intervenciones.map(i => i.persona_id).filter(Boolean));
   const recontactadas = [...idsTocadasEnRango].filter(id => !idsPersonasNuevas.has(id));
   const seguimientoActivo = personas.filter(p => p.estado === 'activo');
+  // Ya se estaba cargando en la ficha (checkbox "¿Acepta entrevista?",
+  // sept/2026) pero el reporte nunca lo miraba — sept/2026, encontrado
+  // al revisar con Agustina por qué el reporte no reflejaba la
+  // situación real.
+  const aceptaEntrevista = personas.filter(p => p.acepta_entrevista === true).length;
 
   // ── c. Evolución de casos (foto actual por nivel, no delta del período —
   // ver nota arriba: no hay historial de cambios de nivel_actual) ────────
@@ -948,7 +990,7 @@ function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones,
   return {
     desde, hasta,
     cobertura: { zonas, puntos, dias, pctZonasCubiertas, totalIntervenciones: intervenciones.length },
-    poblacion: { nuevas: personasNuevas.length, recontactadas: recontactadas.length, seguimientoActivo: seguimientoActivo.length },
+    poblacion: { nuevas: personasNuevas.length, recontactadas: recontactadas.length, seguimientoActivo: seguimientoActivo.length, aceptaEntrevista },
     evolucion: { porNivel },
     intervencionesDerivaciones: { porTipo, totalDerivaciones, totalEfectivizadas, totalRechazadas,
       pctConcretadas: totalDerivaciones ? Math.round((totalEfectivizadas/totalDerivaciones)*100) : null },
@@ -979,6 +1021,7 @@ function renderReporte(cont, r){
         <div class="kpi"><div class="num">${r.poblacion.nuevas}</div><div class="lbl">Personas nuevas identificadas</div></div>
         <div class="kpi"><div class="num">${r.poblacion.recontactadas}</div><div class="lbl">Personas recontactadas</div></div>
         <div class="kpi"><div class="num">${r.poblacion.seguimientoActivo}</div><div class="lbl">Personas con seguimiento activo (al cierre del período)</div></div>
+        <div class="kpi"><div class="num">${r.poblacion.aceptaEntrevista}</div><div class="lbl">Personas que aceptan entrevista (total cargado)</div></div>
       </div>
       <div class="nota-limite">⚠️ "Incorporadas al seguimiento" y "con las que se perdió contacto" todavía no se pueden calcular con precisión — falta guardar cuándo cambia el nivel de vínculo de cada persona. Por ahora completalos a mano si hace falta para el reporte.</div>
     </div>
@@ -1008,6 +1051,25 @@ function renderReporte(cont, r){
         <div class="kpi"><div class="num">${r.intervencionesDerivaciones.totalDerivaciones}</div><div class="lbl">Total derivaciones</div></div>
         <div class="kpi"><div class="num">${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}</div><div class="lbl">% efectivamente concretadas</div></div>
       </div>
+      ${!r.intervencionesDerivaciones.totalDerivaciones ? '<div class="nota-limite">⚠️ Esta tabla sale de "Pedir derivación" en casos.html — si nadie la usó en el período, va a quedar en cero aunque hayan pasado cosas en el territorio. Ver la sección de abajo, que sí sale de KoBo.</div>' : ''}
+    </div>
+
+    <div class="section-title">e. Derivaciones y contactos según KoBo (terreno)</div>
+    <div class="section-hint">Sale de la pregunta obligatoria de KoBo "¿Cómo terminó la intervención?", no de "Pedir derivación" — captura lo que realmente pasó (llamados a SAME/policía, derivaciones a CIS/RED/Casa Vincular, etc.) aunque no haya quedado cargado en la ficha del caso.</div>
+    <div class="card">
+      ${r.koboOutcomes === null
+        ? '<div class="nota-limite">⚠️ No se pudo traer esta sección de KoBo (revisá la conexión y volvé a generar el reporte).</div>'
+        : `
+          <table class="reporte-tabla">
+            <thead><tr><th>Qué pasó</th><th style="text-align:right;">Cantidad</th></tr></thead>
+            <tbody>
+              ${Object.keys(r.koboOutcomes.conteo).length ? Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
+                `<tr><td>${esc((window.PROJECT_CONFIG.terminoIntervencionLabels||{})[codigo] || codigo)}</td><td class="num">${n}</td></tr>`).join('')
+                : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin envíos de KoBo del equipo en el período</td></tr>'}
+            </tbody>
+          </table>
+          <div class="section-hint" style="margin-top:10px;">${r.koboOutcomes.totalEnvios} envíos de KoBo del equipo en este período (un mismo envío puede sumar en más de una fila, si marcaron varias cosas).</div>
+        `}
     </div>
 
     <div class="section-title">Tablero de indicadores</div>
@@ -1067,6 +1129,10 @@ function armarMensaje(){
   const tiposLinea = Object.entries(r.intervencionesDerivaciones.porTipo).sort((a,b)=>b[1].total-a[1].total)
     .map(([tipo,d]) => `  · ${tipo}: ${d.total} (${d.efectivizado} efectivizadas, ${d.rechazado} rechazadas)`).join('\n') || '  (sin derivaciones)';
   const nivelesLinea = r.evolucion.porNivel.map(n => `  · Nivel ${n.nivel} (${NOMBRE_NIVEL[n.nivel]}): ${n.cantidad}`).join('\n');
+  const labelsKobo = window.PROJECT_CONFIG.terminoIntervencionLabels || {};
+  const koboLinea = r.koboOutcomes
+    ? (Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) => `  · ${labelsKobo[codigo]||codigo}: ${n}`).join('\n') || '  (sin envíos de KoBo del equipo en el período)')
+    : '  (no se pudo traer KoBo para esta sección)';
 
   const texto = `REPORTE SEMANAL — UMBRAL CERO
 Período: ${fmt(r.desde)} al ${fmt(r.hasta)}
@@ -1082,13 +1148,17 @@ b. POBLACIÓN ABORDADA
 - Personas nuevas identificadas: ${r.poblacion.nuevas}
 - Personas recontactadas: ${r.poblacion.recontactadas}
 - Personas con seguimiento activo: ${r.poblacion.seguimientoActivo}
+- Personas que aceptan entrevista: ${r.poblacion.aceptaEntrevista}
 
 c. EVOLUCIÓN DE LOS CASOS (nivel de vínculo, personas con seguimiento activo)
 ${nivelesLinea}
 
-d. INTERVENCIONES Y DERIVACIONES
+d. INTERVENCIONES Y DERIVACIONES (cargadas en la plataforma)
 ${tiposLinea}
 Total: ${r.intervencionesDerivaciones.totalDerivaciones} · Efectivizadas: ${r.intervencionesDerivaciones.totalEfectivizadas} (${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}) · Rechazadas: ${r.intervencionesDerivaciones.totalRechazadas}
+
+e. DERIVACIONES Y CONTACTOS SEGÚN KOBO (terreno)
+${koboLinea}
 
 REPORTE DE ALERTAS Y DESVÍOS
 ${alertas}`;
@@ -1140,6 +1210,10 @@ async function publicarReporte(){
       poblacion: r.poblacion,
       evolucion: r.evolucion,
       intervencionesDerivaciones: r.intervencionesDerivaciones,
+      // Guarda los códigos crudos (no las etiquetas) — reporte-publico.html
+      // ya carga config/umbral-0.js y busca las etiquetas ahí, una sola
+      // fuente de verdad en vez de duplicar el diccionario acá.
+      koboOutcomes: r.koboOutcomes,
       alertas: (document.getElementById('alertas-texto')||{}).value || '',
     };
     const client = await SupabaseClient.getClient();

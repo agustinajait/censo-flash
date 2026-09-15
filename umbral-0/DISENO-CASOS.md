@@ -801,16 +801,39 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
   horarias" se sacaron del reporte al sacar "Registrar recorrida" — sin
   esa fuente, quedaban siempre en cero.)
 - **b) Población abordada** — personas nuevas, recontactadas, con
-  seguimiento activo. "Incorporadas al seguimiento" y "con las que se
-  perdió contacto" no son calculables con precisión todavía (ver
-  limitación de arriba) — se marcan explícitas en pantalla, no se inventa
-  un número.
+  seguimiento activo, y (sept/2026) **personas que aceptan entrevista**
+  — dato que ya se cargaba en la ficha (`personas.acepta_entrevista`)
+  pero el reporte nunca lo miraba, hasta que Agustina lo notó revisando
+  el reporte contra la realidad del territorio. "Incorporadas al
+  seguimiento" y "con las que se perdió contacto" no son calculables con
+  precisión todavía (ver limitación de arriba) — se marcan explícitas en
+  pantalla, no se inventa un número.
 - **c) Evolución de casos** — cantidad de personas por nivel (1 a 5),
   snapshot de las personas con seguimiento activo.
-- **d) Intervenciones y derivaciones** — por tipo de derivación (reusa
-  `TIPOS_DERIVACION_CONFIG`/§5 completo), contando total/efectivizadas/
-  rechazadas por tipo. Esto sí es 100% preciso, ya que se arma directo de
-  `derivaciones.tipo`/`estado`.
+- **d) Intervenciones y derivaciones (cargadas en la plataforma)** — por
+  tipo de derivación (reusa `TIPOS_DERIVACION_CONFIG`/§5 completo),
+  contando total/efectivizadas/rechazadas por tipo. Es 100% preciso
+  respecto de `derivaciones.tipo`/`estado` — **pero esa tabla depende de
+  que la dupla use "Pedir derivación"**, que en la práctica casi no se
+  usa (sept/2026: 0 filas en `derivaciones`, y `intervenciones` con un
+  solo tipo real usado — el que se crea solo al dar de alta el caso). Lo
+  que pasa en el momento (derivación espontánea a CIS, llamado a SAME,
+  contacto con policía/911) se resuelve por teléfono/WhatsApp y no queda
+  cargado ahí — por eso se agregó la sección **e.** de abajo.
+- **e) Derivaciones y contactos según KoBo — terreno** (sept/2026,
+  pedido de Agustina: "necesito poder dar un mapa real de situación").
+  Sale de la pregunta obligatoria de KoBo `termino_intervencion_diaria`
+  (select_multiple: llamado a SAME médico/salud mental, contacto con
+  policía, derivación a CIS/RED/Casa Vincular/ASA/apoyo a familias,
+  traslado a hospital/centro barrial/DIPA, etc. — ver
+  `TERMINO_INTERVENCION_LABELS` en `config/umbral-0.js`) — como KoBo es
+  obligatorio, esto SÍ refleja lo que realmente pasó en el territorio,
+  independiente de si quedó cargado en la ficha del caso. Mismo
+  matching operador→dupla que la vista de `dashboard.html` (§10.1),
+  filtrado al rango de fechas del reporte. Aparece con su fuente
+  aclarada en el título — no se mezcla con "d." como si viniera de la
+  misma tabla, para no confundir "lo que se tipeó en Casos" con "lo que
+  pasó de verdad".
 - **Tablero de indicadores** — los 11 indicadores que pide el documento;
   los que no son calculables (Vínculo, Sostenimiento, Gestión, Resultado —
   requieren historial de nivel o una tabla de alertas que no existe;
@@ -913,6 +936,18 @@ equipos de GOPA).
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
+- **"Pedir derivación"/"Registrar intervención" casi no se usan**
+  (encontrado sept/2026, revisando por qué el reporte no reflejaba la
+  situación real): `derivaciones` está vacía y `intervenciones` tiene un
+  solo tipo real (`contacto_espontaneo`, el que se crea solo al dar de
+  alta el caso). Lo que pasa en el territorio (derivaciones espontáneas,
+  llamados a SAME/policía) se resuelve por teléfono/WhatsApp, no por la
+  plataforma. La sección **e.** del reporte (§9) tapa el agujero leyendo
+  KoBo en vez de `derivaciones` — pero sigue sin resolverse **por qué**
+  las duplas no usan esos dos botones: ¿el formulario es muy largo para
+  cargarlo en el momento? ¿no saben que existe? ¿prefieren resolverlo por
+  teléfono y ya está? Vale la pena preguntarles directo antes de asumir
+  que hace falta cambiar algo del formulario.
 - **Casos duplicados entre duplas** (sección 1): con `personas` ahora
   restringida por dupla, si una persona pasa por la zona de dos duplas
   distintas, la segunda no la encuentra al buscar y puede darla de alta
