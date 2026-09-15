@@ -890,10 +890,23 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
     `renderListadoCasosCards()` (duplicada en `admin-duplas.html` y
     `reporte-publico.html`, mismo criterio de auto-contención de página
     que el resto).
-- **Logo de Huehaci** (sept/2026, pedido de Agustina: "así cuando paso el
-  reporte llega con nuestra marca también") — `assets/huehaci-logo.png`
-  en el header de `admin-duplas.html` y de `reporte-publico.html` (el que
-  efectivamente viaja a GOPA).
+- **Marca de Huehaci en toda la plataforma** (sept/2026, primero pedido de
+  Agustina: "quiero agregar el logo de huehaci en el admin así cuando paso
+  el reporte llega con nuestra marca también"; después ampliado: "le falta
+  que nuestra marca, de consultora de innovación cívica y tecnológica
+  tenga más impronta en el producto"). `assets/huehaci-logo.png` se agregó
+  en las 11 páginas HTML de la plataforma (Censo Flash y Umbral 0, no solo
+  Umbral 0 — el pedido fue "toda la plataforma"):
+  - **Favicon** en el `<head>` de las 11 páginas.
+  - **Logo + tagline** ("Consultora de innovación cívica y tecnológica")
+    en el header/topbar de las pantallas principales: `plataforma.html`
+    (el portal de entrada a los dos proyectos), `dashboard.html` (login y
+    nav), `admin-duplas.html`, `casos.html` y `reporte-publico.html` (acá
+    el más grande, porque es lo único que ve gente de afuera).
+  - **Footer de crédito** ("Huehaci — Consultora de innovación cívica y
+    tecnológica" + logo chico) agregado al pie de las 11 páginas — clase
+    CSS `.huehaci-credit`, duplicada por página siguiendo el mismo
+    criterio de auto-contención que el resto de la plataforma.
 
 **Botón "Armar mensaje"**: junta todo lo de arriba en un texto plano listo
 para copiar y mandar a GOPA (mismo mecanismo de copiar-mensaje que las

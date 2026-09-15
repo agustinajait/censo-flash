@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reporte semanal — Umbral Cero</title>
+<link rel="icon" type="image/png" href="../assets/huehaci-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -29,6 +30,8 @@
   .badge-nuevo { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; background:#d1fae5; color:#047857; margin-left:4px; }
   .nota-libre { font-size:0.86rem; color:#334155; white-space:pre-wrap; }
   .footer-nota { text-align:center; font-size:0.74rem; color:#94a3b8; margin-top:30px; }
+  .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
+  .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
   .empty-msg { text-align:center; color:#94a3b8; padding:60px 20px; font-size:0.92rem; }
   .casos-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
   .caso-card { background:#f8faff; border:1px solid #e2eaf8; border-radius:10px; padding:0; }
@@ -53,8 +56,9 @@
 <body>
 
 <div class="topbar">
-  <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
     <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:52px; width:auto; background:white; border-radius:6px; padding:4px 8px;">
+    <div style="font-size:0.68rem; color:rgba(255,255,255,0.6); line-height:1.25;">Reporte elaborado por<br><b style="color:rgba(255,255,255,0.85);">Huehaci</b> — Consultora de innovación<br>cívica y tecnológica</div>
   </div>
   <h1>🌒 Reporte semanal — Umbral Cero</h1>
   <div class="periodo" id="periodo">Cargando…</div>
@@ -212,6 +216,10 @@ function render(r){
     ` : ''}
 
     <div class="footer-nota">Umbral Cero · programa territorial nocturno</div>
+    <div class="huehaci-credit">
+      <img src="../assets/huehaci-logo.png" alt="Huehaci">
+      <span>Reporte elaborado por Huehaci — Consultora de innovación cívica y tecnológica</span>
+    </div>
   `;
 }
 
