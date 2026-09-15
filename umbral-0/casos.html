@@ -386,6 +386,7 @@ let personaActual = null;
 let intervencionesActuales = [];
 let derivacionesActuales = [];
 let seguimientosActuales = [];
+let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
 
@@ -1764,15 +1765,23 @@ const Casos = {
   },
 
   async guardarPersona(personaExistente){
+    // Traba sincrónica contra doble-tap/doble-click: si dos clics llegan
+    // casi juntos (celular con conexión lenta), el segundo entra acá antes
+    // de que el primero llegue a deshabilitar el botón más abajo, y sin
+    // esto los dos terminan insertando el mismo caso duplicado.
+    if(_guardandoPersona) return;
+    _guardandoPersona = true;
     const form = document.getElementById('form-persona');
     const btn = document.getElementById('btn-guardar-persona');
     const campos = recolectarCampos(form);
     if(!campos.sin_identificar && (!campos.nombre || !campos.apellido)){
       modalError('Nombre y apellido son obligatorios (o tildá "Sin identificar" si la persona no quiso darlos).');
+      _guardandoPersona = false;
       return;
     }
     if(campos.sin_identificar && !campos.punto_contacto){
       modalError('Si no se identificó, completá al menos el punto de contacto (dirección/referencia) para poder ubicarla después.');
+      _guardandoPersona = false;
       return;
     }
     // nivel_actual es smallint en la base — recolectarCampos siempre
@@ -1820,6 +1829,7 @@ const Casos = {
       modalError('No se pudo guardar: ' + e.message);
     }finally{
       btn.disabled = false; btn.textContent = personaExistente ? '💾 Guardar cambios' : '💾 Dar de alta';
+      _guardandoPersona = false;
     }
   },
 

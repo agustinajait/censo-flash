@@ -254,6 +254,17 @@ todo lo que pasa con ella en el tiempo.
      `es_seguimiento` (sí/no, o derivado de si tiene más de una intervención)
      distingue esto de un caso con vínculo sostenido, porque varios recursos
      (Casa Vincular, ver 5.2) solo están habilitados para seguimientos.
+   - **Traba contra doble-tap (sept/2026):** `guardarPersona()` deshabilitaba
+     el botón "Dar de alta" recién después de validar nombre/apellido — en
+     una conexión lenta del celular, un doble-tap dispara dos clicks antes
+     de que el primero llegue a deshabilitarlo, y los dos terminan
+     insertando el mismo caso. Se detectó en producción (15/9): "Alejandro
+     Castaño" DNI 38681714, Dupla K, quedó cargado dos veces con 8 segundos
+     de diferencia. Fix: una traba sincrónica (`_guardandoPersona`) como
+     primera línea de la función, antes de cualquier validación — el
+     segundo click entra y sale sin hacer nada mientras el primero sigue en
+     curso, y se libera en el `finally` (o en cada validación que corta el
+     flujo) para no dejar el botón trabado si el guardado falla.
 3. **Ficha de la persona** (pantalla principal del caso): cabecera con los
    datos de arriba + foto, y debajo botones de acción:
    - **Legajo** (sept/2026, pedido de Agustina: "el caso tiene que tener
@@ -1021,6 +1032,20 @@ más adelante — quedan pendientes de definir con Agustina:
   scope — sería algo más fino, como avisar "ya existe un caso con ese DNI
   en otra dupla, pedile acceso a tu referente" sin mostrar el detalle
   completo.
+- **Casos duplicados DENTRO de la misma dupla, sin DNI para matchear**
+  (encontrado 15/9 revisando la carga del día): además del doble-tap ya
+  resuelto arriba, aparecieron altas de la misma persona repetidas en
+  días distintos dentro de una misma dupla (ej. Dupla H) — el patrón es
+  que el primer contacto queda sin DNI o con un valor basura escrito a
+  mano en ese campo ("No responde", ".", "-" en vez de dejarlo vacío o
+  usar `dni_denuncia_extravio`/`sin_identificar`), así que el buscador no
+  lo encuentra en el contacto siguiente y la dupla termina dando de alta
+  un caso nuevo para la misma persona. No es un bug de código — es un
+  problema de qué se escribe en el campo DNI en el momento de la carga.
+  Antes de tocar el formulario (¿bloquear texto no numérico en DNI?
+  ¿advertencia si hay un nombre muy parecido ya cargado?), vale la pena
+  preguntarle a las duplas por qué escriben eso en vez de dejarlo en
+  blanco — puede ser que no sepan que pueden dejarlo vacío.
 - **Contradicción sobre CIS y seguimiento** (5.1): el documento en un lugar
   describe pedidos espontáneos de CIS (sin vínculo previo) y en otro dice que
   el ingreso a CIS "se realiza siempre y cuando la persona sea seguimiento
