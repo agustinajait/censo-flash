@@ -909,6 +909,43 @@ solo-lectura; no ve el roster de duplas/choferes (privacidad del equipo).
 Complementa a la pestaña de reporte (§9): esto es exploración de casos individuales,
 la pestaña de reporte es el consolidado cuantitativo para GOPA.
 
+### 10.0 Un solo login para todo — construido sept/2026
+
+Pedido de Agustina: "quiero ingresar una sola vez y ver todo sin tener
+que volver a registrarme". Antes de esto, `dashboard.html` era un
+sistema de login completamente aparte de `casos.html`/`admin-duplas.html`
+— usaba la contraseña compartida de `PLATFORM_AUTH`
+(`config/platform.js`), mientras que Casos usa cuentas reales de
+Supabase Auth. Entrar primero a Casos y después al dashboard pedía
+loguearse dos veces con dos sistemas distintos.
+
+- **`intentarAutoLoginUmbral0()`** (`shared/js/dashboard-engine.js`): al
+  cargar `dashboard.html`, si ya hay una sesión de Supabase activa
+  (porque se entró primero por `casos.html`/`admin-duplas.html` — mismo
+  proyecto de Supabase, mismo storage del navegador) entra directo según
+  el rol real de esa cuenta, sin mostrar el login de contraseña:
+  - `perfiles.rol = 'admin'` → admin completo del dashboard (ve Censo
+    Flash también — coherente con que hoy es la misma persona
+    administrando los dos operativos).
+  - `perfiles.rol = 'coordinacion'` → rol `coordinador`, encerrado en
+    Umbral 0 nada más (mismo alcance que `coordPassword`, que Umbral 0 ni
+    siquiera tiene configurado todavía — esto de paso da una forma de
+    entrar sin depender de esa contraseña).
+  - Cualquier otro rol (ej. `dupla`) no dispara el auto-login — sigue
+    mostrando el login de contraseña normal, una cuenta de dupla no
+    tiene por qué ver el dashboard de coordinación.
+  - Nunca pisa una sesión de `PLATFORM_AUTH` ya restaurada
+    (`restoreSession()` sigue siendo lo primero que se intenta).
+- **Navegación cruzada**: `casos.html`/`admin-duplas.html` ahora tienen
+  un link "📈 Dashboard" en el topbar (admin/coordinación), y la vista
+  "Umbral 0" del dashboard tiene un link de vuelta a "🗂️ Ir a Casos /
+  Duplas" — antes había que escribir la URL a mano o tener la pestaña
+  guardada.
+- **Lo que queda afuera de esto (deliberado):** unificar el login del
+  lado de Censo Flash (que no tiene cuentas de Supabase, solo
+  contraseñas compartidas) es un cambio más grande, sin resolver
+  todavía — quedó planteado para pensarlo aparte.
+
 ### 10.1 KoBo del equipo (envíos en vivo) — construido sept/2026
 
 Además del listado de casos de arriba, `dashboard.html` tiene una pestaña

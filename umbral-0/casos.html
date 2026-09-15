@@ -284,6 +284,11 @@
       <a href="#" id="link-quiz" class="btn btn-ghost" style="display:none;" onclick="event.preventDefault(); showScreen('onboarding-screen'); renderOnboarding();">🎓 Test</a>
       <a href="./admin-duplas.html" class="btn btn-ghost" id="link-admin-duplas" style="display:none;">👥 Duplas</a>
       <a href="./admin-duplas.html#reporte" class="btn btn-ghost" id="link-reporte" style="display:none;">📊 Reporte</a>
+      <!-- Dashboard de KoBo en vivo — otra app (../dashboard.html), pero
+           con la sesión de Supabase ya iniciada acá entra directo, sin
+           pedir la contraseña compartida de nuevo (ver
+           intentarAutoLoginUmbral0() en dashboard-engine.js). -->
+      <a href="../dashboard.html" class="btn btn-ghost" id="link-dashboard" style="display:none;" target="_blank" rel="noopener">📈 Dashboard</a>
       <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
     </div>
   </div>
@@ -830,6 +835,8 @@ async function entrarAlApp(){
   document.getElementById('link-admin-duplas').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-reporte').style.display =
+    ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
+  document.getElementById('link-dashboard').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   const koboFormLink = window.PROJECT_CONFIG.koboFormLink;
   if(koboFormLink){

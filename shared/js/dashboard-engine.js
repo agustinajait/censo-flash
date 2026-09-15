@@ -78,6 +78,50 @@ function restoreSession(){
   clearSession(); // sesión guardada inválida (ej. proyecto que ya no existe)
 }
 
+// Auto-login para cuentas de Umbral 0 (sept/2026, pedido de Agustina:
+// "quiero ingresar una sola vez y ver todo sin tener que volver a
+// registrarme"). Si ya hay una sesión de Supabase activa — típicamente
+// porque se entró primero por casos.html/admin-duplas.html, que usan el
+// mismo proyecto de Supabase y el mismo storage — no hace falta pedir de
+// nuevo la contraseña compartida de acá: se entra directo según el rol
+// real de esa cuenta.
+//   - perfiles.rol === 'admin'         -> admin del dashboard completo
+//     (ve Censo Flash también, coherente con que hoy es la misma persona
+//     administrando los dos operativos).
+//   - perfiles.rol === 'coordinacion'  -> 'coordinador', encerrado en
+//     Umbral 0 nada más (mismo alcance que coordPassword — que Umbral 0
+//     ni siquiera tiene configurado todavía, así que esto de paso les da
+//     una forma de entrar sin depender de esa contraseña).
+//   - cualquier otro rol (ej. 'dupla') -> no aplica, sigue mostrando el
+//     login de contraseña de acá (una cuenta de dupla no tiene por qué
+//     ver el dashboard de coordinación).
+// Se llama solo si restoreSession() no dejó ya una sesión activa — nunca
+// pisa una sesión de PLATFORM_AUTH ya restaurada.
+async function intentarAutoLoginUmbral0(){
+  if(!window.SupabaseClient || !window.PROJECT_CONFIG_UMBRAL_0) return false;
+  try{
+    const session = await SupabaseClient.getSession();
+    if(!session) return false;
+    const perfil = await SupabaseClient.getMiPerfil();
+    if(!perfil) return false;
+    if(perfil.rol === 'admin'){
+      currentRole = 'admin';
+      lockedProjectId = null;
+    } else if(perfil.rol === 'coordinacion'){
+      currentRole = 'coordinador';
+      lockedProjectId = 'umbral-0';
+    } else {
+      return false;
+    }
+    saveSession();
+    startApp();
+    return true;
+  }catch(e){
+    console.error('No se pudo auto-loguear con la sesión de Umbral 0', e);
+    return false;
+  }
+}
+
 function doLogin(){
   const pwd = document.getElementById('pwd-input').value;
   const auth = window.PLATFORM_AUTH || {};
@@ -1355,5 +1399,6 @@ window.DashboardEngine = {
 };
 
 restoreSession();
+if(!currentRole) intentarAutoLoginUmbral0(); // no pisa una sesión ya restaurada arriba
 
 })();

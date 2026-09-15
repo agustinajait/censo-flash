@@ -164,6 +164,10 @@
     <div class="topbar-right">
       <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
       <a href="./casos.html" class="btn btn-ghost">🗂️ Casos</a>
+      <!-- Con la sesión de Supabase ya iniciada acá entra directo, sin
+           pedir la contraseña compartida de nuevo (ver
+           intentarAutoLoginUmbral0() en dashboard-engine.js). -->
+      <a href="../dashboard.html" class="btn btn-ghost" target="_blank" rel="noopener">📈 Dashboard</a>
       <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
     </div>
   </div>
