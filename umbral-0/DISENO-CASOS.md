@@ -378,6 +378,33 @@ todo lo que pasa con ella en el tiempo.
           nada nuevo que mantener), o "No, ya terminé". Mismo criterio de
           guiar al operador en vez de esperar que encuentre solo el resto
           de los botones de la ficha.
+        - **"Qué hiciste con este caso" — nativo de la plataforma**
+          (sept/2026, pedido de Agustina: "yo no manejo el kobo, manejo
+          esta plataforma... el que hizo debe verse en el legajo"). El
+          "qué se hizo" (llamado a SAME, derivación, contacto con
+          policía, etc.) hasta ahora solo salía de la pregunta
+          obligatoria de KoBo `termino_intervencion_diaria` — pero esa
+          lista de opciones no la administra Agustina, la administra
+          quien mantiene el formulario de KoBo, y le faltan opciones
+          reales (confirmado con datos reales: no tiene "CIS" ni
+          "teléfono rojo" como opciones, ver más abajo). Se agrega
+          `ACCIONES_INTERVENCION` en `casos.html` — la misma idea pero
+          NATIVA (columna `intervenciones.acciones text[]`, se completa
+          al abrir "➕ Registrar intervención", que es justo una de las
+          opciones del paso guiado de arriba): mismas categorías de
+          KoBo donde tiene sentido, más "Derivación a CIS" y "Llamado
+          al teléfono rojo" explícitos, y **"Se acercó, pero no aceptó
+          hablar / se negó a la entrevista"** — pedido de Agustina en
+          el mismo hilo: "si la persona no acepta la entrevista el
+          operador no marca qué hizo", porque antes no había ninguna
+          opción para ese caso tan común (sin entrevista, no hay KoBo,
+          y sin KoBo no había ningún registro del intento de contacto).
+          Se muestra en el timeline de la ficha, igual que el "Qué
+          pasó:" de los envíos de KoBo ("Qué se hizo: ..."). No es
+          obligatorio marcar nada (no hay validación que bloquee
+          guardar sin tildar — mismo criterio de no arriesgar romper la
+          carga en producción), es una lista visible y fácil de usar,
+          no un gate.
      2. **Envíos sin DNI que podrían ser un caso ya cargado** — nueva
         sección en "KoBo pendientes", separada de la de altas nuevas: si
         un envío sin DNI de la propia dupla tiene el mismo nombre

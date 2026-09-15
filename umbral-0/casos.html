@@ -72,6 +72,8 @@
   .form-check { display:flex; align-items:center; gap:8px; }
   .form-check input { width:auto; }
   .form-check label { font-size:0.86rem; font-weight:500; color:#1e293b; text-transform:none; letter-spacing:0; font-family:'DM Sans',sans-serif; }
+  .form-check-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px 14px; margin-top:6px; }
+  @media(max-width:560px){ .form-check-grid { grid-template-columns:1fr; } }
   .pwd-wrap { position:relative; }
   .pwd-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:0.85rem; padding:2px; }
   .login-msg { font-size:0.82rem; padding:9px 12px; border-radius:9px; margin-bottom:12px; display:none; }
@@ -469,6 +471,31 @@ const CAMPOS_PERSONA_INFORME = [
   { key:'redes_contencion', label:'Redes de contención', type:'textarea' },
   { key:'situacion_educativa', label:'Situación educativa', type:'textarea' },
 ];
+
+// Qué hizo el operador con el caso — pedido de Agustina (sept/2026): "yo
+// no manejo el kobo, manejo esta plataforma... el que hizo debe verse en
+// el legajo". Es la versión NATIVA de la pregunta de KoBo
+// "termino_intervencion_diaria" (TERMINO_INTERVENCION_LABELS en
+// config/umbral-0.js) — mismas categorías donde tiene sentido, más CIS y
+// teléfono rojo (que KoBo no tiene como opción). Vive en
+// `intervenciones.acciones`, no depende de que KoBo pregunte bien.
+const ACCIONES_INTERVENCION = [
+  { key:'entrevista', label:'Entrevista con la persona' },
+  { key:'rechazo_entrevista', label:'Se acercó, pero no aceptó hablar / se negó a la entrevista' },
+  { key:'llamado_same_medica', label:'Llamado a SAME (emergencia médica)' },
+  { key:'llamado_same_salud_mental', label:'Llamado a SAME (emergencia de salud mental)' },
+  { key:'telefono_rojo', label:'Llamado al teléfono rojo' },
+  { key:'policia', label:'Contacto con Policía / 911' },
+  { key:'derivacion_cis', label:'Derivación a CIS' },
+  { key:'derivacion_casa_vincular', label:'Derivación a Casa Vincular' },
+  { key:'derivacion_red', label:'Derivación a la RED' },
+  { key:'derivacion_ciudadania_portena', label:'Derivación a Ciudadanía Porteña' },
+  { key:'hospital', label:'Traslado/derivación a hospital' },
+  { key:'acompanamiento_salud', label:'Acompañamiento por afección física / CeSAC' },
+  { key:'vuelve_manana', label:'Se acordó volver a verla' },
+  { key:'otro', label:'Otro (detallar abajo)' },
+];
+const ACCIONES_INTERVENCION_LABELS = Object.fromEntries(ACCIONES_INTERVENCION.map(a => [a.key, a.label]));
 
 // "Informe social" — mismo formato para Casa Vincular y ASA (documento
 // UMBRAL_0_1.docx: "el equipo territorial deberá realizar un informe
@@ -2435,12 +2462,14 @@ const Casos = {
 
     if(it.tipo === 'intervencion'){
       const duplaCod = it.data.dupla_id ? (duplasMap[it.data.dupla_id] || 'dupla') : 'coordinación';
+      const acciones = (it.data.acciones || []).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod);
       el.className = 'timeline-item tl-intervencion';
       el.innerHTML = `
         <div class="tl-head">
           <div class="tl-title">🚶 Intervención — ${esc(it.data.tipo || '')}</div>
           <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
         </div>
+        ${acciones.length ? `<div class="tl-body"><b>Qué se hizo:</b> ${acciones.map(a=>esc(a)).join(' · ')}</div>` : ''}
         ${it.data.ubicacion ? `<div class="tl-body" style="font-size:0.78rem;color:#94a3b8;">📍 ${esc(it.data.ubicacion)}</div>` : ''}
         <div class="tl-body">${esc(it.data.resumen || '')}</div>
       `;
@@ -2598,6 +2627,15 @@ const Casos = {
           <input type="text" id="f_ubic_interv" data-f="ubicacion" value="${escAttr(personaActual.punto_contacto || '')}">
         </div>
         <div class="form-field">
+          <label>¿Qué hiciste con este caso?</label>
+          <div class="hint">Elegí todo lo que corresponda.</div>
+          <div class="form-check-grid">
+            ${ACCIONES_INTERVENCION.map((a, i) => `
+              <div class="form-check"><input type="checkbox" id="f_accion_${i}" class="interv-accion-check" data-code="${escAttr(a.key)}"><label for="f_accion_${i}">${esc(a.label)}</label></div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="form-field">
           <label>Descripción</label>
           <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
         </div>
@@ -2615,6 +2653,7 @@ const Casos = {
     const form = document.getElementById('form-intervencion');
     const btn = document.getElementById('btn-guardar-interv');
     const campos = recolectarCampos(form);
+    const acciones = [...form.querySelectorAll('.interv-accion-check:checked')].map(el => el.dataset.code);
     btn.disabled = true; btn.textContent = 'Guardando…';
     try{
       const client = await SupabaseClient.getClient();
@@ -2624,6 +2663,7 @@ const Casos = {
         tipo: campos.tipo || 'seguimiento',
         ubicacion: campos.ubicacion || null,
         resumen: campos.resumen || '',
+        acciones,
       });
       if(error) throw error;
       await Casos._reactivarSiEgresado();
