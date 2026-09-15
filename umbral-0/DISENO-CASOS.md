@@ -395,6 +395,22 @@ todo lo que pasa con ella en el tiempo.
        se resuelve con matching automático más agresivo (riesgo de
        mezclar historiales), sino identificando el caso de otra forma
        (punto de contacto, descripción física) si hace falta.
+   - **Instructivo para las duplas** (sept/2026, pedido de Agustina:
+     "armá un instructivo de onboarding así les paso a las duplas cómo
+     funciona la validación, carga y seguimiento de casos") — nueva
+     sección "Cómo usar Casos: carga, validación y seguimiento" en
+     `umbral-0/instructivo.html` (§ "En esta página"), con el paso a paso
+     completo (buscar antes de cargar → KoBo pendientes → alta manual →
+     validar → posibles continuaciones sin DNI → seguimiento) y un mini
+     FAQ. Va en el instructivo existente (no un documento aparte) porque
+     ya es la página de referencia que las duplas conocen, no pide login,
+     y tiene su propio link para mandar por WhatsApp
+     (`.../umbral-0/instructivo.html#uso-casos`).
+     - Al agregar tarjetas nuevas con la misma clase visual `.gcard` que
+       el glosario de derivaciones, se corrigió de paso el buscador de la
+       página (`filtrar()`) para que solo filtre `#glosario-grid .gcard`
+       — sin el `id` de scope, las tarjetas nuevas (sin `data-nombre`)
+       rompían la búsqueda en cuanto se escribía algo.
 
 **Eliminar caso** (sept/2026, `casos.html`, botón "🗑️ Eliminar caso" en la
 ficha) — solo visible para `admin` (coincide con la política de RLS: ni
