@@ -162,6 +162,7 @@
   .timeline-item.tl-intervencion { border-left-color:var(--blue); }
   .timeline-item.tl-derivacion { border-left-color:var(--amber); }
   .timeline-item.tl-seguimiento { border-left-color:var(--green); }
+  .timeline-item.tl-kobo { border-left-color:#d97706; background:#fffcf7; }
   .tl-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
   .tl-title { font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:var(--navy); }
   .tl-fecha { font-size:0.72rem; color:#94a3b8; white-space:nowrap; }
@@ -396,6 +397,7 @@ let personaActual = null;
 let intervencionesActuales = [];
 let derivacionesActuales = [];
 let seguimientosActuales = [];
+let koboEventosActuales = []; // envíos de KoBo de esta persona (ver cargarKoboDePersona())
 let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
@@ -1284,6 +1286,24 @@ async function fetchKoboProxyAll(project, assetId){
   return results;
 }
 
+// Todos los envíos de KoBo (de cualquier dupla), ya parseados — en caché
+// para el resto de la sesión: lo usa tanto "KoBo pendientes" (altas nuevas)
+// como cargarKoboDePersona() (ficha de un caso ya cargado), y sin esto cada
+// ficha que se abre repetiría el mismo pedido de ~3000 filas. Si falla, NO
+// se cachea el error — el próximo que lo pida vuelve a intentar.
+let _koboRowsParseadasCache = null;
+let _koboRowsParseadasPromise = null;
+function obtenerKoboRowsParseadas(project, form){
+  if(_koboRowsParseadasCache) return Promise.resolve(_koboRowsParseadasCache);
+  if(!_koboRowsParseadasPromise){
+    _koboRowsParseadasPromise = fetchKoboProxyAll(project, form.id)
+      .then(rows => rows.map(r => form.parseRow(r)).filter(Boolean))
+      .then(parsed => { _koboRowsParseadasCache = parsed; return parsed; })
+      .catch(e => { _koboRowsParseadasPromise = null; throw e; });
+  }
+  return _koboRowsParseadasPromise;
+}
+
 let koboPendientesActuales = [];
 
 async function cargarKoboPendientes(){
@@ -1296,10 +1316,10 @@ async function cargarKoboPendientes(){
   try{
     const client = await SupabaseClient.getClient();
 
-    const [{ data: integrantes }, { data: personasExistentes }, koboRowsRaw] = await Promise.all([
+    const [{ data: integrantes }, { data: personasExistentes }, koboParseadas] = await Promise.all([
       client.from('integrantes').select('nombre,apellido').eq('dupla_id', miPerfil.dupla_id),
       client.from('personas').select('dni').eq('dupla_id', miPerfil.dupla_id).not('dni', 'is', null),
-      fetchKoboProxyAll(project, form.id),
+      obtenerKoboRowsParseadas(project, form),
     ]);
 
     const misNombres = new Set((integrantes||[])
@@ -1308,7 +1328,7 @@ async function cargarKoboPendientes(){
     const dnisExistentes = new Set((personasExistentes||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
 
     const porDni = new Map(); // dni -> envío más reciente
-    koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
+    koboParseadas.forEach(p => {
       if(!misNombres.has(normalizarNombreKobo(p.operador))) return; // no es de mi dupla
       const dni = String((p.persona && p.persona.dni) || '').trim();
       if(!dni || dnisExistentes.has(dni)) return; // sin DNI, o ya es un caso cargado
@@ -1322,6 +1342,44 @@ async function cargarKoboPendientes(){
     console.error('No se pudieron revisar los envíos de KoBo pendientes', e);
     box.style.display = 'none'; // falla en silencio: no es un gate, es una ayuda opcional
   }
+}
+
+// Envíos de KoBo de ESTA persona puntual (matcheados por DNI, de cualquier
+// dupla/operador) — pedido de Agustina (sept/2026): "no sé si aclaran que
+// le hice la eximición de pago, o que voy a volver mañana, o que llamé al
+// 911" (esa respuesta vive en la pregunta obligatoria de KoBo
+// "termino_intervencion_diaria", no en la plataforma). Se suma como
+// eventos de solo lectura al timeline de la ficha — no escribe nada en
+// `intervenciones` ni pisa los campos ya cargados a mano, para no inventar
+// ni sobrescribir datos (ver política del resto de esta sesión). Sin DNI
+// no hay forma confiable de matchear, así que esos casos se quedan sin
+// esta sección (igual que "KoBo pendientes").
+async function cargarKoboDePersona(persona){
+  koboEventosActuales = [];
+  const dni = String((persona && persona.dni) || '').trim();
+  if(!dni) return;
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form) return;
+  try{
+    const parsed = await obtenerKoboRowsParseadas(project, form);
+    koboEventosActuales = parsed
+      .filter(p => String((p.persona && p.persona.dni) || '').trim() === dni)
+      .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  }catch(e){
+    console.error('No se pudieron traer los envíos de KoBo de esta persona', e);
+    // falla en silencio — el timeline igual muestra lo cargado en la plataforma
+  }
+}
+
+// Como legible() en config/umbral-0.js (no expuesto en window, se duplica
+// acá) — "no_responde" -> "No responde", para mostrar valores crudos de
+// KoBo (ej. nivelContinuaSeguimiento) de forma legible sin inventar un
+// diccionario de etiquetas para un campo que todavía no se terminó de
+// mapear.
+function legibleKobo(s){
+  s = String(s||'').replace(/_/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
 
 function mostrarKoboPendientes(){
@@ -1859,12 +1917,22 @@ const Casos = {
     intervencionesActuales = interv.data || [];
     derivacionesActuales = deriv.data || [];
     seguimientosActuales = segu.data || [];
+    koboEventosActuales = []; // se completa aparte, no bloquea abrir la ficha (ver abajo)
 
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'block';
     Casos._renderFichaHeader();
     Casos._renderLegajo();
     Casos._renderTimeline();
+
+    // Envíos de KoBo de esta persona (por DNI, ver cargarKoboDePersona) —
+    // se suman al timeline en cuanto llegan, sin bloquear la apertura de
+    // la ficha (la primera vez puede tardar unos segundos; después queda
+    // en caché para el resto de la sesión). Si mientras tanto se abrió
+    // otra ficha, no pisa su timeline.
+    cargarKoboDePersona(persona).then(() => {
+      if(personaActual && personaActual.id === personaId) Casos._renderTimeline();
+    });
   },
 
   esSeguimiento(){
@@ -2088,6 +2156,7 @@ const Casos = {
     intervencionesActuales.forEach(i => items.push({ tipo:'intervencion', fecha:i.created_at, data:i }));
     derivacionesActuales.forEach(d => items.push({ tipo:'derivacion', fecha:d.created_at, data:d }));
     seguimientosActuales.forEach(s => items.push({ tipo:'seguimiento', fecha:s.created_at, data:s }));
+    koboEventosActuales.forEach(p => items.push({ tipo:'kobo', fecha:p.fecha, data:p }));
     items.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
     if(!items.length){
@@ -2100,6 +2169,33 @@ const Casos = {
 
   _renderTimelineItem(it){
     const el = document.createElement('div');
+
+    if(it.tipo === 'kobo'){
+      const p = it.data;
+      const labels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.terminoIntervencionLabels) || {};
+      const terminos = (p.terminoIntervencionDiaria||[]).map(cod => labels[cod] || legibleKobo(cod));
+      const notas = lineasKobo([
+        ['Sigue en seguimiento', p.nivelContinuaSeguimiento ? legibleKobo(p.nivelContinuaSeguimiento) : null],
+        ['Estado de salud', p.persona.estadoSalud],
+        ['Devolución', p.persona.notaDevolucion],
+        ['Estrategias de abordaje', p.persona.estrategiasAbordaje],
+        ['Motivos (info cualitativa)', p.persona.infoCualitativaMotivos],
+        ['Ingresos monetarios', p.persona.notaIngresosMonetarios],
+        ['Vínculos (nota)', p.persona.notaRelacionesVinculos],
+        ['Observación', p.persona.observacionPersona],
+      ]);
+      el.className = 'timeline-item tl-kobo';
+      el.innerHTML = `
+        <div class="tl-head">
+          <div class="tl-title">📋 Envío de KoBo — ${esc(p.tipo || 'Intervención')}</div>
+          <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(p.operador || '—')}</div>
+        </div>
+        ${terminos.length ? `<div class="tl-body"><b>Qué pasó:</b> ${terminos.map(t=>esc(t)).join(' · ')}</div>` : ''}
+        ${notas ? `<div class="tl-body" style="white-space:pre-wrap;font-size:0.82rem;color:#475569;">${esc(notas)}</div>` : ''}
+        ${!terminos.length && !notas ? '<div class="tl-body" style="font-size:0.78rem;color:#94a3b8;">Envío registrado, sin más detalle relevado.</div>' : ''}
+      `;
+      return el;
+    }
 
     if(it.tipo === 'intervencion'){
       const duplaCod = it.data.dupla_id ? (duplasMap[it.data.dupla_id] || 'dupla') : 'coordinación';

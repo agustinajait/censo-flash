@@ -322,6 +322,34 @@ todo lo que pasa con ella en el tiempo.
    prioriza a quienes tuvieron reiterados egresos o egresos negativos de otros
    dispositivos (ver 5.2).
 
+   - **Envíos de KoBo de esta persona, auto-completados** (sept/2026,
+     pedido de Agustina: "no sé si [la dupla] aclara que le hizo la
+     eximición de pago, o que va a volver mañana, o que llamó al 911...
+     ¿cómo podemos mejorar la experiencia de la toma de acción del
+     operador?"). El diagnóstico (§11 original) seguía en pie: "Pedir
+     derivación"/"Registrar intervención" casi no se usan porque le piden
+     a la dupla cargar DOS VECES lo mismo que ya contestó en la pregunta
+     obligatoria de KoBo "¿Cómo terminó la intervención?". En vez de
+     insistir con más carga manual, `cargarKoboDePersona()` trae **todos**
+     los envíos de KoBo cuyo DNI matchea con el de esta persona (de
+     cualquier dupla/operador, no solo la propia) y los suma al timeline
+     como eventos de **solo lectura** — "📋 Envío de KoBo", con qué pasó
+     (`termino_intervencion_diaria`, mismas etiquetas del reporte
+     semanal), si sigue en seguimiento, y las notas de texto libre que
+     haya (devolución, estrategias de abordaje, estado de salud, etc.) —
+     "auto completa todo lo que puedas de KoBo", sin inventar nada nuevo.
+     No escribe en `intervenciones` ni pisa ningún campo cargado a mano
+     (mismo criterio de todo lo demás en esta sesión: nunca sobrescribir
+     datos sin que alguien lo confirme) — es una vista de lo que ya existe
+     en KoBo, sumada a lo que ya existe en la plataforma.
+     - Requiere que la persona tenga DNI cargado (`sin_identificar` o
+       DNI vacío/basura no matchea) — mismo límite que "KoBo pendientes".
+     - No bloquea abrir la ficha: se pide en paralelo y se agrega al
+       timeline en cuanto llega (la primera vez puede tardar unos
+       segundos — trae y parsea ~3000 filas de KoBo — después queda en
+       caché para el resto de la sesión, compartida con "KoBo
+       pendientes" vía `obtenerKoboRowsParseadas()`).
+
 **Eliminar caso** (sept/2026, `casos.html`, botón "🗑️ Eliminar caso" en la
 ficha) — solo visible para `admin` (coincide con la política de RLS: ni
 `coordinacion` puede borrar `personas`/`intervenciones`/`derivaciones`/
@@ -1046,11 +1074,14 @@ más adelante — quedan pendientes de definir con Agustina:
   alta el caso). Lo que pasa en el territorio (derivaciones espontáneas,
   llamados a SAME/policía) se resuelve por teléfono/WhatsApp, no por la
   plataforma. La sección **e.** del reporte (§9) tapa el agujero leyendo
-  KoBo en vez de `derivaciones` — pero sigue sin resolverse **por qué**
-  las duplas no usan esos dos botones: ¿el formulario es muy largo para
-  cargarlo en el momento? ¿no saben que existe? ¿prefieren resolverlo por
-  teléfono y ya está? Vale la pena preguntarles directo antes de asumir
-  que hace falta cambiar algo del formulario.
+  KoBo en vez de `derivaciones`, y §4 ahora hace lo mismo por caso
+  individual ("Envíos de KoBo de esta persona, auto-completados") — pero
+  sigue sin resolverse **por qué** las duplas no usan esos dos botones:
+  ¿el formulario es muy largo para cargarlo en el momento? ¿no saben que
+  existe? ¿prefieren resolverlo por teléfono y ya está? Con el timeline
+  ahora completándose solo desde KoBo, puede que directamente no haga
+  falta que lo usen más — vale la pena preguntarles antes de invertir en
+  rediseñar esos formularios.
 - **Casos duplicados entre duplas** (sección 1): con `personas` ahora
   restringida por dupla, si una persona pasa por la zona de dos duplas
   distintas, la segunda no la encuentra al buscar y puede darla de alta
