@@ -872,15 +872,28 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
 - **Reporte de alertas y desvíos** — sin tabla propia todavía, campo de
   texto libre.
 - **Listado de casos del período** (sept/2026, pedido de Agustina: "en
-  el reporte tenemos que poder ver los casos también") — tabla con cada
-  caso nuevo o recontactado en el rango (mismas dos categorías que ya usa
-  "b. Población abordada"): dupla, nombre (o "Persona sin identificar"),
-  DNI, zona, criticidad, nivel, si acepta entrevista, e historia breve.
-  Un badge "nuevo" distingue alta del período de recontacto. **Va también
+  el reporte tenemos que poder ver los casos también") — cada caso nuevo
+  o recontactado en el rango (mismas dos categorías que ya usa "b.
+  Población abordada"): dupla, nombre (o "Persona sin identificar"), DNI,
+  zona, criticidad, nivel, si acepta entrevista, e historia breve. Un
+  badge "nuevo" distingue alta del período de recontacto. **Va también
   en el link público para GOPA** — a diferencia del resto de "datos" (que
   es agregado, sin identidad de nadie), esto sí incluye nombre/DNI;
   confirmado explícitamente con Agustina antes de sumarlo ahí, dado que
   ese link no tiene login.
+  - **Tarjetas plegables, no tabla** (sept/2026, ajuste de Agustina: "que
+    los casos se vean en cajas y si quieren abrirlos que los abran") —
+    la tabla de 8 columnas era ilegible, sobre todo en celular. Cada caso
+    es un `<details class="caso-card">`: la tarjeta cerrada muestra solo
+    dupla + nombre + badge "nuevo" + criticidad (con color), y al tocarla
+    se abre mostrando DNI/zona/nivel/acepta entrevista/historia breve.
+    `renderListadoCasosCards()` (duplicada en `admin-duplas.html` y
+    `reporte-publico.html`, mismo criterio de auto-contención de página
+    que el resto).
+- **Logo de Huehaci** (sept/2026, pedido de Agustina: "así cuando paso el
+  reporte llega con nuestra marca también") — `assets/huehaci-logo.png`
+  en el header de `admin-duplas.html` y de `reporte-publico.html` (el que
+  efectivamente viaja a GOPA).
 
 **Botón "Armar mensaje"**: junta todo lo de arriba en un texto plano listo
 para copiar y mandar a GOPA (mismo mecanismo de copiar-mensaje que las
