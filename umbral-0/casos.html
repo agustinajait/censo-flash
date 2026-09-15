@@ -457,9 +457,11 @@ const CAMPOS_PERSONA_SALUD = [
   { key:'estuvo_en_cis_antes', label:'Estuvo en algún CIS antes', type:'checkbox', checkLabel:'Estuvo en algún CIS antes' },
   { key:'estuvo_en_cis_detalle', label:'¿En cuál?' },
 ];
-// Informe social — sección opcional, se completa cuando corresponda (no es
-// obligatoria en el primer contacto). Precarga el formulario de Casa
-// Vincular (§5.2) cuando ya está cargada acá.
+// Informe social — se releva en el primer contacto (pedido de GOPA,
+// sept/2026), no es opcional aunque el formulario no lo bloquee (no hay
+// forma de obligar a completar texto libre, así que sigue sin ser un
+// campo `required`). Precarga el formulario de Casa Vincular (§5.2)
+// cuando ya está cargada acá.
 const CAMPOS_PERSONA_INFORME = [
   { key:'situacion_habitacional', label:'Situación habitacional', type:'textarea' },
   { key:'situacion_economica', label:'Situación económica', type:'textarea' },
@@ -1916,7 +1918,12 @@ const Casos = {
     // normal, donde sí tiene sentido no abrumar con todo a la vista).
     const tieneDatos = campos => campos.some(c => v[c.key]);
     const abrirSalud = tieneDatos(CAMPOS_PERSONA_SALUD) ? ' open' : '';
-    const abrirInforme = tieneDatos(CAMPOS_PERSONA_INFORME) ? ' open' : '';
+    // "Informe social" (sept/2026, pedido de Agustina/GOPA: "esto tiene
+    // que ser en el primer contacto") — dejó de ser opcional, así que
+    // arranca siempre abierto (antes solo se abría solo si ya tenía
+    // datos cargados, y en un alta nueva eso significaba arrancar
+    // colapsado — justo la sección que menos se estaba completando).
+    const abrirInforme = ' open';
     const body = `
       <form id="form-persona" onsubmit="return false;">
         <fieldset>
@@ -1936,7 +1943,7 @@ const Casos = {
           ${CAMPOS_PERSONA_SALUD.map(c => renderCampo(c, v[c.key])).join('')}
         </details>
         <details class="form-section"${abrirInforme}>
-          <summary>Informe social (completar cuando corresponda — no hace falta en el primer contacto)</summary>
+          <summary>Informe social — situación habitacional, económica, educativa y redes de contención (se releva en el primer contacto, GOPA lo pide para cada caso)</summary>
           ${CAMPOS_PERSONA_INFORME.map(c => renderCampo(c, v[c.key])).join('')}
         </details>
         <div class="form-field">
