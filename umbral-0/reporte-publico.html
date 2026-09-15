@@ -49,7 +49,7 @@
   .caso-card .caso-detalle > div { padding:5px 0; display:flex; gap:8px; }
   .caso-card .caso-detalle-lbl { flex:0 0 130px; color:#64748b; font-size:0.76rem; }
   .caso-card .caso-historia { flex-direction:column !important; }
-  .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; }
+  .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; flex:none; }
   .caso-card .caso-historia div { white-space:pre-wrap; color:#334155; }
 </style>
 </head>
@@ -76,6 +76,10 @@
 const NOMBRE_NIVEL = {1:'Identificación', 2:'Construcción del vínculo', 3:'Monitoreo territorial', 4:'Anclaje comunitario', 5:'Proyecto de inclusión'};
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtFechaCorta(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
 
 // Cada caso como tarjeta plegable — mismo criterio que admin-duplas.html
 // (duplicado, auto-contención de página).
@@ -92,10 +96,16 @@ function renderListadoCasosCards(lista){
       </summary>
       <div class="caso-detalle">
         <div><span class="caso-detalle-lbl">DNI</span><span>${esc(c.dni || '—')}</span></div>
+        <div><span class="caso-detalle-lbl">Edad</span><span>${c.edad != null ? c.edad + ' años' : '—'}${c.fechaNacimiento ? ' (' + esc(fmtFechaCorta(c.fechaNacimiento)) + ')' : ''}</span></div>
+        <div><span class="caso-detalle-lbl">Teléfono</span><span>${esc(c.telefono || '—')}</span></div>
         <div><span class="caso-detalle-lbl">Zona</span><span>${esc(c.zona || '—')}</span></div>
         <div><span class="caso-detalle-lbl">Nivel</span><span>${c.nivel ? c.nivel + ' — ' + esc(NOMBRE_NIVEL[c.nivel]||'') : '—'}</span></div>
         <div><span class="caso-detalle-lbl">Acepta entrevista</span><span>${c.aceptaEntrevista ? 'Sí' : '—'}</span></div>
         ${c.historiaBreve ? `<div class="caso-historia"><span class="caso-detalle-lbl">Historia breve</span><div>${esc(c.historiaBreve)}</div></div>` : ''}
+        ${c.situacionHabitacional ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación habitacional</span><div>${esc(c.situacionHabitacional)}</div></div>` : ''}
+        ${c.situacionEconomica ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación económica</span><div>${esc(c.situacionEconomica)}</div></div>` : ''}
+        ${c.situacionEducativa ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación educativa</span><div>${esc(c.situacionEducativa)}</div></div>` : ''}
+        ${c.redesContencion ? `<div class="caso-historia"><span class="caso-detalle-lbl">Redes de contención</span><div>${esc(c.redesContencion)}</div></div>` : ''}
       </div>
     </details>
   `).join('')}</div>`;

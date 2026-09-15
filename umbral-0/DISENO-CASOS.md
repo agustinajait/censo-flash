@@ -997,6 +997,47 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
     `renderListadoCasosCards()` (duplicada en `admin-duplas.html` y
     `reporte-publico.html`, mismo criterio de auto-contención de página
     que el resto).
+  - **Bug de CSS en "Historia breve"** (encontrado sept/2026 por
+    Agustina, vía captura del link público) — `.caso-detalle-lbl` trae
+    `flex:0 0 130px` pensado para las filas horizontales (DNI/Zona/
+    Nivel/...), pero `.caso-historia` fuerza `flex-direction:column`
+    para apilar label+texto — sin resetear `flex` en ese contexto, el
+    label heredaba 130px de **alto** (no de ancho) y quedaba separado
+    del texto por un hueco enorme. Fix: `flex:none` en el selector ya
+    scopeado `.caso-historia .caso-detalle-lbl`, en los dos archivos.
+  - **Campos que pedía GOPA, sept/2026** (WhatsApp de la referente de
+    gobierno: "estoy viendo las intervenciones... la info no está
+    completa... nombre, DNI, fecha de nacimiento, edad, celular,
+    situación habitacional/económica/educativa, redes de contención") —
+    esos datos YA existían como columnas de `personas` (se cargan a mano
+    o se precargan de KoBo en el alta) pero el listado nunca los
+    mostraba. Se agregaron a `armarListadoCasos()` (nuevo `edadDesde()`
+    calculado desde `fecha_nacimiento`, no se guarda como columna
+    aparte) y a la tarjeta: Edad (con fecha entre paréntesis), Teléfono,
+    y los 4 bloques de texto libre (situación habitacional/económica/
+    educativa, redes de contención) con el mismo estilo apilado que
+    "Historia breve". Van también al link público, mismo criterio ya
+    aplicado a nombre/DNI — es justamente lo que pide el organismo de
+    gobierno para su propio reporte.
+  - **El "32 entrevistas" que preguntó GOPA es un dato real** — sale de
+    `termino_intervencion_diaria` en KoBo (sección "e.", sept/2026),
+    verificado contra el reporte ya publicado (`reportes_semanales`,
+    período 9-15/9: `entrevista_persona: 32`). Es un conteo agregado de
+    envíos, no vinculado a personas puntuales — por eso GOPA no
+    encontraba el detalle: estaba en otra sección del mismo reporte
+    (el listado de casos), que hasta este fix no traía los campos que
+    pedían.
+  - **Completitud de los datos, no solo visibilidad** (mismo hilo,
+    pendiente de resolver) — de 63 personas cargadas, situación
+    habitacional/económica/educativa/redes de contención solo están en
+    ~20-23 (32-36%), teléfono en 17 (27%). No es que el reporte los
+    esconda — no están cargados. Se le propuso a Agustina un plan en dos
+    partes (no implementado todavía, a confirmar): (1) un botón por caso
+    en la ficha que busque el envío de KoBo más completo de esa persona
+    (misma infraestructura que `cargarKoboDePersona()`) y ofrezca
+    completar solo los campos vacíos — revisado por quien lo abre, nunca
+    silencioso; (2) un panel en `admin-duplas.html` mostrando cuántos
+    casos de cuáles duplas están incompletos, para poder priorizar.
 - **Marca de Huehaci en toda la plataforma** (sept/2026, primero pedido de
   Agustina: "quiero agregar el logo de huehaci en el admin así cuando paso
   el reporte llega con nuestra marca también"; después ampliado: "le falta
