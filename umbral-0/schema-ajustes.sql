@@ -326,3 +326,34 @@ grant select on public.integrantes_publico to anon;
 
 revoke insert, update, delete, truncate, references, trigger
   on public.integrantes_publico from anon, authenticated;
+
+-- 2026-09-15: Agustina reportó que los casos de un día anterior no
+-- quedaban visibles para que las duplas les hicieran seguimiento al día
+-- siguiente — la lista de casos.html ordenaba alfabético por apellido,
+-- sin ninguna señal de "esto lleva X días sin que nadie lo toque". Esta
+-- vista agrega `ultima_actividad` = lo más reciente entre el alta y
+-- cualquier intervención/seguimiento/derivación de esa persona.
+-- `personas.updated_at` NO sirve para esto: solo cambia si se edita la
+-- ficha misma, no cuando se agrega una intervención/seguimiento/
+-- derivación (tablas separadas, sin trigger). `security_invoker = true`
+-- para que las políticas RLS de `personas` se sigan aplicando según quién
+-- consulta la vista (si no, por defecto corre con los permisos de quien
+-- la creó, saltándose el scope por dupla_id). A diferencia de
+-- duplas_publico/integrantes_publico, esta vista NO es para anon
+-- (`personas` tiene datos sensibles) — la usan solo cuentas logueadas de
+-- casos.html, así que se le revoca todo a anon en vez de darle grant de
+-- lectura. Ya corrido en producción, verificado con `set local role
+-- anon` (permission denied, como se esperaba).
+create or replace view public.personas_actividad
+with (security_invoker = true) as
+select
+  p.*,
+  greatest(
+    p.created_at,
+    (select max(i.created_at) from public.intervenciones i where i.persona_id = p.id),
+    (select max(s.created_at) from public.seguimientos s where s.persona_id = p.id),
+    (select max(d.created_at) from public.derivaciones d where d.persona_id = p.id)
+  ) as ultima_actividad
+from public.personas p;
+
+revoke all on public.personas_actividad from anon;
