@@ -496,10 +496,15 @@ nombre/apellido/DNI ya completos — la dupla revisa/completa el resto
     `lineasKobo()`/`parrafosKobo()` en casos.html) — no existe una
     pregunta de KoBo por cada campo de Casos, así que se arma un resumen
     legible en vez de mapear 1 a 1.
-  - Las secciones colapsables "Salud y antecedentes" e "Informe social"
-    del formulario de alta arrancan **abiertas** cuando vienen con datos
-    precargados (para que no pase desapercibido que hay texto ahí
-    adentro) — en una edición común siguen colapsadas, como siempre.
+  - La sección colapsable "Salud y antecedentes" del formulario de alta
+    arranca **abierta** cuando viene con datos precargados (para que no
+    pase desapercibido que hay texto ahí adentro) — en una edición común
+    sigue colapsada, como siempre. "Informe social" en cambio **arranca
+    siempre abierta** (sept/2026, pedido de Agustina/GOPA: "esto tiene
+    que ser en el primer contacto") — dejó de ser una sección opcional
+    "para completar cuando corresponda", así que ya no tiene sentido que
+    empiece escondida en un alta nueva, que es justo cuando más hace
+    falta completarla.
   - Nada de esto es definitivo: es un punto de partida que la dupla
     revisa y edita antes de guardar, no un dato ya validado.
   - En un "Seguimiento" casi todo esto queda vacío (esa rama solo
