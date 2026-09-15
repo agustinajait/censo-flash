@@ -1183,6 +1183,44 @@ que GOPA la abra directo sin necesitar cuenta.
     casos"); si hace falta ver recontactos también, es una vuelta más.
     Link desde el topbar de `admin-duplas.html` ("📥 Casos en vivo") para
     que Agustina lo encuentre y lo reenvíe.
+    - **Ordenado por turno y dupla + perfil completo** (sept/2026, pedido
+      de Agustina: "que este ordenado por turnos y duplas y que levante
+      el perfil de la persona completo"). La vista `personas_listado_publico`
+      ahora también trae `turno`/`es_referente` de la dupla (join a
+      `duplas`) y el resto de los campos del legajo que faltaban
+      (nacionalidad, situación sanitaria, estado de salud, medicación,
+      esquema, movilidad — sube escaleras/cama arriba, paso previo por
+      CIS, consumo activo). El listado se agrupa primero por turno (orden
+      fijo T1→T2→T3→T4, un turno sin casos cargados no se muestra) y
+      dentro de cada turno por dupla (orden alfabético de código), con la
+      dupla referente del turno marcada. `create or replace view` no deja
+      reordenar columnas existentes ("cannot change name of view column")
+      — las columnas nuevas quedaron agregadas al final en vez de
+      intercaladas con las relacionadas.
+    - **Aviso de posibles duplicados** (sept/2026, pedido de Agustina:
+      "revisa que hay duplicados de nombres tb"). Al revisar encontramos
+      duplicados REALES en producción: 5 casos con el mismo DNI
+      (94936973), otros 5 con el mismo DNI (96197764, uno de ellos sin
+      DNI cargado), y 3 grupos más de 2-3 casos cada uno — 17 filas de
+      `personas` en total que probablemente son la misma persona cargada
+      más de una vez. Causa más probable: el alta manual
+      (`Casos.guardarPersona()` en `casos.html`) no chequea si ya existe
+      un caso con ese DNI antes de insertar, y la política de RLS de
+      `personas` ("cada dupla ve solo sus propios casos") hace que una
+      dupla no pueda ver si OTRA dupla (u otro turno) ya cargó a esa
+      persona — dos duplas que ven a la misma persona en días distintos
+      terminan creando dos legajos separados. `casos-en-vivo.html` ahora
+      detecta esto en el cliente (mismo DNI, o mismo nombre normalizado
+      cuando ninguno tiene DNI cargado) y muestra un aviso plegable
+      arriba del listado con cada grupo y qué duplas cargaron cada caso,
+      más una marca "⚠️ posible duplicado" en la tarjeta de cada caso
+      involucrado. **A propósito NO fusiona ni borra nada automáticamente**
+      — son legajos reales con intervenciones/derivaciones propias
+      colgando, decidir cuál es el "bueno" y mergear a mano le
+      corresponde a Agustina. Pendiente sugerido: si esto sigue pasando,
+      agregar un chequeo de DNI repetido (buscando en TODAS las duplas,
+      no solo la propia) como advertencia antes de guardar un alta nueva
+      en `casos.html`.
 - Tabla `reportes_semanales` (RLS: admin/coordinación insertan y leen,
   solo admin puede borrar un reporte publicado por error) + vista
   `reportes_semanales_publico` (anon, solo lectura, mismo patrón que
