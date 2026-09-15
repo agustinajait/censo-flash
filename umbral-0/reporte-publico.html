@@ -24,6 +24,8 @@
   table.reporte-tabla th, table.reporte-tabla td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef2f7; }
   table.reporte-tabla th { font-family:'Sora',sans-serif; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; }
   table.reporte-tabla td.num { text-align:right; font-family:'Sora',sans-serif; font-weight:700; color:var(--navy); }
+  .tbl-wrap { overflow-x:auto; }
+  .badge-nuevo { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; background:#d1fae5; color:#047857; margin-left:4px; }
   .nota-libre { font-size:0.86rem; color:#334155; white-space:pre-wrap; }
   .footer-nota { text-align:center; font-size:0.74rem; color:#94a3b8; margin-top:30px; }
   .empty-msg { text-align:center; color:#94a3b8; padding:60px 20px; font-size:0.92rem; }
@@ -152,6 +154,27 @@ function render(r){
           </tbody>
         </table>
       ` : '<div class="nota-libre">Sin datos de KoBo para este reporte.</div>'}
+    </div>
+
+    <div class="section-title">Listado de casos del período</div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Dupla</th><th>Nombre</th><th>DNI</th><th>Zona</th><th>Criticidad</th><th>Nivel</th><th>Acepta entrevista</th><th>Historia breve</th></tr></thead>
+          <tbody>
+            ${(d.listadoCasos||[]).length ? d.listadoCasos.map(c => `<tr>
+              <td><b>${esc(c.dupla)}</b></td>
+              <td>${esc(c.nombre)}${c.esNuevo ? '<span class="badge-nuevo">nuevo</span>' : ''}</td>
+              <td>${esc(c.dni || '—')}</td>
+              <td>${esc(c.zona || '—')}</td>
+              <td>${esc(c.criticidad || '—')}</td>
+              <td>${c.nivel || '—'}</td>
+              <td>${c.aceptaEntrevista ? 'Sí' : '—'}</td>
+              <td style="max-width:260px;white-space:pre-wrap;">${esc(c.historiaBreve || '—')}</td>
+            </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">Sin casos nuevos ni recontactados en el período</td></tr>'}
+          </tbody>
+        </table>
+      </div>
     </div>
 
     ${d.alertas ? `
