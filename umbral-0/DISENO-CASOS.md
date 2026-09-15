@@ -1221,6 +1221,49 @@ que GOPA la abra directo sin necesitar cuenta.
       agregar un chequeo de DNI repetido (buscando en TODAS las duplas,
       no solo la propia) como advertencia antes de guardar un alta nueva
       en `casos.html`.
+    - **Chequeo preventivo al dar de alta — construido** (sept/2026,
+      pedido de Agustina: "si hacelo", tras confirmar que el problema
+      seguía activo: ese mismo día el DNI 94936973 pasó de 5 a 10
+      casos cargados, en tandas de ~5 inserts seguidos segundos aparte,
+      primero por la dupla C y después por la F). `Casos.guardarPersona()`
+      en `casos.html` ahora, antes de insertar una persona NUEVA con DNI
+      cargado (no aplica a "sin identificar" ni a ediciones), consulta la
+      nueva vista `personas_dni_index` (`schema-ajustes.sql`) buscando ese
+      DNI. Esa vista bypassea a propósito la RLS de `personas` (mismo
+      patrón que `personas_listado_publico`, pero con grant a
+      `authenticated` en vez de `anon` — es una herramienta operativa
+      para duplas logueadas, no un link público) y expone SOLO lo mínimo
+      para detectar el duplicado: DNI, nombre, apellido, dupla y fecha —
+      no situación económica/salud/teléfono/etc. Si hay coincidencias, se
+      muestra un aviso dentro del propio formulario (no se pierde lo ya
+      tipeado) con quién cargó cada caso existente y dos botones: "Volver
+      a editar" (saca el aviso, la dupla puede corregir el DNI o cerrar y
+      buscar el caso existente) o "Crear de todas formas" (sigue con el
+      alta — hay coincidencias legítimas, como un DNI mal tipeado en el
+      caso anterior). **Es un aviso, no un bloqueo** — no hay unique
+      constraint en `personas.dni` ni se agregó uno, a propósito: no
+      queríamos arriesgar que un alta legítima falle en producción por
+      un caso borde no previsto.
+    - **Ocultar (no borrar) los duplicados ya cargados** (sept/2026,
+      pedido de Agustina: "veo que la dupla c tiene muchos duplicados,
+      como elimino los que no van?" → tras chequear que eran copias
+      reales sin ninguna intervención/derivación/seguimiento propio más
+      allá del alta automática — solo el mismo "Ingreso inicial del
+      caso" repetido — pidió en vez de un DELETE: "podes ocultarlas
+      mejor?"). Columna nueva `personas.oculto` (default `false`,
+      reversible). `personas_listado_publico` y `personas_dni_index`
+      dejan afuera los casos ocultos, y el reporte semanal / el panel de
+      completitud de KoBo en `admin-duplas.html` también. Nuevo panel
+      "⚠️ Posibles duplicados" en `admin-duplas.html` (botón "🔍
+      Revisar"): trae TODAS las personas (admin bypassea el RLS
+      por-dupla), agrupa por DNI repetido (o nombre normalizado sin
+      DNI, misma lógica que el aviso de `casos-en-vivo.html`), muestra
+      cada copia con dupla y fecha marcando la más vieja como sugerida
+      para dejar, y un botón "🙈 Ocultar" por cada copia extra. Un
+      desplegable aparte lista lo ya oculto con "👁️ Mostrar de nuevo"
+      por si hace falta deshacerlo. Ya usado en producción: se ocultaron
+      las 7 copias de más de los 3 duplicados reales de la dupla C
+      (Mangel Sánchez x4, Jorge Alejo Medina Avalos x2, Nuñez Raul x1).
 - Tabla `reportes_semanales` (RLS: admin/coordinación insertan y leen,
   solo admin puede borrar un reporte publicado por error) + vista
   `reportes_semanales_publico` (anon, solo lectura, mismo patrón que

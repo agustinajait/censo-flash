@@ -249,6 +249,15 @@
     </div>
 
     <div class="section-label">
+      <span>⚠️ Posibles duplicados</span>
+      <button class="btn btn-outline btn-sm" onclick="revisarDuplicadosAdmin()">🔍 Revisar</button>
+    </div>
+    <div class="card">
+      <div class="section-hint">Casos con el mismo DNI (o el mismo nombre cuando ninguno tiene DNI cargado) — pasa cuando dos duplas ven a la misma persona en días distintos, o al probar la carga. "🙈 Ocultar" no borra el caso: lo saca de los listados y reportes, pero se puede volver a mostrar cuando quieras.</div>
+      <div id="duplicados-cont"><div class="empty-msg" style="padding:16px 10px;">Tocá "Revisar" para buscarlos.</div></div>
+    </div>
+
+    <div class="section-label">
       <span>👥 Duplas territoriales</span>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-outline" id="btn-accesos-faltantes" onclick="crearAccesosFaltantes()">⚡ Crear accesos faltantes</button>
@@ -555,7 +564,7 @@ async function revisarCompletitudKobo(){
   try{
     const client = await SupabaseClient.getClient();
     const [{ data: personas, error: errP }, { data: duplas, error: errD }, koboRowsRaw] = await Promise.all([
-      client.from('personas').select('id, nombre, apellido, dni, dupla_id, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').not('dni', 'is', null),
+      client.from('personas').select('id, nombre, apellido, dni, dupla_id, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').not('dni', 'is', null).eq('oculto', false),
       client.from('duplas').select('id, codigo'),
       fetchKoboProxyAll(project, form.id),
     ]);
@@ -651,6 +660,119 @@ async function completarDesdeKobo(idx){
   }catch(e){
     alert('No se pudo guardar: ' + e.message);
   }
+}
+
+// ── POSIBLES DUPLICADOS (sept/2026) ──────────────────────────────────────
+// Pedido de Agustina: "veo que la dupla c tiene muchos duplicados, como
+// elimino los que no van?" → tras confirmar que eran copias reales sin
+// ninguna intervención/derivación/seguimiento propia (solo el alta
+// repetida), pidió en vez de borrar: "podes ocultarlas mejor?". Ocultar
+// (personas.oculto) es reversible — el caso sigue entero en la base, solo
+// sale de los listados/reportes (personas_listado_publico,
+// personas_dni_index, el reporte semanal) hasta que se vuelva a mostrar.
+// Ve TODAS las duplas (admin bypassea el RLS por-dupla de `personas`),
+// a diferencia de la detección de casos.html que solo ve la propia.
+let duplicadosAdminActuales = []; // [{ etiqueta, casos:[{id,nombre,apellido,dni,dupla_codigo,created_at}] }]
+let ocultosAdminActuales = [];
+
+function normalizarNombreDup(s){
+  return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+async function revisarDuplicadosAdmin(){
+  const cont = document.getElementById('duplicados-cont');
+  cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">Buscando…</div>';
+  try{
+    const client = await SupabaseClient.getClient();
+    const [{ data: personas, error: errP }, { data: duplas, error: errD }] = await Promise.all([
+      client.from('personas').select('id, nombre, apellido, dni, sin_identificar, dupla_id, created_at, oculto'),
+      client.from('duplas').select('id, codigo'),
+    ]);
+    if(errP) throw errP;
+    if(errD) throw errD;
+    const codigoPorDupla = {};
+    (duplas||[]).forEach(d => { codigoPorDupla[d.id] = d.codigo; });
+    const conCodigo = (personas||[]).map(p => ({ ...p, dupla_codigo: codigoPorDupla[p.dupla_id] || '—' }));
+
+    ocultosAdminActuales = conCodigo.filter(p => p.oculto);
+    const visibles = conCodigo.filter(p => !p.oculto);
+
+    const porDni = new Map();
+    const porNombre = new Map();
+    visibles.forEach(p => {
+      const dni = String(p.dni||'').trim();
+      if(dni){
+        if(!porDni.has(dni)) porDni.set(dni, []);
+        porDni.get(dni).push(p);
+      }else if(!p.sin_identificar){
+        const nom = normalizarNombreDup(`${p.nombre||''} ${p.apellido||''}`);
+        if(nom){
+          if(!porNombre.has(nom)) porNombre.set(nom, []);
+          porNombre.get(nom).push(p);
+        }
+      }
+    });
+    const ordenarPorFecha = arr => [...arr].sort((a,b) => (a.created_at||'').localeCompare(b.created_at||''));
+    const grupos = [];
+    porDni.forEach((arr, dni) => { if(arr.length > 1) grupos.push({ etiqueta:`DNI ${dni}`, casos: ordenarPorFecha(arr) }); });
+    porNombre.forEach((arr, nom) => { if(arr.length > 1) grupos.push({ etiqueta: nombreDisplayReporte(arr[0]) + ' (sin DNI)', casos: ordenarPorFecha(arr) }); });
+
+    duplicadosAdminActuales = grupos;
+    mostrarDuplicadosAdmin();
+  }catch(e){
+    cont.innerHTML = '<div class="empty-msg">Error: '+esc(e.message)+'</div>';
+  }
+}
+
+function mostrarDuplicadosAdmin(){
+  const cont = document.getElementById('duplicados-cont');
+  const ocultosHtml = ocultosAdminActuales.length ? `<details style="margin-top:12px;">
+    <summary style="cursor:pointer;font-size:0.82rem;color:#64748b;">Ver los ${ocultosAdminActuales.length} caso${ocultosAdminActuales.length===1?'':'s'} ya oculto${ocultosAdminActuales.length===1?'':'s'}</summary>
+    <div style="margin-top:8px;">
+      ${ocultosAdminActuales.map(c => `
+        <div style="display:flex; align-items:center; gap:8px; padding:4px 0; font-size:0.82rem; color:#475569;">
+          <span>${esc(nombreDisplayReporte(c))} — dupla ${esc(c.dupla_codigo)}, DNI ${esc(c.dni||'—')}</span>
+          <button class="btn btn-outline btn-sm" onclick="mostrarCasoAdmin('${c.id}')">👁️ Mostrar de nuevo</button>
+        </div>
+      `).join('')}
+    </div>
+  </details>` : '';
+
+  if(!duplicadosAdminActuales.length){
+    cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">No se encontraron casos duplicados.</div>' + ocultosHtml;
+    return;
+  }
+  cont.innerHTML = duplicadosAdminActuales.map(g => `
+    <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
+      <div class="kobo-pend-txt">
+        <strong>⚠️ ${esc(g.etiqueta)}</strong> — ${g.casos.length} casos cargados
+        ${g.casos.map((c, i) => `
+          <div style="display:flex; align-items:center; gap:8px; margin-top:6px; font-size:0.82rem; color:#475569;">
+            <span>${i===0 ? '🟢' : '⚪'} ${esc(nombreDisplayReporte(c))} — dupla ${esc(c.dupla_codigo)}, ${c.created_at ? new Date(c.created_at).toLocaleString('es-AR') : '—'}${i===0 ? ' (el más viejo — sugerido para dejar)' : ''}</span>
+            ${i>0 ? `<button class="btn btn-outline btn-sm" onclick="ocultarCasoAdmin('${c.id}')">🙈 Ocultar</button>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('') + ocultosHtml;
+}
+
+async function ocultarCasoAdmin(id){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('personas').update({ oculto:true }).eq('id', id);
+    if(error) throw error;
+    await revisarDuplicadosAdmin();
+  }catch(e){ alert('No se pudo ocultar: ' + e.message); }
+}
+
+async function mostrarCasoAdmin(id){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('personas').update({ oculto:false }).eq('id', id);
+    if(error) throw error;
+    await revisarDuplicadosAdmin();
+  }catch(e){ alert('No se pudo mostrar de nuevo: ' + e.message); }
 }
 
 // ── JORNADA DE HOY (inicio/fin que marca cada dupla desde casos.html) ────
@@ -1084,7 +1206,7 @@ async function generarReporte(){
     const client = await SupabaseClient.getClient();
 
     const [personasRes, intervencionesRes, derivacionesRes, koboOutcomes, duplasRes] = await Promise.all([
-      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion'),
+      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').eq('oculto', false),
       client.from('intervenciones').select('*').gte('fecha', desde).lte('fecha', hasta),
       client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
       calcularOutcomesKobo(desde, hasta).catch(e => { console.error('No se pudo traer KoBo para el reporte', e); return null; }),

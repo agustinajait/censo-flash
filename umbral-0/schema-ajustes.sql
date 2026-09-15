@@ -539,3 +539,72 @@ grant select on public.personas_listado_publico to anon;
 
 revoke insert, update, delete, truncate, references, trigger
   on public.personas_listado_publico from anon, authenticated;
+
+-- personas_dni_index (sept/2026) — chequeo preventivo de DNI duplicado
+-- en el alta de casos.html. Pedido de Agustina tras encontrar decenas de
+-- casos reales duplicados en producción (mismo DNI, cargado más de una
+-- vez por distintas duplas/días): "si hacelo" (agregar el aviso).
+--
+-- `personas` tiene RLS "cada dupla ve solo sus propios casos", así que
+-- una dupla no puede ver si OTRA dupla ya cargó a la misma persona. Esta
+-- vista bypassea esa RLS a propósito (mismo patrón que
+-- personas_listado_publico) pero SOLO expone lo mínimo necesario para
+-- detectar el duplicado (dni, nombre, apellido, dupla, fecha) — no
+-- situación económica/habitacional/salud/teléfono/etc. Grant a
+-- `authenticated` (no a `anon`: es una herramienta operativa para las
+-- duplas logueadas, no un link público). Verificado: trae coincidencias
+-- de más de una dupla para el mismo DNI (bypass de RLS confirmado).
+create view public.personas_dni_index as
+select
+  p.dni,
+  p.nombre,
+  p.apellido,
+  p.created_at,
+  d.codigo as dupla_codigo
+from public.personas p
+join public.duplas d on d.id = p.dupla_id
+where coalesce(trim(p.dni), '') <> '';
+
+grant select on public.personas_dni_index to authenticated;
+
+revoke insert, update, delete, truncate, references, trigger
+  on public.personas_dni_index from authenticated;
+
+-- personas.oculto (sept/2026) — pedido de Agustina: "podes ocultarlas
+-- mejor?" en vez de borrar los casos duplicados de la dupla C que
+-- encontramos con personas_dni_index. Ocultar es reversible (a
+-- diferencia de un DELETE): el caso sigue entero en la base con todo su
+-- timeline, solo deja de aparecer en los listados/reportes. Se agrega el
+-- filtro a las dos vistas de arriba (personas_listado_publico,
+-- personas_dni_index) — ambas via `create or replace view` agregando
+-- solo un WHERE, sin tocar columnas existentes.
+alter table public.personas
+  add column if not exists oculto boolean not null default false;
+
+create or replace view public.personas_listado_publico as
+select
+  p.id, p.nombre, p.apellido, p.dni, p.dni_denuncia_extravio, p.sin_identificar,
+  p.zona, p.comuna, p.punto_contacto, p.criticidad, p.nivel_actual,
+  p.acepta_entrevista, p.historia_breve, p.fecha_nacimiento, p.telefono_contacto,
+  p.situacion_habitacional, p.situacion_economica, p.situacion_educativa,
+  p.redes_contencion, p.estado, p.created_at, d.codigo as dupla_codigo,
+  p.nacionalidad, p.situacion_sanitaria, p.estado_salud, p.medicacion, p.esquema,
+  p.sube_escaleras, p.cama_arriba, p.estuvo_en_cis_antes, p.estuvo_en_cis_detalle,
+  p.consumo_activo, d.turno as dupla_turno, d.es_referente as dupla_es_referente
+from public.personas p
+join public.duplas d on d.id = p.dupla_id
+where coalesce(p.oculto, false) = false;
+
+create or replace view public.personas_dni_index as
+select p.dni, p.nombre, p.apellido, p.created_at, d.codigo as dupla_codigo
+from public.personas p
+join public.duplas d on d.id = p.dupla_id
+where coalesce(trim(p.dni), '') <> ''
+  and coalesce(p.oculto, false) = false;
+
+-- Ya usado en producción (sept/2026): se ocultaron las 7 copias de más de
+-- 3 casos duplicados en la dupla C (Mangel Sánchez x4, Jorge Alejo Medina
+-- Avalos x2, Nuñez Raul x1 — se dejó la primera carga de cada uno), todas
+-- verificadas sin intervenciones/derivaciones/seguimientos propios más
+-- allá del alta automática. Reversible desde el panel "⚠️ Posibles
+-- duplicados" de admin-duplas.html ("👁️ Mostrar de nuevo").
