@@ -1552,6 +1552,13 @@ const Casos = {
     const card = document.createElement('div');
     card.className = 'persona-card';
     const badges = [];
+    // Una cuenta de dupla solo ve sus propios casos (RLS) — ahí el dato
+    // es redundante. Admin/coordinación ven las de las 13 duplas
+    // mezcladas en la misma lista, así que necesitan saber de un
+    // vistazo cuál cargó cada caso (pedido de Agustina, sept/2026).
+    if(miPerfil && miPerfil.rol !== 'dupla'){
+      badges.push(`<span class="badge badge-gray">Dupla ${esc(duplasMap[p.dupla_id] || '—')}</span>`);
+    }
     if(p.estado === 'egresado') badges.push('<span class="badge badge-green">egresado</span>');
     else badges.push('<span class="badge badge-blue">activo</span>');
     if(p.criticidad) badges.push(`<span class="badge badge-amber">${esc(p.criticidad)}</span>`);
