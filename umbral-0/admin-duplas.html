@@ -1139,10 +1139,17 @@ async function crearChofer(){
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escAttr(s){ return esc(s); }
 function flashOk(el){ el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1500); }
+// OJO: NO usar toISOString() acá — es UTC, y Buenos Aires es UTC-3. Desde
+// las 21hs locales toISOString() ya muestra la fecha de MAÑANA (bug real
+// detectado en producción, sept/2026, ver mismo comentario en
+// casos.html). Se arma la fecha con los getters LOCALES.
 function hoyStr(offsetDias){
   const d = new Date();
   d.setDate(d.getDate() + (offsetDias||0));
-  return d.toISOString().slice(0,10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
 }
 
 // Atajos de rango para no tener que elegir las dos fechas a mano cada

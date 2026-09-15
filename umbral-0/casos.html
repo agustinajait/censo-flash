@@ -1201,7 +1201,21 @@ function mostrarMiTurno(){
 // dos" lo marcó.
 let jornadaHoy = null; // fila de `jornadas` de hoy para mi dupla, o null si todavía no existe
 
-function hoyStr(){ return new Date().toISOString().slice(0,10); }
+// OJO: NO usar toISOString() acá — es UTC, y Buenos Aires es UTC-3. Desde
+// las 21hs locales en adelante, toISOString() ya muestra la fecha de
+// MAÑANA, así que marcar fin de jornada a la noche quedaba guardado con
+// la fecha del día siguiente — al otro día esa fila "de mañana" en
+// realidad ya coincidía con "hoy" y la dupla se encontraba la jornada
+// ya marcada como completa sin haber hecho nada (bug real en
+// producción, sept/2026, detectado por Agustina en dos duplas del
+// turno T4 18-22hs). Se arma la fecha con los getters LOCALES.
+function hoyStr(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function fmtHora(iso){
   if(!iso) return '';
   const d = new Date(iso);
