@@ -608,3 +608,17 @@ where coalesce(trim(p.dni), '') <> ''
 -- verificadas sin intervenciones/derivaciones/seguimientos propios más
 -- allá del alta automática. Reversible desde el panel "⚠️ Posibles
 -- duplicados" de admin-duplas.html ("👁️ Mostrar de nuevo").
+
+-- intervenciones.acciones (sept/2026) — pedido de Agustina: "yo no manejo
+-- el kobo, manejo esta plataforma... el que hizo debe verse en el
+-- legajo". Versión NATIVA (no depende de KoBo) de "qué hizo el operador
+-- con el caso" — mismas categorías que la pregunta obligatoria de KoBo
+-- `termino_intervencion_diaria` donde tiene sentido, más CIS y teléfono
+-- rojo (que KoBo no tiene como opción) y "se negó a la entrevista"
+-- (pedido de Agustina: "si la persona no acepta la entrevista el
+-- operador no marca qué hizo" — antes no había ninguna opción para ese
+-- caso). Se completa en el formulario de "Registrar intervención" de
+-- casos.html (ver ACCIONES_INTERVENCION) y se muestra en el timeline de
+-- la ficha ("Qué se hizo: ...").
+alter table public.intervenciones
+  add column if not exists acciones text[] not null default '{}'::text[];
