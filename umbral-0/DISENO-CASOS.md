@@ -322,6 +322,70 @@ todo lo que pasa con ella en el tiempo.
    prioriza a quienes tuvieron reiterados egresos o egresos negativos de otros
    dispositivos (ver 5.2).
 
+   - **Envíos de KoBo de esta persona, auto-completados** (sept/2026,
+     pedido de Agustina: "no sé si [la dupla] aclara que le hizo la
+     eximición de pago, o que va a volver mañana, o que llamó al 911...
+     ¿cómo podemos mejorar la experiencia de la toma de acción del
+     operador?"). El diagnóstico (§11 original) seguía en pie: "Pedir
+     derivación"/"Registrar intervención" casi no se usan porque le piden
+     a la dupla cargar DOS VECES lo mismo que ya contestó en la pregunta
+     obligatoria de KoBo "¿Cómo terminó la intervención?". En vez de
+     insistir con más carga manual, `cargarKoboDePersona()` trae **todos**
+     los envíos de KoBo cuyo DNI matchea con el de esta persona (de
+     cualquier dupla/operador, no solo la propia) y los suma al timeline
+     como eventos de **solo lectura** — "📋 Envío de KoBo", con qué pasó
+     (`termino_intervencion_diaria`, mismas etiquetas del reporte
+     semanal), si sigue en seguimiento, y las notas de texto libre que
+     haya (devolución, estrategias de abordaje, estado de salud, etc.) —
+     "auto completa todo lo que puedas de KoBo", sin inventar nada nuevo.
+     No escribe en `intervenciones` ni pisa ningún campo cargado a mano
+     (mismo criterio de todo lo demás en esta sesión: nunca sobrescribir
+     datos sin que alguien lo confirme) — es una vista de lo que ya existe
+     en KoBo, sumada a lo que ya existe en la plataforma.
+     - Requiere que la persona tenga DNI cargado (`sin_identificar` o
+       DNI vacío/basura no matchea) — mismo límite que "KoBo pendientes".
+     - No bloquea abrir la ficha: se pide en paralelo y se agrega al
+       timeline en cuanto llega (la primera vez puede tardar unos
+       segundos — trae y parsea ~3000 filas de KoBo — después queda en
+       caché para el resto de la sesión, compartida con "KoBo
+       pendientes" vía `obtenerKoboRowsParseadas()`).
+   - **El operador como validador + envíos sin DNI** (sept/2026, siguiente
+     vuelta del mismo pedido: "el operador actuaría de validador y de
+     agregar datos extras... si mañana el operador vuelve a cargar el
+     KoBo con el mismo nombre o DNI de la persona que vio ayer, tenemos
+     que poder asociarlo al mismo caso"). Dos piezas nuevas, tabla
+     `kobo_validaciones` (persona_id + kobo_submission_id, `unique`) de
+     por medio — RLS calcada de `intervenciones`/`seguimientos`
+     (dupla ve/escribe solo lo de su `dupla_id`, admin/coordinación todo,
+     solo admin borra):
+     1. **Validar / agregar nota** — cada tarjeta "📋 Envío de KoBo" del
+        timeline tiene un botón para que la dupla confirme que está bien
+        (queda un badge "✅ Validado por la dupla") y, si hace falta,
+        agregue una aclaración que KoBo no preguntó. Es la nueva forma de
+        "Registrar intervención" para lo que ya vino de KoBo — confirmar
+        y comentar, no volver a tipear de cero. El botón viejo de
+        "➕ Registrar intervención" (100% manual, sin KoBo de por medio —
+        ej. un llamado telefónico) se deja **sin tocar** a propósito: el
+        equipo lo está usando en producción y no hay necesidad de
+        arriesgar esa carga mientras se valida esto nuevo en uso real.
+     2. **Envíos sin DNI que podrían ser un caso ya cargado** — nueva
+        sección en "KoBo pendientes", separada de la de altas nuevas: si
+        un envío sin DNI de la propia dupla tiene el mismo nombre
+        (normalizado, exacto — no aproximado, para no arriesgar mezclar
+        dos personas distintas) que un caso ya cargado por esa dupla, se
+        le pregunta a la dupla "¿es la misma persona?" en vez de
+        asociarlo solo. Un clic en "✅ Sí, es la misma" guarda la
+        asociación en `kobo_validaciones` (de ahí en más ese envío
+        aparece en el timeline de esa ficha, igual que un match por DNI);
+        "No es ella" solo lo saca de la sesión actual, no queda guardado
+        — no hace falta un registro permanente de un descarte.
+     - Límite conocido: si no hay DNI Y el nombre no matchea exacto con
+       nada ya cargado (ej. `sin_identificar`, o el nombre viene distinto
+       entre visitas), ese envío no aparece en ningún lado todavía — no
+       se resuelve con matching automático más agresivo (riesgo de
+       mezclar historiales), sino identificando el caso de otra forma
+       (punto de contacto, descripción física) si hace falta.
+
 **Eliminar caso** (sept/2026, `casos.html`, botón "🗑️ Eliminar caso" en la
 ficha) — solo visible para `admin` (coincide con la política de RLS: ni
 `coordinacion` puede borrar `personas`/`intervenciones`/`derivaciones`/
@@ -872,15 +936,41 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
 - **Reporte de alertas y desvíos** — sin tabla propia todavía, campo de
   texto libre.
 - **Listado de casos del período** (sept/2026, pedido de Agustina: "en
-  el reporte tenemos que poder ver los casos también") — tabla con cada
-  caso nuevo o recontactado en el rango (mismas dos categorías que ya usa
-  "b. Población abordada"): dupla, nombre (o "Persona sin identificar"),
-  DNI, zona, criticidad, nivel, si acepta entrevista, e historia breve.
-  Un badge "nuevo" distingue alta del período de recontacto. **Va también
+  el reporte tenemos que poder ver los casos también") — cada caso nuevo
+  o recontactado en el rango (mismas dos categorías que ya usa "b.
+  Población abordada"): dupla, nombre (o "Persona sin identificar"), DNI,
+  zona, criticidad, nivel, si acepta entrevista, e historia breve. Un
+  badge "nuevo" distingue alta del período de recontacto. **Va también
   en el link público para GOPA** — a diferencia del resto de "datos" (que
   es agregado, sin identidad de nadie), esto sí incluye nombre/DNI;
   confirmado explícitamente con Agustina antes de sumarlo ahí, dado que
   ese link no tiene login.
+  - **Tarjetas plegables, no tabla** (sept/2026, ajuste de Agustina: "que
+    los casos se vean en cajas y si quieren abrirlos que los abran") —
+    la tabla de 8 columnas era ilegible, sobre todo en celular. Cada caso
+    es un `<details class="caso-card">`: la tarjeta cerrada muestra solo
+    dupla + nombre + badge "nuevo" + criticidad (con color), y al tocarla
+    se abre mostrando DNI/zona/nivel/acepta entrevista/historia breve.
+    `renderListadoCasosCards()` (duplicada en `admin-duplas.html` y
+    `reporte-publico.html`, mismo criterio de auto-contención de página
+    que el resto).
+- **Marca de Huehaci en toda la plataforma** (sept/2026, primero pedido de
+  Agustina: "quiero agregar el logo de huehaci en el admin así cuando paso
+  el reporte llega con nuestra marca también"; después ampliado: "le falta
+  que nuestra marca, de consultora de innovación cívica y tecnológica
+  tenga más impronta en el producto"). `assets/huehaci-logo.png` se agregó
+  en las 11 páginas HTML de la plataforma (Censo Flash y Umbral 0, no solo
+  Umbral 0 — el pedido fue "toda la plataforma"):
+  - **Favicon** en el `<head>` de las 11 páginas.
+  - **Logo + tagline** ("Consultora de innovación cívica y tecnológica")
+    en el header/topbar de las pantallas principales: `plataforma.html`
+    (el portal de entrada a los dos proyectos), `dashboard.html` (login y
+    nav), `admin-duplas.html`, `casos.html` y `reporte-publico.html` (acá
+    el más grande, porque es lo único que ve gente de afuera).
+  - **Footer de crédito** ("Huehaci — Consultora de innovación cívica y
+    tecnológica" + logo chico) agregado al pie de las 11 páginas — clase
+    CSS `.huehaci-credit`, duplicada por página siguiendo el mismo
+    criterio de auto-contención que el resto de la plataforma.
 
 **Botón "Armar mensaje"**: junta todo lo de arriba en un texto plano listo
 para copiar y mandar a GOPA (mismo mecanismo de copiar-mensaje que las
@@ -1020,11 +1110,14 @@ más adelante — quedan pendientes de definir con Agustina:
   alta el caso). Lo que pasa en el territorio (derivaciones espontáneas,
   llamados a SAME/policía) se resuelve por teléfono/WhatsApp, no por la
   plataforma. La sección **e.** del reporte (§9) tapa el agujero leyendo
-  KoBo en vez de `derivaciones` — pero sigue sin resolverse **por qué**
-  las duplas no usan esos dos botones: ¿el formulario es muy largo para
-  cargarlo en el momento? ¿no saben que existe? ¿prefieren resolverlo por
-  teléfono y ya está? Vale la pena preguntarles directo antes de asumir
-  que hace falta cambiar algo del formulario.
+  KoBo en vez de `derivaciones`, y §4 ahora hace lo mismo por caso
+  individual ("Envíos de KoBo de esta persona, auto-completados") — pero
+  sigue sin resolverse **por qué** las duplas no usan esos dos botones:
+  ¿el formulario es muy largo para cargarlo en el momento? ¿no saben que
+  existe? ¿prefieren resolverlo por teléfono y ya está? Con el timeline
+  ahora completándose solo desde KoBo, puede que directamente no haga
+  falta que lo usen más — vale la pena preguntarles antes de invertir en
+  rediseñar esos formularios.
 - **Casos duplicados entre duplas** (sección 1): con `personas` ahora
   restringida por dupla, si una persona pasa por la zona de dos duplas
   distintas, la segunda no la encuentra al buscar y puede darla de alta

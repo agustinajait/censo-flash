@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Umbral 0 · Administración</title>
+<link rel="icon" type="image/png" href="../assets/huehaci-logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; }
@@ -53,6 +54,7 @@
   .badge-gray { background:#f1f5f9; color:#475569; }
   .badge-amber { background:#fef3c7; color:#92400e; }
   .badge-green { background:#d1fae5; color:#047857; }
+  .badge-nuevo { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; background:#d1fae5; color:#047857; }
   .save-ok { font-size:0.76rem; color:var(--green); font-weight:700; opacity:0; transition:opacity 0.2s; }
   .save-ok.show { opacity:1; }
 
@@ -72,6 +74,8 @@
   .footer-nav { display:flex; justify-content:center; gap:16px; margin-top:26px; }
   .footer-nav a { font-size:0.78rem; color:#94a3b8; text-decoration:none; }
   .footer-nav a:hover { color:var(--blue); }
+  .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:16px 10px 20px; }
+  .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
 
   /* ACCESO (login de la dupla) */
   .acceso-box { border-top:1.5px dashed var(--border); margin-top:12px; padding-top:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
@@ -112,6 +116,24 @@
   table.reporte-tabla th { font-family:'Sora',sans-serif; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; }
   table.reporte-tabla td.num { text-align:right; font-family:'Sora',sans-serif; font-weight:700; color:var(--navy); }
   .nota-limite { font-size:0.78rem; color:#92400e; background:#fffbeb; border:1.5px solid #fcd34d; border-radius:9px; padding:10px 12px; margin-top:10px; }
+  .casos-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+  .caso-card { background:#f8faff; border:1px solid #e2eaf8; border-radius:10px; padding:0; }
+  .caso-card summary { list-style:none; cursor:pointer; padding:12px 14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .caso-card summary::-webkit-details-marker { display:none; }
+  .caso-card summary::after { content:'▾'; margin-left:auto; color:#94a3b8; font-size:0.8rem; transition:transform 0.15s; }
+  .caso-card[open] summary::after { transform:rotate(180deg); }
+  .caso-card .caso-dupla { font-family:'Sora',sans-serif; font-weight:800; font-size:0.72rem; color:var(--blue); background:#e0eaff; padding:2px 8px; border-radius:20px; }
+  .caso-card .caso-nombre { font-weight:700; color:var(--navy); font-size:0.88rem; }
+  .caso-card .caso-crit { font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; padding:2px 8px; border-radius:20px; }
+  .caso-card .crit-alta { background:#fee2e2; color:#b91c1c; }
+  .caso-card .crit-media { background:#fef3c7; color:#92400e; }
+  .caso-card .crit-baja { background:#f1f5f9; color:#475569; }
+  .caso-card .caso-detalle { padding:2px 14px 14px; border-top:1px solid #e2eaf8; margin-top:2px; font-size:0.84rem; }
+  .caso-card .caso-detalle > div { padding:5px 0; display:flex; gap:8px; }
+  .caso-card .caso-detalle-lbl { flex:0 0 130px; color:#64748b; font-size:0.76rem; }
+  .caso-card .caso-historia { flex-direction:column !important; }
+  .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; }
+  .caso-card .caso-historia div { white-space:pre-wrap; color:#334155; }
   .btn-amber { background:var(--amber); color:white; }
   textarea#reporte-texto, textarea#alertas-texto, .form-field textarea { width:100%; min-height:100px; font-family:monospace; font-size:0.8rem; border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; background:#f8faff; }
   #reporte-texto { min-height:340px; }
@@ -157,9 +179,15 @@
 <!-- APP -->
 <div id="app-screen">
   <div class="topbar">
-    <div>
-      <h1>🌒 Administración — Umbral 0</h1>
-      <div class="sub" id="topbar-user"></div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
+        <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:48px; width:auto; background:white; border-radius:6px; padding:4px 8px;">
+        <div style="font-size:0.6rem; color:rgba(255,255,255,0.55); text-align:center; white-space:nowrap;">Innovación cívica y tecnológica</div>
+      </div>
+      <div>
+        <h1>🌒 Administración — Umbral 0</h1>
+        <div class="sub" id="topbar-user"></div>
+      </div>
     </div>
     <div class="topbar-right">
       <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
@@ -250,6 +278,10 @@
 
     <div id="reporte-cont"></div>
 
+  </div>
+  <div class="huehaci-credit">
+    <img src="../assets/huehaci-logo.png" alt="Huehaci">
+    <span>Huehaci — Consultora de innovación cívica y tecnológica</span>
   </div>
 </div>
 
@@ -980,6 +1012,33 @@ function armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupl
     .sort((a,b) => (a.dupla+a.nombre).localeCompare(b.dupla+b.nombre));
 }
 
+// Cada caso como una tarjeta plegable (<details>) en vez de una fila de
+// tabla de 8 columnas — pedido de Agustina (sept/2026): "que los casos se
+// vean en cajas y si quieren abrirlos que los abran". Se usa acá y en
+// reporte-publico.html (duplicada, mismo criterio de auto-contención que
+// el resto de las páginas).
+function critClaseCaso(c){ return c==='Alta' ? 'crit-alta' : c==='Media' ? 'crit-media' : c==='Baja' ? 'crit-baja' : ''; }
+function renderListadoCasosCards(lista){
+  if(!lista || !lista.length) return '<div class="empty-msg" style="padding:30px 10px;text-align:center;color:#94a3b8;">Sin casos nuevos ni recontactados en el período</div>';
+  return `<div class="casos-grid">${lista.map(c => `
+    <details class="caso-card">
+      <summary>
+        <span class="caso-dupla">${esc(c.dupla)}</span>
+        <span class="caso-nombre">${esc(c.nombre)}</span>
+        ${c.esNuevo ? '<span class="badge-nuevo">nuevo</span>' : ''}
+        ${c.criticidad ? `<span class="caso-crit ${critClaseCaso(c.criticidad)}">${esc(c.criticidad)}</span>` : ''}
+      </summary>
+      <div class="caso-detalle">
+        <div><span class="caso-detalle-lbl">DNI</span><span>${esc(c.dni || '—')}</span></div>
+        <div><span class="caso-detalle-lbl">Zona</span><span>${esc(c.zona || '—')}</span></div>
+        <div><span class="caso-detalle-lbl">Nivel</span><span>${c.nivel ? c.nivel + ' — ' + esc(NOMBRE_NIVEL[c.nivel]||'') : '—'}</span></div>
+        <div><span class="caso-detalle-lbl">Acepta entrevista</span><span>${c.aceptaEntrevista ? 'Sí' : '—'}</span></div>
+        ${c.historiaBreve ? `<div class="caso-historia"><span class="caso-detalle-lbl">Historia breve</span><div>${esc(c.historiaBreve)}</div></div>` : ''}
+      </div>
+    </details>
+  `).join('')}</div>`;
+}
+
 function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId }){
   // ── a. Cobertura territorial ──────────────────────────────────────────
   // zonaDe/puntoDe tienen fallback al dato de la PERSONA (personas.zona /
@@ -1117,26 +1176,8 @@ function renderReporte(cont, r){
     </div>
 
     <div class="section-title">Listado de casos del período</div>
-    <div class="section-hint">Casos nuevos o recontactados en el rango elegido — para ver el detalle sin depender solo de los números de arriba.</div>
-    <div class="card">
-      <div class="tbl-wrap">
-        <table class="reporte-tabla">
-          <thead><tr><th>Dupla</th><th>Nombre</th><th>DNI</th><th>Zona</th><th>Criticidad</th><th>Nivel</th><th>Acepta entrevista</th><th>Historia breve</th></tr></thead>
-          <tbody>
-            ${r.listadoCasos.length ? r.listadoCasos.map(c => `<tr>
-              <td><b>${esc(c.dupla)}</b></td>
-              <td>${esc(c.nombre)}${c.esNuevo ? ' <span class="badge" style="background:#d1fae5;color:#047857;">nuevo</span>' : ''}</td>
-              <td>${esc(c.dni || '—')}</td>
-              <td>${esc(c.zona || '—')}</td>
-              <td>${esc(c.criticidad || '—')}</td>
-              <td>${c.nivel || '—'}</td>
-              <td>${c.aceptaEntrevista ? 'Sí' : '—'}</td>
-              <td style="max-width:260px;white-space:pre-wrap;">${esc(c.historiaBreve || '—')}</td>
-            </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">Sin casos nuevos ni recontactados en el período</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <div class="section-hint">Casos nuevos o recontactados en el rango elegido — tocá una tarjeta para ver el detalle.</div>
+    ${renderListadoCasosCards(r.listadoCasos)}
 
     <div class="section-title">Tablero de indicadores</div>
     <div class="card">

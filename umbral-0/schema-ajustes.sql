@@ -403,3 +403,44 @@ grant select on public.reportes_semanales_publico to anon;
 
 revoke insert, update, delete, truncate, references, trigger
   on public.reportes_semanales_publico from anon, authenticated;
+
+-- kobo_validaciones (sept/2026) — "el operador actuaría de validador":
+-- 1) confirma que un envío de KoBo ya mostrado en el timeline de una
+--    ficha está bien (badge "✅ Validado", con nota opcional), 2) guarda
+-- la asociación cuando la dupla confirma a mano que un envío SIN DNI es
+-- la misma persona que un caso ya cargado ("posibles continuaciones" en
+-- casos.html). RLS calcada de intervenciones/seguimientos. Ya corrido en
+-- producción.
+create table public.kobo_validaciones (
+  id uuid primary key default gen_random_uuid(),
+  kobo_submission_id text not null,
+  persona_id uuid not null references public.personas(id) on delete cascade,
+  dupla_id uuid references public.duplas(id),
+  nota text,
+  creado_por uuid references public.perfiles(id),
+  created_at timestamptz not null default now(),
+  unique (kobo_submission_id, persona_id)
+);
+
+alter table public.kobo_validaciones enable row level security;
+
+create policy kobo_validaciones_select on public.kobo_validaciones
+  for select using (
+    mi_rol() = any (array['admin','coordinacion','cliente'])
+    or (mi_rol() = 'dupla' and dupla_id = mi_dupla_id())
+  );
+
+create policy kobo_validaciones_insert on public.kobo_validaciones
+  for insert with check (
+    mi_rol() = any (array['admin','coordinacion'])
+    or (mi_rol() = 'dupla' and dupla_id = mi_dupla_id())
+  );
+
+create policy kobo_validaciones_update on public.kobo_validaciones
+  for update using (
+    mi_rol() = any (array['admin','coordinacion'])
+    or (mi_rol() = 'dupla' and dupla_id = mi_dupla_id())
+  );
+
+create policy kobo_validaciones_delete on public.kobo_validaciones
+  for delete using (mi_rol() = 'admin');

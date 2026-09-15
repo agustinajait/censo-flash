@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cierre del Operativo — Censo Flash</title>
+<link rel="icon" type="image/png" href="assets/huehaci-logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --border:#dbeafe; }
@@ -87,6 +88,8 @@
   #status .s-icon { font-size:3.5rem; margin-bottom:12px; }
   #status h2 { font-family:'Sora',sans-serif; color:var(--navy); margin-bottom:8px; }
   #status p { color:#6b7280; font-size:0.9rem; }
+  .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:16px 10px 20px; }
+  .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
 
   @media(max-width:480px) {
     .form-row { grid-template-columns:1fr; }
@@ -222,6 +225,10 @@
     <p>Los datos quedaron registrados correctamente.<br>Gracias por completar el operativo.</p>
   </div>
 
+</div>
+<div class="huehaci-credit">
+  <img src="./assets/huehaci-logo.png" alt="Huehaci">
+  <span>Huehaci — Consultora de innovación cívica y tecnológica</span>
 </div>
 
 <script src="./config/censo-flash.js"></script>
