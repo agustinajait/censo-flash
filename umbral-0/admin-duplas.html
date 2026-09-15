@@ -132,7 +132,7 @@
   .caso-card .caso-detalle > div { padding:5px 0; display:flex; gap:8px; }
   .caso-card .caso-detalle-lbl { flex:0 0 130px; color:#64748b; font-size:0.76rem; }
   .caso-card .caso-historia { flex-direction:column !important; }
-  .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; }
+  .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; flex:none; }
   .caso-card .caso-historia div { white-space:pre-wrap; color:#334155; }
   .btn-amber { background:var(--amber); color:white; }
   textarea#reporte-texto, textarea#alertas-texto, .form-field textarea { width:100%; min-height:100px; font-family:monospace; font-size:0.8rem; border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; background:#f8faff; }
@@ -910,7 +910,7 @@ async function generarReporte(){
     const client = await SupabaseClient.getClient();
 
     const [personasRes, intervencionesRes, derivacionesRes, koboOutcomes, duplasRes] = await Promise.all([
-      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at'),
+      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion'),
       client.from('intervenciones').select('*').gte('fecha', desde).lte('fecha', hasta),
       client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
       calcularOutcomesKobo(desde, hasta).catch(e => { console.error('No se pudo traer KoBo para el reporte', e); return null; }),
@@ -988,6 +988,19 @@ function nombreDisplayReporte(p){
   const full = `${p.nombre||''} ${p.apellido||''}`.trim();
   return full || 'Persona sin identificar';
 }
+// Edad en años a partir de fecha_nacimiento (date, sin hora) — no se
+// guarda la edad como columna aparte, se calcula al mostrar.
+function edadDesde(fechaNacimiento){
+  if(!fechaNacimiento) return null;
+  const nacimiento = new Date(fechaNacimiento);
+  if(isNaN(nacimiento.getTime())) return null;
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const noCumplioAun = (hoy.getMonth() < nacimiento.getMonth()) ||
+    (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate());
+  if(noCumplioAun) edad--;
+  return edad >= 0 ? edad : null;
+}
 function armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla){
   const idsNuevas = new Set(
     personas.filter(p => p.created_at >= desde && p.created_at <= (hasta + 'T23:59:59')).map(p => p.id)
@@ -1008,6 +1021,18 @@ function armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupl
       aceptaEntrevista: !!p.acepta_entrevista,
       esNuevo: idsNuevas.has(p.id),
       historiaBreve: (p.historia_breve || '').trim(),
+      // Campos pedidos por GOPA (sept/2026): "info que se considera
+      // necesaria" en cada entrevista — fecha de nacimiento/edad,
+      // teléfono, y las 4 situaciones. Ya estaban en `personas` (se
+      // cargan a mano o se precargan de KoBo en el alta), pero el
+      // reporte nunca los mostraba.
+      fechaNacimiento: p.fecha_nacimiento || null,
+      edad: edadDesde(p.fecha_nacimiento),
+      telefono: p.telefono_contacto || null,
+      situacionHabitacional: (p.situacion_habitacional || '').trim(),
+      situacionEconomica: (p.situacion_economica || '').trim(),
+      situacionEducativa: (p.situacion_educativa || '').trim(),
+      redesContencion: (p.redes_contencion || '').trim(),
     }))
     .sort((a,b) => (a.dupla+a.nombre).localeCompare(b.dupla+b.nombre));
 }
@@ -1030,10 +1055,16 @@ function renderListadoCasosCards(lista){
       </summary>
       <div class="caso-detalle">
         <div><span class="caso-detalle-lbl">DNI</span><span>${esc(c.dni || '—')}</span></div>
+        <div><span class="caso-detalle-lbl">Edad</span><span>${c.edad != null ? c.edad + ' años' : '—'}${c.fechaNacimiento ? ' (' + esc(fmtFechaCorta(c.fechaNacimiento)) + ')' : ''}</span></div>
+        <div><span class="caso-detalle-lbl">Teléfono</span><span>${esc(c.telefono || '—')}</span></div>
         <div><span class="caso-detalle-lbl">Zona</span><span>${esc(c.zona || '—')}</span></div>
         <div><span class="caso-detalle-lbl">Nivel</span><span>${c.nivel ? c.nivel + ' — ' + esc(NOMBRE_NIVEL[c.nivel]||'') : '—'}</span></div>
         <div><span class="caso-detalle-lbl">Acepta entrevista</span><span>${c.aceptaEntrevista ? 'Sí' : '—'}</span></div>
         ${c.historiaBreve ? `<div class="caso-historia"><span class="caso-detalle-lbl">Historia breve</span><div>${esc(c.historiaBreve)}</div></div>` : ''}
+        ${c.situacionHabitacional ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación habitacional</span><div>${esc(c.situacionHabitacional)}</div></div>` : ''}
+        ${c.situacionEconomica ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación económica</span><div>${esc(c.situacionEconomica)}</div></div>` : ''}
+        ${c.situacionEducativa ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación educativa</span><div>${esc(c.situacionEducativa)}</div></div>` : ''}
+        ${c.redesContencion ? `<div class="caso-historia"><span class="caso-detalle-lbl">Redes de contención</span><div>${esc(c.redesContencion)}</div></div>` : ''}
       </div>
     </details>
   `).join('')}</div>`;
