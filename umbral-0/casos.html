@@ -145,6 +145,16 @@
 
   .accion-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
 
+  /* LEGAJO — toda la info cargada de la persona, en modo lectura */
+  .legajo-card { background:white; border-radius:14px; padding:6px 20px 16px; margin-bottom:20px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  .legajo-seccion { padding:14px 0; border-top:1px solid #eef2f7; }
+  .legajo-seccion:first-child { border-top:none; }
+  .legajo-titulo { font-family:'Sora',sans-serif; font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; margin-bottom:8px; }
+  .legajo-fila { display:flex; gap:10px; padding:4px 0; font-size:0.88rem; }
+  .legajo-fila .legajo-label { flex:0 0 220px; color:#64748b; }
+  .legajo-fila .legajo-valor { flex:1; color:#1e293b; white-space:pre-wrap; }
+  @media (max-width:640px){ .legajo-fila { flex-direction:column; gap:2px; } .legajo-fila .legajo-label { flex:none; font-size:0.76rem; } }
+
   .timeline-item { background:white; border-radius:12px; padding:14px 16px; margin-bottom:10px; border:1px solid var(--border); border-left:4px solid var(--gray); }
   .timeline-item.tl-intervencion { border-left-color:var(--blue); }
   .timeline-item.tl-derivacion { border-left-color:var(--amber); }
@@ -326,6 +336,13 @@
         <button class="btn btn-outline" id="btn-soflex" onclick="Casos.abrirCartaSoflex()">📄 Generar carta de soflex</button>
         <button class="btn btn-red" onclick="Casos.abrirModalAvisoCoordinacion()">🚨 Avisar a coordinación</button>
       </div>
+
+      <!-- LEGAJO — toda la info cargada de la persona, en modo lectura.
+           Antes esto solo se podía ver abriendo "✏️ Editar" (un
+           formulario), así que aunque hubiera datos cargados (a mano o
+           precargados desde KoBo), la ficha se veía vacía a simple
+           vista — ver Casos._renderLegajo(). -->
+      <div id="legajo-box"></div>
 
       <div class="section-label">Historial</div>
       <div id="timeline-list"></div>
@@ -1366,6 +1383,14 @@ function fmtFecha(iso){
   return d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' }) + ' ' +
          d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
 }
+// Como fmtFecha(), pero sin hora — para columnas type:'date' puras
+// (ej. fecha_nacimiento), donde mostrar "00:00" sería confuso.
+function fmtFechaSolo(iso){
+  if(!iso) return '';
+  const [y,m,d] = String(iso).slice(0,10).split('-');
+  if(!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
 
 // Diferencia en días DE CALENDARIO (no horas completas) entre
 // `ultima_actividad` (de personas_actividad) y hoy, en la zona horaria
@@ -1782,6 +1807,7 @@ const Casos = {
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'block';
     Casos._renderFichaHeader();
+    Casos._renderLegajo();
     Casos._renderTimeline();
   },
 
@@ -1832,6 +1858,46 @@ const Casos = {
     // Eliminar caso: solo admin (coincide con la política de RLS —
     // ni coordinación puede borrar, ver schema-ajustes.sql).
     document.getElementById('btn-eliminar-caso').style.display = miPerfil.rol === 'admin' ? 'inline-flex' : 'none';
+  },
+
+  // Toda la info cargada de la persona (a mano o precargada desde KoBo),
+  // en modo lectura — antes solo se veía abriendo "✏️ Editar", así que
+  // una ficha con datos reales se veía "vacía" a simple vista (pedido de
+  // Agustina, sept/2026: "el caso tiene que tener info"). Reusa los
+  // mismos CAMPOS_PERSONA_* del formulario de alta, para no mantener las
+  // etiquetas en dos lugares — solo muestra los campos que tienen algo
+  // cargado, nunca una fila vacía.
+  _renderLegajo(){
+    const p = personaActual;
+    const box = document.getElementById('legajo-box');
+    const secciones = [
+      { titulo: 'Datos básicos', campos: CAMPOS_PERSONA_BASICOS },
+      { titulo: 'Ubicación', campos: CAMPOS_PERSONA_UBICACION },
+      { titulo: 'Datos del caso', campos: CAMPOS_PERSONA_CASO },
+      { titulo: 'Salud y antecedentes', campos: CAMPOS_PERSONA_SALUD },
+      { titulo: 'Informe social', campos: CAMPOS_PERSONA_INFORME },
+    ];
+    const bloques = secciones.map(s => {
+      const filas = s.campos
+        // Los checkbox ya se muestran como badge en la cabecera (o son
+        // demasiado puntuales para listar como texto), y nombre/apellido
+        // ya son el título de la ficha — acá solo lo que suma como dato
+        // nuevo de lectura.
+        .filter(c => c.type !== 'checkbox' && c.key !== 'nombre' && c.key !== 'apellido')
+        .map(c => ({ label: c.label, valor: c.type === 'date' ? fmtFechaSolo(p[c.key]) : p[c.key] }))
+        .filter(f => f.valor !== null && f.valor !== undefined && String(f.valor).trim() !== '');
+      if(!filas.length) return '';
+      return `
+        <div class="legajo-seccion">
+          <div class="legajo-titulo">${esc(s.titulo)}</div>
+          ${filas.map(f => `<div class="legajo-fila"><span class="legajo-label">${esc(f.label)}</span><span class="legajo-valor">${esc(f.valor)}</span></div>`).join('')}
+        </div>
+      `;
+    }).filter(Boolean).join('');
+
+    box.innerHTML = bloques
+      ? `<div class="section-label">Legajo</div><div class="legajo-card">${bloques}</div>`
+      : `<div class="section-label">Legajo</div><div class="legajo-card"><div class="legajo-seccion" style="color:#94a3b8;font-size:0.86rem;">Todavía no hay más datos cargados — completalos desde "✏️ Editar".</div></div>`;
   },
 
   abrirCartaSoflex(){

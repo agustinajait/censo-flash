@@ -250,6 +250,19 @@ todo lo que pasa con ella en el tiempo.
      (Casa Vincular, ver 5.2) solo están habilitados para seguimientos.
 3. **Ficha de la persona** (pantalla principal del caso): cabecera con los
    datos de arriba + foto, y debajo botones de acción:
+   - **Legajo** (sept/2026, pedido de Agustina: "el caso tiene que tener
+     info") — antes de esto, toda la info cargada (a mano o precargada
+     desde KoBo — §4 más abajo, "KoBo pendientes") solo se podía ver
+     abriendo "✏️ Editar" (un formulario) — así que una ficha con datos
+     reales se veía prácticamente vacía a simple vista, con la cabecera
+     y un timeline de una sola línea ("Ingreso inicial del caso."). Ahora
+     hay una sección de solo lectura, `Casos._renderLegajo()`, agrupada
+     igual que el formulario de alta (Datos básicos/Ubicación/Datos del
+     caso/Salud/Informe social) — reusa los mismos `CAMPOS_PERSONA_*`
+     (mismas etiquetas que el formulario, no hay que mantenerlas en dos
+     lugares) y solo muestra los campos que tienen algo cargado, nunca
+     una fila vacía. Nombre/apellido y los checkbox (ya son badges en la
+     cabecera) no se repiten acá.
    - ➕ Registrar intervención (otro contacto en territorio)
    - 📨 Pedir derivación (abre el formulario dinámico de la sección 5)
    - 📝 Agregar seguimiento (comentario o ítem de checklist, sección 6)
