@@ -1063,6 +1063,66 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
       hueco de completitud es sobre todo de casos previos a que ese
       flujo se usara de forma consistente, no un problema de diseño
       hacia adelante.
+  - **Checklist de la entrevista (GOPA)** (sept/2026, Agustina pegó de
+    nuevo la lista completa de GOPA — "sí, hace el checklist") —
+    `Casos._renderChecklistEntrevista()`, arriba del Legajo en la ficha
+    (`#checklist-entrevista-box`). No es un formulario nuevo: lee los
+    mismos campos que ya muestra el Legajo, reordenados como lista de
+    verificación (✅/⬜ por ítem + contador "X/Y") para que la dupla vea
+    en el momento qué le falta preguntar, sin esperar al reporte
+    semanal. "Documentación necesaria" y "Deseos de la persona" quedan
+    marcados aparte (⚠️ "sin campo en la plataforma todavía") — no hay
+    ninguna columna que los guarde hoy.
+    - Agustina pasó el link del formulario real de KoBo
+      (`https://ee.kobotoolbox.org/x/2agnZwzr`, el mismo de
+      `config.koboFormLink`) para chequear si esas dos preguntas (más
+      "¿tiene celular?", que tampoco está mapeada) ya están ahí bajo
+      otro nombre. No se pudo abrir el link (`ee.kobotoolbox.org`
+      bloqueado por la política de egress de esta sesión, mismo bloqueo
+      que ya afectaba a `kf.kobotoolbox.org`), pero Agustina pegó el
+      **texto completo del formulario** (todas las preguntas, tal como
+      las muestra Enketo al completarlo) — con eso alcanzó para
+      **confirmar, leyendo pregunta por pregunta, que ninguna de las
+      tres existe en el formulario real**:
+      - **¿Tiene celular de contacto?** — no hay ninguna pregunta de
+        teléfono/celular en todo el formulario.
+      - **Documentación necesaria** — solo está "Tipo de documento" +
+        "Número de documento" (el DNI de la persona), nada sobre si le
+        falta algún otro trámite/documento.
+      - **Deseos de la persona** — lo más cercano es "Estrategias de
+        abordaje (Objetivos)" y "Observaciones generales" en el bloque
+        de Cierre, pero son notas del equipo, no lo que la persona dice
+        que quiere.
+      Conclusión: **no es un problema de la plataforma ni de cómo
+      parseamos KoBo** — esas tres preguntas no se le hacen a la
+      persona todavía. Si GOPA las necesita, hay que agregarlas al
+      formulario de KoBo (decisión de Agustina/GOPA sobre el diseño del
+      formulario, no algo que se resuelva en `parseUmbral0()`).
+      - **Resuelto (sept/2026):** Agustina mandó dos exports reales de
+        KoBo — primero uno en formato "labels" (270 columnas, útil para
+        confirmar que celular/documentación/deseos tampoco aparecen ahí,
+        con las etiquetas reales en vez del texto copiado a mano de
+        Enketo) y después el mismo en formato **"XML values"**, que sí
+        trae los nombres técnicos. Con eso se confirmaron y mapearon dos
+        campos nuevos de "procedencia" para situación habitacional:
+        - **`lugar_nacimiento`** ("¿Dónde naciste?") — no se cargaba
+          nada, campo nuevo: `lugarNacimiento`.
+        - **`lugar_vivienda_previa`** ("¿Dónde vivías antes de estar en
+          calle por primera vez?") — ya se cargaba como
+          `lugarViviendaPrevia`, pero con la etiqueta genérica "Vivienda
+          previa"; se renombró a "De dónde vino antes de la calle" para
+          que quede claro que es geográfico, no el tipo de vivienda
+          (eso es `tenenciaViviendaPrevia`, campo aparte).
+        - Los dos usan las mismas 5 opciones (confirmado contra los
+          valores reales guardados, no contra la etiqueta):
+          `caba`/`pba`/`otra_provincia`/`otro_pais`/`nsnc`. `legible()`
+          genérico las dejaba como "Caba"/"Pba"/"Nsnc" — se agregó
+          `LUGAR_GEOGRAFICO_LABELS` + `legibleLugar()` (mismo criterio
+          que `TERMINO_INTERVENCION_LABELS`) para que se lean bien.
+        - Sumados a los dos lugares que arman el texto de "Situación
+          habitacional" desde KoBo: `confirmarKoboPendiente()` en
+          `casos.html` (prefill del alta) y `CAMPOS_COMPLETAR_KOBO` en
+          `admin-duplas.html` (el backfill de casos ya cargados).
 - **Marca de Huehaci en toda la plataforma** (sept/2026, primero pedido de
   Agustina: "quiero agregar el logo de huehaci en el admin así cuando paso
   el reporte llega con nuestra marca también"; después ampliado: "le falta

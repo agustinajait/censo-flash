@@ -128,6 +128,25 @@ const TERMINO_INTERVENCION_LABELS = {
   otro: 'Otro',
 };
 
+// "¿Dónde naciste?" / "¿Dónde vivías antes de estar en calle por primera
+// vez?" — mismas opciones geográficas en las dos preguntas (confirmado
+// contra un export real en formato "XML values", sept/2026: los valores
+// guardados son 'caba'/'pba'/'otra_provincia'/'otro_pais'/'nsnc').
+// legible() genérico las deja como "Caba"/"Pba"/"Nsnc" — etiquetas
+// propias para que se lean bien en el reporte, mismo criterio que
+// TERMINO_INTERVENCION_LABELS.
+const LUGAR_GEOGRAFICO_LABELS = {
+  caba: 'CABA',
+  pba: 'Provincia de Buenos Aires',
+  otra_provincia: 'Otra provincia',
+  otro_pais: 'Otro país',
+  nsnc: 'No sabe / no contesta',
+};
+function legibleLugar(codigo){
+  if(!codigo) return codigo;
+  return LUGAR_GEOGRAFICO_LABELS[codigo] || legible(codigo);
+}
+
 function parseUmbral0(row){
   if(row['identificacion/equipo'] !== 'umbral_0') return null; // este asset lo comparten otros equipos de GOPA
 
@@ -199,7 +218,13 @@ function parseUmbral0(row){
       // Situación habitacional
       lugarHabitual: legible(campoSufijo(row, 'lugar_habitual')) || campoSufijo(row, 'otro_lugar'),
       tiempoEnCalle: legible(campoSufijo(row, 'tiempo_en_calle')),
-      lugarViviendaPrevia: legible(campoSufijo(row, 'lugar_vivienda_previa')),
+      // "De dónde proviene" que pedía GOPA (sept/2026) — dos preguntas
+      // distintas del formulario, mismas opciones geográficas: dónde
+      // nació (lugarNacimiento, no se cargaba todavía) y de dónde vino
+      // justo antes de la calle (lugarViviendaPrevia, ya se cargaba,
+      // pero con legible() genérico en vez de LUGAR_GEOGRAFICO_LABELS).
+      lugarNacimiento: legibleLugar(campoSufijo(row, 'lugar_nacimiento')),
+      lugarViviendaPrevia: legibleLugar(campoSufijo(row, 'lugar_vivienda_previa')),
       tenenciaViviendaPrevia: legible(campoSufijo(row, 'tenencia_vivienda_previa')),
       conQuienVivias: opcionesMultiples(row, 'con_quien_vivias'),
 
