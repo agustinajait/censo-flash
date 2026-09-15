@@ -368,6 +368,16 @@ todo lo que pasa con ella en el tiempo.
         ej. un llamado telefónico) se deja **sin tocar** a propósito: el
         equipo lo está usando en producción y no hay necesidad de
         arriesgar esa carga mientras se valida esto nuevo en uso real.
+        - **Siguiente paso guiado** (sept/2026, pedido de Agustina:
+          "cuando termino de validar el caso, llevarlo a ¿querés agregar
+          algo más? ¿querés registrar tu intervención? ¿o un comentario
+          adicional?") — al guardar la validación, en vez de cerrar el
+          modal derecho, `Casos._mostrarSiguientePasoValidacion()` ofrece
+          tres botones: abrir "➕ Registrar tu intervención", abrir
+          "💬 Agregar un comentario" (reusa los formularios existentes,
+          nada nuevo que mantener), o "No, ya terminé". Mismo criterio de
+          guiar al operador en vez de esperar que encuentre solo el resto
+          de los botones de la ficha.
      2. **Envíos sin DNI que podrían ser un caso ya cargado** — nueva
         sección en "KoBo pendientes", separada de la de altas nuevas: si
         un envío sin DNI de la propia dupla tiene el mismo nombre
