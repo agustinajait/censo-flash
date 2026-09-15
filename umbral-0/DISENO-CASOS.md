@@ -1063,6 +1063,26 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
       hueco de completitud es sobre todo de casos previos a que ese
       flujo se usara de forma consistente, no un problema de diseño
       hacia adelante.
+  - **Checklist de la entrevista (GOPA)** (sept/2026, Agustina pegó de
+    nuevo la lista completa de GOPA — "sí, hace el checklist") —
+    `Casos._renderChecklistEntrevista()`, arriba del Legajo en la ficha
+    (`#checklist-entrevista-box`). No es un formulario nuevo: lee los
+    mismos campos que ya muestra el Legajo, reordenados como lista de
+    verificación (✅/⬜ por ítem + contador "X/Y") para que la dupla vea
+    en el momento qué le falta preguntar, sin esperar al reporte
+    semanal. "Documentación necesaria" y "Deseos de la persona" quedan
+    marcados aparte (⚠️ "sin campo en la plataforma todavía") — no hay
+    ninguna columna que los guarde hoy.
+    - Agustina pasó el link del formulario real de KoBo
+      (`https://ee.kobotoolbox.org/x/2agnZwzr`, el mismo de
+      `config.koboFormLink`) para chequear si esas dos preguntas (más
+      "¿tiene celular?", que tampoco está mapeada) ya están ahí bajo
+      otro nombre — **no se pudo abrir**, `ee.kobotoolbox.org` está
+      bloqueado por la política de egress de esta sesión (mismo
+      bloqueo que ya afectaba a `kf.kobotoolbox.org`, la API). Pendiente:
+      Agustina confirma directamente en KoBo (o manda una captura/export)
+      si esas preguntas existen con otro nombre de campo, y ahí se
+      mapean en `parseUmbral0()` igual que el resto.
 - **Marca de Huehaci en toda la plataforma** (sept/2026, primero pedido de
   Agustina: "quiero agregar el logo de huehaci en el admin así cuando paso
   el reporte llega con nuestra marca también"; después ampliado: "le falta

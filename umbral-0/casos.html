@@ -356,6 +356,12 @@
         <button class="btn btn-red" onclick="Casos.abrirModalAvisoCoordinacion()">🚨 Avisar a coordinación</button>
       </div>
 
+      <!-- CHECKLIST DE LA ENTREVISTA (GOPA) — lista exacta que pidió el
+           organismo de gobierno que se releve en cada entrevista, para
+           que la dupla vea en el momento qué le falta preguntar, sin
+           esperar al reporte semanal. Ver Casos._renderChecklistEntrevista(). -->
+      <div id="checklist-entrevista-box"></div>
+
       <!-- LEGAJO — toda la info cargada de la persona, en modo lectura.
            Antes esto solo se podía ver abriendo "✏️ Editar" (un
            formulario), así que aunque hubiera datos cargados (a mano o
@@ -2036,6 +2042,7 @@ const Casos = {
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'block';
     Casos._renderFichaHeader();
+    Casos._renderChecklistEntrevista();
     Casos._renderLegajo();
     Casos._renderTimeline();
 
@@ -2105,6 +2112,45 @@ const Casos = {
   // mismos CAMPOS_PERSONA_* del formulario de alta, para no mantener las
   // etiquetas en dos lugares — solo muestra los campos que tienen algo
   // cargado, nunca una fila vacía.
+  // Checklist de la entrevista (sept/2026, pedido de GOPA a través de
+  // Agustina — lista exacta que el organismo espera que se releve en
+  // cada entrevista). No es un formulario nuevo: lee los mismos campos
+  // que ya muestra el Legajo, solo los reordena como una lista de
+  // verificación para que la dupla vea de un vistazo qué le falta
+  // preguntar, sin tener que esperar al reporte semanal. "Documentación
+  // necesaria" y "Deseos de la persona" quedan marcados como "sin campo
+  // todavía" — no hay ninguna columna que los guarde hoy; falta
+  // confirmar si KoBo ya las pregunta bajo otro nombre.
+  _renderChecklistEntrevista(){
+    const p = personaActual;
+    const box = document.getElementById('checklist-entrevista-box');
+    const items = [
+      { label:'Nombre y apellido', ok: p.sin_identificar ? null : !!(p.nombre && p.apellido) },
+      { label:'DNI (o denuncia de extravío)', ok: !!(p.dni || p.dni_denuncia_extravio) },
+      { label:'Fecha de nacimiento / edad', ok: !!p.fecha_nacimiento },
+      { label:'¿Tiene celular de contacto?', ok: !!p.telefono_contacto },
+      { label:'Situación habitacional', ok: !!(p.situacion_habitacional && p.situacion_habitacional.trim()) },
+      { label:'Situación económica', ok: !!(p.situacion_economica && p.situacion_economica.trim()) },
+      { label:'Situación educativa', ok: !!(p.situacion_educativa && p.situacion_educativa.trim()) },
+      { label:'Redes de contención', ok: !!(p.redes_contencion && p.redes_contencion.trim()) },
+      { label:'Documentación necesaria', ok: undefined },
+      { label:'Deseos de la persona', ok: undefined },
+    ];
+    const completos = items.filter(i => i.ok === true).length;
+    const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
+    const iconoDe = ok => ok === true ? '✅' : ok === false ? '⬜' : ok === null ? '➖' : '⚠️';
+    const notaDe = i => i.ok === undefined ? 'Sin campo en la plataforma todavía'
+      : i.ok === null ? 'No aplica — persona sin identificar' : '';
+    box.innerHTML = `
+      <div class="section-label">📋 Checklist de la entrevista (GOPA) — ${completos}/${aplicables}</div>
+      <div class="legajo-card">
+        <div class="legajo-seccion">
+          ${items.map(i => `<div class="legajo-fila"><span class="legajo-label">${iconoDe(i.ok)} ${esc(i.label)}</span><span class="legajo-valor" style="font-size:0.78rem;color:${i.ok===undefined?'#b45309':'#94a3b8'};">${esc(notaDe(i))}</span></div>`).join('')}
+        </div>
+      </div>
+    `;
+  },
+
   _renderLegajo(){
     const p = personaActual;
     const box = document.getElementById('legajo-box');
