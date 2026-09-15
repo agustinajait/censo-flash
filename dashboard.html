@@ -407,6 +407,23 @@
 
       <div id="u0-live-warning" class="live-warning" style="display:none;"></div>
 
+      <!-- FILTER — a diferencia del resto, acá no hace falta re-pedir a
+           KoBo: se filtra en el navegador sobre lo que ya se trajo (ver
+           cargarUmbral0()/aplicarFiltroUmbral0() en dashboard-engine.js). -->
+      <div class="filter-bar">
+        <span>🔍 Filtrar por fecha</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="filter-label">Desde</span>
+          <input type="date" id="u0-filter-desde" class="date-inp" onchange="DashboardEngine.aplicarFiltroUmbral0()">
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="filter-label">Hasta</span>
+          <input type="date" id="u0-filter-hasta" class="date-inp" onchange="DashboardEngine.aplicarFiltroUmbral0()">
+        </div>
+        <button onclick="DashboardEngine.limpiarFiltroUmbral0()" style="padding:6px 12px;background:var(--lightbg);border:1.5px solid var(--border);border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;font-weight:600;color:var(--navy);cursor:pointer;">✕ Limpiar</button>
+        <span id="u0-filter-info" style="font-size:0.75rem;color:var(--gray);margin-left:auto;"></span>
+      </div>
+
       <div class="metrics-4">
         <div class="metric m-blue"><div class="metric-icon">📋</div><div class="metric-val" id="u0-total">—</div><div class="metric-lbl">Intervenciones del equipo</div></div>
         <div class="metric m-green"><div class="metric-icon">👥</div><div class="metric-val" id="u0-personas">—</div><div class="metric-lbl">Personas distintas (por nombre)</div></div>
@@ -505,6 +522,6 @@
      aunque el HTML sí se actualice — pasó hoy con el fix del filtro de
      fechas, que quedaba "sin aplicar" del lado de quien ya tenía el sitio
      abierto. Subir este número cada vez que se edite dashboard-engine.js. -->
-<script src="./shared/js/dashboard-engine.js?v=2026-09-14-3"></script>
+<script src="./shared/js/dashboard-engine.js?v=2026-09-15-1"></script>
 </body>
 </html>

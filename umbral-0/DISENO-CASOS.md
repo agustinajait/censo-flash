@@ -763,7 +763,9 @@ plataforma lo mismo que cargan en el KoBo obligatorio (ver §3).
 
 **Acceso:** solo admin/coordinación (mismo patrón de login que
 `admin-duplas.html`). Selector de rango de fechas (default: últimos 7
-días) + botón "Generar reporte".
+días) + botón "Generar reporte" — con atajos "Última semana" / "Últimos
+14 días" / "Este mes" / "Mes pasado" (sept/2026, `setRangoReporte()`)
+para no tener que elegir las dos fechas a mano cada vez.
 
 **Dos campos nuevos en el modelo de datos** para que esto sea calculable:
 - `intervenciones.datos` (jsonb) — mismo patrón que `derivaciones.datos`.
@@ -891,6 +893,12 @@ equipos de GOPA).
 - Muestra: 4 métricas (intervenciones, personas distintas, duplas con envíos,
   días con actividad), tabla por dupla, y últimas 30 intervenciones con
   fecha/dupla/operador/tipo/persona.
+- **Filtro por fecha** (sept/2026, pedido de Agustina): barra "🔍 Filtrar
+  por fecha" arriba de las métricas, mismo componente que ya usa Censo
+  Flash. Filtra en el navegador sobre lo último que se trajo de KoBo (no
+  vuelve a pedirle nada a la API al cambiar el rango) — ver
+  `umbral0Crudo`/`aplicarFiltroUmbral0()` en `dashboard-engine.js`. El
+  filtro se recalcula solo también al tocar "🔄 Actualizar".
 - **Todavía NO alimenta la pestaña de Reporte semanal** (§9) — hoy son dos
   vistas separadas (esta lee KoBo en vivo, el reporte lee `intervenciones`
   de Supabase). Sumar los números de KoBo al cálculo del reporte queda para

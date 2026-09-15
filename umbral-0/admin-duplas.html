@@ -236,6 +236,12 @@
       </div>
       <button class="btn btn-blue" id="btn-generar" onclick="generarReporte()">📊 Generar reporte</button>
       <span id="generar-estado" style="font-size:0.8rem;color:#64748b;"></span>
+      <div style="flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="setRangoReporte('semana')">Última semana</button>
+        <button class="btn btn-outline btn-sm" onclick="setRangoReporte('quincena')">Últimos 14 días</button>
+        <button class="btn btn-outline btn-sm" onclick="setRangoReporte('mes')">Este mes</button>
+        <button class="btn btn-outline btn-sm" onclick="setRangoReporte('mes_pasado')">Mes pasado</button>
+      </div>
     </div>
 
     <div id="reporte-cont"></div>
@@ -805,6 +811,30 @@ function hoyStr(offsetDias){
   const d = new Date();
   d.setDate(d.getDate() + (offsetDias||0));
   return d.toISOString().slice(0,10);
+}
+
+// Atajos de rango para no tener que elegir las dos fechas a mano cada
+// vez (sept/2026, pedido de Agustina). Deja los inputs cargados y genera
+// el reporte de una — sigue siendo editable a mano después si hace falta
+// un rango que no es ninguno de estos.
+function setRangoReporte(tipo){
+  const hoy = new Date();
+  let desde, hasta = hoyStr(0);
+  if(tipo === 'semana'){
+    desde = hoyStr(-6);
+  } else if(tipo === 'quincena'){
+    desde = hoyStr(-13);
+  } else if(tipo === 'mes'){
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0,10);
+  } else if(tipo === 'mes_pasado'){
+    desde = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1).toISOString().slice(0,10);
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 0).toISOString().slice(0,10); // día 0 = último día del mes anterior
+  } else {
+    return;
+  }
+  document.getElementById('f-desde').value = desde;
+  document.getElementById('f-hasta').value = hasta;
+  generarReporte();
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
