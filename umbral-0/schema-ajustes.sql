@@ -357,3 +357,49 @@ select
 from public.personas p;
 
 revoke all on public.personas_actividad from anon;
+
+-- 2026-09-15: Reporte semanal "tipo dashboard" con link para compartir
+-- (pedido de Agustina). admin/coordinación publican una FOTO del reporte
+-- ya calculado (mismos números que ya se ven en admin-duplas.html) y
+-- comparten un link público — GOPA lo abre sin necesitar cuenta.
+-- Snapshot inmutable a propósito: el número que ve GOPA en el link
+-- coincide siempre con lo que se publicó ese día, no cambia si después
+-- se editan casos. Ya corrido en producción, verificado con `set local
+-- role anon` (lectura OK, count 0 con la tabla vacía).
+create table public.reportes_semanales (
+  id uuid primary key default gen_random_uuid(),
+  desde date not null,
+  hasta date not null,
+  datos jsonb not null,
+  creado_por uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.reportes_semanales enable row level security;
+
+create policy "reportes_semanales_insert" on public.reportes_semanales
+  for insert
+  with check (mi_rol() = any (array['admin','coordinacion']));
+
+create policy "reportes_semanales_select_admin" on public.reportes_semanales
+  for select
+  using (mi_rol() = any (array['admin','coordinacion']));
+
+-- Por si se publica con un error y hay que sacarlo antes de compartirlo
+-- de verdad — mismo criterio admin-only que "eliminar caso".
+create policy "reportes_semanales_delete" on public.reportes_semanales
+  for delete
+  using (mi_rol() = 'admin');
+
+-- Vista pública de solo lectura para el link compartido — reporte-publico.html
+-- no tiene login de Supabase. `datos` es un resumen agregado (conteos,
+-- nombres de zona/tipo de derivación) — nunca nombres/DNI de personas
+-- (calcularReporte() en admin-duplas.html no los incluye).
+create or replace view public.reportes_semanales_publico as
+  select id, desde, hasta, datos, created_at
+  from public.reportes_semanales;
+
+grant select on public.reportes_semanales_publico to anon;
+
+revoke insert, update, delete, truncate, references, trigger
+  on public.reportes_semanales_publico from anon, authenticated;

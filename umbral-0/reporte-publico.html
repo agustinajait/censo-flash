@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte semanal — Umbral Cero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; }
+  * { box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; margin:0; }
+  .topbar { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:22px 20px; }
+  .topbar h1 { font-family:'Sora',sans-serif; font-size:1.15rem; font-weight:800; margin:0 0 4px; }
+  .topbar .periodo { font-size:0.85rem; opacity:0.85; }
+  .wrap { max-width:760px; margin:0 auto; padding:18px 16px 50px; }
+  .section-title { font-family:'Sora',sans-serif; font-size:0.95rem; font-weight:800; color:var(--navy); margin:24px 0 10px; }
+  .card { background:white; border-radius:14px; padding:18px; margin-bottom:14px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .kpi { background:#f8faff; border:1px solid #e2eaf8; border-radius:10px; padding:12px 14px; }
+  .kpi .num { font-family:'Sora',sans-serif; font-size:1.5rem; font-weight:800; color:var(--navy); line-height:1; }
+  .kpi .lbl { font-size:0.74rem; color:#64748b; margin-top:4px; }
+  table.reporte-tabla { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  table.reporte-tabla th, table.reporte-tabla td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef2f7; }
+  table.reporte-tabla th { font-family:'Sora',sans-serif; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; }
+  table.reporte-tabla td.num { text-align:right; font-family:'Sora',sans-serif; font-weight:700; color:var(--navy); }
+  .nota-libre { font-size:0.86rem; color:#334155; white-space:pre-wrap; }
+  .footer-nota { text-align:center; font-size:0.74rem; color:#94a3b8; margin-top:30px; }
+  .empty-msg { text-align:center; color:#94a3b8; padding:60px 20px; font-size:0.92rem; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🌒 Reporte semanal — Umbral Cero</h1>
+  <div class="periodo" id="periodo">Cargando…</div>
+</div>
+
+<div class="wrap" id="cont">
+  <div class="empty-msg">Cargando el reporte…</div>
+</div>
+
+<script src="../config/umbral-0.js"></script>
+<script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script src="../shared/js/supabase-client.js"></script>
+<script>
+
+const NOMBRE_NIVEL = {1:'Identificación', 2:'Construcción del vínculo', 3:'Monitoreo territorial', 4:'Anclaje comunitario', 5:'Proyecto de inclusión'};
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtFecha(iso){
+  if(!iso) return '';
+  const [y,m,d] = String(iso).slice(0,10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+async function cargar(){
+  const cont = document.getElementById('cont');
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if(!id){
+    cont.innerHTML = '<div class="empty-msg">Falta el link completo — pedí que te lo reenvíen.</div>';
+    return;
+  }
+  try{
+    // Este cliente NUNCA inicia sesión (la página no tiene login) — lee
+    // con la anon key, que solo puede ver `reportes_semanales_publico`
+    // (RLS/grants, ver schema-ajustes.sql). No expone nombres/DNI de
+    // personas: `datos` es un resumen agregado, nunca la ficha de nadie.
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('reportes_semanales_publico').select('*').eq('id', id).single();
+    if(error || !data){
+      cont.innerHTML = '<div class="empty-msg">No se encontró este reporte — puede que el link esté mal copiado.</div>';
+      return;
+    }
+    render(data);
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">No se pudo cargar el reporte (${esc(e.message)}).</div>`;
+  }
+}
+
+function render(r){
+  const d = r.datos || {};
+  document.getElementById('periodo').textContent =
+    `Período: ${fmtFecha(r.desde)} al ${fmtFecha(r.hasta)} · publicado el ${fmtFecha(r.created_at)}`;
+
+  const cobertura = d.cobertura || {};
+  const poblacion = d.poblacion || {};
+  const porNivel = (d.evolucion && d.evolucion.porNivel) || [];
+  const idyv = d.intervencionesDerivaciones || {};
+  const porTipo = idyv.porTipo || {};
+
+  document.getElementById('cont').innerHTML = `
+    <div class="section-title">a. Cobertura territorial</div>
+    <div class="card">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="num">${cobertura.zonas ?? '—'}</div><div class="lbl">Zonas recorridas${cobertura.pctZonasCubiertas!=null?` (${cobertura.pctZonasCubiertas}% de las prioritarias)`:''}</div></div>
+        <div class="kpi"><div class="num">${cobertura.puntos ?? '—'}</div><div class="lbl">Puntos visitados</div></div>
+        <div class="kpi"><div class="num">${cobertura.totalIntervenciones ?? '—'}</div><div class="lbl">Intervenciones registradas</div></div>
+        <div class="kpi"><div class="num">${cobertura.dias ?? '—'}</div><div class="lbl">Días con presencia territorial</div></div>
+      </div>
+      ${cobertura.puntosFrecuencia ? `<div class="nota-libre" style="margin-top:12px;"><b>Puntos que requieren aumentar la frecuencia:</b><br>${esc(cobertura.puntosFrecuencia)}</div>` : ''}
+    </div>
+
+    <div class="section-title">b. Población abordada</div>
+    <div class="card">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="num">${poblacion.nuevas ?? '—'}</div><div class="lbl">Personas nuevas identificadas</div></div>
+        <div class="kpi"><div class="num">${poblacion.recontactadas ?? '—'}</div><div class="lbl">Personas recontactadas</div></div>
+        <div class="kpi"><div class="num">${poblacion.seguimientoActivo ?? '—'}</div><div class="lbl">Personas con seguimiento activo</div></div>
+      </div>
+    </div>
+
+    <div class="section-title">c. Evolución de los casos — por nivel de vínculo</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Nivel</th><th>Descripción</th><th style="text-align:right;">Personas</th></tr></thead>
+        <tbody>
+          ${porNivel.map(n => `<tr><td>${esc(n.nivel)}</td><td>${esc(NOMBRE_NIVEL[n.nivel]||'')}</td><td class="num">${n.cantidad}</td></tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:#94a3b8;">Sin datos</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">d. Intervenciones y derivaciones</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Tipo de derivación</th><th style="text-align:right;">Total</th><th style="text-align:right;">Efectivizadas</th><th style="text-align:right;">Rechazadas</th></tr></thead>
+        <tbody>
+          ${Object.keys(porTipo).length ? Object.entries(porTipo).sort((a,b)=>b[1].total-a[1].total).map(([tipo,t]) =>
+            `<tr><td>${esc(tipo)}</td><td class="num">${t.total}</td><td class="num">${t.efectivizado}</td><td class="num">${t.rechazado}</td></tr>`).join('')
+            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>'}
+        </tbody>
+      </table>
+      <div class="kpi-grid" style="margin-top:14px;">
+        <div class="kpi"><div class="num">${idyv.totalDerivaciones ?? '—'}</div><div class="lbl">Total derivaciones</div></div>
+        <div class="kpi"><div class="num">${idyv.pctConcretadas!=null?idyv.pctConcretadas+'%':'—'}</div><div class="lbl">% efectivamente concretadas</div></div>
+      </div>
+    </div>
+
+    ${d.alertas ? `
+    <div class="section-title">Alertas y desvíos</div>
+    <div class="card"><div class="nota-libre">${esc(d.alertas)}</div></div>
+    ` : ''}
+
+    <div class="footer-nota">Umbral Cero · programa territorial nocturno</div>
+  `;
+}
+
+cargar();
+</script>
+</body>
+</html>

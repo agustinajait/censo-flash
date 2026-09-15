@@ -821,6 +821,30 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
 para copiar y mandar a GOPA (mismo mecanismo de copiar-mensaje que las
 derivaciones de §5).
 
+**Reporte público — link para compartir** (sept/2026, pedido de Agustina:
+"necesito mejorar cómo enviar el reporte semanal" → "¿puede ser que se
+vea tipo dashboard?"): en vez de mandar solo el bloque de texto plano,
+botón "🔗 Publicar y generar link" que guarda una **foto** del reporte ya
+calculado (los mismos números, sin nombres/DNI de personas — es un
+resumen agregado) en la tabla `reportes_semanales`, y arma un link a
+`umbral-0/reporte-publico.html?id=...` — una página sin login, con el
+mismo estilo visual de tarjetas/tablas que ve admin/coordinación, para
+que GOPA la abra directo sin necesitar cuenta.
+
+- **Por qué es una foto y no un link "en vivo":** si después se cargan
+  más casos, el reporte que ya se mandó no debería cambiar — GOPA tiene
+  que ver siempre el número que se publicó ese día, no una cifra que se
+  corre sola.
+- Tabla `reportes_semanales` (RLS: admin/coordinación insertan y leen,
+  solo admin puede borrar un reporte publicado por error) + vista
+  `reportes_semanales_publico` (anon, solo lectura, mismo patrón que
+  `duplas_publico`/`integrantes_publico` — ver `schema-ajustes.sql`).
+- El botón de WhatsApp por ahora manda **al número de Agustina**
+  (`REPORTE_WA_APROBACION` en `admin-duplas.html`), a propósito — pidió
+  aprobarlo antes de que vaya a GOPA. **TODO:** cambiar al número/mail
+  real de GOPA una vez que lo confirme, y agregar el botón de mail (mail
+  de GOPA todavía no está).
+
 ## 10. Vista de coordinación / cliente (dashboard)
 
 Reusa el patrón visual de `dashboard.html` (tabs por proyecto): listado de

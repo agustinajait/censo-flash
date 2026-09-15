@@ -1016,6 +1016,13 @@ function renderReporte(cont, r){
         <button class="btn btn-blue" onclick="copiarMensaje()">📋 Copiar mensaje</button>
       </div>
     </div>
+
+    <div class="section-title">Reporte público (link para compartir)</div>
+    <div class="card">
+      <div class="section-hint">Publica una foto de este reporte (los mismos números de arriba) en una página que se puede compartir sin que GOPA necesite cuenta. Queda fija: si después se cargan más casos, el link sigue mostrando lo que había el día que lo publicaste.</div>
+      <button class="btn btn-amber" id="btn-publicar-reporte" onclick="publicarReporte()">🔗 Publicar y generar link</button>
+      <div id="reporte-publico-resultado" style="margin-top:12px;"></div>
+    </div>
   `;
 
   window._ultimoReporte = r;
@@ -1068,6 +1075,69 @@ async function copiarMensaje(){
     ta.select();
     document.execCommand('copy');
   }
+}
+
+// ── REPORTE PÚBLICO (link para compartir) ───────────────────────────────
+// TODO (sept/2026): el número de abajo es el de Agustina — a propósito
+// ("mandámelo a mí primero para aprobar"), no el de GOPA todavía.
+// Cambiar por el número/mail real de GOPA una vez que lo confirme.
+const REPORTE_WA_APROBACION = '+5491161266433';
+
+function fmtFechaCorta(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+async function publicarReporte(){
+  const r = window._ultimoReporte;
+  if(!r) return;
+  const btn = document.getElementById('btn-publicar-reporte');
+  const cont = document.getElementById('reporte-publico-resultado');
+  btn.disabled = true; btn.textContent = 'Publicando…';
+  try{
+    // Mismo shape que arma armarMensaje(), pero con los Set ya
+    // convertidos a número (JSON no serializa Set) — reporte-publico.html
+    // lee este JSON directo, no vuelve a calcular nada.
+    const datos = {
+      cobertura: {
+        zonas: r.cobertura.zonas.size,
+        puntos: r.cobertura.puntos.size,
+        totalIntervenciones: r.cobertura.totalIntervenciones,
+        dias: r.cobertura.dias.size,
+        pctZonasCubiertas: r.cobertura.pctZonasCubiertas,
+        puntosFrecuencia: (document.getElementById('txt-puntos-frecuencia')||{}).value || '',
+      },
+      poblacion: r.poblacion,
+      evolucion: r.evolucion,
+      intervencionesDerivaciones: r.intervencionesDerivaciones,
+      alertas: (document.getElementById('alertas-texto')||{}).value || '',
+    };
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('reportes_semanales')
+      .insert({ desde: r.desde, hasta: r.hasta, datos })
+      .select('id').single();
+    if(error) throw error;
+
+    const link = `${location.origin}/umbral-0/reporte-publico.html?id=${data.id}`;
+    const mensajeWa = `Reporte semanal Umbral Cero — ${fmtFechaCorta(r.desde)} al ${fmtFechaCorta(r.hasta)}\n${link}`;
+    cont.innerHTML = `
+      <div class="section-hint" style="margin-bottom:8px;">✅ Publicado. Este link queda fijo con los números de hoy:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="text" readonly value="${escAttr(link)}" style="flex:1;min-width:220px;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.82rem;" onclick="this.select()">
+        <a href="${escAttr(waLinkConMensaje(REPORTE_WA_APROBACION, mensajeWa))}" target="_blank" rel="noopener" class="btn btn-green btn-sm">💬 Enviarme para aprobar</a>
+      </div>
+      <div class="section-hint" style="margin-top:8px;">El botón de WhatsApp por ahora manda a tu propio número (${esc(REPORTE_WA_APROBACION)}), como pediste — avisame el número/mail real de GOPA cuando lo tengas para cambiarlo.</div>
+    `;
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">Error publicando: ${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = '🔗 Publicar y generar link';
+  }
+}
+
+function waLinkConMensaje(tel, mensaje){
+  const digits = String(tel||'').replace(/\D/g, '');
+  return digits ? 'https://wa.me/' + digits + '?text=' + encodeURIComponent(mensaje) : null;
 }
 
 </script>
