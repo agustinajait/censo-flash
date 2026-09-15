@@ -1164,6 +1164,25 @@ que GOPA la abra directo sin necesitar cuenta.
   más casos, el reporte que ya se mandó no debería cambiar — GOPA tiene
   que ver siempre el número que se publicó ese día, no una cifra que se
   corre sola.
+  - **Salvo cuando piden justo lo contrario** (sept/2026, pedido de
+    Agustina: "necesito que gobierno o un coordinador puedan ver en
+    línea cuando se suben los casos... ni el coordinador ni yo tenemos
+    cuenta ellos, necesito que lo vea gobierno también") — para ESTE
+    caso de uso (ver casos recién cargados, no el resumen agregado
+    quincenal) sí hace falta que se actualice solo, así que se armó un
+    segundo link, separado del reporte semanal: **`umbral-0/casos-en-vivo.html`**.
+    Sin login (igual que `reporte-publico.html`), pero en vez de leer
+    una foto guardada en `reportes_semanales`, pide en vivo a la vista
+    `personas_listado_publico` (ver `schema-ajustes.sql`) cada vez que
+    se abre o se toca "🔄 Actualizar". Tiene su propio filtro de fechas
+    (por `fecha de alta`, con atajos hoy/semana/quincena/mes) y muestra
+    las mismas tarjetas plegables que el reporte, con los mismos campos
+    (incluido lo que pidió GOPA: edad, teléfono, las 4 situaciones).
+    **Alcance actual:** solo altas nuevas (por `created_at`), no
+    recontactos — es lo que pidió literalmente ("cuándo se suben los
+    casos"); si hace falta ver recontactos también, es una vuelta más.
+    Link desde el topbar de `admin-duplas.html` ("📥 Casos en vivo") para
+    que Agustina lo encuentre y lo reenvíe.
 - Tabla `reportes_semanales` (RLS: admin/coordinación insertan y leen,
   solo admin puede borrar un reporte publicado por error) + vista
   `reportes_semanales_publico` (anon, solo lectura, mismo patrón que

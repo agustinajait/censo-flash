@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casos en vivo — Umbral Cero</title>
+<link rel="icon" type="image/png" href="../assets/huehaci-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; }
+  * { box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; margin:0; }
+  .topbar { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:22px 20px; }
+  .topbar h1 { font-family:'Sora',sans-serif; font-size:1.15rem; font-weight:800; margin:0 0 4px; }
+  .topbar .sub { font-size:0.85rem; opacity:0.85; }
+  .wrap { max-width:760px; margin:0 auto; padding:18px 16px 50px; }
+  .section-hint { font-size:0.78rem; color:#94a3b8; margin:0 0 10px; }
+  .card { background:white; border-radius:14px; padding:18px; margin-bottom:14px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  .empty-msg { text-align:center; color:#94a3b8; padding:60px 20px; font-size:0.92rem; }
+
+  .btn { border:none; border-radius:9px; padding:8px 16px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; cursor:pointer; }
+  .btn-blue { background:var(--blue); color:white; }
+  .btn-amber { background:var(--amber); color:white; }
+  .btn-outline { background:white; border:1.5px solid var(--border); color:var(--navy); }
+  .btn-sm { padding:5px 11px; font-size:0.74rem; }
+  .btn:disabled { opacity:0.55; cursor:default; }
+  .form-field { display:flex; flex-direction:column; gap:5px; }
+  .form-field label { font-size:0.72rem; font-weight:700; color:var(--navy); font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.5px; }
+  .form-field input { border:1.5px solid #cbd5e1; border-radius:9px; padding:8px 10px; font-size:0.86rem; font-family:'DM Sans',sans-serif; color:#1e293b; background:#f8faff; outline:none; }
+  .form-field input:focus { border-color:var(--blue); background:white; }
+  .rango-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px; }
+  .rango-atajos { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+
+  .resumen-linea { font-size:0.86rem; color:#334155; margin-bottom:14px; }
+  .resumen-linea b { color:var(--navy); }
+
+  .casos-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+  .caso-card { background:#f8faff; border:1px solid #e2eaf8; border-radius:10px; padding:0; }
+  .caso-card summary { list-style:none; cursor:pointer; padding:12px 14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .caso-card summary::-webkit-details-marker { display:none; }
+  .caso-card summary::after { content:'▾'; margin-left:auto; color:#94a3b8; font-size:0.8rem; transition:transform 0.15s; }
+  .caso-card[open] summary::after { transform:rotate(180deg); }
+  .caso-card .caso-dupla { font-family:'Sora',sans-serif; font-weight:800; font-size:0.72rem; color:var(--blue); background:#e0eaff; padding:2px 8px; border-radius:20px; }
+  .caso-card .caso-nombre { font-weight:700; color:var(--navy); font-size:0.88rem; }
+  .caso-card .caso-crit { font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; padding:2px 8px; border-radius:20px; }
+  .caso-card .crit-alta { background:#fee2e2; color:#b91c1c; }
+  .caso-card .crit-media { background:#fef3c7; color:#92400e; }
+  .caso-card .crit-baja { background:#f1f5f9; color:#475569; }
+  .caso-card .caso-detalle { padding:2px 14px 14px; border-top:1px solid #e2eaf8; margin-top:2px; font-size:0.84rem; }
+  .caso-card .caso-detalle > div { padding:5px 0; display:flex; gap:8px; }
+  .caso-card .caso-detalle-lbl { flex:0 0 130px; color:#64748b; font-size:0.76rem; }
+  .caso-card .caso-historia { flex-direction:column !important; }
+  .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; flex:none; }
+  .caso-card .caso-historia div { white-space:pre-wrap; color:#334155; }
+
+  .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
+  .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+    <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:44px; width:auto; background:white; border-radius:6px; padding:4px 8px;">
+    <div style="font-size:0.66rem; color:rgba(255,255,255,0.6); line-height:1.25;">Huehaci — Consultora de<br>innovación cívica y tecnológica</div>
+  </div>
+  <h1>📥 Casos cargados — Umbral Cero (en vivo)</h1>
+  <div class="sub">Esta página siempre muestra el estado actual de la plataforma — no es una foto fija como el reporte semanal.</div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="section-hint">Filtrá por fecha de alta del caso y actualizá cuando quieras.</div>
+    <div class="rango-row">
+      <div class="form-field"><label>Desde</label><input type="date" id="f-desde"></div>
+      <div class="form-field"><label>Hasta</label><input type="date" id="f-hasta"></div>
+      <button class="btn btn-blue" onclick="aplicarFiltro()">Filtrar</button>
+    </div>
+    <div class="rango-atajos">
+      <button class="btn btn-outline btn-sm" onclick="setRango('hoy')">Hoy</button>
+      <button class="btn btn-outline btn-sm" onclick="setRango('semana')">Última semana</button>
+      <button class="btn btn-outline btn-sm" onclick="setRango('quincena')">Últimos 14 días</button>
+      <button class="btn btn-outline btn-sm" onclick="setRango('mes')">Este mes</button>
+      <button class="btn btn-amber btn-sm" id="btn-actualizar" onclick="cargar()">🔄 Actualizar</button>
+    </div>
+  </div>
+
+  <div id="resumen" class="resumen-linea"></div>
+  <div id="cont"><div class="empty-msg">Cargando…</div></div>
+
+  <div class="huehaci-credit">
+    <img src="../assets/huehaci-logo.png" alt="Huehaci">
+    <span>Huehaci — Consultora de innovación cívica y tecnológica</span>
+  </div>
+</div>
+
+<script src="../config/umbral-0.js"></script>
+<script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script src="../shared/js/supabase-client.js"></script>
+<script>
+
+const NOMBRE_NIVEL = {1:'Identificación', 2:'Construcción del vínculo', 3:'Monitoreo territorial', 4:'Anclaje comunitario', 5:'Proyecto de inclusión'};
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtFechaCorta(iso){
+  const [y,m,d] = String(iso).slice(0,10).split('-');
+  return `${d}/${m}/${y}`;
+}
+// Igual que edadDesde() en admin-duplas.html (duplicada acá).
+function edadDesde(fechaNacimiento){
+  if(!fechaNacimiento) return null;
+  const nacimiento = new Date(fechaNacimiento);
+  if(isNaN(nacimiento.getTime())) return null;
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const noCumplioAun = (hoy.getMonth() < nacimiento.getMonth()) ||
+    (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate());
+  if(noCumplioAun) edad--;
+  return edad >= 0 ? edad : null;
+}
+function nombreDisplay(p){
+  const full = `${p.nombre||''} ${p.apellido||''}`.trim();
+  return full || 'Persona sin identificar';
+}
+function critClaseCaso(c){ return c==='Alta' ? 'crit-alta' : c==='Media' ? 'crit-media' : c==='Baja' ? 'crit-baja' : ''; }
+
+// Misma tarjeta plegable que el reporte semanal (admin-duplas.html /
+// reporte-publico.html) — duplicada acá, auto-contención de página.
+function renderListadoCasosCards(lista){
+  if(!lista || !lista.length) return '<div class="empty-msg" style="padding:30px 10px;">Sin casos en este rango de fechas</div>';
+  return `<div class="casos-grid">${lista.map(c => `
+    <details class="caso-card">
+      <summary>
+        <span class="caso-dupla">${esc(c.dupla)}</span>
+        <span class="caso-nombre">${esc(c.nombre)}</span>
+        ${c.criticidad ? `<span class="caso-crit ${critClaseCaso(c.criticidad)}">${esc(c.criticidad)}</span>` : ''}
+      </summary>
+      <div class="caso-detalle">
+        <div><span class="caso-detalle-lbl">DNI</span><span>${esc(c.dni || '—')}</span></div>
+        <div><span class="caso-detalle-lbl">Edad</span><span>${c.edad != null ? c.edad + ' años' : '—'}${c.fechaNacimiento ? ' (' + esc(fmtFechaCorta(c.fechaNacimiento)) + ')' : ''}</span></div>
+        <div><span class="caso-detalle-lbl">Teléfono</span><span>${esc(c.telefono || '—')}</span></div>
+        <div><span class="caso-detalle-lbl">Zona</span><span>${esc(c.zona || '—')}</span></div>
+        <div><span class="caso-detalle-lbl">Nivel</span><span>${c.nivel ? c.nivel + ' — ' + esc(NOMBRE_NIVEL[c.nivel]||'') : '—'}</span></div>
+        <div><span class="caso-detalle-lbl">Acepta entrevista</span><span>${c.aceptaEntrevista ? 'Sí' : '—'}</span></div>
+        <div><span class="caso-detalle-lbl">Cargado</span><span>${c.creadoEn ? fmtFechaCorta(c.creadoEn) : '—'}</span></div>
+        ${c.historiaBreve ? `<div class="caso-historia"><span class="caso-detalle-lbl">Historia breve</span><div>${esc(c.historiaBreve)}</div></div>` : ''}
+        ${c.situacionHabitacional ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación habitacional</span><div>${esc(c.situacionHabitacional)}</div></div>` : ''}
+        ${c.situacionEconomica ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación económica</span><div>${esc(c.situacionEconomica)}</div></div>` : ''}
+        ${c.situacionEducativa ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación educativa</span><div>${esc(c.situacionEducativa)}</div></div>` : ''}
+        ${c.redesContencion ? `<div class="caso-historia"><span class="caso-detalle-lbl">Redes de contención</span><div>${esc(c.redesContencion)}</div></div>` : ''}
+      </div>
+    </details>
+  `).join('')}</div>`;
+}
+
+function hoyStr(offsetDias){
+  const d = new Date();
+  d.setDate(d.getDate() + (offsetDias||0));
+  return d.toISOString().slice(0,10);
+}
+function setRango(tipo){
+  const hoy = new Date();
+  let desde, hasta = hoyStr(0);
+  if(tipo === 'hoy') desde = hoyStr(0);
+  else if(tipo === 'semana') desde = hoyStr(-6);
+  else if(tipo === 'quincena') desde = hoyStr(-13);
+  else if(tipo === 'mes') desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0,10);
+  else return;
+  document.getElementById('f-desde').value = desde;
+  document.getElementById('f-hasta').value = hasta;
+  aplicarFiltro();
+}
+
+let todosLosCasos = [];
+
+// Se pide TODO de una (sin filtrar en el pedido a Supabase) y se filtra
+// acá por fecha — la vista `personas_listado_publico` no trae tantas
+// filas como para que importe, y así cambiar de rango no vuelve a pedir
+// nada mientras no toques "🔄 Actualizar".
+async function cargar(){
+  const cont = document.getElementById('cont');
+  const btn = document.getElementById('btn-actualizar');
+  btn.disabled = true; btn.textContent = 'Actualizando…';
+  cont.innerHTML = '<div class="empty-msg">Cargando…</div>';
+  try{
+    // Cliente sin sesión (la página no tiene login) — lee con la anon
+    // key, que solo puede ver `personas_listado_publico` (grants, ver
+    // schema-ajustes.sql). A diferencia del reporte semanal, esto SÍ
+    // es en vivo: cada "Actualizar" vuelve a pedir el estado actual.
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('personas_listado_publico').select('*').order('created_at', { ascending:false });
+    if(error) throw error;
+    todosLosCasos = data || [];
+    if(!document.getElementById('f-desde').value) setRango('semana');
+    else aplicarFiltro();
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">No se pudo cargar (${esc(e.message)}).</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = '🔄 Actualizar';
+  }
+}
+
+function aplicarFiltro(){
+  const desde = document.getElementById('f-desde').value;
+  const hasta = document.getElementById('f-hasta').value;
+  const filtrados = todosLosCasos.filter(p => {
+    const fecha = String(p.created_at||'').slice(0,10);
+    return (!desde || fecha >= desde) && (!hasta || fecha <= hasta);
+  });
+  const lista = filtrados.map(p => ({
+    dupla: p.dupla_codigo || '—',
+    nombre: nombreDisplay(p),
+    dni: p.dni || (p.dni_denuncia_extravio ? 'Denuncia de extravío' : null),
+    zona: p.zona || p.comuna || p.punto_contacto || null,
+    criticidad: p.criticidad || null,
+    nivel: p.nivel_actual || null,
+    aceptaEntrevista: !!p.acepta_entrevista,
+    historiaBreve: (p.historia_breve || '').trim(),
+    fechaNacimiento: p.fecha_nacimiento || null,
+    edad: edadDesde(p.fecha_nacimiento),
+    telefono: p.telefono_contacto || null,
+    situacionHabitacional: (p.situacion_habitacional || '').trim(),
+    situacionEconomica: (p.situacion_economica || '').trim(),
+    situacionEducativa: (p.situacion_educativa || '').trim(),
+    redesContencion: (p.redes_contencion || '').trim(),
+    creadoEn: p.created_at,
+  })).sort((a,b) => (a.dupla+a.nombre).localeCompare(b.dupla+b.nombre));
+
+  document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'} cargado${lista.length===1?'':'s'} entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
+  document.getElementById('cont').innerHTML = renderListadoCasosCards(lista);
+}
+
+cargar();
+</script>
+</body>
+</html>
