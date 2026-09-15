@@ -200,6 +200,16 @@ todo lo que pasa con ella en el tiempo.
 1. **Buscar antes de crear** — campo de búsqueda por nombre/apellido/DNI contra
    `personas`, para no duplicar a alguien que ya está en seguimiento. Si
    aparece, va directo a su ficha (paso 3).
+   - **Orden de la lista (sept/2026):** por `ultima_actividad` ascendente
+     (el caso que hace más tiempo que nadie toca aparece primero), no
+     alfabético — antes un caso cargado ayer quedaba mezclado
+     alfabéticamente con el resto y era fácil perderlo de vista para el
+     seguimiento del día siguiente. Sale de la vista `personas_actividad`
+     (ver `schema-ajustes.sql`), que agrega `ultima_actividad` = lo más
+     reciente entre el alta y cualquier intervención/seguimiento/
+     derivación de esa persona. Los casos activos que llevan 1 día o más
+     sin ningún movimiento muestran un badge "⏰ hace X días sin
+     seguimiento" en la tarjeta.
 2. **Si es nueva persona**, formulario de alta → inserta en `personas`:
    - Datos básicos: `nombre`, `apellido`, `dni` (o `dni_denuncia_extravio` si no
      tiene y hay que acompañar a hacer la denuncia — igual que el circuito de

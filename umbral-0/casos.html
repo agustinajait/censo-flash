@@ -1344,6 +1344,24 @@ function fmtFecha(iso){
          d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
 }
 
+// Diferencia en días DE CALENDARIO (no horas completas) entre
+// `ultima_actividad` (de personas_actividad) y hoy, en la zona horaria
+// del navegador — se usa para el badge "⏰ hace X días sin seguimiento"
+// en la lista de búsqueda. Calendario y no horas porque si no, un caso
+// tocado ayer a las 12 del mediodía recién mostraría el aviso pasadas
+// las 24hs exactas (medianoche a mediodía de hoy no alcanza) — la idea
+// es "¿es de un día anterior a hoy?", no "¿pasaron 24 horas?". null si
+// no hay fecha (no debería pasar: siempre hay al menos `created_at`).
+function diasSinSeguimiento(ultimaActividadIso){
+  if(!ultimaActividadIso) return null;
+  const d = new Date(ultimaActividadIso);
+  if(isNaN(d)) return null;
+  const hoy = new Date();
+  const diaActividad = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const diaHoy = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return Math.round((diaHoy - diaActividad) / (1000*60*60*24));
+}
+
 function iniciales(p){
   const n = (p.nombre||'').trim(), a = (p.apellido||'').trim();
   if(!n && !a) return '?';
@@ -1486,7 +1504,14 @@ const Casos = {
     const cont = document.getElementById('resultados-list');
     cont.innerHTML = '<div class="empty-msg">Buscando…</div>';
     const client = await SupabaseClient.getClient();
-    let query = client.from('personas').select('*').order('apellido', { ascending:true }).limit(40);
+    // `personas_actividad` (no `personas` directo) trae además
+    // `ultima_actividad` = lo más reciente entre el alta y cualquier
+    // intervención/seguimiento/derivación de esa persona — ordenar por
+    // ahí (el más viejo primero) hace que un caso sin tocar desde ayer
+    // quede arriba de todo, en vez de perderse mezclado alfabéticamente
+    // con el resto. Mismas políticas RLS que `personas` (la vista es
+    // security_invoker — ver schema-ajustes.sql).
+    let query = client.from('personas_actividad').select('*').order('ultima_actividad', { ascending:true }).limit(40);
     if(q){
       query = query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,dni.ilike.%${q}%`);
     }
@@ -1508,6 +1533,15 @@ const Casos = {
     else badges.push('<span class="badge badge-blue">activo</span>');
     if(p.criticidad) badges.push(`<span class="badge badge-amber">${esc(p.criticidad)}</span>`);
     if(p.sin_identificar) badges.push('<span class="badge badge-gray">sin identificar</span>');
+    // Solo tiene sentido para casos activos (un egresado no necesita
+    // seguimiento) — `ultima_actividad` viene de personas_actividad, ver
+    // buscarPersonas().
+    if(p.estado !== 'egresado'){
+      const dias = diasSinSeguimiento(p.ultima_actividad);
+      if(dias !== null && dias >= 1){
+        badges.push(`<span class="badge badge-red">⏰ ${dias === 1 ? 'hace 1 día' : `hace ${dias} días`} sin seguimiento</span>`);
+      }
+    }
     card.innerHTML = `
       <div class="persona-avatar">${esc(iniciales(p))}</div>
       <div class="persona-info">
