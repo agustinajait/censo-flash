@@ -1960,7 +1960,7 @@ const Casos = {
     document.getElementById('btn-guardar-persona').onclick = () => Casos.guardarPersona(persona);
   },
 
-  async guardarPersona(personaExistente){
+  async guardarPersona(personaExistente, forzarDniDuplicado){
     // Traba sincrónica contra doble-tap/doble-click: si dos clics llegan
     // casi juntos (celular con conexión lenta), el segundo entra acá antes
     // de que el primero llegue a deshabilitar el botón más abajo, y sin
@@ -1986,6 +1986,35 @@ const Casos = {
     // valor que ya tenía (mandar null rompería el check 1..5 / not null).
     if(campos.nivel_actual) campos.nivel_actual = parseInt(campos.nivel_actual, 10);
     else delete campos.nivel_actual;
+
+    // Aviso preventivo de DNI duplicado en altas nuevas (sept/2026,
+    // pedido de Agustina tras encontrar decenas de casos reales
+    // duplicados en producción — mismo DNI cargado más de una vez por
+    // distintas duplas/días, ver DISENO-CASOS.md). `personas` tiene RLS
+    // por dupla, así que sin esto una dupla no tiene forma de saber que
+    // otra ya cargó a la misma persona. Solo AVISA, no bloquea: puede
+    // ser una coincidencia real (DNI mal tipeado antes, etc.) — la
+    // dupla decide si sigue.
+    if(!personaExistente && !forzarDniDuplicado && !campos.sin_identificar){
+      const dniTrim = String(campos.dni||'').trim();
+      if(dniTrim){
+        btn.disabled = true; btn.textContent = 'Revisando…';
+        try{
+          const client = await SupabaseClient.getClient();
+          const { data: coincidencias } = await client.from('personas_dni_index').select('*').eq('dni', dniTrim);
+          if(coincidencias && coincidencias.length){
+            Casos._mostrarAvisoDniDuplicado(form, coincidencias, campos.dni);
+            btn.disabled = false; btn.textContent = '💾 Dar de alta';
+            _guardandoPersona = false;
+            return;
+          }
+        }catch(e){
+          console.error('No se pudo chequear DNI duplicado, se sigue sin avisar', e);
+        }
+      }
+    }
+    document.getElementById('dni-dup-aviso')?.remove();
+
     btn.disabled = true; btn.textContent = 'Guardando…';
     try{
       const client = await SupabaseClient.getClient();
@@ -2027,6 +2056,37 @@ const Casos = {
       btn.disabled = false; btn.textContent = personaExistente ? '💾 Guardar cambios' : '💾 Dar de alta';
       _guardandoPersona = false;
     }
+  },
+
+  // Banner dentro del propio formulario de alta (no un modal aparte, para
+  // no perder lo ya tipeado) con los casos que ya tienen ese DNI, cargados
+  // por cualquier dupla (personas_dni_index bypassea la RLS de `personas`
+  // a propósito para esto — ver schema-ajustes.sql).
+  _mostrarAvisoDniDuplicado(form, coincidencias, dni){
+    const filas = coincidencias.map(c => {
+      const nombre = `${c.nombre||''} ${c.apellido||''}`.trim() || 'Persona sin identificar';
+      const fecha = c.created_at ? new Date(c.created_at).toLocaleDateString('es-AR') : '—';
+      return `<div style="padding:5px 0; border-top:1px solid #fed7aa; font-size:0.82rem; color:#78350f;">
+        <b>${esc(nombre)}</b> — dupla ${esc(c.dupla_codigo||'—')}, cargado el ${esc(fecha)}
+      </div>`;
+    }).join('');
+    let cont = document.getElementById('dni-dup-aviso');
+    if(!cont){
+      cont = document.createElement('div');
+      cont.id = 'dni-dup-aviso';
+      cont.style.cssText = 'background:#fff7ed; border:1.5px solid #fdba74; border-radius:10px; padding:12px 14px; margin-bottom:14px;';
+      form.insertBefore(cont, form.firstChild);
+    }
+    cont.innerHTML = `
+      <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ Ya hay ${coincidencias.length===1?'un caso':coincidencias.length+' casos'} con el DNI ${esc(dni)}</div>
+      ${filas}
+      <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona, cerrá este formulario y buscala en el listado de casos en vez de dar de alta uno nuevo. Si es otra persona (o ese DNI está mal cargado en el caso anterior), podés seguir igual.</div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('dni-dup-aviso').remove()">Volver a editar</button>
+        <button type="button" class="btn btn-amber btn-sm" onclick="Casos.guardarPersona(null, true)">Crear de todas formas</button>
+      </div>
+    `;
+    cont.scrollIntoView({ behavior:'smooth', block:'start' });
   },
 
   // ── FICHA ────────────────────────────────────────────────────────────

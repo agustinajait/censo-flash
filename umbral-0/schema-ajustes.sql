@@ -539,3 +539,33 @@ grant select on public.personas_listado_publico to anon;
 
 revoke insert, update, delete, truncate, references, trigger
   on public.personas_listado_publico from anon, authenticated;
+
+-- personas_dni_index (sept/2026) — chequeo preventivo de DNI duplicado
+-- en el alta de casos.html. Pedido de Agustina tras encontrar decenas de
+-- casos reales duplicados en producción (mismo DNI, cargado más de una
+-- vez por distintas duplas/días): "si hacelo" (agregar el aviso).
+--
+-- `personas` tiene RLS "cada dupla ve solo sus propios casos", así que
+-- una dupla no puede ver si OTRA dupla ya cargó a la misma persona. Esta
+-- vista bypassea esa RLS a propósito (mismo patrón que
+-- personas_listado_publico) pero SOLO expone lo mínimo necesario para
+-- detectar el duplicado (dni, nombre, apellido, dupla, fecha) — no
+-- situación económica/habitacional/salud/teléfono/etc. Grant a
+-- `authenticated` (no a `anon`: es una herramienta operativa para las
+-- duplas logueadas, no un link público). Verificado: trae coincidencias
+-- de más de una dupla para el mismo DNI (bypass de RLS confirmado).
+create view public.personas_dni_index as
+select
+  p.dni,
+  p.nombre,
+  p.apellido,
+  p.created_at,
+  d.codigo as dupla_codigo
+from public.personas p
+join public.duplas d on d.id = p.dupla_id
+where coalesce(trim(p.dni), '') <> '';
+
+grant select on public.personas_dni_index to authenticated;
+
+revoke insert, update, delete, truncate, references, trigger
+  on public.personas_dni_index from authenticated;

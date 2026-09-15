@@ -1221,6 +1221,29 @@ que GOPA la abra directo sin necesitar cuenta.
       agregar un chequeo de DNI repetido (buscando en TODAS las duplas,
       no solo la propia) como advertencia antes de guardar un alta nueva
       en `casos.html`.
+    - **Chequeo preventivo al dar de alta — construido** (sept/2026,
+      pedido de Agustina: "si hacelo", tras confirmar que el problema
+      seguía activo: ese mismo día el DNI 94936973 pasó de 5 a 10
+      casos cargados, en tandas de ~5 inserts seguidos segundos aparte,
+      primero por la dupla C y después por la F). `Casos.guardarPersona()`
+      en `casos.html` ahora, antes de insertar una persona NUEVA con DNI
+      cargado (no aplica a "sin identificar" ni a ediciones), consulta la
+      nueva vista `personas_dni_index` (`schema-ajustes.sql`) buscando ese
+      DNI. Esa vista bypassea a propósito la RLS de `personas` (mismo
+      patrón que `personas_listado_publico`, pero con grant a
+      `authenticated` en vez de `anon` — es una herramienta operativa
+      para duplas logueadas, no un link público) y expone SOLO lo mínimo
+      para detectar el duplicado: DNI, nombre, apellido, dupla y fecha —
+      no situación económica/salud/teléfono/etc. Si hay coincidencias, se
+      muestra un aviso dentro del propio formulario (no se pierde lo ya
+      tipeado) con quién cargó cada caso existente y dos botones: "Volver
+      a editar" (saca el aviso, la dupla puede corregir el DNI o cerrar y
+      buscar el caso existente) o "Crear de todas formas" (sigue con el
+      alta — hay coincidencias legítimas, como un DNI mal tipeado en el
+      caso anterior). **Es un aviso, no un bloqueo** — no hay unique
+      constraint en `personas.dni` ni se agregó uno, a propósito: no
+      queríamos arriesgar que un alta legítima falle en producción por
+      un caso borde no previsto.
 - Tabla `reportes_semanales` (RLS: admin/coordinación insertan y leen,
   solo admin puede borrar un reporte publicado por error) + vista
   `reportes_semanales_publico` (anon, solo lectura, mismo patrón que
