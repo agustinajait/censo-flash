@@ -444,3 +444,43 @@ create policy kobo_validaciones_update on public.kobo_validaciones
 
 create policy kobo_validaciones_delete on public.kobo_validaciones
   for delete using (mi_rol() = 'admin');
+
+-- personas_listado_publico (sept/2026) — link EN VIVO para
+-- casos-en-vivo.html, a diferencia de reportes_semanales_publico (que es
+-- a propósito una foto fija). Pedido de Agustina: ni el coordinador ni
+-- GOPA tienen cuenta y quieren ver los casos cargados sin esperar el
+-- reporte semanal. Mismo patrón que duplas_publico/integrantes_publico
+-- (vista simple, sin security_invoker, grant explícito a anon) — no
+-- pasa por RLS de `personas` porque anon no tiene rol. Ya corrido en
+-- producción, verificado con `set local role anon`.
+create view public.personas_listado_publico as
+select
+  p.id,
+  p.nombre,
+  p.apellido,
+  p.dni,
+  p.dni_denuncia_extravio,
+  p.sin_identificar,
+  p.zona,
+  p.comuna,
+  p.punto_contacto,
+  p.criticidad,
+  p.nivel_actual,
+  p.acepta_entrevista,
+  p.historia_breve,
+  p.fecha_nacimiento,
+  p.telefono_contacto,
+  p.situacion_habitacional,
+  p.situacion_economica,
+  p.situacion_educativa,
+  p.redes_contencion,
+  p.estado,
+  p.created_at,
+  d.codigo as dupla_codigo
+from public.personas p
+join public.duplas d on d.id = p.dupla_id;
+
+grant select on public.personas_listado_publico to anon;
+
+revoke insert, update, delete, truncate, references, trigger
+  on public.personas_listado_publico from anon, authenticated;
