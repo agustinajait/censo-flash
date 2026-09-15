@@ -349,6 +349,42 @@ todo lo que pasa con ella en el tiempo.
        segundos — trae y parsea ~3000 filas de KoBo — después queda en
        caché para el resto de la sesión, compartida con "KoBo
        pendientes" vía `obtenerKoboRowsParseadas()`).
+   - **El operador como validador + envíos sin DNI** (sept/2026, siguiente
+     vuelta del mismo pedido: "el operador actuaría de validador y de
+     agregar datos extras... si mañana el operador vuelve a cargar el
+     KoBo con el mismo nombre o DNI de la persona que vio ayer, tenemos
+     que poder asociarlo al mismo caso"). Dos piezas nuevas, tabla
+     `kobo_validaciones` (persona_id + kobo_submission_id, `unique`) de
+     por medio — RLS calcada de `intervenciones`/`seguimientos`
+     (dupla ve/escribe solo lo de su `dupla_id`, admin/coordinación todo,
+     solo admin borra):
+     1. **Validar / agregar nota** — cada tarjeta "📋 Envío de KoBo" del
+        timeline tiene un botón para que la dupla confirme que está bien
+        (queda un badge "✅ Validado por la dupla") y, si hace falta,
+        agregue una aclaración que KoBo no preguntó. Es la nueva forma de
+        "Registrar intervención" para lo que ya vino de KoBo — confirmar
+        y comentar, no volver a tipear de cero. El botón viejo de
+        "➕ Registrar intervención" (100% manual, sin KoBo de por medio —
+        ej. un llamado telefónico) se deja **sin tocar** a propósito: el
+        equipo lo está usando en producción y no hay necesidad de
+        arriesgar esa carga mientras se valida esto nuevo en uso real.
+     2. **Envíos sin DNI que podrían ser un caso ya cargado** — nueva
+        sección en "KoBo pendientes", separada de la de altas nuevas: si
+        un envío sin DNI de la propia dupla tiene el mismo nombre
+        (normalizado, exacto — no aproximado, para no arriesgar mezclar
+        dos personas distintas) que un caso ya cargado por esa dupla, se
+        le pregunta a la dupla "¿es la misma persona?" en vez de
+        asociarlo solo. Un clic en "✅ Sí, es la misma" guarda la
+        asociación en `kobo_validaciones` (de ahí en más ese envío
+        aparece en el timeline de esa ficha, igual que un match por DNI);
+        "No es ella" solo lo saca de la sesión actual, no queda guardado
+        — no hace falta un registro permanente de un descarte.
+     - Límite conocido: si no hay DNI Y el nombre no matchea exacto con
+       nada ya cargado (ej. `sin_identificar`, o el nombre viene distinto
+       entre visitas), ese envío no aparece en ningún lado todavía — no
+       se resuelve con matching automático más agresivo (riesgo de
+       mezclar historiales), sino identificando el caso de otra forma
+       (punto de contacto, descripción física) si hace falta.
 
 **Eliminar caso** (sept/2026, `casos.html`, botón "🗑️ Eliminar caso" en la
 ficha) — solo visible para `admin` (coincide con la política de RLS: ni

@@ -53,6 +53,7 @@
   .kobo-pend { max-width:860px; margin:12px auto 0; padding:0 18px; }
   .kobo-pend-head { font-size:0.82rem; color:#92400e; font-weight:700; font-family:'Sora',sans-serif; margin-bottom:6px; }
   .kobo-pend-card { border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; border:1.5px solid var(--border); background:linear-gradient(135deg,#fffbeb,#fff8ec); margin-bottom:8px; }
+  .kobo-pend-card.kobo-pend-continuacion { background:linear-gradient(135deg,#eff6ff,#f5f9ff); }
   .kobo-pend-txt { flex:1; min-width:180px; font-size:0.86rem; color:#334155; }
   .kobo-pend-txt strong { font-family:'Sora',sans-serif; color:var(--navy); }
   .kobo-pend-txt .meta { font-size:0.74rem; color:#64748b; }
@@ -398,6 +399,9 @@ let intervencionesActuales = [];
 let derivacionesActuales = [];
 let seguimientosActuales = [];
 let koboEventosActuales = []; // envíos de KoBo de esta persona (ver cargarKoboDePersona())
+let koboValidacionesActuales = {}; // kobo_submission_id -> fila de kobo_validaciones, de la persona abierta
+let koboPosiblesContinuacionesActuales = []; // envíos sin DNI que podrían ser un caso ya cargado (ver cargarKoboPendientes())
+const koboContinuacionesDescartadas = new Set(); // subIds que el operador ya dijo "no es ella" esta sesión
 let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
@@ -1304,6 +1308,17 @@ function obtenerKoboRowsParseadas(project, form){
   return _koboRowsParseadasPromise;
 }
 
+// Identificador estable de un envío de KoBo — para guardar en
+// `kobo_validaciones` cuál envío puntual se validó/asoció a qué persona.
+// `_id` (numérico) es el que KoBo siempre manda; `_uuid` como respaldo.
+function koboSubmissionId(p){
+  const raw = p && p._raw;
+  if(!raw) return null;
+  if(raw._id !== undefined && raw._id !== null && raw._id !== '') return String(raw._id);
+  if(raw._uuid) return String(raw._uuid);
+  return null;
+}
+
 let koboPendientesActuales = [];
 
 async function cargarKoboPendientes(){
@@ -1316,27 +1331,55 @@ async function cargarKoboPendientes(){
   try{
     const client = await SupabaseClient.getClient();
 
-    const [{ data: integrantes }, { data: personasExistentes }, koboParseadas] = await Promise.all([
+    const [{ data: integrantes }, { data: personasPropias }, { data: validacionesPropias }, koboParseadas] = await Promise.all([
       client.from('integrantes').select('nombre,apellido').eq('dupla_id', miPerfil.dupla_id),
-      client.from('personas').select('dni').eq('dupla_id', miPerfil.dupla_id).not('dni', 'is', null),
+      client.from('personas').select('id,nombre,apellido,dni,sin_identificar').eq('dupla_id', miPerfil.dupla_id),
+      client.from('kobo_validaciones').select('kobo_submission_id').eq('dupla_id', miPerfil.dupla_id),
       obtenerKoboRowsParseadas(project, form),
     ]);
 
     const misNombres = new Set((integrantes||[])
       .map(i => normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`))
       .filter(Boolean));
-    const dnisExistentes = new Set((personasExistentes||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
+    const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
+    const idsYaValidados = new Set((validacionesPropias||[]).map(v => v.kobo_submission_id));
+    // Nombre normalizado -> persona ya cargada, SOLO las que tienen nombre
+    // real (sin_identificar no tiene con qué matchear por nombre).
+    const personasPorNombre = new Map();
+    (personasPropias||[]).forEach(p => {
+      if(p.sin_identificar) return;
+      const nom = normalizarNombreKobo(`${p.nombre||''} ${p.apellido||''}`);
+      if(nom) personasPorNombre.set(nom, p);
+    });
 
-    const porDni = new Map(); // dni -> envío más reciente
+    const porDni = new Map(); // dni -> envío más reciente (altas nuevas)
+    const posiblesContinuaciones = new Map(); // subId -> { persona, envio } (sin DNI, nombre matchea un caso propio)
     koboParseadas.forEach(p => {
       if(!misNombres.has(normalizarNombreKobo(p.operador))) return; // no es de mi dupla
       const dni = String((p.persona && p.persona.dni) || '').trim();
-      if(!dni || dnisExistentes.has(dni)) return; // sin DNI, o ya es un caso cargado
-      const previo = porDni.get(dni);
-      if(!previo || (p.fecha||'') > (previo.fecha||'')) porDni.set(dni, p);
+      if(dni){
+        if(dnisExistentes.has(dni)) return; // ya es un caso cargado — cargarKoboDePersona() ya lo muestra en esa ficha
+        const previo = porDni.get(dni);
+        if(!previo || (p.fecha||'') > (previo.fecha||'')) porDni.set(dni, p);
+        return;
+      }
+      // Sin DNI: ¿el nombre matchea con un caso propio ya cargado? (pedido
+      // de Agustina, sept/2026: "si mañana el operador vuelve a cargar el
+      // kobo con el mismo nombre... se debe asociar al mismo caso" — acá
+      // NO se asocia solo, se le pregunta a la dupla, ver confirmarContinuacionKobo()).
+      const subId = koboSubmissionId(p);
+      if(!subId || idsYaValidados.has(subId) || koboContinuacionesDescartadas.has(subId)) return;
+      const nom = normalizarNombreKobo(`${(p.persona&&p.persona.nombre)||''} ${(p.persona&&p.persona.apellido)||''}`);
+      if(!nom) return;
+      const personaMatch = personasPorNombre.get(nom);
+      if(!personaMatch) return;
+      const previo = posiblesContinuaciones.get(subId);
+      if(!previo || (p.fecha||'') > (previo.envio.fecha||'')) posiblesContinuaciones.set(subId, { persona:personaMatch, envio:p, subId });
     });
 
     koboPendientesActuales = [...porDni.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+    koboPosiblesContinuacionesActuales = [...posiblesContinuaciones.values()]
+      .sort((a,b) => (b.envio.fecha||'').localeCompare(a.envio.fecha||''));
     mostrarKoboPendientes();
   }catch(e){
     console.error('No se pudieron revisar los envíos de KoBo pendientes', e);
@@ -1344,27 +1387,42 @@ async function cargarKoboPendientes(){
   }
 }
 
-// Envíos de KoBo de ESTA persona puntual (matcheados por DNI, de cualquier
-// dupla/operador) — pedido de Agustina (sept/2026): "no sé si aclaran que
-// le hice la eximición de pago, o que voy a volver mañana, o que llamé al
-// 911" (esa respuesta vive en la pregunta obligatoria de KoBo
-// "termino_intervencion_diaria", no en la plataforma). Se suma como
-// eventos de solo lectura al timeline de la ficha — no escribe nada en
-// `intervenciones` ni pisa los campos ya cargados a mano, para no inventar
-// ni sobrescribir datos (ver política del resto de esta sesión). Sin DNI
-// no hay forma confiable de matchear, así que esos casos se quedan sin
-// esta sección (igual que "KoBo pendientes").
+// Envíos de KoBo de ESTA persona puntual — pedido de Agustina (sept/2026):
+// "no sé si aclaran que le hice la eximición de pago, o que voy a volver
+// mañana, o que llamé al 911" (esa respuesta vive en la pregunta
+// obligatoria de KoBo "termino_intervencion_diaria", no en la
+// plataforma). Se suma como eventos de solo lectura al timeline de la
+// ficha — no escribe nada en `intervenciones` ni pisa los campos ya
+// cargados a mano. Dos formas de matchear:
+//  1. Por DNI (automático, cualquier dupla/operador).
+//  2. Por una asociación ya confirmada en `kobo_validaciones` — cubre los
+//     envíos sin DNI que la dupla confirmó a mano como "es la misma
+//     persona" (ver confirmarContinuacionKobo()) o que simplemente
+//     validó sin necesitar asociación (el propio envío del alta, DNI ya
+//     coincide, pero puede tener una nota agregada).
 async function cargarKoboDePersona(persona){
   koboEventosActuales = [];
-  const dni = String((persona && persona.dni) || '').trim();
-  if(!dni) return;
+  koboValidacionesActuales = {};
+  if(!persona || !persona.id) return;
   const project = window.PROJECT_CONFIG;
   const form = project && project.kobo && (project.kobo.forms||[])[0];
-  if(!form) return;
+  const dni = String(persona.dni || '').trim();
   try{
-    const parsed = await obtenerKoboRowsParseadas(project, form);
+    const client = await SupabaseClient.getClient();
+    const [{ data: validaciones }, parsed] = await Promise.all([
+      client.from('kobo_validaciones').select('*').eq('persona_id', persona.id),
+      form ? obtenerKoboRowsParseadas(project, form) : Promise.resolve([]),
+    ]);
+    (validaciones||[]).forEach(v => { koboValidacionesActuales[v.kobo_submission_id] = v; });
+    const idsValidados = new Set(Object.keys(koboValidacionesActuales));
+    if(!dni && !idsValidados.size) return; // nada para matchear
+
     koboEventosActuales = parsed
-      .filter(p => String((p.persona && p.persona.dni) || '').trim() === dni)
+      .filter(p => {
+        if(dni && String((p.persona && p.persona.dni) || '').trim() === dni) return true;
+        const subId = koboSubmissionId(p);
+        return !!(subId && idsValidados.has(subId));
+      })
       .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
   }catch(e){
     console.error('No se pudieron traer los envíos de KoBo de esta persona', e);
@@ -1384,21 +1442,42 @@ function legibleKobo(s){
 
 function mostrarKoboPendientes(){
   const box = document.getElementById('kobo-pend-box');
-  if(!koboPendientesActuales.length){ box.style.display = 'none'; return; }
+  const hayAltas = koboPendientesActuales.length > 0;
+  const hayContinuaciones = koboPosiblesContinuacionesActuales.length > 0;
+  if(!hayAltas && !hayContinuaciones){ box.style.display = 'none'; return; }
   box.style.display = 'block';
   box.innerHTML = `
-    <div class="kobo-pend">
-      <div class="kobo-pend-head">📥 ${koboPendientesActuales.length} envío${koboPendientesActuales.length===1?'':'s'} de KoBo con DNI que todavía no ${koboPendientesActuales.length===1?'tiene':'tienen'} caso cargado acá</div>
-      ${koboPendientesActuales.map((p, idx) => `
-        <div class="kobo-pend-card">
-          <div class="kobo-pend-txt">
-            <strong>${esc(`${p.persona.nombre||''} ${p.persona.apellido||''}`.trim() || '(sin nombre en KoBo)')}</strong> · DNI ${esc(p.persona.dni)}
-            <div class="meta">${esc(p.tipo||'Intervención')} · ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}</div>
+    ${hayAltas ? `
+      <div class="kobo-pend">
+        <div class="kobo-pend-head">📥 ${koboPendientesActuales.length} envío${koboPendientesActuales.length===1?'':'s'} de KoBo con DNI que todavía no ${koboPendientesActuales.length===1?'tiene':'tienen'} caso cargado acá</div>
+        ${koboPendientesActuales.map((p, idx) => `
+          <div class="kobo-pend-card">
+            <div class="kobo-pend-txt">
+              <strong>${esc(`${p.persona.nombre||''} ${p.persona.apellido||''}`.trim() || '(sin nombre en KoBo)')}</strong> · DNI ${esc(p.persona.dni)}
+              <div class="meta">${esc(p.tipo||'Intervención')} · ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}</div>
+            </div>
+            <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboPendiente(${idx})">✅ Confirmar y cargar caso</button>
           </div>
-          <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboPendiente(${idx})">✅ Confirmar y cargar caso</button>
-        </div>
-      `).join('')}
-    </div>
+        `).join('')}
+      </div>
+    ` : ''}
+    ${hayContinuaciones ? `
+      <div class="kobo-pend">
+        <div class="kobo-pend-head">🔗 ${koboPosiblesContinuacionesActuales.length} envío${koboPosiblesContinuacionesActuales.length===1?'':'s'} de KoBo sin DNI que podría${koboPosiblesContinuacionesActuales.length===1?'':'n'} ser un caso que ya tenés cargado</div>
+        ${koboPosiblesContinuacionesActuales.map((c, idx) => `
+          <div class="kobo-pend-card kobo-pend-continuacion">
+            <div class="kobo-pend-txt">
+              <strong>${esc(`${(c.envio.persona.nombre||'')} ${(c.envio.persona.apellido||'')}`.trim())}</strong>
+              <div class="meta">¿Es la misma persona que <strong>${esc(`${c.persona.nombre||''} ${c.persona.apellido||''}`.trim())}</strong>, ya cargada acá? · ${c.envio.fecha ? new Date(c.envio.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(c.envio.operador||'—')}</div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-green btn-sm" onclick="Casos.confirmarContinuacionKobo(${idx})">✅ Sí, es la misma</button>
+              <button class="btn btn-outline btn-sm" onclick="Casos.descartarContinuacionKobo(${idx})">No es ella</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
   `;
 }
 
@@ -1784,6 +1863,41 @@ const Casos = {
         ['Dificultades relevadas', (per.dificultadPara||[]).filter(d => d !== 'Ninguna' && d !== 'Nsnc').join(', ')],
       ]),
     });
+  },
+
+  // Confirma que un envío de KoBo sin DNI es la misma persona que un caso
+  // ya cargado por esta dupla (ver "posibles continuaciones" en
+  // cargarKoboPendientes()) — asociación explícita del operador, nunca
+  // automática, porque un error acá mezclaría el historial de dos
+  // personas distintas. Guarda en `kobo_validaciones`: de ahí en más
+  // cargarKoboDePersona() lo va a mostrar en el timeline de esa ficha.
+  async confirmarContinuacionKobo(idx){
+    const c = koboPosiblesContinuacionesActuales[idx];
+    if(!c) return;
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('kobo_validaciones').upsert({
+        kobo_submission_id: c.subId,
+        persona_id: c.persona.id,
+        dupla_id: miPerfil.dupla_id || null,
+        creado_por: miPerfil.id,
+      }, { onConflict: 'kobo_submission_id,persona_id' });
+      if(error) throw error;
+      koboPosiblesContinuacionesActuales.splice(idx, 1);
+      mostrarKoboPendientes();
+    }catch(e){
+      alert('No se pudo asociar: ' + e.message);
+    }
+  },
+
+  // "No es ella" — no se guarda en la base (no hace falta un registro
+  // permanente de un descarte), solo se saca de esta sesión para no
+  // insistir con la misma sugerencia mientras la dupla sigue trabajando.
+  descartarContinuacionKobo(idx){
+    const c = koboPosiblesContinuacionesActuales[idx];
+    if(c) koboContinuacionesDescartadas.add(c.subId);
+    koboPosiblesContinuacionesActuales.splice(idx, 1);
+    mostrarKoboPendientes();
   },
 
   _renderFormPersona(persona, prefill){
@@ -2184,6 +2298,8 @@ const Casos = {
         ['Vínculos (nota)', p.persona.notaRelacionesVinculos],
         ['Observación', p.persona.observacionPersona],
       ]);
+      const subId = koboSubmissionId(p);
+      const validacion = subId && koboValidacionesActuales[subId];
       el.className = 'timeline-item tl-kobo';
       el.innerHTML = `
         <div class="tl-head">
@@ -2193,6 +2309,12 @@ const Casos = {
         ${terminos.length ? `<div class="tl-body"><b>Qué pasó:</b> ${terminos.map(t=>esc(t)).join(' · ')}</div>` : ''}
         ${notas ? `<div class="tl-body" style="white-space:pre-wrap;font-size:0.82rem;color:#475569;">${esc(notas)}</div>` : ''}
         ${!terminos.length && !notas ? '<div class="tl-body" style="font-size:0.78rem;color:#94a3b8;">Envío registrado, sin más detalle relevado.</div>' : ''}
+        ${validacion && validacion.nota ? `<div class="tl-body" style="font-size:0.82rem;"><b>Nota de la dupla:</b> ${esc(validacion.nota)}</div>` : ''}
+        ${subId ? `<div class="tl-foot">
+          ${validacion
+            ? `<span class="badge badge-green">✅ Validado por la dupla</span> <button class="btn btn-outline btn-sm" onclick="Casos.abrirModalValidarKobo('${escAttr(subId)}')">✏️ Editar nota</button>`
+            : `<button class="btn btn-green btn-sm" onclick="Casos.abrirModalValidarKobo('${escAttr(subId)}')">✅ Validar / agregar nota</button>`}
+        </div>` : ''}
       `;
       return el;
     }
@@ -2267,6 +2389,52 @@ const Casos = {
       `;
     }
     return el;
+  },
+
+  // "El operador actuaría de validador" (pedido de Agustina, sept/2026) —
+  // confirma que un envío de KoBo ya mostrado en el timeline es correcto,
+  // con la opción de agregar una aclaración que KoBo no preguntó. Guarda
+  // en `kobo_validaciones` (upsert por kobo_submission_id + persona_id,
+  // así reabrir el modal para editar la nota no crea un duplicado).
+  abrirModalValidarKobo(subId){
+    const notaActual = (koboValidacionesActuales[subId] && koboValidacionesActuales[subId].nota) || '';
+    const body = `
+      <form id="form-validar-kobo" onsubmit="return false;">
+        <div class="form-field">
+          <label>Nota (opcional)</label>
+          <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-green" id="btn-guardar-validacion-kobo" onclick="Casos.guardarValidacionKobo('${escAttr(subId)}')">✅ Validar</button>
+        </div>
+      </form>
+    `;
+    openModal('Validar envío de KoBo', body);
+  },
+
+  async guardarValidacionKobo(subId){
+    const btn = document.getElementById('btn-guardar-validacion-kobo');
+    const nota = document.getElementById('f_nota_validacion_kobo').value.trim();
+    btn.disabled = true;
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('kobo_validaciones').upsert({
+        kobo_submission_id: subId,
+        persona_id: personaActual.id,
+        dupla_id: miPerfil.dupla_id || null,
+        nota: nota || null,
+        creado_por: miPerfil.id,
+      }, { onConflict: 'kobo_submission_id,persona_id' });
+      if(error) throw error;
+      closeModal();
+      await cargarKoboDePersona(personaActual);
+      Casos._renderTimeline();
+    }catch(e){
+      modalError('No se pudo guardar: ' + e.message);
+    }finally{
+      btn.disabled = false;
+    }
   },
 
   async _reactivarSiEgresado(){
