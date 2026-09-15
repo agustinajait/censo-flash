@@ -2427,14 +2427,36 @@ const Casos = {
         creado_por: miPerfil.id,
       }, { onConflict: 'kobo_submission_id,persona_id' });
       if(error) throw error;
-      closeModal();
       await cargarKoboDePersona(personaActual);
       Casos._renderTimeline();
+      Casos._mostrarSiguientePasoValidacion();
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
       btn.disabled = false;
     }
+  },
+
+  // Después de validar un envío de KoBo, en vez de cerrar el modal
+  // derecho, ofrece el siguiente paso — pedido de Agustina (sept/2026):
+  // "cuando termino de validar el caso, llevarlo a ¿querés agregar algo
+  // más? ¿registrar tu intervención? ¿o un comentario adicional?". Mismo
+  // espíritu que "el operador como validador": guiarlo al siguiente paso
+  // en vez de dejar que tenga que encontrar solo los otros botones de la
+  // ficha. Reutiliza los formularios ya existentes (nada nuevo que
+  // mantener) — "No, ya terminé" simplemente cierra.
+  _mostrarSiguientePasoValidacion(){
+    const body = `
+      <div style="text-align:center;padding:6px 0 4px;">
+        <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Envío validado. ¿Querés agregar algo más sobre esta visita?</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-blue" onclick="Casos.abrirModalIntervencion()">➕ Registrar tu intervención</button>
+          <button class="btn btn-green" onclick="Casos.abrirModalSeguimiento()">💬 Agregar un comentario</button>
+          <button class="btn btn-outline" onclick="closeModal()">No, ya terminé</button>
+        </div>
+      </div>
+    `;
+    openModal('¿Algo más?', body);
   },
 
   async _reactivarSiEgresado(){
