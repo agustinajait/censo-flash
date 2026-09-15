@@ -411,6 +411,23 @@ todo lo que pasa con ella en el tiempo.
        página (`filtrar()`) para que solo filtre `#glosario-grid .gcard`
        — sin el `id` de scope, las tarjetas nuevas (sin `data-nombre`)
        rompían la búsqueda en cuanto se escribía algo.
+     - **Capturas reales, no mockups** (mismo pedido, siguiente vuelta:
+       "no, yo quiero el instructivo con el producto real, con las
+       pantallas reales") — `umbral-0/capturas/*.png`, 5 capturas de
+       `casos.html` corriendo de verdad (mismo HTML/CSS/JS que producción).
+       Como esta sesión no tiene salida de red hacia la Supabase real ni
+       hacia `cdn.jsdelivr.net` (política de egress del entorno), no se
+       pudo loguear de verdad ni pedir datos reales — en cambio se navegó
+       la página con Playwright y se inyectó el estado directo en las
+       mismas variables/funciones que usa la app (`miPerfil`,
+       `personaActual`, `koboEventosActuales`, `Casos._renderTimeline()`,
+       etc.), con **un caso de prueba explícitamente ficticio** ("Juana
+       Ejemplo", DNI `00000000`) creado temporalmente en la base de
+       producción (dupla `ZZ-DEMO` inactiva + integrante + cuenta auth +
+       persona) **y borrado apenas se sacaron las capturas** — nunca se
+       usó ni se mostró el dato de una persona real. El resultado es
+       HTML/CSS real, pixel a pixel igual a lo que ve una dupla — solo
+       cambia de dónde sale el dato en pantalla.
 
 **Eliminar caso** (sept/2026, `casos.html`, botón "🗑️ Eliminar caso" en la
 ficha) — solo visible para `admin` (coincide con la política de RLS: ni

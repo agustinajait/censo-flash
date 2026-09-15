@@ -62,6 +62,9 @@
   .paso-txt .desc { font-size:0.85rem; color:#475569; margin-top:2px; }
   .paso-txt .desc ul { margin:4px 0 0 18px; padding:0; }
   .paso-txt .desc li { margin-bottom:2px; }
+  .paso-captura { margin-top:10px; border:1px solid var(--border); border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(15,31,61,0.08); max-width:520px; }
+  .paso-captura img { display:block; width:100%; height:auto; }
+  .paso-captura-cap { font-size:0.72rem; color:#94a3b8; padding:6px 10px; background:#f8faff; border-top:1px solid var(--border); }
 
   /* NIVELES — línea de tiempo visual en vez de lista numerada plana */
   .niveles-timeline { display:flex; flex-direction:column; gap:0; }
@@ -440,7 +443,12 @@
         <div class="paso-circulo">📥</div>
         <div class="paso-txt">
           <div class="titulo">2 · Si ya cargaste el KoBo, confirmá el alta desde ahí</div>
-          <div class="desc">Si es la primera vez que ves a esa persona y ya completaste el KoBo con su DNI, va a aparecer en <strong>"📥 KoBo pendientes"</strong> (arriba de la búsqueda) con los datos ya precargados. Tocá <strong>"✅ Confirmar y cargar caso"</strong> y se abre el formulario de alta ya completado — revisalo y guardá, no hace falta re-escribir nada.</div>
+          <div class="desc">Si es la primera vez que ves a esa persona y ya completaste el KoBo con su DNI, va a aparecer en <strong>"📥 KoBo pendientes"</strong> (arriba de la búsqueda) con los datos ya precargados. Tocá <strong>"✅ Confirmar y cargar caso"</strong> y se abre el formulario de alta ya completado — revisalo y guardá, no hace falta re-escribir nada.
+            <figure class="paso-captura">
+              <img src="capturas/1-busqueda-kobo-pendientes.png" alt="Pantalla de búsqueda de Casos con un envío de KoBo pendiente de confirmar (Carlos Ejemplo) y un caso ya cargado (Juana Ejemplo) en la lista.">
+              <div class="paso-captura-cap">Captura real de la plataforma — nombres de ejemplo, no son personas reales.</div>
+            </figure>
+          </div>
         </div>
       </div>
       <div class="paso-item">
@@ -454,7 +462,20 @@
         <div class="paso-circulo">📋</div>
         <div class="paso-txt">
           <div class="titulo">4 · Validá lo que ya trajo KoBo</div>
-          <div class="desc">Cada vez que vuelvas a completar el KoBo de alguien que <strong>ya tiene caso cargado acá</strong> (mismo DNI), ese envío aparece solo en el <strong>Historial</strong> de su ficha — con qué pasó (derivación, llamado a SAME, contacto con Policía/911, etc.), si sigue en seguimiento, y las notas que hayas puesto. Tocá <strong>"✅ Validar / agregar nota"</strong> para confirmar que está bien — podés sumar una aclaración si hace falta algo que el KoBo no preguntó.</div>
+          <div class="desc">Cada vez que vuelvas a completar el KoBo de alguien que <strong>ya tiene caso cargado acá</strong> (mismo DNI), ese envío aparece solo en el <strong>Historial</strong> de su ficha — con qué pasó (derivación, llamado a SAME, contacto con Policía/911, etc.), si sigue en seguimiento, y las notas que hayas puesto. Tocá <strong>"✅ Validar / agregar nota"</strong> para confirmar que está bien — podés sumar una aclaración si hace falta algo que el KoBo no preguntó.
+            <figure class="paso-captura">
+              <img src="capturas/2-ficha-timeline-kobo.png" alt="Ficha de un caso con el Legajo y, debajo, el Historial mostrando la tarjeta &quot;Envío de KoBo — Seguimiento&quot; con qué pasó, si sigue en seguimiento, y el botón Validar / agregar nota.">
+              <div class="paso-captura-cap">La ficha completa: Legajo arriba, Historial abajo con el envío de KoBo ya auto-completado.</div>
+            </figure>
+            <figure class="paso-captura">
+              <img src="capturas/3-modal-validar.png" alt="Modal &quot;Validar envío de KoBo&quot; con un campo de nota opcional y el botón Validar.">
+              <div class="paso-captura-cap">Al tocar "Validar / agregar nota" — la nota es opcional.</div>
+            </figure>
+            <figure class="paso-captura">
+              <img src="capturas/5-timeline-validado.png" alt="La misma tarjeta del Historial después de validar, con el badge Validado por la dupla y la nota agregada.">
+              <div class="paso-captura-cap">Así queda después de validar — la nota y el badge quedan para cualquiera que abra la ficha después.</div>
+            </figure>
+          </div>
         </div>
       </div>
       <div class="paso-item">
@@ -468,7 +489,12 @@
         <div class="paso-circulo">📝</div>
         <div class="paso-txt">
           <div class="titulo">6 · Seguimiento: intervención, comentario o derivación</div>
-          <div class="desc">Al validar un envío de KoBo, la plataforma te pregunta si querés agregar algo más: <strong>"➕ Registrar tu intervención"</strong> (para algo que no pasó por KoBo, ej. un llamado telefónico), o <strong>"💬 Agregar un comentario"</strong> (una nota libre o un ítem de checklist). Si hace falta pedir un recurso puntual (CIS, Casa Vincular, etc.), usá <strong>"📨 Pedir derivación"</strong> desde la ficha. Para una urgencia (CIS espontáneo, salud mental, familias en riesgo), usá <strong>"🚨 Avisar a coordinación"</strong> — manda un WhatsApp con el mensaje ya armado.</div>
+          <div class="desc">Al validar un envío de KoBo, la plataforma te pregunta si querés agregar algo más: <strong>"➕ Registrar tu intervención"</strong> (para algo que no pasó por KoBo, ej. un llamado telefónico), o <strong>"💬 Agregar un comentario"</strong> (una nota libre o un ítem de checklist). Si hace falta pedir un recurso puntual (CIS, Casa Vincular, etc.), usá <strong>"📨 Pedir derivación"</strong> desde la ficha. Para una urgencia (CIS espontáneo, salud mental, familias en riesgo), usá <strong>"🚨 Avisar a coordinación"</strong> — manda un WhatsApp con el mensaje ya armado.
+            <figure class="paso-captura">
+              <img src="capturas/4-modal-algo-mas.png" alt="Modal &quot;¿Algo más?&quot; después de validar, con los botones Registrar tu intervención, Agregar un comentario, y No ya terminé.">
+              <div class="paso-captura-cap">Aparece apenas guardás la validación — elegís y listo.</div>
+            </figure>
+          </div>
         </div>
       </div>
     </div>
