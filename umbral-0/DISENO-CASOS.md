@@ -214,6 +214,12 @@ todo lo que pasa con ella en el tiempo.
      mezcladas en la misma lista de búsqueda (RLS les deja ver todos los
      casos) — la tarjeta les muestra de qué dupla es cada uno. Una cuenta
      de dupla no lo ve (siempre son los suyos, sería redundante).
+   - **Filtro por dupla (sept/2026):** selector "Todas las duplas" al lado
+     del buscador, mismo criterio que el badge de arriba — solo visible
+     para admin/coordinación (`mostrarFiltroDupla()`), armado con las
+     duplas activas (`duplas.activa = true`, para no listar duplas de
+     prueba/dadas de baja). Filtra por `dupla_id` además del texto
+     buscado — se puede combinar los dos (ej. "Dupla F" + "González").
 2. **Si es nueva persona**, formulario de alta → inserta en `personas`:
    - Datos básicos: `nombre`, `apellido`, `dni` (o `dni_denuncia_extravio` si no
      tiene y hay que acompañar a hacer la denuncia — igual que el circuito de
@@ -248,6 +254,17 @@ todo lo que pasa con ella en el tiempo.
      `es_seguimiento` (sí/no, o derivado de si tiene más de una intervención)
      distingue esto de un caso con vínculo sostenido, porque varios recursos
      (Casa Vincular, ver 5.2) solo están habilitados para seguimientos.
+   - **Traba contra doble-tap (sept/2026):** `guardarPersona()` deshabilitaba
+     el botón "Dar de alta" recién después de validar nombre/apellido — en
+     una conexión lenta del celular, un doble-tap dispara dos clicks antes
+     de que el primero llegue a deshabilitarlo, y los dos terminan
+     insertando el mismo caso. Se detectó en producción (15/9): "Alejandro
+     Castaño" DNI 38681714, Dupla K, quedó cargado dos veces con 8 segundos
+     de diferencia. Fix: una traba sincrónica (`_guardandoPersona`) como
+     primera línea de la función, antes de cualquier validación — el
+     segundo click entra y sale sin hacer nada mientras el primero sigue en
+     curso, y se libera en el `finally` (o en cada validación que corta el
+     flujo) para no dejar el botón trabado si el guardado falla.
 3. **Ficha de la persona** (pantalla principal del caso): cabecera con los
    datos de arriba + foto, y debajo botones de acción:
    - **Legajo** (sept/2026, pedido de Agustina: "el caso tiene que tener
@@ -903,6 +920,43 @@ solo-lectura; no ve el roster de duplas/choferes (privacidad del equipo).
 Complementa a la pestaña de reporte (§9): esto es exploración de casos individuales,
 la pestaña de reporte es el consolidado cuantitativo para GOPA.
 
+### 10.0 Un solo login para todo — construido sept/2026
+
+Pedido de Agustina: "quiero ingresar una sola vez y ver todo sin tener
+que volver a registrarme". Antes de esto, `dashboard.html` era un
+sistema de login completamente aparte de `casos.html`/`admin-duplas.html`
+— usaba la contraseña compartida de `PLATFORM_AUTH`
+(`config/platform.js`), mientras que Casos usa cuentas reales de
+Supabase Auth. Entrar primero a Casos y después al dashboard pedía
+loguearse dos veces con dos sistemas distintos.
+
+- **`intentarAutoLoginUmbral0()`** (`shared/js/dashboard-engine.js`): al
+  cargar `dashboard.html`, si ya hay una sesión de Supabase activa
+  (porque se entró primero por `casos.html`/`admin-duplas.html` — mismo
+  proyecto de Supabase, mismo storage del navegador) entra directo según
+  el rol real de esa cuenta, sin mostrar el login de contraseña:
+  - `perfiles.rol = 'admin'` → admin completo del dashboard (ve Censo
+    Flash también — coherente con que hoy es la misma persona
+    administrando los dos operativos).
+  - `perfiles.rol = 'coordinacion'` → rol `coordinador`, encerrado en
+    Umbral 0 nada más (mismo alcance que `coordPassword`, que Umbral 0 ni
+    siquiera tiene configurado todavía — esto de paso da una forma de
+    entrar sin depender de esa contraseña).
+  - Cualquier otro rol (ej. `dupla`) no dispara el auto-login — sigue
+    mostrando el login de contraseña normal, una cuenta de dupla no
+    tiene por qué ver el dashboard de coordinación.
+  - Nunca pisa una sesión de `PLATFORM_AUTH` ya restaurada
+    (`restoreSession()` sigue siendo lo primero que se intenta).
+- **Navegación cruzada**: `casos.html`/`admin-duplas.html` ahora tienen
+  un link "📈 Dashboard" en el topbar (admin/coordinación), y la vista
+  "Umbral 0" del dashboard tiene un link de vuelta a "🗂️ Ir a Casos /
+  Duplas" — antes había que escribir la URL a mano o tener la pestaña
+  guardada.
+- **Lo que queda afuera de esto (deliberado):** unificar el login del
+  lado de Censo Flash (que no tiene cuentas de Supabase, solo
+  contraseñas compartidas) es un cambio más grande, sin resolver
+  todavía — quedó planteado para pensarlo aparte.
+
 ### 10.1 KoBo del equipo (envíos en vivo) — construido sept/2026
 
 Además del listado de casos de arriba, `dashboard.html` tiene una pestaña
@@ -978,6 +1032,20 @@ más adelante — quedan pendientes de definir con Agustina:
   scope — sería algo más fino, como avisar "ya existe un caso con ese DNI
   en otra dupla, pedile acceso a tu referente" sin mostrar el detalle
   completo.
+- **Casos duplicados DENTRO de la misma dupla, sin DNI para matchear**
+  (encontrado 15/9 revisando la carga del día): además del doble-tap ya
+  resuelto arriba, aparecieron altas de la misma persona repetidas en
+  días distintos dentro de una misma dupla (ej. Dupla H) — el patrón es
+  que el primer contacto queda sin DNI o con un valor basura escrito a
+  mano en ese campo ("No responde", ".", "-" en vez de dejarlo vacío o
+  usar `dni_denuncia_extravio`/`sin_identificar`), así que el buscador no
+  lo encuentra en el contacto siguiente y la dupla termina dando de alta
+  un caso nuevo para la misma persona. No es un bug de código — es un
+  problema de qué se escribe en el campo DNI en el momento de la carga.
+  Antes de tocar el formulario (¿bloquear texto no numérico en DNI?
+  ¿advertencia si hay un nombre muy parecido ya cargado?), vale la pena
+  preguntarle a las duplas por qué escriben eso en vez de dejarlo en
+  blanco — puede ser que no sepan que pueden dejarlo vacío.
 - **Contradicción sobre CIS y seguimiento** (5.1): el documento en un lugar
   describe pedidos espontáneos de CIS (sin vínculo previo) y en otro dice que
   el ingreso a CIS "se realiza siempre y cuando la persona sea seguimiento

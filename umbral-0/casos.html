@@ -108,13 +108,13 @@
 
   /* BUSCAR */
   .search-row { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
-  .search-row input { flex:1; min-width:0; border:1.5px solid #cbd5e1; border-radius:10px; padding:11px 14px; font-size:0.92rem; font-family:'DM Sans',sans-serif; background:white; outline:none; }
-  .search-row input:focus { border-color:var(--blue); }
+  .search-row input, .search-row select { flex:1; min-width:0; border:1.5px solid #cbd5e1; border-radius:10px; padding:11px 14px; font-size:0.92rem; font-family:'DM Sans',sans-serif; background:white; outline:none; }
+  .search-row input:focus, .search-row select:focus { border-color:var(--blue); }
   /* En mobile la fila de búsqueda desbordaba (input + 2 botones no entraban
      en 375px) — abajo de 560px cada uno pasa a ocupar el ancho completo. */
   @media(max-width:560px){
     .search-row { flex-direction:column; }
-    .search-row input, .search-row button { width:100%; }
+    .search-row input, .search-row select, .search-row button { width:100%; }
   }
   .section-label { font-family:'Sora',sans-serif; font-weight:800; font-size:1.02rem; color:var(--navy); margin:22px 0 12px; }
   .empty-msg { font-size:0.84rem; color:#94a3b8; padding:20px; text-align:center; }
@@ -284,6 +284,11 @@
       <a href="#" id="link-quiz" class="btn btn-ghost" style="display:none;" onclick="event.preventDefault(); showScreen('onboarding-screen'); renderOnboarding();">🎓 Test</a>
       <a href="./admin-duplas.html" class="btn btn-ghost" id="link-admin-duplas" style="display:none;">👥 Duplas</a>
       <a href="./admin-duplas.html#reporte" class="btn btn-ghost" id="link-reporte" style="display:none;">📊 Reporte</a>
+      <!-- Dashboard de KoBo en vivo — otra app (../dashboard.html), pero
+           con la sesión de Supabase ya iniciada acá entra directo, sin
+           pedir la contraseña compartida de nuevo (ver
+           intentarAutoLoginUmbral0() en dashboard-engine.js). -->
+      <a href="../dashboard.html" class="btn btn-ghost" id="link-dashboard" style="display:none;" target="_blank" rel="noopener">📈 Dashboard</a>
       <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
     </div>
   </div>
@@ -307,6 +312,12 @@
       <div class="section-label">Buscar o cargar un caso</div>
       <div class="search-row">
         <input type="text" id="buscar-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="Casos.onBuscarInput()">
+        <!-- Solo admin/coordinación: una cuenta de dupla ya ve nada más
+             que sus propios casos (RLS), filtrar por dupla sería
+             redundante — ver mostrarFiltroDupla() en entrarAlApp(). -->
+        <select id="buscar-dupla" onchange="Casos.buscarPersonas(document.getElementById('buscar-input').value.trim())" style="display:none;max-width:180px;">
+          <option value="">Todas las duplas</option>
+        </select>
         <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Ingresar nuevo caso</button>
       </div>
       <div id="resultados-list"></div>
@@ -375,6 +386,7 @@ let personaActual = null;
 let intervencionesActuales = [];
 let derivacionesActuales = [];
 let seguimientosActuales = [];
+let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
 
@@ -825,6 +837,8 @@ async function entrarAlApp(){
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-reporte').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
+  document.getElementById('link-dashboard').style.display =
+    ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   const koboFormLink = window.PROJECT_CONFIG.koboFormLink;
   if(koboFormLink){
     const linkKobo = document.getElementById('link-kobo-form');
@@ -833,11 +847,28 @@ async function entrarAlApp(){
   }
   showScreen('app-screen');
   await cargarDuplasMap();
+  mostrarFiltroDupla();
   mostrarMiTurno();
   await cargarJornadaHoy();
   mostrarJornada();
   cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
   Casos.volverABuscar();
+}
+
+// Selector "Todas las duplas" en la búsqueda de casos — solo tiene
+// sentido para admin/coordinación, que ven las 13 duplas mezcladas
+// (RLS). Una cuenta de dupla ya está scopeada a sus propios casos, así
+// que el selector ni se muestra (pedido de Agustina, sept/2026: "en el
+// admin donde veo todos los casos dame la opción de buscar por dupla").
+function mostrarFiltroDupla(){
+  const sel = document.getElementById('buscar-dupla');
+  if(!miPerfil || miPerfil.rol === 'dupla'){ sel.style.display = 'none'; return; }
+  const opciones = Object.entries(duplasMap)
+    .filter(([id]) => duplasPorId[id] && duplasPorId[id].activa)
+    .sort((a,b) => a[1].localeCompare(b[1]));
+  sel.innerHTML = '<option value="">Todas las duplas</option>' +
+    opciones.map(([id, codigo]) => `<option value="${escAttr(id)}">Dupla ${esc(codigo)}</option>`).join('');
+  sel.style.display = 'inline-block';
 }
 
 // ── DATOS DE CONTACTO (nombre/apellido/DNI/teléfono de integrantes) ─────
@@ -1563,10 +1594,16 @@ const Casos = {
     if(q){
       query = query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,dni.ilike.%${q}%`);
     }
+    // Filtro por dupla (solo admin/coordinación ven el selector — ver
+    // mostrarFiltroDupla() — una cuenta de dupla ya está scopeada por
+    // RLS a sus propios casos).
+    const duplaSel = document.getElementById('buscar-dupla');
+    const duplaId = duplaSel && duplaSel.style.display !== 'none' ? duplaSel.value : '';
+    if(duplaId) query = query.eq('dupla_id', duplaId);
     const { data, error } = await query;
     if(error){ cont.innerHTML = `<div class="empty-msg">Error buscando personas: ${esc(error.message)}</div>`; return; }
     if(!data || !data.length){
-      cont.innerHTML = `<div class="empty-msg">${q ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
+      cont.innerHTML = `<div class="empty-msg">${q || duplaId ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
       return;
     }
     cont.innerHTML = '';
@@ -1728,15 +1765,23 @@ const Casos = {
   },
 
   async guardarPersona(personaExistente){
+    // Traba sincrónica contra doble-tap/doble-click: si dos clics llegan
+    // casi juntos (celular con conexión lenta), el segundo entra acá antes
+    // de que el primero llegue a deshabilitar el botón más abajo, y sin
+    // esto los dos terminan insertando el mismo caso duplicado.
+    if(_guardandoPersona) return;
+    _guardandoPersona = true;
     const form = document.getElementById('form-persona');
     const btn = document.getElementById('btn-guardar-persona');
     const campos = recolectarCampos(form);
     if(!campos.sin_identificar && (!campos.nombre || !campos.apellido)){
       modalError('Nombre y apellido son obligatorios (o tildá "Sin identificar" si la persona no quiso darlos).');
+      _guardandoPersona = false;
       return;
     }
     if(campos.sin_identificar && !campos.punto_contacto){
       modalError('Si no se identificó, completá al menos el punto de contacto (dirección/referencia) para poder ubicarla después.');
+      _guardandoPersona = false;
       return;
     }
     // nivel_actual es smallint en la base — recolectarCampos siempre
@@ -1784,6 +1829,7 @@ const Casos = {
       modalError('No se pudo guardar: ' + e.message);
     }finally{
       btn.disabled = false; btn.textContent = personaExistente ? '💾 Guardar cambios' : '💾 Dar de alta';
+      _guardandoPersona = false;
     }
   },
 
