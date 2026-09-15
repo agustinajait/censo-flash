@@ -108,13 +108,13 @@
 
   /* BUSCAR */
   .search-row { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
-  .search-row input { flex:1; min-width:0; border:1.5px solid #cbd5e1; border-radius:10px; padding:11px 14px; font-size:0.92rem; font-family:'DM Sans',sans-serif; background:white; outline:none; }
-  .search-row input:focus { border-color:var(--blue); }
+  .search-row input, .search-row select { flex:1; min-width:0; border:1.5px solid #cbd5e1; border-radius:10px; padding:11px 14px; font-size:0.92rem; font-family:'DM Sans',sans-serif; background:white; outline:none; }
+  .search-row input:focus, .search-row select:focus { border-color:var(--blue); }
   /* En mobile la fila de búsqueda desbordaba (input + 2 botones no entraban
      en 375px) — abajo de 560px cada uno pasa a ocupar el ancho completo. */
   @media(max-width:560px){
     .search-row { flex-direction:column; }
-    .search-row input, .search-row button { width:100%; }
+    .search-row input, .search-row select, .search-row button { width:100%; }
   }
   .section-label { font-family:'Sora',sans-serif; font-weight:800; font-size:1.02rem; color:var(--navy); margin:22px 0 12px; }
   .empty-msg { font-size:0.84rem; color:#94a3b8; padding:20px; text-align:center; }
@@ -307,6 +307,12 @@
       <div class="section-label">Buscar o cargar un caso</div>
       <div class="search-row">
         <input type="text" id="buscar-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="Casos.onBuscarInput()">
+        <!-- Solo admin/coordinación: una cuenta de dupla ya ve nada más
+             que sus propios casos (RLS), filtrar por dupla sería
+             redundante — ver mostrarFiltroDupla() en entrarAlApp(). -->
+        <select id="buscar-dupla" onchange="Casos.buscarPersonas(document.getElementById('buscar-input').value.trim())" style="display:none;max-width:180px;">
+          <option value="">Todas las duplas</option>
+        </select>
         <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Ingresar nuevo caso</button>
       </div>
       <div id="resultados-list"></div>
@@ -833,11 +839,28 @@ async function entrarAlApp(){
   }
   showScreen('app-screen');
   await cargarDuplasMap();
+  mostrarFiltroDupla();
   mostrarMiTurno();
   await cargarJornadaHoy();
   mostrarJornada();
   cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
   Casos.volverABuscar();
+}
+
+// Selector "Todas las duplas" en la búsqueda de casos — solo tiene
+// sentido para admin/coordinación, que ven las 13 duplas mezcladas
+// (RLS). Una cuenta de dupla ya está scopeada a sus propios casos, así
+// que el selector ni se muestra (pedido de Agustina, sept/2026: "en el
+// admin donde veo todos los casos dame la opción de buscar por dupla").
+function mostrarFiltroDupla(){
+  const sel = document.getElementById('buscar-dupla');
+  if(!miPerfil || miPerfil.rol === 'dupla'){ sel.style.display = 'none'; return; }
+  const opciones = Object.entries(duplasMap)
+    .filter(([id]) => duplasPorId[id] && duplasPorId[id].activa)
+    .sort((a,b) => a[1].localeCompare(b[1]));
+  sel.innerHTML = '<option value="">Todas las duplas</option>' +
+    opciones.map(([id, codigo]) => `<option value="${escAttr(id)}">Dupla ${esc(codigo)}</option>`).join('');
+  sel.style.display = 'inline-block';
 }
 
 // ── DATOS DE CONTACTO (nombre/apellido/DNI/teléfono de integrantes) ─────
@@ -1563,10 +1586,16 @@ const Casos = {
     if(q){
       query = query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,dni.ilike.%${q}%`);
     }
+    // Filtro por dupla (solo admin/coordinación ven el selector — ver
+    // mostrarFiltroDupla() — una cuenta de dupla ya está scopeada por
+    // RLS a sus propios casos).
+    const duplaSel = document.getElementById('buscar-dupla');
+    const duplaId = duplaSel && duplaSel.style.display !== 'none' ? duplaSel.value : '';
+    if(duplaId) query = query.eq('dupla_id', duplaId);
     const { data, error } = await query;
     if(error){ cont.innerHTML = `<div class="empty-msg">Error buscando personas: ${esc(error.message)}</div>`; return; }
     if(!data || !data.length){
-      cont.innerHTML = `<div class="empty-msg">${q ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
+      cont.innerHTML = `<div class="empty-msg">${q || duplaId ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
       return;
     }
     cont.innerHTML = '';

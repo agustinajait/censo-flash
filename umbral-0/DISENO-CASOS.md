@@ -214,6 +214,12 @@ todo lo que pasa con ella en el tiempo.
      mezcladas en la misma lista de búsqueda (RLS les deja ver todos los
      casos) — la tarjeta les muestra de qué dupla es cada uno. Una cuenta
      de dupla no lo ve (siempre son los suyos, sería redundante).
+   - **Filtro por dupla (sept/2026):** selector "Todas las duplas" al lado
+     del buscador, mismo criterio que el badge de arriba — solo visible
+     para admin/coordinación (`mostrarFiltroDupla()`), armado con las
+     duplas activas (`duplas.activa = true`, para no listar duplas de
+     prueba/dadas de baja). Filtra por `dupla_id` además del texto
+     buscado — se puede combinar los dos (ej. "Dupla F" + "González").
 2. **Si es nueva persona**, formulario de alta → inserta en `personas`:
    - Datos básicos: `nombre`, `apellido`, `dni` (o `dni_denuncia_extravio` si no
      tiene y hay que acompañar a hacer la denuncia — igual que el circuito de
