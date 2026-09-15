@@ -210,6 +210,10 @@ todo lo que pasa con ella en el tiempo.
      derivación de esa persona. Los casos activos que llevan 1 día o más
      sin ningún movimiento muestran un badge "⏰ hace X días sin
      seguimiento" en la tarjeta.
+   - **Badge "Dupla X" (sept/2026):** admin/coordinación ven las 13 duplas
+     mezcladas en la misma lista de búsqueda (RLS les deja ver todos los
+     casos) — la tarjeta les muestra de qué dupla es cada uno. Una cuenta
+     de dupla no lo ve (siempre son los suyos, sería redundante).
 2. **Si es nueva persona**, formulario de alta → inserta en `personas`:
    - Datos básicos: `nombre`, `apellido`, `dni` (o `dni_denuncia_extravio` si no
      tiene y hay que acompañar a hacer la denuncia — igual que el circuito de
