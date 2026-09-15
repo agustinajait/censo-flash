@@ -1244,6 +1244,26 @@ que GOPA la abra directo sin necesitar cuenta.
       constraint en `personas.dni` ni se agregó uno, a propósito: no
       queríamos arriesgar que un alta legítima falle en producción por
       un caso borde no previsto.
+    - **Ocultar (no borrar) los duplicados ya cargados** (sept/2026,
+      pedido de Agustina: "veo que la dupla c tiene muchos duplicados,
+      como elimino los que no van?" → tras chequear que eran copias
+      reales sin ninguna intervención/derivación/seguimiento propio más
+      allá del alta automática — solo el mismo "Ingreso inicial del
+      caso" repetido — pidió en vez de un DELETE: "podes ocultarlas
+      mejor?"). Columna nueva `personas.oculto` (default `false`,
+      reversible). `personas_listado_publico` y `personas_dni_index`
+      dejan afuera los casos ocultos, y el reporte semanal / el panel de
+      completitud de KoBo en `admin-duplas.html` también. Nuevo panel
+      "⚠️ Posibles duplicados" en `admin-duplas.html` (botón "🔍
+      Revisar"): trae TODAS las personas (admin bypassea el RLS
+      por-dupla), agrupa por DNI repetido (o nombre normalizado sin
+      DNI, misma lógica que el aviso de `casos-en-vivo.html`), muestra
+      cada copia con dupla y fecha marcando la más vieja como sugerida
+      para dejar, y un botón "🙈 Ocultar" por cada copia extra. Un
+      desplegable aparte lista lo ya oculto con "👁️ Mostrar de nuevo"
+      por si hace falta deshacerlo. Ya usado en producción: se ocultaron
+      las 7 copias de más de los 3 duplicados reales de la dupla C
+      (Mangel Sánchez x4, Jorge Alejo Medina Avalos x2, Nuñez Raul x1).
 - Tabla `reportes_semanales` (RLS: admin/coordinación insertan y leen,
   solo admin puede borrar un reporte publicado por error) + vista
   `reportes_semanales_publico` (anon, solo lectura, mismo patrón que
