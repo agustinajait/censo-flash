@@ -236,6 +236,15 @@
     </div>
 
     <div class="section-label">
+      <span>🩺 Completar datos faltantes desde KoBo</span>
+      <button class="btn btn-outline btn-sm" onclick="revisarCompletitudKobo()">🔍 Revisar</button>
+    </div>
+    <div class="card">
+      <div class="section-hint">Para cada caso sin situación habitacional/económica/educativa o redes de contención, busca en el historial de KoBo de esa persona (por DNI) si esa info se contestó en algún envío — no completa nada solo, muestra el texto propuesto para que lo confirmes.</div>
+      <div id="completitud-kobo-cont"><div class="empty-msg" style="padding:16px 10px;">Tocá "Revisar" para calcularlo — cruza contra todo el historial de KoBo, no se carga solo al entrar.</div></div>
+    </div>
+
+    <div class="section-label">
       <span>👥 Duplas territoriales</span>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-outline" id="btn-accesos-faltantes" onclick="crearAccesosFaltantes()">⚡ Crear accesos faltantes</button>
@@ -391,6 +400,18 @@ async function cargarTodo(){
 // confirma el alta es cada dupla desde su propia cuenta en Casos (no
 // admin/coordinación, porque el alta necesita quedar con el dupla_id de
 // quien realmente la cargó).
+// Como lineasKobo() en casos.html (duplicada acá) — arma "Label: valor"
+// por línea, salteando lo vacío. Se usa para reconstruir el mismo texto
+// que armaría confirmarKoboPendiente() al precargar un alta nueva, pero
+// acá para completar los 4 campos de texto libre de un caso YA cargado
+// que los tiene vacíos (ver revisarCompletitudKobo()).
+function lineasKobo(pares){
+  return pares
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([label, v]) => `${label}: ${v}`)
+    .join('\n');
+}
+
 function normalizarNombreKobo(s){
   return String(s||'')
     .normalize('NFKD').replace(/[̀-ͯ]/g, '')
@@ -476,6 +497,154 @@ async function cargarKoboPendientesAdmin(){
     </tr>`).join('');
   }catch(e){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
+  }
+}
+
+// ── COMPLETAR DATOS FALTANTES DESDE KOBO (sept/2026) ─────────────────────
+// Pedido de GOPA (vía Agustina): "¿esos datos están en KoBo, o pueden
+// estar y que no los hayamos levantado?" — en vez de asumir, se cruza
+// cada caso con el/los envío(s) de KoBo de esa persona (por DNI, misma
+// lógica que cargarKoboDePersona() en casos.html) y se arma el mismo
+// texto que ya arma confirmarKoboPendiente() al precargar una alta
+// nueva. Nunca escribe solo: solo propone, y cada guardado es un click
+// explícito sobre el texto ya mostrado. `telefono_contacto` queda AFUERA
+// a propósito — KoBo no tiene ninguna pregunta de celular mapeada en
+// parseUmbral0() todavía, así que no hay nada que cruzar (revisar si el
+// formulario real la pregunta bajo otro nombre, si hace falta).
+const CAMPOS_COMPLETAR_KOBO = [
+  { key:'situacion_habitacional', label:'Situación habitacional', armar: per => lineasKobo([
+      ['Dónde duerme habitualmente', per.lugarHabitual],
+      ['Tiempo en situación de calle', per.tiempoEnCalle],
+      ['Vivienda previa', per.lugarViviendaPrevia],
+      ['Tenencia de la vivienda previa', per.tenenciaViviendaPrevia],
+      ['Con quién vivía antes', (per.conQuienVivias||[]).join(', ')],
+    ]) },
+  { key:'situacion_economica', label:'Situación económica', armar: per => lineasKobo([
+      ['Tiene actividad económica', per.actividad === true ? 'Sí' : (per.actividad === false ? 'No' : '')],
+      ['Tipo de actividad', per.tipoActividad],
+      ['Prestaciones', (per.prestaciones||[]).join(', ')],
+      ['Ingresos (nota del equipo)', per.notaIngresosMonetarios],
+    ]) },
+  { key:'situacion_educativa', label:'Situación educativa', armar: per => lineasKobo([
+      ['Asiste a un espacio educativo', per.asisteEducativo],
+      ['Máximo nivel educativo alcanzado', per.maxNivelEducativo],
+    ]) },
+  { key:'redes_contencion', label:'Redes de contención', armar: per => lineasKobo([
+      ['Vínculos actuales', per.vinculos],
+      ['Cómo ayudan esos vínculos', (per.tipoVinculos||[]).join(', ')],
+      ['Asiste a una institución comunitaria', per.asisteInstitucionComunitaria === true ? (per.institucionComunitariaCual || 'Sí') : (per.asisteInstitucionComunitaria === false ? 'No' : '')],
+      ['Relaciones y vínculos (nota del equipo)', per.notaRelacionesVinculos],
+    ]) },
+];
+
+let completitudKoboActual = []; // [{ persona, propuestas:[{key,label,texto}], sinDatoEnKobo:[label,...] }]
+let codigoPorDuplaCompletitud = {}; // dupla_id -> codigo, se llena en revisarCompletitudKobo()
+
+async function revisarCompletitudKobo(){
+  const cont = document.getElementById('completitud-kobo-cont');
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form){ cont.innerHTML = '<div class="empty-msg">Este proyecto no tiene KoBo conectado.</div>'; return; }
+  cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">Cruzando cada caso contra el historial de KoBo…</div>';
+
+  try{
+    const client = await SupabaseClient.getClient();
+    const [{ data: personas, error: errP }, { data: duplas, error: errD }, koboRowsRaw] = await Promise.all([
+      client.from('personas').select('id, nombre, apellido, dni, dupla_id, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').not('dni', 'is', null),
+      client.from('duplas').select('id, codigo'),
+      fetchKoboProxyAll(project, form.id),
+    ]);
+    if(errP) throw errP;
+    if(errD) throw errD;
+    codigoPorDuplaCompletitud = {};
+    (duplas||[]).forEach(d => { codigoPorDuplaCompletitud[d.id] = d.codigo; });
+
+    const koboPorDni = new Map(); // dni -> envíos de esa persona, más reciente primero
+    koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
+      const dni = String((p.persona && p.persona.dni) || '').trim();
+      if(!dni) return;
+      if(!koboPorDni.has(dni)) koboPorDni.set(dni, []);
+      koboPorDni.get(dni).push(p);
+    });
+    koboPorDni.forEach(arr => arr.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'')));
+
+    const resultado = [];
+    (personas||[]).forEach(persona => {
+      const envios = koboPorDni.get(String(persona.dni||'').trim()) || [];
+      const propuestas = [];
+      const sinDatoEnKobo = [];
+      CAMPOS_COMPLETAR_KOBO.forEach(campo => {
+        if(persona[campo.key] && String(persona[campo.key]).trim()) return; // ya está cargado
+        let texto = '';
+        for(const envio of envios){ texto = campo.armar(envio.persona) || ''; if(texto) break; }
+        if(texto) propuestas.push({ key:campo.key, label:campo.label, texto });
+        else sinDatoEnKobo.push(campo.label);
+      });
+      if(propuestas.length || sinDatoEnKobo.length) resultado.push({ persona, propuestas, sinDatoEnKobo });
+    });
+
+    completitudKoboActual = resultado;
+    mostrarCompletitudKobo();
+  }catch(e){
+    cont.innerHTML = '<div class="empty-msg">Error: '+esc(e.message)+'</div>';
+  }
+}
+
+function mostrarCompletitudKobo(){
+  const cont = document.getElementById('completitud-kobo-cont');
+  const conPropuesta = completitudKoboActual.filter(r => r.propuestas.length);
+  const sinNadaEnKobo = completitudKoboActual.filter(r => !r.propuestas.length && r.sinDatoEnKobo.length);
+
+  if(!completitudKoboActual.length){
+    cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">Todos los casos con DNI ya tienen esta info completa.</div>';
+    return;
+  }
+
+  cont.innerHTML = `
+    <div class="section-hint" style="margin:0 0 10px;">
+      <b>${conPropuesta.length}</b> caso${conPropuesta.length===1?'':'s'} se puede${conPropuesta.length===1?'':'n'} completar con lo que ya contestaron en KoBo ·
+      <b>${sinNadaEnKobo.length}</b> caso${sinNadaEnKobo.length===1?'':'s'} no tiene${sinNadaEnKobo.length===1?'':'n'} esta info en ningún envío tampoco.
+    </div>
+    ${conPropuesta.map((r, idx) => `
+      <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
+        <div class="kobo-pend-txt">
+          <strong>${esc(nombreDisplayReporte(r.persona))}</strong> · DNI ${esc(r.persona.dni)} · Dupla ${esc(codigoPorDuplaCompletitud[r.persona.dupla_id] || '—')}
+          ${r.propuestas.map(p => `
+            <div style="margin-top:8px;">
+              <div style="font-family:'Sora',sans-serif;font-weight:700;font-size:0.78rem;color:var(--navy);">${esc(p.label)}</div>
+              <div style="white-space:pre-wrap;font-size:0.82rem;color:#475569;">${esc(p.texto)}</div>
+            </div>
+          `).join('')}
+        </div>
+        <button class="btn btn-green btn-sm" style="margin-top:10px;align-self:flex-start;" onclick="completarDesdeKobo(${idx})">✅ Completar estos campos</button>
+      </div>
+    `).join('')}
+    ${sinNadaEnKobo.length ? `
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:0.82rem;color:#64748b;">Ver los ${sinNadaEnKobo.length} casos sin esta info en ningún envío de KoBo (habría que preguntarles directo)</summary>
+        <ul style="margin:8px 0 0 18px;font-size:0.82rem;color:#475569;">
+          ${sinNadaEnKobo.map(r => `<li>${esc(nombreDisplayReporte(r.persona))} · DNI ${esc(r.persona.dni)} — falta: ${esc(r.sinDatoEnKobo.join(', '))}</li>`).join('')}
+        </ul>
+      </details>
+    ` : ''}
+  `;
+}
+
+async function completarDesdeKobo(idx){
+  const conPropuesta = completitudKoboActual.filter(r => r.propuestas.length);
+  const r = conPropuesta[idx];
+  if(!r) return;
+  try{
+    const update = {};
+    r.propuestas.forEach(p => { update[p.key] = p.texto; });
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('personas').update(update).eq('id', r.persona.id);
+    if(error) throw error;
+    // Saca este caso de la lista sin volver a pedir todo KoBo de nuevo.
+    completitudKoboActual = completitudKoboActual.filter(x => x !== r);
+    mostrarCompletitudKobo();
+  }catch(e){
+    alert('No se pudo guardar: ' + e.message);
   }
 }
 

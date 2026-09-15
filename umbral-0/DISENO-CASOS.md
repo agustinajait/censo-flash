@@ -1027,17 +1027,42 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
     encontraba el detalle: estaba en otra sección del mismo reporte
     (el listado de casos), que hasta este fix no traía los campos que
     pedían.
-  - **Completitud de los datos, no solo visibilidad** (mismo hilo,
-    pendiente de resolver) — de 63 personas cargadas, situación
-    habitacional/económica/educativa/redes de contención solo están en
-    ~20-23 (32-36%), teléfono en 17 (27%). No es que el reporte los
-    esconda — no están cargados. Se le propuso a Agustina un plan en dos
-    partes (no implementado todavía, a confirmar): (1) un botón por caso
-    en la ficha que busque el envío de KoBo más completo de esa persona
-    (misma infraestructura que `cargarKoboDePersona()`) y ofrezca
-    completar solo los campos vacíos — revisado por quien lo abre, nunca
-    silencioso; (2) un panel en `admin-duplas.html` mostrando cuántos
-    casos de cuáles duplas están incompletos, para poder priorizar.
+  - **Completitud de los datos, no solo visibilidad** — de 63 personas
+    cargadas, situación habitacional/económica/educativa/redes de
+    contención solo estaban en ~20-23 (32-36%), teléfono en 17 (27%).
+    Pregunta de Agustina: "pero no creo que estén en KoBo, o ¿pueden
+    estar y que no los hayamos levantado?" — en vez de asumir, se
+    construyó una forma de verificarlo con certeza en vez de adivinar.
+  - **Panel "🩺 Completar datos faltantes desde KoBo"** (`admin-duplas.html`,
+    pestaña Duplas y equipo, on-demand con botón "🔍 Revisar" — no se
+    carga solo al entrar, cruza contra ~3000 filas de KoBo) — para cada
+    persona con DNI le faltan uno o más de los 4 campos de texto libre,
+    busca en **todos** sus envíos de KoBo (no solo el de la dupla que la
+    cargó) si esa pregunta se contestó alguna vez, usando el envío más
+    reciente que tenga algo. Arma el mismo texto que ya arma
+    `confirmarKoboPendiente()` al precargar una alta nueva (mismas
+    etiquetas, mismo criterio, un solo lugar donde tocarlo si cambia el
+    formulario). Separa el resultado en dos:
+    - **Se puede completar** — el texto propuesto queda a la vista antes
+      de guardar nada; un click en "✅ Completar estos campos" hace el
+      `update` (solo de los campos que estaban vacíos, nunca pisa lo que
+      ya había). Nunca automático ni silencioso.
+    - **Sin dato en KoBo tampoco** — lista colapsable con nombre + DNI +
+      qué falta, para saber a cuáles casos hay que preguntarles directo
+      (no es un problema de la plataforma, es que nunca se contestó esa
+      pregunta en el territorio).
+    - `telefono_contacto` queda **afuera** a propósito: `parseUmbral0()`
+      no tiene ninguna pregunta de celular mapeada del formulario de
+      KoBo todavía — no hay nada para cruzar. Pendiente confirmar si el
+      formulario real la pregunta bajo otro nombre (revisar contra un
+      envío nuevo si hace falta mapearla).
+    - Para **antes de ahora** (que a partir de ahora las duplas SÍ
+      carguen esto en el alta): ya está resuelto en la práctica por
+      "KoBo pendientes" → `confirmarKoboPendiente()`, que precarga estos
+      mismos 4 campos automáticamente al confirmar un alta nueva — el
+      hueco de completitud es sobre todo de casos previos a que ese
+      flujo se usara de forma consistente, no un problema de diseño
+      hacia adelante.
 - **Marca de Huehaci en toda la plataforma** (sept/2026, primero pedido de
   Agustina: "quiero agregar el logo de huehaci en el admin así cuando paso
   el reporte llega con nuestra marca también"; después ampliado: "le falta
