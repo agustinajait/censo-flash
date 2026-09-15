@@ -217,6 +217,33 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   // en Casos, que es el seguimiento interno del equipo.
   koboFormLink: 'https://ee.kobotoolbox.org/x/2agnZwzr',
 
+  // ── AVISOS RÁPIDOS A COORDINACIÓN (sept/2026) ──────────────────────────
+  // Botón "🚨 Avisar a coordinación" en la ficha de casos.html — situaciones
+  // que necesitan un aviso inmediato por WhatsApp, no esperar al reporte
+  // semanal. NO es lo mismo que `whatsappNumero`/`whatsappLink` de arriba
+  // (ese es el contacto de "la operadora" para quien todavía no es un
+  // caso, en index.html) — esto es interno, para la dupla en territorio.
+  contactosUrgentes: {
+    // Fijo, no cambia por turno. Uso: contactos espontáneos (sin
+    // seguimiento previo) que piden ingreso a CIS ahí mismo.
+    handyRojo: {
+      numero: '+5491134253902',
+      motivo: 'CIS espontáneo',
+      descripcion: 'Contactos espontáneos que solicitan ingreso a CIS — coordinación de la organización.',
+    },
+    // La coordinación de Umbral Cero rota por turno, así que el número
+    // cambia según la hora — ver coordinadorUmbral0Ahora() en casos.html.
+    // TODO: completar los turnos que falten (Agustina los va pasando).
+    // `desde`/`hasta` en hora local (0-23), turno que empieza en `desde`
+    // y termina (sin incluir) `hasta`.
+    coordUmbral0Turnos: [
+      { desde: 6, hasta: 14, numero: '+5491160542484' },
+      { desde: 14, hasta: 22, numero: '+5491160542484' },
+      // TODO: falta el turno de 22 a 6 del día siguiente (si lo cubre
+      // alguien — confirmar con Agustina).
+    ],
+  },
+
   // ── SUPABASE — proyecto dedicado (cuenta a.jait@inclusioncaii.org) ────────
   // La anon/publishable key es pública por diseño (se embebe en el cliente);
   // todo el acceso real lo controlan las políticas RLS de cada tabla, atadas

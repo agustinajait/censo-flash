@@ -255,6 +255,31 @@ todo lo que pasa con ella en el tiempo.
      el timeline de que se generó una carta — si hace falta trazabilidad de
      esto más adelante, se agrega como un ítem de checklist manual (sección 6)
      o una intervención que el equipo carga a mano después de generarla.
+   - 🚨 Avisar a coordinación (sept/2026) — 3 situaciones que necesitan un
+     aviso inmediato por WhatsApp, no esperar al reporte semanal (pedido
+     de Agustina). Abre un modal con hasta 3 botones, cada uno un link
+     `wa.me` con el mensaje ya armado (dupla + nombre + zona/punto de
+     contacto) — la dupla lo revisa y lo manda, no se envía solo:
+     - **📟 Handy rojo** — contactos espontáneos (sin seguimiento previo)
+       que piden ingreso a CIS ahí mismo. Número fijo
+       (`config.contactosUrgentes.handyRojo`).
+     - **🧠 Coordinación Umbral Cero — Salud Mental** y **👨‍👩‍👧 — Familias en
+       riesgo** (para derivar al Mapa de Familias en Riesgo) — mismo
+       destinatario para las dos, pero el número **rota por turno**
+       (`config.contactosUrgentes.coordUmbral0Turnos`, `desde`/`hasta` en
+       hora local — a diferencia de los turnos de las duplas, que son de
+       a 4hs, T1-T4). Si todavía no está cargado el turno de esa hora, el
+       botón queda deshabilitado con un aviso de "avisale a Agustina
+       directo" en vez de fallar en silencio o mandar al número
+       equivocado. Cargado hasta ahora: 6-14hs y 14-22hs (mismo número
+       para las dos). **TODO:** falta confirmar si el turno 22-6hs lo
+       cubre alguien y con qué número.
+     - Visible para cualquier cuenta de dupla, en cualquier ficha (no
+       solo la referente del turno) — son situaciones que puede encontrar
+       cualquier equipo en el territorio, restringirlo agregaría demora
+       justo en el momento urgente.
+     - No queda registro en el timeline del caso — es un aviso puntual,
+       no un tipo de intervención/derivación nuevo.
 
    Debajo, un **timeline cronológico** que mezcla `intervenciones` +
    `derivaciones` + `seguimientos` de esa persona (`order by fecha desc`). El
