@@ -1077,12 +1077,41 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
       (`https://ee.kobotoolbox.org/x/2agnZwzr`, el mismo de
       `config.koboFormLink`) para chequear si esas dos preguntas (más
       "¿tiene celular?", que tampoco está mapeada) ya están ahí bajo
-      otro nombre — **no se pudo abrir**, `ee.kobotoolbox.org` está
-      bloqueado por la política de egress de esta sesión (mismo
-      bloqueo que ya afectaba a `kf.kobotoolbox.org`, la API). Pendiente:
-      Agustina confirma directamente en KoBo (o manda una captura/export)
-      si esas preguntas existen con otro nombre de campo, y ahí se
-      mapean en `parseUmbral0()` igual que el resto.
+      otro nombre. No se pudo abrir el link (`ee.kobotoolbox.org`
+      bloqueado por la política de egress de esta sesión, mismo bloqueo
+      que ya afectaba a `kf.kobotoolbox.org`), pero Agustina pegó el
+      **texto completo del formulario** (todas las preguntas, tal como
+      las muestra Enketo al completarlo) — con eso alcanzó para
+      **confirmar, leyendo pregunta por pregunta, que ninguna de las
+      tres existe en el formulario real**:
+      - **¿Tiene celular de contacto?** — no hay ninguna pregunta de
+        teléfono/celular en todo el formulario.
+      - **Documentación necesaria** — solo está "Tipo de documento" +
+        "Número de documento" (el DNI de la persona), nada sobre si le
+        falta algún otro trámite/documento.
+      - **Deseos de la persona** — lo más cercano es "Estrategias de
+        abordaje (Objetivos)" y "Observaciones generales" en el bloque
+        de Cierre, pero son notas del equipo, no lo que la persona dice
+        que quiere.
+      Conclusión: **no es un problema de la plataforma ni de cómo
+      parseamos KoBo** — esas tres preguntas no se le hacen a la
+      persona todavía. Si GOPA las necesita, hay que agregarlas al
+      formulario de KoBo (decisión de Agustina/GOPA sobre el diseño del
+      formulario, no algo que se resuelva en `parseUmbral0()`).
+      - **Nota aparte, a confirmar antes de tocar código:** el texto
+        pegado sugiere que la "procedencia" que pide GOPA para
+        situación habitacional (de dónde viene — CABA/Provincia de
+        Buenos Aires/otra provincia/otro país) sí podría estar
+        preguntada ("¿Dónde naciste?" / "¿Dónde vivías antes de estar
+        en calle por primera vez?"), pero el texto que se pegó son
+        **etiquetas** (lo que ve la dupla al completar), no los nombres
+        internos de campo — mapear a ciegas desde una etiqueta es
+        justo el error que este proyecto evitó activamente en sept/2026
+        (ver comentarios de `parseUmbral0()`: los nombres se confirman
+        siempre contra un export real en formato "XML values" o una
+        muestra de la API, nunca contra el texto de la pregunta sola).
+        Pendiente: pedir un export en ese formato (o una fila de
+        muestra) antes de sumar esto a `parseUmbral0()`.
 - **Marca de Huehaci en toda la plataforma** (sept/2026, primero pedido de
   Agustina: "quiero agregar el logo de huehaci en el admin así cuando paso
   el reporte llega con nuestra marca también"; después ampliado: "le falta
