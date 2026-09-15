@@ -44,6 +44,25 @@
   .card p { font-size:0.87rem; color:#334155; margin-bottom:6px; }
   .card p:last-child { margin-bottom:0; }
 
+  /* PASOS — mismo patrón visual que niveles-timeline, para el paso a paso
+     de carga/validación/seguimiento en Casos. */
+  .pasos-timeline { display:flex; flex-direction:column; gap:0; }
+  .paso-item { display:flex; gap:14px; position:relative; padding-bottom:22px; }
+  .paso-item:last-child { padding-bottom:0; }
+  .paso-item::before { content:''; position:absolute; left:22px; top:44px; bottom:0; width:2px; background:var(--border); }
+  .paso-item:last-child::before { display:none; }
+  .paso-circulo { flex-shrink:0; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; z-index:1; background:#dbeafe; }
+  .paso-item:nth-child(2) .paso-circulo { background:#e0e7ff; }
+  .paso-item:nth-child(3) .paso-circulo { background:#ede9fe; }
+  .paso-item:nth-child(4) .paso-circulo { background:#fce7f3; }
+  .paso-item:nth-child(5) .paso-circulo { background:#fef3c7; }
+  .paso-item:nth-child(6) .paso-circulo { background:#d1fae5; }
+  .paso-txt { flex:1; padding-top:4px; }
+  .paso-txt .titulo { font-family:'Sora',sans-serif; font-weight:800; font-size:0.92rem; color:var(--navy); }
+  .paso-txt .desc { font-size:0.85rem; color:#475569; margin-top:2px; }
+  .paso-txt .desc ul { margin:4px 0 0 18px; padding:0; }
+  .paso-txt .desc li { margin-bottom:2px; }
+
   /* NIVELES — línea de tiempo visual en vez de lista numerada plana */
   .niveles-timeline { display:flex; flex-direction:column; gap:0; }
   .nivel-item { display:flex; gap:14px; position:relative; padding-bottom:22px; }
@@ -130,6 +149,7 @@
       <li><a href="#principios">Los 5 principios de intervención</a></li>
       <li><a href="#niveles">Niveles de éxito (1 a 5)</a></li>
       <li><a href="#glosario">Glosario de derivaciones y articulaciones</a></li>
+      <li><a href="#uso-casos">Cómo usar Casos: carga, validación y seguimiento</a></li>
       <li><a href="#herramientas">Herramientas de registro</a></li>
     </ul>
   </div>
@@ -399,6 +419,94 @@
     derivación) — son parte de sostener el vínculo, no un recurso externo.</div>
   </div>
 
+  <h2 class="section-title" id="uso-casos">Cómo usar Casos: carga, validación y seguimiento</h2>
+  <p class="section-sub">El KoBo es obligatorio en cada contacto — pero eso NO significa que después haya que volver a escribir todo de nuevo en la plataforma. La idea es: cargás el KoBo en el momento, y acá confirmás/completás lo que haga falta.</p>
+
+  <div class="alert alert-info">
+    <span>💡</span>
+    <div><strong>La idea de fondo:</strong> lo que ya contestaste en el KoBo (qué pasó, si sigue en seguimiento, etc.) aparece solo en la ficha de la persona. Tu trabajo en la plataforma pasa a ser <strong>confirmar</strong> que está bien y sumar lo que falte — no volver a tipear de cero.</div>
+  </div>
+
+  <div class="card">
+    <div class="pasos-timeline">
+      <div class="paso-item">
+        <div class="paso-circulo">🔍</div>
+        <div class="paso-txt">
+          <div class="titulo">1 · Buscá antes de cargar</div>
+          <div class="desc">Al entrar a Casos, buscá por nombre, apellido o DNI antes de dar de alta a alguien — así no se duplica a una persona que el equipo ya conoce. Si aparece, entrás directo a su ficha.</div>
+        </div>
+      </div>
+      <div class="paso-item">
+        <div class="paso-circulo">📥</div>
+        <div class="paso-txt">
+          <div class="titulo">2 · Si ya cargaste el KoBo, confirmá el alta desde ahí</div>
+          <div class="desc">Si es la primera vez que ves a esa persona y ya completaste el KoBo con su DNI, va a aparecer en <strong>"📥 KoBo pendientes"</strong> (arriba de la búsqueda) con los datos ya precargados. Tocá <strong>"✅ Confirmar y cargar caso"</strong> y se abre el formulario de alta ya completado — revisalo y guardá, no hace falta re-escribir nada.</div>
+        </div>
+      </div>
+      <div class="paso-item">
+        <div class="paso-circulo">➕</div>
+        <div class="paso-txt">
+          <div class="titulo">3 · Si no aparece, date de alta a mano</div>
+          <div class="desc">Botón <strong>"➕ Ingresar nuevo caso"</strong>. Si la persona no quiere identificarse, tildá <strong>"Sin identificar"</strong> y completá al menos el punto de contacto (dirección o referencia) para poder ubicarla en el próximo recorrido.</div>
+        </div>
+      </div>
+      <div class="paso-item">
+        <div class="paso-circulo">📋</div>
+        <div class="paso-txt">
+          <div class="titulo">4 · Validá lo que ya trajo KoBo</div>
+          <div class="desc">Cada vez que vuelvas a completar el KoBo de alguien que <strong>ya tiene caso cargado acá</strong> (mismo DNI), ese envío aparece solo en el <strong>Historial</strong> de su ficha — con qué pasó (derivación, llamado a SAME, contacto con Policía/911, etc.), si sigue en seguimiento, y las notas que hayas puesto. Tocá <strong>"✅ Validar / agregar nota"</strong> para confirmar que está bien — podés sumar una aclaración si hace falta algo que el KoBo no preguntó.</div>
+        </div>
+      </div>
+      <div class="paso-item">
+        <div class="paso-circulo">🔗</div>
+        <div class="paso-txt">
+          <div class="titulo">5 · ¿No pudiste tomar el DNI ese día?</div>
+          <div class="desc">Si el KoBo quedó sin DNI pero el nombre coincide con un caso que ya tenés cargado, la plataforma te va a preguntar en "KoBo pendientes": <em>"¿es la misma persona?"</em>. Confirmá solo si estás segura/o — un error ahí mezclaría el historial de dos personas distintas. Si no es ella, tocá "No es ella" y listo.</div>
+        </div>
+      </div>
+      <div class="paso-item">
+        <div class="paso-circulo">📝</div>
+        <div class="paso-txt">
+          <div class="titulo">6 · Seguimiento: intervención, comentario o derivación</div>
+          <div class="desc">Al validar un envío de KoBo, la plataforma te pregunta si querés agregar algo más: <strong>"➕ Registrar tu intervención"</strong> (para algo que no pasó por KoBo, ej. un llamado telefónico), o <strong>"💬 Agregar un comentario"</strong> (una nota libre o un ítem de checklist). Si hace falta pedir un recurso puntual (CIS, Casa Vincular, etc.), usá <strong>"📨 Pedir derivación"</strong> desde la ficha. Para una urgencia (CIS espontáneo, salud mental, familias en riesgo), usá <strong>"🚨 Avisar a coordinación"</strong> — manda un WhatsApp con el mensaje ya armado.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glosario-grid">
+    <details class="gcard">
+      <summary>
+        <span class="gcard-icono" style="background:#dbeafe;">❓</span>
+        <div class="gcard-titulo"><div class="nombre">¿Por qué a veces no aparece el envío de KoBo en la ficha?</div></div>
+        <span class="chevron">▸</span>
+      </summary>
+      <div class="gcard-body">
+        <p>Casi siempre es porque el KoBo quedó sin DNI (o con un DNI distinto al que ya tenía cargado la persona) y el nombre tampoco matcheó exacto con el caso — en ese caso no hay forma segura de asociarlo solo. Si ves que falta, revisá si la sección "¿es la misma persona?" de KoBo pendientes lo tiene esperando tu confirmación.</p>
+      </div>
+    </details>
+    <details class="gcard">
+      <summary>
+        <span class="gcard-icono" style="background:#d1fae5;">✅</span>
+        <div class="gcard-titulo"><div class="nombre">¿Qué pasa si valido un envío por error?</div></div>
+        <span class="chevron">▸</span>
+      </summary>
+      <div class="gcard-body">
+        <p>Podés volver a tocar el botón (ahora dice "✏️ Editar nota") y corregir o borrar la nota cuando quieras — validar no es un paso irreversible, es solo una confirmación.</p>
+      </div>
+    </details>
+    <details class="gcard">
+      <summary>
+        <span class="gcard-icono" style="background:#fef3c7;">🖊️</span>
+        <div class="gcard-titulo"><div class="nombre">¿Tengo que seguir usando "Registrar intervención" para todo?</div></div>
+        <span class="chevron">▸</span>
+      </summary>
+      <div class="gcard-body">
+        <p>No para lo que ya está en el KoBo — eso se valida, no se vuelve a cargar. Usalo para lo que pasa <strong>fuera</strong> de un envío de KoBo: un llamado telefónico, algo que surge después, o cualquier contacto que no quedó registrado ahí.</p>
+      </div>
+    </details>
+  </div>
+
   <h2 class="section-title" id="herramientas">Herramientas de registro</h2>
   <div class="card">
     <p><strong>Esta plataforma (Casos)</strong> es donde se registra cada intervención, derivación y
@@ -421,11 +529,14 @@
 </footer>
 
 <script>
-// Buscador en vivo — filtra por título y contenido de cada tarjeta.
+// Buscador en vivo — filtra por título y contenido de cada tarjeta del
+// glosario. Con id, no '.gcard' a secas — las tarjetas de la sección
+// "Cómo usar Casos" reusan la misma clase visual pero no tienen
+// data-nombre (no son parte de este buscador).
 function filtrar(q){
   q = q.trim().toLowerCase();
   let visibles = 0;
-  document.querySelectorAll('.gcard').forEach(card => {
+  document.querySelectorAll('#glosario-grid .gcard').forEach(card => {
     const match = !q || card.dataset.nombre.toLowerCase().includes(q) || card.textContent.toLowerCase().includes(q);
     card.style.display = match ? '' : 'none';
     if(match) visibles++;
