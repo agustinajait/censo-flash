@@ -854,6 +854,16 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
   marcados "—" en vez de inventados.
 - **Reporte de alertas y desvíos** — sin tabla propia todavía, campo de
   texto libre.
+- **Listado de casos del período** (sept/2026, pedido de Agustina: "en
+  el reporte tenemos que poder ver los casos también") — tabla con cada
+  caso nuevo o recontactado en el rango (mismas dos categorías que ya usa
+  "b. Población abordada"): dupla, nombre (o "Persona sin identificar"),
+  DNI, zona, criticidad, nivel, si acepta entrevista, e historia breve.
+  Un badge "nuevo" distingue alta del período de recontacto. **Va también
+  en el link público para GOPA** — a diferencia del resto de "datos" (que
+  es agregado, sin identidad de nadie), esto sí incluye nombre/DNI;
+  confirmado explícitamente con Agustina antes de sumarlo ahí, dado que
+  ese link no tiene login.
 
 **Botón "Armar mensaje"**: junta todo lo de arriba en un texto plano listo
 para copiar y mandar a GOPA (mismo mecanismo de copiar-mensaje que las

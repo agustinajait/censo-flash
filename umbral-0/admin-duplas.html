@@ -873,11 +873,12 @@ async function generarReporte(){
   try{
     const client = await SupabaseClient.getClient();
 
-    const [personasRes, intervencionesRes, derivacionesRes, koboOutcomes] = await Promise.all([
-      client.from('personas').select('id, zona, punto_contacto, estado, nivel_actual, created_at, acepta_entrevista'),
+    const [personasRes, intervencionesRes, derivacionesRes, koboOutcomes, duplasRes] = await Promise.all([
+      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at'),
       client.from('intervenciones').select('*').gte('fecha', desde).lte('fecha', hasta),
       client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
       calcularOutcomesKobo(desde, hasta).catch(e => { console.error('No se pudo traer KoBo para el reporte', e); return null; }),
+      client.from('duplas').select('id, codigo'),
     ]);
     if(personasRes.error) throw personasRes.error;
     if(intervencionesRes.error) throw intervencionesRes.error;
@@ -888,9 +889,15 @@ async function generarReporte(){
     const derivaciones = derivacionesRes.data || [];
     const personaPorId = {};
     personas.forEach(p => personaPorId[p.id] = p);
+    const codigoPorDupla = {};
+    (duplasRes.data||[]).forEach(d => { codigoPorDupla[d.id] = d.codigo; });
 
     const reporte = calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId });
     reporte.koboOutcomes = koboOutcomes;
+    // Listado de casos del período (nuevos + recontactados) — pedido de
+    // Agustina: "en el reporte tenemos que poder ver los casos también",
+    // para no depender solo de agregados cuando "d." está en cero.
+    reporte.listadoCasos = armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla);
     renderReporte(cont, reporte);
     estadoEl.textContent = `Listo — ${intervenciones.length} intervenciones, ${derivaciones.length} derivaciones en el período` +
       (koboOutcomes ? `, ${koboOutcomes.totalEnvios} envíos de KoBo del equipo revisados.` : ' (no se pudo revisar KoBo).');
@@ -934,6 +941,39 @@ async function calcularOutcomesKobo(desde, hasta){
     });
   });
   return { totalEnvios, conteo };
+}
+
+// Listado de casos del período — no solo agregados, para que el reporte
+// sirva aunque "d. Intervenciones y derivaciones" esté en cero (pedido
+// de Agustina, sept/2026). Incluye tanto casos nuevos (dados de alta en
+// el rango) como recontactados (con al menos una intervención en el
+// rango) — mismas dos categorías que ya usa "b. Población abordada".
+function nombreDisplayReporte(p){
+  const full = `${p.nombre||''} ${p.apellido||''}`.trim();
+  return full || 'Persona sin identificar';
+}
+function armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla){
+  const idsNuevas = new Set(
+    personas.filter(p => p.created_at >= desde && p.created_at <= (hasta + 'T23:59:59')).map(p => p.id)
+  );
+  const idsTocados = new Set(intervenciones.map(i => i.persona_id).filter(Boolean));
+  const idsRelevantes = new Set([...idsNuevas, ...idsTocados]);
+
+  return personas
+    .filter(p => idsRelevantes.has(p.id))
+    .map(p => ({
+      nombre: nombreDisplayReporte(p),
+      dni: p.dni || (p.dni_denuncia_extravio ? 'Denuncia de extravío' : null),
+      dupla: codigoPorDupla[p.dupla_id] || '—',
+      zona: p.zona || p.comuna || p.punto_contacto || null,
+      criticidad: p.criticidad || null,
+      nivel: p.nivel_actual || null,
+      estado: p.estado,
+      aceptaEntrevista: !!p.acepta_entrevista,
+      esNuevo: idsNuevas.has(p.id),
+      historiaBreve: (p.historia_breve || '').trim(),
+    }))
+    .sort((a,b) => (a.dupla+a.nombre).localeCompare(b.dupla+b.nombre));
 }
 
 function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId }){
@@ -1072,6 +1112,28 @@ function renderReporte(cont, r){
         `}
     </div>
 
+    <div class="section-title">Listado de casos del período</div>
+    <div class="section-hint">Casos nuevos o recontactados en el rango elegido — para ver el detalle sin depender solo de los números de arriba.</div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Dupla</th><th>Nombre</th><th>DNI</th><th>Zona</th><th>Criticidad</th><th>Nivel</th><th>Acepta entrevista</th><th>Historia breve</th></tr></thead>
+          <tbody>
+            ${r.listadoCasos.length ? r.listadoCasos.map(c => `<tr>
+              <td><b>${esc(c.dupla)}</b></td>
+              <td>${esc(c.nombre)}${c.esNuevo ? ' <span class="badge" style="background:#d1fae5;color:#047857;">nuevo</span>' : ''}</td>
+              <td>${esc(c.dni || '—')}</td>
+              <td>${esc(c.zona || '—')}</td>
+              <td>${esc(c.criticidad || '—')}</td>
+              <td>${c.nivel || '—'}</td>
+              <td>${c.aceptaEntrevista ? 'Sí' : '—'}</td>
+              <td style="max-width:260px;white-space:pre-wrap;">${esc(c.historiaBreve || '—')}</td>
+            </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">Sin casos nuevos ni recontactados en el período</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="section-title">Tablero de indicadores</div>
     <div class="card">
       <table class="reporte-tabla">
@@ -1133,6 +1195,9 @@ function armarMensaje(){
   const koboLinea = r.koboOutcomes
     ? (Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) => `  · ${labelsKobo[codigo]||codigo}: ${n}`).join('\n') || '  (sin envíos de KoBo del equipo en el período)')
     : '  (no se pudo traer KoBo para esta sección)';
+  const casosLinea = (r.listadoCasos||[]).map(c =>
+    `  · [${c.dupla}] ${c.nombre}${c.dni ? ' — DNI ' + c.dni : ''}${c.criticidad ? ' — ' + c.criticidad : ''}${c.esNuevo ? ' (nuevo)' : ' (recontactado)'}`
+  ).join('\n') || '  (sin casos nuevos ni recontactados en el período)';
 
   const texto = `REPORTE SEMANAL — UMBRAL CERO
 Período: ${fmt(r.desde)} al ${fmt(r.hasta)}
@@ -1159,6 +1224,9 @@ Total: ${r.intervencionesDerivaciones.totalDerivaciones} · Efectivizadas: ${r.i
 
 e. DERIVACIONES Y CONTACTOS SEGÚN KOBO (terreno)
 ${koboLinea}
+
+LISTADO DE CASOS DEL PERÍODO
+${casosLinea}
 
 REPORTE DE ALERTAS Y DESVÍOS
 ${alertas}`;
@@ -1214,6 +1282,10 @@ async function publicarReporte(){
       // ya carga config/umbral-0.js y busca las etiquetas ahí, una sola
       // fuente de verdad en vez de duplicar el diccionario acá.
       koboOutcomes: r.koboOutcomes,
+      // Va también en el link público para GOPA (confirmado con
+      // Agustina, sept/2026) — a diferencia del resto de "datos", esto sí
+      // incluye nombre/DNI de personas.
+      listadoCasos: r.listadoCasos,
       alertas: (document.getElementById('alertas-texto')||{}).value || '',
     };
     const client = await SupabaseClient.getClient();
