@@ -1098,20 +1098,31 @@ abordadas, puntos nuevos, franjas horarias) — ver abajo.
       persona todavía. Si GOPA las necesita, hay que agregarlas al
       formulario de KoBo (decisión de Agustina/GOPA sobre el diseño del
       formulario, no algo que se resuelva en `parseUmbral0()`).
-      - **Nota aparte, a confirmar antes de tocar código:** el texto
-        pegado sugiere que la "procedencia" que pide GOPA para
-        situación habitacional (de dónde viene — CABA/Provincia de
-        Buenos Aires/otra provincia/otro país) sí podría estar
-        preguntada ("¿Dónde naciste?" / "¿Dónde vivías antes de estar
-        en calle por primera vez?"), pero el texto que se pegó son
-        **etiquetas** (lo que ve la dupla al completar), no los nombres
-        internos de campo — mapear a ciegas desde una etiqueta es
-        justo el error que este proyecto evitó activamente en sept/2026
-        (ver comentarios de `parseUmbral0()`: los nombres se confirman
-        siempre contra un export real en formato "XML values" o una
-        muestra de la API, nunca contra el texto de la pregunta sola).
-        Pendiente: pedir un export en ese formato (o una fila de
-        muestra) antes de sumar esto a `parseUmbral0()`.
+      - **Resuelto (sept/2026):** Agustina mandó dos exports reales de
+        KoBo — primero uno en formato "labels" (270 columnas, útil para
+        confirmar que celular/documentación/deseos tampoco aparecen ahí,
+        con las etiquetas reales en vez del texto copiado a mano de
+        Enketo) y después el mismo en formato **"XML values"**, que sí
+        trae los nombres técnicos. Con eso se confirmaron y mapearon dos
+        campos nuevos de "procedencia" para situación habitacional:
+        - **`lugar_nacimiento`** ("¿Dónde naciste?") — no se cargaba
+          nada, campo nuevo: `lugarNacimiento`.
+        - **`lugar_vivienda_previa`** ("¿Dónde vivías antes de estar en
+          calle por primera vez?") — ya se cargaba como
+          `lugarViviendaPrevia`, pero con la etiqueta genérica "Vivienda
+          previa"; se renombró a "De dónde vino antes de la calle" para
+          que quede claro que es geográfico, no el tipo de vivienda
+          (eso es `tenenciaViviendaPrevia`, campo aparte).
+        - Los dos usan las mismas 5 opciones (confirmado contra los
+          valores reales guardados, no contra la etiqueta):
+          `caba`/`pba`/`otra_provincia`/`otro_pais`/`nsnc`. `legible()`
+          genérico las dejaba como "Caba"/"Pba"/"Nsnc" — se agregó
+          `LUGAR_GEOGRAFICO_LABELS` + `legibleLugar()` (mismo criterio
+          que `TERMINO_INTERVENCION_LABELS`) para que se lean bien.
+        - Sumados a los dos lugares que arman el texto de "Situación
+          habitacional" desde KoBo: `confirmarKoboPendiente()` en
+          `casos.html` (prefill del alta) y `CAMPOS_COMPLETAR_KOBO` en
+          `admin-duplas.html` (el backfill de casos ya cargados).
 - **Marca de Huehaci en toda la plataforma** (sept/2026, primero pedido de
   Agustina: "quiero agregar el logo de huehaci en el admin así cuando paso
   el reporte llega con nuestra marca también"; después ampliado: "le falta
