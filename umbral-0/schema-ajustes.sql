@@ -484,3 +484,58 @@ grant select on public.personas_listado_publico to anon;
 
 revoke insert, update, delete, truncate, references, trigger
   on public.personas_listado_publico from anon, authenticated;
+
+-- personas_listado_publico — perfil completo + turno (sept/2026).
+-- Pedido de Agustina sobre casos-en-vivo.html: "que este ordenado por
+-- turnos y duplas y que levante el perfil de la persona completo". Se
+-- agregan turno/es_referente de la dupla (para agrupar) y el resto de
+-- los campos del legajo que faltaban (nacionalidad, situación sanitaria,
+-- salud, medicación, esquema, movilidad, paso por CIS, consumo activo).
+-- `create or replace view` no permite reordenar/renombrar columnas
+-- existentes ("cannot change name of view column") — por eso las
+-- columnas nuevas se agregan al final, no intercaladas con las
+-- relacionadas. Verificado con `set local role anon` (65 filas, 0 con
+-- turno nulo).
+create or replace view public.personas_listado_publico as
+select
+  p.id,
+  p.nombre,
+  p.apellido,
+  p.dni,
+  p.dni_denuncia_extravio,
+  p.sin_identificar,
+  p.zona,
+  p.comuna,
+  p.punto_contacto,
+  p.criticidad,
+  p.nivel_actual,
+  p.acepta_entrevista,
+  p.historia_breve,
+  p.fecha_nacimiento,
+  p.telefono_contacto,
+  p.situacion_habitacional,
+  p.situacion_economica,
+  p.situacion_educativa,
+  p.redes_contencion,
+  p.estado,
+  p.created_at,
+  d.codigo as dupla_codigo,
+  p.nacionalidad,
+  p.situacion_sanitaria,
+  p.estado_salud,
+  p.medicacion,
+  p.esquema,
+  p.sube_escaleras,
+  p.cama_arriba,
+  p.estuvo_en_cis_antes,
+  p.estuvo_en_cis_detalle,
+  p.consumo_activo,
+  d.turno as dupla_turno,
+  d.es_referente as dupla_es_referente
+from public.personas p
+join public.duplas d on d.id = p.dupla_id;
+
+grant select on public.personas_listado_publico to anon;
+
+revoke insert, update, delete, truncate, references, trigger
+  on public.personas_listado_publico from anon, authenticated;

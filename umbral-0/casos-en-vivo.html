@@ -47,12 +47,25 @@
   .caso-card .crit-alta { background:#fee2e2; color:#b91c1c; }
   .caso-card .crit-media { background:#fef3c7; color:#92400e; }
   .caso-card .crit-baja { background:#f1f5f9; color:#475569; }
+  .caso-card .caso-dup { font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; padding:2px 8px; border-radius:20px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+  .caso-card.es-duplicado { border-color:#fca5a5; }
   .caso-card .caso-detalle { padding:2px 14px 14px; border-top:1px solid #e2eaf8; margin-top:2px; font-size:0.84rem; }
   .caso-card .caso-detalle > div { padding:5px 0; display:flex; gap:8px; }
   .caso-card .caso-detalle-lbl { flex:0 0 130px; color:#64748b; font-size:0.76rem; }
   .caso-card .caso-historia { flex-direction:column !important; }
   .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; flex:none; }
   .caso-card .caso-historia div { white-space:pre-wrap; color:#334155; }
+
+  .dup-alerta { background:#fff7ed; border:1.5px solid #fdba74; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+  .dup-alerta summary { cursor:pointer; font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412; }
+  .dup-alerta .dup-item { font-size:0.8rem; color:#78350f; padding:6px 0; border-top:1px solid #fed7aa; }
+  .dup-alerta .dup-item:first-of-type { border-top:none; margin-top:8px; }
+
+  .turno-grupo { margin-bottom:18px; }
+  .turno-titulo { font-family:'Sora',sans-serif; font-weight:800; font-size:0.95rem; color:var(--navy); margin:22px 0 8px; padding-bottom:6px; border-bottom:2px solid var(--border); }
+  .turno-titulo:first-child { margin-top:0; }
+  .dupla-titulo { font-family:'Sora',sans-serif; font-weight:700; font-size:0.78rem; color:var(--blue); text-transform:uppercase; letter-spacing:0.4px; margin:12px 0 8px; display:flex; align-items:center; gap:6px; }
+  .dupla-titulo .ref-badge { background:#e0eaff; color:var(--blue); font-size:0.66rem; padding:1px 7px; border-radius:20px; }
 
   .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
   .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
@@ -124,34 +137,123 @@ function nombreDisplay(p){
   return full || 'Persona sin identificar';
 }
 function critClaseCaso(c){ return c==='Alta' ? 'crit-alta' : c==='Media' ? 'crit-media' : c==='Baja' ? 'crit-baja' : ''; }
+function siNoBool(v){ return v===true ? 'Sí' : (v===false ? 'No' : '—'); }
+
+// Igual que normalizarNombreKobo() en casos.html (sin acentos, minúscula,
+// espacios colapsados) — se usa acá solo para matchear posibles
+// duplicados por nombre cuando no hay DNI.
+function normalizarNombreDup(s){
+  return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+// Pedido de Agustina (sept/2026): "revisa que hay duplicados de nombres
+// tb" — detecta personas con más de un caso cargado: mismo DNI, o (si
+// ninguno tiene DNI) mismo nombre+apellido normalizado. Corre sobre TODO
+// lo cargado (sin el filtro de fechas), porque el mismo caso puede
+// aparecer en días distintos. Solo AVISA — no borra ni fusiona nada,
+// eso lo decide Agustina a mano.
+function detectarDuplicados(casos){
+  const porDni = new Map();
+  const porNombre = new Map();
+  (casos||[]).forEach(p => {
+    const dni = String(p.dni||'').trim();
+    if(dni){
+      if(!porDni.has(dni)) porDni.set(dni, []);
+      porDni.get(dni).push(p);
+    } else if(!p.sin_identificar){
+      const nom = normalizarNombreDup(`${p.nombre||''} ${p.apellido||''}`);
+      if(nom){
+        if(!porNombre.has(nom)) porNombre.set(nom, []);
+        porNombre.get(nom).push(p);
+      }
+    }
+  });
+  const grupos = [];
+  porDni.forEach((arr, dni) => { if(arr.length > 1) grupos.push({ etiqueta: `DNI ${dni}`, casos: arr }); });
+  porNombre.forEach((arr, nom) => { if(arr.length > 1) grupos.push({ etiqueta: nombreDisplay(arr[0]) + ' (sin DNI)', casos: arr }); });
+  const idsDuplicados = new Set();
+  grupos.forEach(g => g.casos.forEach(c => idsDuplicados.add(c.id)));
+  return { grupos, idsDuplicados };
+}
+
+function renderAlertaDuplicados(grupos){
+  if(!grupos || !grupos.length) return '';
+  return `<details class="dup-alerta">
+    <summary>⚠️ ${grupos.length} posible${grupos.length===1?'':'s'} duplicado${grupos.length===1?'':'s'} — hay más de un caso cargado para la misma persona (ver detalle)</summary>
+    ${grupos.map(g => `<div class="dup-item"><b>${esc(g.etiqueta)}</b>: ${g.casos.length} casos, dupla${g.casos.length===1?'':'s'} ${g.casos.map(c=>esc(c.dupla_codigo||'—')).join(', ')} — revisar y unificar si es la misma persona.</div>`).join('')}
+  </details>`;
+}
 
 // Misma tarjeta plegable que el reporte semanal (admin-duplas.html /
-// reporte-publico.html) — duplicada acá, auto-contención de página.
+// reporte-publico.html), con los campos extra del legajo completo
+// (pedido de Agustina: "que levante el perfil de la persona completo").
 function renderListadoCasosCards(lista){
-  if(!lista || !lista.length) return '<div class="empty-msg" style="padding:30px 10px;">Sin casos en este rango de fechas</div>';
+  if(!lista || !lista.length) return '<div class="empty-msg" style="padding:20px 10px;">Sin casos en este rango de fechas</div>';
   return `<div class="casos-grid">${lista.map(c => `
-    <details class="caso-card">
+    <details class="caso-card${c.duplicado ? ' es-duplicado' : ''}">
       <summary>
         <span class="caso-dupla">${esc(c.dupla)}</span>
         <span class="caso-nombre">${esc(c.nombre)}</span>
         ${c.criticidad ? `<span class="caso-crit ${critClaseCaso(c.criticidad)}">${esc(c.criticidad)}</span>` : ''}
+        ${c.duplicado ? `<span class="caso-dup">⚠️ posible duplicado</span>` : ''}
       </summary>
       <div class="caso-detalle">
         <div><span class="caso-detalle-lbl">DNI</span><span>${esc(c.dni || '—')}</span></div>
         <div><span class="caso-detalle-lbl">Edad</span><span>${c.edad != null ? c.edad + ' años' : '—'}${c.fechaNacimiento ? ' (' + esc(fmtFechaCorta(c.fechaNacimiento)) + ')' : ''}</span></div>
+        <div><span class="caso-detalle-lbl">Nacionalidad</span><span>${esc(c.nacionalidad || '—')}</span></div>
         <div><span class="caso-detalle-lbl">Teléfono</span><span>${esc(c.telefono || '—')}</span></div>
         <div><span class="caso-detalle-lbl">Zona</span><span>${esc(c.zona || '—')}</span></div>
         <div><span class="caso-detalle-lbl">Nivel</span><span>${c.nivel ? c.nivel + ' — ' + esc(NOMBRE_NIVEL[c.nivel]||'') : '—'}</span></div>
         <div><span class="caso-detalle-lbl">Acepta entrevista</span><span>${c.aceptaEntrevista ? 'Sí' : '—'}</span></div>
+        <div><span class="caso-detalle-lbl">Consumo activo</span><span>${siNoBool(c.consumoActivo)}</span></div>
+        <div><span class="caso-detalle-lbl">Sube escaleras</span><span>${siNoBool(c.subeEscaleras)}</span></div>
+        <div><span class="caso-detalle-lbl">Cama arriba</span><span>${siNoBool(c.camaArriba)}</span></div>
+        <div><span class="caso-detalle-lbl">Estuvo en CIS</span><span>${c.estuvoEnCis===true ? 'Sí' + (c.estuvoEnCisDetalle ? ' — ' + esc(c.estuvoEnCisDetalle) : '') : siNoBool(c.estuvoEnCis)}</span></div>
         <div><span class="caso-detalle-lbl">Cargado</span><span>${c.creadoEn ? fmtFechaCorta(c.creadoEn) : '—'}</span></div>
         ${c.historiaBreve ? `<div class="caso-historia"><span class="caso-detalle-lbl">Historia breve</span><div>${esc(c.historiaBreve)}</div></div>` : ''}
         ${c.situacionHabitacional ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación habitacional</span><div>${esc(c.situacionHabitacional)}</div></div>` : ''}
         ${c.situacionEconomica ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación económica</span><div>${esc(c.situacionEconomica)}</div></div>` : ''}
         ${c.situacionEducativa ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación educativa</span><div>${esc(c.situacionEducativa)}</div></div>` : ''}
+        ${c.situacionSanitaria ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación sanitaria</span><div>${esc(c.situacionSanitaria)}</div></div>` : ''}
         ${c.redesContencion ? `<div class="caso-historia"><span class="caso-detalle-lbl">Redes de contención</span><div>${esc(c.redesContencion)}</div></div>` : ''}
+        ${c.estadoSalud ? `<div class="caso-historia"><span class="caso-detalle-lbl">Estado de salud</span><div>${esc(c.estadoSalud)}</div></div>` : ''}
+        ${c.medicacion ? `<div class="caso-historia"><span class="caso-detalle-lbl">Medicación</span><div>${esc(c.medicacion)}</div></div>` : ''}
+        ${c.esquema ? `<div class="caso-historia"><span class="caso-detalle-lbl">Esquema</span><div>${esc(c.esquema)}</div></div>` : ''}
       </div>
     </details>
   `).join('')}</div>`;
+}
+
+const TURNO_ORDEN = ['T1','T2','T3','T4'];
+const TURNO_LABEL = {T1:'Turno 1', T2:'Turno 2', T3:'Turno 3', T4:'Turno 4'};
+
+// Agrupa por turno (orden fijo T1..T4, turnos sin casos no se muestran) y
+// dentro de cada turno por dupla (orden alfabético de código) — pedido de
+// Agustina: "que este ordenado por turnos y duplas".
+function renderAgrupadoPorTurno(lista){
+  if(!lista || !lista.length) return '<div class="empty-msg" style="padding:30px 10px;">Sin casos en este rango de fechas</div>';
+  const porTurno = new Map();
+  lista.forEach(c => {
+    const turno = c.turno || 'sin-turno';
+    if(!porTurno.has(turno)) porTurno.set(turno, new Map());
+    const porDupla = porTurno.get(turno);
+    if(!porDupla.has(c.dupla)) porDupla.set(c.dupla, { esReferente:c.esReferente, casos:[] });
+    porDupla.get(c.dupla).casos.push(c);
+  });
+  const ordenTurnos = [...TURNO_ORDEN, ...[...porTurno.keys()].filter(t => !TURNO_ORDEN.includes(t)).sort()];
+  return ordenTurnos.filter(t => porTurno.has(t)).map(turno => {
+    const porDupla = porTurno.get(turno);
+    const duplasOrdenadas = [...porDupla.keys()].sort();
+    return `<div class="turno-grupo">
+      <div class="turno-titulo">${turno === 'sin-turno' ? 'Sin turno asignado' : esc(TURNO_LABEL[turno] || turno)}</div>
+      ${duplasOrdenadas.map(dupla => {
+        const grupo = porDupla.get(dupla);
+        const casosOrdenados = [...grupo.casos].sort((a,b) => a.nombre.localeCompare(b.nombre));
+        return `<div class="dupla-titulo">Dupla ${esc(dupla)}${grupo.esReferente ? ' <span class="ref-badge">referente del turno</span>' : ''}</div>
+        ${renderListadoCasosCards(casosOrdenados)}`;
+      }).join('')}
+    </div>`;
+  }).join('');
 }
 
 function hoyStr(offsetDias){
@@ -173,6 +275,7 @@ function setRango(tipo){
 }
 
 let todosLosCasos = [];
+let duplicadosActuales = { grupos:[], idsDuplicados:new Set() };
 
 // Se pide TODO de una (sin filtrar en el pedido a Supabase) y se filtra
 // acá por fecha — la vista `personas_listado_publico` no trae tantas
@@ -192,6 +295,10 @@ async function cargar(){
     const { data, error } = await client.from('personas_listado_publico').select('*').order('created_at', { ascending:false });
     if(error) throw error;
     todosLosCasos = data || [];
+    // Los duplicados se calculan sobre TODO lo cargado, no solo el rango
+    // de fechas filtrado (la misma persona puede volver a aparecer días
+    // después) — se recalcula acá, no en cada aplicarFiltro().
+    duplicadosActuales = detectarDuplicados(todosLosCasos);
     if(!document.getElementById('f-desde').value) setRango('semana');
     else aplicarFiltro();
   }catch(e){
@@ -209,7 +316,10 @@ function aplicarFiltro(){
     return (!desde || fecha >= desde) && (!hasta || fecha <= hasta);
   });
   const lista = filtrados.map(p => ({
+    id: p.id,
     dupla: p.dupla_codigo || '—',
+    turno: p.dupla_turno || null,
+    esReferente: !!p.dupla_es_referente,
     nombre: nombreDisplay(p),
     dni: p.dni || (p.dni_denuncia_extravio ? 'Denuncia de extravío' : null),
     zona: p.zona || p.comuna || p.punto_contacto || null,
@@ -219,16 +329,27 @@ function aplicarFiltro(){
     historiaBreve: (p.historia_breve || '').trim(),
     fechaNacimiento: p.fecha_nacimiento || null,
     edad: edadDesde(p.fecha_nacimiento),
+    nacionalidad: (p.nacionalidad || '').trim(),
     telefono: p.telefono_contacto || null,
     situacionHabitacional: (p.situacion_habitacional || '').trim(),
     situacionEconomica: (p.situacion_economica || '').trim(),
     situacionEducativa: (p.situacion_educativa || '').trim(),
+    situacionSanitaria: (p.situacion_sanitaria || '').trim(),
     redesContencion: (p.redes_contencion || '').trim(),
+    estadoSalud: (p.estado_salud || '').trim(),
+    medicacion: (p.medicacion || '').trim(),
+    esquema: (p.esquema || '').trim(),
+    subeEscaleras: p.sube_escaleras,
+    camaArriba: p.cama_arriba,
+    estuvoEnCis: p.estuvo_en_cis_antes,
+    estuvoEnCisDetalle: (p.estuvo_en_cis_detalle || '').trim(),
+    consumoActivo: !!p.consumo_activo,
+    duplicado: duplicadosActuales.idsDuplicados.has(p.id),
     creadoEn: p.created_at,
-  })).sort((a,b) => (a.dupla+a.nombre).localeCompare(b.dupla+b.nombre));
+  }));
 
   document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'} cargado${lista.length===1?'':'s'} entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
-  document.getElementById('cont').innerHTML = renderListadoCasosCards(lista);
+  document.getElementById('cont').innerHTML = renderAlertaDuplicados(duplicadosActuales.grupos) + renderAgrupadoPorTurno(lista);
 }
 
 cargar();
