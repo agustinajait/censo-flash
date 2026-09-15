@@ -256,10 +256,17 @@ function renderAgrupadoPorTurno(lista){
   }).join('');
 }
 
+// OJO: NO usar toISOString() acá — es UTC, y Buenos Aires es UTC-3. Desde
+// las 21hs locales toISOString() ya muestra la fecha de MAÑANA (bug real
+// detectado en producción, sept/2026, ver mismo comentario en
+// casos.html). Se arma la fecha con los getters LOCALES.
 function hoyStr(offsetDias){
   const d = new Date();
   d.setDate(d.getDate() + (offsetDias||0));
-  return d.toISOString().slice(0,10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
 }
 function setRango(tipo){
   const hoy = new Date();

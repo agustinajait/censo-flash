@@ -147,6 +147,28 @@ lado de admin/coordinación (no hay una vista que liste qué duplas ya
 marcaron su jornada del día) — queda abierto en la sección 11 si se
 necesita más adelante para seguimiento de asistencia.
 
+**Bug real en producción — huso horario en `hoyStr()`** (sept/2026,
+reportado por Agustina con capturas: dos duplas del turno T4 (18-22hs)
+abrían Casos y veían "✅ Jornada de hoy completa" sin haber marcado nada
+— un caso mostraba inicio y fin exactamente al mismo minuto). Causa: las
+tres copias de `hoyStr()` (`casos.html`, `admin-duplas.html`,
+`casos-en-vivo.html`) usaban `new Date().toISOString().slice(0,10)` —
+`toISOString()` es **UTC**, y Buenos Aires es UTC-3. Desde las 21hs
+locales en adelante, `toISOString()` ya muestra la fecha de MAÑANA. Una
+dupla que marca "fin de jornada" en ese horario (justo el final del
+turno T4) queda con esa fila guardada con la fecha del día SIGUIENTE; al
+otro día, esa fecha "de mañana" ya coincide con "hoy" y la dupla se
+encuentra la jornada marcada como completa sin haber tocado nada. El bug
+es invisible el resto del día (solo se manifiesta entre las 21:00 y las
+23:59 ART) — por eso pasó desapercibido hasta ahora. Arreglado
+calculando la fecha con los getters locales (`getFullYear()`/
+`getMonth()`/`getDate()`) en vez de `toISOString()`, en las tres copias.
+**Importante:** el fix de código no corrige solo las filas ya mal
+guardadas de esa noche — esas quedan con una fecha que, al día
+siguiente, es indistinguible de un "hoy" legítimo. Hace falta corregir
+a mano (`update jornadas set fin = null where fecha = current_date and
+dupla_id = ...`) las filas de las duplas afectadas para desbloquearlas.
+
 **Acceso de la dupla (una cuenta por dupla, no por integrante):** cada card
 de dupla tiene una sección de "Acceso" — si todavía no tiene login, un botón
 "🔑 Crear acceso" abre un formulario con un email sugerido por convención
