@@ -238,7 +238,9 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
     // y termina (sin incluir) `hasta`.
     coordUmbral0Turnos: [
       { desde: 6, hasta: 14, numero: '+5491160542484' },
-      // TODO: falta el/los turno/s de 14 a 6 del día siguiente.
+      { desde: 14, hasta: 22, numero: '+5491160542484' },
+      // TODO: falta el turno de 22 a 6 del día siguiente (si lo cubre
+      // alguien — confirmar con Agustina).
     ],
   },
 

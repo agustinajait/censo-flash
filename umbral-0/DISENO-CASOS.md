@@ -271,8 +271,9 @@ todo lo que pasa con ella en el tiempo.
        a 4hs, T1-T4). Si todavía no está cargado el turno de esa hora, el
        botón queda deshabilitado con un aviso de "avisale a Agustina
        directo" en vez de fallar en silencio o mandar al número
-       equivocado. **TODO:** completar los turnos que falten — solo está
-       cargado 6-14hs por ahora.
+       equivocado. Cargado hasta ahora: 6-14hs y 14-22hs (mismo número
+       para las dos). **TODO:** falta confirmar si el turno 22-6hs lo
+       cubre alguien y con qué número.
      - Visible para cualquier cuenta de dupla, en cualquier ficha (no
        solo la referente del turno) — son situaciones que puede encontrar
        cualquier equipo en el territorio, restringirlo agregaría demora
