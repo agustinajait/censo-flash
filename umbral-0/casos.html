@@ -1031,7 +1031,7 @@ async function cargarIntegrantesFaltantes(duplaId){
   try{
     const client = await SupabaseClient.getClient();
     const { data } = await client.from('integrantes').select('*')
-      .eq('dupla_id', duplaId).neq('rol', 'chofer');
+      .eq('dupla_id', duplaId).neq('rol', 'chofer').eq('activo', true);
     return (data || []).filter(i => !i.nombre || !i.apellido || !i.dni || !i.telefono);
   }catch(e){
     console.error('No se pudo chequear los datos de los integrantes', e);
