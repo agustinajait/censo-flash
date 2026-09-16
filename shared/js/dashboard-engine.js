@@ -324,9 +324,7 @@ function buildUploadFields(project){
   }
 }
 
-// ── LECTURA EN VIVO (doGet del Apps Script — Cierres + Presentes + KoBo) ─
-// El Apps Script le pide los datos a KoBo desde el servidor de Google, no
-// desde el navegador — por eso acá no hay problema de CORS con KoBo.
+// ── LECTURA EN VIVO (doGet del Apps Script — Cierres + Presentes) ───────
 async function fetchSheetData(project){
   const sep = project.appsScriptUrl.includes('?') ? '&' : '?';
   const url = project.appsScriptUrl + sep + 'key=' + encodeURIComponent(project.sheetReadKey);
@@ -334,21 +332,34 @@ async function fetchSheetData(project){
   if(!resp.ok) throw new Error('HTTP '+resp.status);
   const json = await resp.json();
   if(json.error) throw new Error(json.error);
-  return json; // { cierres:[...], presentes:[...], koboForms:[{id, rows}] }
+  return json; // { cierres:[...], presentes:[...], ausencias:[...] }
 }
 
-// Arma el mismo `raw` que espera buildData(), pero con todo (Cierres,
-// Presentes y KoBo) sacado del doGet del Apps Script en una sola pasada.
+// Arma el mismo `raw` que espera buildData(): Cierres/Presentes/Ausencias
+// salen del doGet del Apps Script, y KoBo se trae ACÁ MISMO en paralelo,
+// directo de la API (fetchKoboAll(), el mismo mecanismo que ya usa Umbral
+// 0 vía el proxy de Netlify — ver netlify/functions/kobo-proxy.js).
+//
+// OJO — bug real en producción (sept/2026, "Pers. (KoBo)" daba 0 en
+// TODAS las duplas del dashboard de Censo Flash): el comentario original
+// de esta función asumía que el Apps Script le pedía los datos a KoBo
+// del lado del servidor y los incluía en su JSON bajo una clave
+// "koboForms". Eso nunca pasó — confirmado con una respuesta real del
+// doGet, que solo trae "cierres"/"presentes"/"ausencias". El cruce
+// `sheetData.koboForms` siempre daba `undefined`, así que ningún envío
+// de KoBo se contaba. Se saca esa dependencia por completo: KoBo se
+// pide acá, sin pasar por el Apps Script.
 async function fetchLiveData(project, inicio, fin){
-  const sheetData = await fetchSheetData(project);
+  const forms = project.kobo.forms || [];
+  const [sheetData, ...koboRowsPorForm] = await Promise.all([
+    fetchSheetData(project),
+    ...forms.map(form => fetchKoboAll(project, form.id)),
+  ]);
   const raw = {
     sheet: sheetData.cierres || [],
     presentes: sheetData.presentes || [],
     ausencias: sheetData.ausencias || [],
-    formRows: (project.kobo.forms||[]).map(form=>{
-      const match = (sheetData.koboForms||[]).find(k=>k.id===form.id);
-      return match ? match.rows : null;
-    }),
+    formRows: koboRowsPorForm,
     inicio: inicio||'', fin: fin||'',
     loaded: new Date().toISOString(),
   };
