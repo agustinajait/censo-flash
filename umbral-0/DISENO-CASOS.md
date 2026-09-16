@@ -1529,27 +1529,37 @@ envío aparezca en la lista, no asocia nada solo.
 
 ### 10.1.4 "🔗 Asociar envío de KoBo" — matching manual cuando no hay nada estable (16/9/2026)
 
-El fallback por nombre de §10.1.3 no alcanzaba para el caso real de Gastón:
-la persona era "Maria" con apellido cargado como el placeholder "Sin
-identificar" (no un apellido real) y sin DNI — no hay ningún dato estable
-para matchear un envío de KoBo contra esa ficha de forma automática, ni por
-DNI ni por nombre. La dupla terminó cargando el seguimiento a mano en la
-plataforma.
+El caso real de Gastón/dupla E era Ariel Félix Sosa: nombre real cargado
+(no un placeholder), pero sin DNI porque **lo perdió de verdad** (hay un
+seguimiento que dice que lo iban a acompañar a hacer la denuncia de
+extravío). El fallback por nombre de §10.1.3 en teoría podía matchear este
+caso, pero es frágil: si en KoBo alguien tipea el nombre distinto a como
+está cargado acá (ej. "Ariel Sosa" sin el segundo nombre "Félix"), el
+string normalizado no coincide y no matchea. La dupla terminó cargando el
+seguimiento a mano en la plataforma, antes de que este botón existiera.
 
 Se agregó un botón "🔗 Asociar envío de KoBo" en la fila de acciones de la
 ficha (`umbral-0/casos.html`, junto a "Registrar intervención"/"Pedir
 derivación"). Abre un modal con los envíos de KoBo de los **últimos 14
 días de la MISMA dupla** que todavía no están asociados a ningún caso
 (ni automáticamente visibles en esta ficha, ni ya asociados a otra), para
-que la dupla elija a mano cuál corresponde. Al confirmar, hace el mismo
-upsert en `kobo_validaciones` que ya usa `confirmarContinuacionKobo()` — a
-partir de ahí ese envío se sigue mostrando solo, por el mecanismo de
-`idsValidados` que ya existía en `cargarKoboDePersona()`.
+que la dupla elija a mano cuál corresponde.
 
-Es el mismo patrón de "posible continuación" que ya existía para la lista
-general de pendientes, pero disponible desde CUALQUIER ficha — no depende
-de que el caso ya tenga un nombre para sugerir la asociación, así que
-también sirve para casos completamente sin identificar.
+**Corrección el mismo día** (pregunta de Agustina: "¿además de asociar
+debería poder marcar intervención o seguimiento?"): la primera versión
+guardaba directo en `kobo_validaciones` al tocar "✅ Es este" — eso lo
+marcaba como "ya validado" SIN pasar por el checklist de "¿qué hiciste con
+este caso?", el mismo problema que motivó mover ese checklist adentro de
+Validar en §10.1 (queda vacío para siempre salvo que alguien entre a mano
+a "✏️ Editar nota", cosa que nadie hace). Se corrigió: "Asociar" ahora solo
+agrega el envío al timeline en memoria y abre directo el modal de
+"Validar envío de KoBo" de siempre — el guardado real (con el checklist y
+la nota) pasa por ahí, igual que con cualquier otro envío.
+
+Se mantiene el patrón de "posible continuación" que ya existía para la
+lista general de pendientes, pero disponible desde CUALQUIER ficha — no
+depende de que el caso ya tenga un nombre para sugerir la asociación, así
+que también sirve para casos completamente sin identificar.
 
 ## 11. Lo que queda abierto
 
