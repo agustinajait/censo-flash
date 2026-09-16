@@ -1504,7 +1504,28 @@ duplicados de "Jorge Alejo Medina Avalos" a la vista):
   duplicado acá para no obligar a ir a otra pantalla. Respeta el RLS de cada
   cuenta: una dupla solo ve (y solo puede ocultar) sus propios duplicados.
 
-## 11. Lo que queda abierto
+### 10.1.3 Seguimiento de KoBo sin DNI no aparecía para validar (16/9/2026)
+
+Reportado por Gastón Corrales (dupla E) por WhatsApp: cargó en KoBo un
+"seguimiento" de un caso de ayer y, al entrar a Casos, no le apareció nada
+para validar en la ficha de esa persona.
+
+Causa: `cargarKoboDePersona()` matcheaba el envío contra la ficha SOLO por
+DNI exacto (`p.persona.dni === persona.dni`). La rama de "Seguimiento" del
+formulario de KoBo vuelve a preguntar el DNI (`dni_segui`, ver
+`parseUmbral0()` en `config/umbral-0.js`) pero no es obligatorio — si la
+dupla ya conoce a la persona y no lo vuelve a tipear (caso esperable: para
+qué retipear un dato que la plataforma ya tiene), el envío queda sin DNI y
+nunca iba a matchear contra ningún caso, quedando invisible para siempre.
+
+Fix: se agregó un fallback por nombre normalizado, pero acotado — solo
+aplica cuando el envío de KoBo no trae DNI, y solo dentro de la ficha de
+UNA persona puntual ya abierta (no es una búsqueda global como
+`cargarKoboPendientes()`, que sí necesita el paso extra de confirmación
+manual de "posible continuación" por el riesgo de cruzar personas
+distintas con nombres parecidos). Acá el riesgo es bajo y además la dupla
+igual tiene que tocar "✅ Validar" a mano — el fallback solo hace que el
+envío aparezca en la lista, no asocia nada solo.
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
