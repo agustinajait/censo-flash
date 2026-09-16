@@ -367,6 +367,7 @@
         <button class="btn btn-amber" onclick="Casos.abrirModalDerivacion()">📨 Pedir derivación</button>
         <button class="btn btn-green" onclick="Casos.abrirModalSeguimiento()">📝 Agregar seguimiento</button>
         <button class="btn btn-outline" id="btn-soflex" onclick="Casos.abrirCartaSoflex()">📄 Generar carta de soflex</button>
+        <button class="btn btn-outline" onclick="Casos.abrirModalAsociarKobo()">🔗 Asociar envío de KoBo</button>
         <button class="btn btn-red" onclick="Casos.abrirModalAvisoCoordinacion()">🚨 Avisar a coordinación</button>
       </div>
 
@@ -1466,6 +1467,7 @@ function koboSubmissionId(p){
 }
 
 let koboPendientesActuales = [];
+let asociarKoboCandidatosActuales = []; // ver Casos.abrirModalAsociarKobo()
 
 async function cargarKoboPendientes(){
   const box = document.getElementById('kobo-pend-box');
@@ -2077,6 +2079,91 @@ const Casos = {
     if(c) koboContinuacionesDescartadas.add(c.subId);
     koboPosiblesContinuacionesActuales.splice(idx, 1);
     mostrarKoboPendientes();
+  },
+
+  // ── ASOCIAR UN ENVÍO DE KOBO A MANO (sept/2026) ──────────────────────
+  // Para casos "sin identificar" (sin DNI y con apellido placeholder, no
+  // uno real) o cualquier otro en el que cargarKoboDePersona() no
+  // encuentre nada solo (typo en el nombre, etc.) — reportado por
+  // Gastón/dupla E: cargó un seguimiento en KoBo de un caso sin DNI ni
+  // apellido real y nunca apareció para validar, porque no hay ningún
+  // dato estable para matchear automáticamente. Muestra los envíos
+  // recientes de la MISMA dupla que todavía no están asociados a ningún
+  // caso, para elegir a mano cuál es — igual que confirmarContinuacionKobo(),
+  // pero disponible desde cualquier ficha, no solo desde la lista general
+  // de pendientes.
+  async abrirModalAsociarKobo(){
+    if(!personaActual) return;
+    openModal('🔗 Asociar un envío de KoBo', '<div class="empty-msg" style="padding:16px 4px;">Buscando envíos recientes…</div>');
+    try{
+      const project = window.PROJECT_CONFIG;
+      const form = project && project.kobo && (project.kobo.forms||[])[0];
+      if(!form){ openModal('🔗 Asociar un envío de KoBo', '<div class="empty-msg" style="padding:16px 4px;">Este proyecto no tiene KoBo conectado.</div>'); return; }
+      const client = await SupabaseClient.getClient();
+      const [{ data: integrantes }, { data: yaAsociados }, parsed] = await Promise.all([
+        client.from('integrantes').select('nombre,apellido').eq('dupla_id', personaActual.dupla_id),
+        client.from('kobo_validaciones').select('kobo_submission_id'),
+        obtenerKoboRowsParseadas(project, form),
+      ]);
+      const misNombres = new Set((integrantes||[])
+        .map(i => normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`))
+        .filter(Boolean));
+      const idsAsociados = new Set((yaAsociados||[]).map(v => v.kobo_submission_id));
+      const idsYaEnTimeline = new Set(koboEventosActuales.map(p => koboSubmissionId(p)).filter(Boolean));
+      const haceDias = new Date(Date.now() - 14*24*60*60*1000).toISOString();
+
+      asociarKoboCandidatosActuales = parsed
+        .filter(p => {
+          if(!misNombres.has(normalizarNombreKobo(p.operador))) return false; // no es de esta dupla
+          const subId = koboSubmissionId(p);
+          // ya asociado a algún caso, o ya se ve automático en esta ficha
+          if(!subId || idsAsociados.has(subId) || idsYaEnTimeline.has(subId)) return false;
+          if(p.fecha && p.fecha < haceDias) return false; // últimos 14 días, para no volver un listado eterno
+          return true;
+        })
+        .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+
+      if(!asociarKoboCandidatosActuales.length){
+        openModal('🔗 Asociar un envío de KoBo', '<div class="empty-msg" style="padding:16px 4px;">No hay envíos recientes de esta dupla sin asociar. Si el envío tiene más de 14 días, avisá para revisarlo a mano.</div>');
+        return;
+      }
+      const html = `
+        <div class="section-hint" style="padding:4px 4px 10px;">Envíos de KoBo de los últimos 14 días de esta dupla que todavía no están asociados a ningún caso. Elegí el que corresponda a <b>${esc(nombreDisplay(personaActual))}</b>.</div>
+        ${asociarKoboCandidatosActuales.map((p, idx) => `
+          <div class="kobo-pend-card">
+            <div class="kobo-pend-txt">
+              <strong>${esc(`${(p.persona&&p.persona.nombre)||''} ${(p.persona&&p.persona.apellido)||''}`.trim() || '(sin nombre en el envío)')}</strong>
+              <div class="meta">${esc(p.tipo||'—')} · ${p.fecha ? new Date(p.fecha).toLocaleString('es-AR') : '—'} · cargado por ${esc(p.operador||'—')}</div>
+            </div>
+            <button class="btn btn-green btn-sm" onclick="Casos.asociarKoboCandidato(${idx})">✅ Es este</button>
+          </div>
+        `).join('')}
+      `;
+      openModal('🔗 Asociar un envío de KoBo', html);
+    }catch(e){
+      openModal('🔗 Asociar un envío de KoBo', '<div class="empty-msg" style="padding:16px 4px;">Error buscando envíos: '+esc(e.message)+'</div>');
+    }
+  },
+
+  async asociarKoboCandidato(idx){
+    const p = asociarKoboCandidatosActuales[idx];
+    const subId = p && koboSubmissionId(p);
+    if(!subId || !personaActual) return;
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('kobo_validaciones').upsert({
+        kobo_submission_id: subId,
+        persona_id: personaActual.id,
+        dupla_id: personaActual.dupla_id || null,
+        creado_por: miPerfil.id,
+      }, { onConflict: 'kobo_submission_id,persona_id' });
+      if(error) throw error;
+      closeModal();
+      await cargarKoboDePersona(personaActual);
+      Casos._renderTimeline();
+    }catch(e){
+      alert('No se pudo asociar: ' + e.message);
+    }
   },
 
   _renderFormPersona(persona, prefill){

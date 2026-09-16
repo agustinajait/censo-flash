@@ -1527,6 +1527,32 @@ distintas con nombres parecidos). Acá el riesgo es bajo y además la dupla
 igual tiene que tocar "✅ Validar" a mano — el fallback solo hace que el
 envío aparezca en la lista, no asocia nada solo.
 
+### 10.1.4 "🔗 Asociar envío de KoBo" — matching manual cuando no hay nada estable (16/9/2026)
+
+El fallback por nombre de §10.1.3 no alcanzaba para el caso real de Gastón:
+la persona era "Maria" con apellido cargado como el placeholder "Sin
+identificar" (no un apellido real) y sin DNI — no hay ningún dato estable
+para matchear un envío de KoBo contra esa ficha de forma automática, ni por
+DNI ni por nombre. La dupla terminó cargando el seguimiento a mano en la
+plataforma.
+
+Se agregó un botón "🔗 Asociar envío de KoBo" en la fila de acciones de la
+ficha (`umbral-0/casos.html`, junto a "Registrar intervención"/"Pedir
+derivación"). Abre un modal con los envíos de KoBo de los **últimos 14
+días de la MISMA dupla** que todavía no están asociados a ningún caso
+(ni automáticamente visibles en esta ficha, ni ya asociados a otra), para
+que la dupla elija a mano cuál corresponde. Al confirmar, hace el mismo
+upsert en `kobo_validaciones` que ya usa `confirmarContinuacionKobo()` — a
+partir de ahí ese envío se sigue mostrando solo, por el mecanismo de
+`idsValidados` que ya existía en `cargarKoboDePersona()`.
+
+Es el mismo patrón de "posible continuación" que ya existía para la lista
+general de pendientes, pero disponible desde CUALQUIER ficha — no depende
+de que el caso ya tenga un nombre para sugerir la asociación, así que
+también sirve para casos completamente sin identificar.
+
+## 11. Lo que queda abierto
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
