@@ -634,3 +634,11 @@ alter table public.intervenciones
 -- depender de un cuarto click que se salta.
 alter table public.kobo_validaciones
   add column if not exists acciones text[] not null default '{}'::text[];
+
+-- Ya usado en producción (16/9/2026): se agregó a Mia Cubero como
+-- integrante de dupla C (reemplazo/changuito que hizo la salida de hoy y
+-- no estaba cargada). Sin esto sus 3 altas reales por KoBo no matcheaban
+-- ningún integrante y quedaban invisibles tanto en el "KoBo pendientes"
+-- propio de la dupla como en el del admin (ver DISENO-CASOS.md §10.1.1).
+-- insert into public.integrantes (dupla_id, rol, nombre, apellido, activo)
+-- values ('97385a43-466e-42a4-bf8f-7b129532d1c8', 'operador', 'Mia', 'Cubero', true);
