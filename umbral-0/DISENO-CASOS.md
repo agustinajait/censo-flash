@@ -1457,18 +1457,32 @@ integrantes).
 Pasó en producción: dupla C tuvo un reemplazo (Mia Cubero, no cargada como
 integrante) que hizo 3 altas reales por KoBo. Ni la propia dupla C ni el
 admin vieron nada — la dupla decía "cargué 3 casos" y en la plataforma
-`personas` tenía 0 filas nuevas ese día. Se destrabó agregando a Mia como
-integrante de dupla C (con eso, el matching por nombre empieza a funcionar
-y sus 3 envíos aparecen como pendientes normales), y se agregó a
-`admin-duplas.html` la misma tabla "sin asignar" que ya tenía
-`dashboard.html`, para que la próxima vez que pase un reemplazo no cargado
-se note enseguida en vez de descubrirse porque la dupla reclama.
+`personas` tenía 0 filas nuevas ese día. Se destrabó agregando a Mia (y de
+paso a Pablo Daniel Carrizo, el otro fijo nuevo de dupla C) como integrantes
+de dupla C — con eso el matching por nombre empieza a funcionar y sus envíos
+aparecen como pendientes normales.
 
-No se tocó `casos.html`: agregar a la persona como integrante (el remedio de
-este incidente) arregla el matching ahí también, así que no hace falta
-duplicar el bucket "sin asignar" en la vista de la propia dupla — ese es un
-problema que solo necesita ser visible para quien puede agregar integrantes
-(el admin).
+**Primer intento (revertido el mismo día):** se agregó a `admin-duplas.html`
+la misma tabla "sin asignar" que ya tenía `dashboard.html`. En la práctica
+resultó poco usable: el roster real tenía bastante más desactualización de
+la esperada, así que la tabla se llenó de decenas de envíos de varios días
+distintos sin ningún orden que ayudara a revisarlos uno por uno. Se sacó a
+pedido de Agustina.
+
+**Solución elegida:** en vez de una lista reactiva de "lo que ya se rompió",
+una sección nueva "👥 Operadores por turno" en `admin-duplas.html` — el
+roster completo (quién está cargado hoy en cada dupla activa, con DNI y
+teléfono), ordenado por turno y dupla. Es una herramienta de revisión
+proactiva: recorrerla turno por turno para detectar reemplazos no cargados
+o nombres viejos ANTES de que generen un envío de KoBo invisible, en vez de
+enterarse después por la tabla de "sin asignar". `cargarKoboPendientesAdmin()`
+volvió a su comportamiento original (descarta en silencio lo que no
+matchea) — la responsabilidad de que el roster esté al día pasó a ser
+prevención (esta tabla), no detección reactiva.
+
+No se tocó `casos.html`: agregar a la persona como integrante arregla el
+matching ahí también, así que no hace falta ninguna vista adicional en la
+cuenta de la propia dupla.
 
 ## 11. Lo que queda abierto
 
