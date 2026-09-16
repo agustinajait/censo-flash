@@ -1585,6 +1585,45 @@ string de fecha del filtro directo, sin ese ajuste.
 detalle de cada caso, al lado de "Cargado" (fecha de alta), para que se
 entienda por qué un caso con alta vieja aparece en un rango reciente.
 
+### 10.1.6 ⚠️ Incidente real: una dupla veía casos de otras duplas (16/9/2026)
+
+Después de sumar `kobo_validaciones` al cálculo de `ultima_actividad`
+(migración `ultima_actividad_incluye_kobo_validaciones`, para que validar
+un envío de KoBo también cuente como actividad — pedido real: "dupla B
+validó 4 casos hoy y ninguno se reflejaba"), varias duplas empezaron a
+reportar casi al mismo tiempo: **"me aparecen casos de otras duplas"**.
+
+Causa: la migración recreó `personas_actividad` con `CREATE OR REPLACE
+VIEW ... AS SELECT ...`, pero sin repetir `WITH (security_invoker =
+true)` — la cláusula que tenía la vista original (ver
+`personas_actividad_para_seguimiento`, sept/2026: "la vista es
+security_invoker") y que hace que corra con los permisos del usuario
+logueado, respetando el RLS por-dupla de `personas`. Un `CREATE OR
+REPLACE VIEW` que no repite esa cláusula la pierde silenciosamente,
+aunque el resto de la definición sea idéntica — no tira ningún error.
+Sin ella, la vista pasó a correr con los privilegios del owner, así que
+el filtro `dupla_id = mi_dupla_id()` de la política RLS de `personas`
+dejaba de aplicarse: cualquier dupla que buscara un caso en `casos.html`
+veía las de las 13 duplas mezcladas, no solo la suya.
+
+Estuvo así en producción **~17 minutos** (14:37 a 14:54 UTC) hasta que
+las duplas lo reportaron y se corrigió con `ALTER VIEW ... SET
+(security_invoker = true)` (no hace falta recrear toda la vista para
+resetear una sola opción). Verificado después con `pg_class.reloptions`.
+
+`personas_listado_publico` (la que usa `casos-en-vivo.html` con la anon
+key) NO tiene este problema — a propósito NUNCA tuvo `security_invoker`,
+porque su función es justamente bypasear el RLS por-dupla para mostrar
+las 13 duplas mezcladas en una vista pública de coordinación. El
+incidente fue solo en `personas_actividad`, la vista de uso interno
+logueado.
+
+**Lección para cualquier `CREATE OR REPLACE VIEW` futuro sobre una vista
+ya existente**: revisar primero si la definición original tenía `WITH
+(security_invoker = true)` (buscar en `schema-ajustes.sql`) y repetirlo
+siempre en el reemplazo — perderlo no da ningún error, así que hay que
+acordarse a propósito.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
