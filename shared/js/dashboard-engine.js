@@ -296,8 +296,18 @@ function loadFromStorage(id){
   if(!raw) return null;
   try{ return JSON.parse(raw); }catch(e){ return null; }
 }
+// Cache de "último dato bueno" para no quedar en blanco si falla el fetch
+// en una próxima visita — nunca debe ser una condición para mostrar el dato
+// recién traído en esta visita (ese ya está en memoria, en dataByProject).
+// Con KoBo trayéndose en vivo (ver fetchLiveData) el payload puede superar
+// la cuota de localStorage del navegador; si eso pasa, seguimos mostrando
+// los datos igual y sólo se pierde el cacheo para la próxima carga offline.
 function saveToStorage(id, data){
-  localStorage.setItem(STORAGE_PREFIX+id, JSON.stringify(data));
+  try{
+    localStorage.setItem(STORAGE_PREFIX+id, JSON.stringify(data));
+  }catch(e){
+    console.warn('No se pudo cachear en localStorage (se sigue mostrando el dato igual, solo no queda guardado para la próxima carga):', e);
+  }
 }
 
 // ── CAMPOS DE CARGA (dinámicos según los formularios KoBo del proyecto) ─
