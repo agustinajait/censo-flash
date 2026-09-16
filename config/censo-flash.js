@@ -69,7 +69,14 @@ const duplas = [
   { id:'24', zona:'Almagro Sur',               poligono:'Polígono 24', comuna:'C.5',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1PTdr8m1Q1aW5kZJokxzfEREIMhghAkM', grupo:'nueva' },
   { id:'25', zona:'Boedo',                     poligono:'Polígono 25', comuna:'C.5',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=13nTcHf5x79TlEsq85YYu393URmJ4MyQ', grupo:'nueva' },
   { id:'26', zona:'Caballito Sur',             poligono:'Polígono 26', comuna:'C.6',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1AZQuRGvfPVXkQHHxOIaJfCA662UTGwQ', grupo:'nueva' },
-  { id:'27', zona:'Caballito Norte',           poligono:'Polígono 27', comuna:'C.6',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1vNPwuSGyvU3SIVpxqIlNnM-p0sjpJjE', grupo:'nueva' },
+  // mymaps actualizado 16/9/2026: el mapa viejo (mid=1vNPwuSGyvU3SIVpxqIlNnM-p0sjpJjE)
+  // resultó tener un número interno de My Maps ("Dupla 27") que no
+  // correspondía a esta zona en nuestra numeración actual — confusión real
+  // en producción, Agustina terminó creando un mapa nuevo desde cero para
+  // no arriesgarse a pisar el contenido de otra dupla por el desfasaje de
+  // numeración. Ver DISENO-CASOS.md (Censo Flash) para más contexto si se
+  // repite con otra dupla del grupo 'nueva' (21-33).
+  { id:'27', zona:'Caballito Norte',           poligono:'Polígono 27', comuna:'C.6',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1w9FuYUSoMOfDtPC02a67h63zvj8kNyA', grupo:'nueva' },
   { id:'28', zona:'Once',                      poligono:'Polígono 28', comuna:'C.3',  kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1vpaKauq8MKfhQ7j5MNJFqpQgrNUT4mU', grupo:'nueva' },
   { id:'29', zona:'Villa Crespo',              poligono:'Polígono 29', comuna:'C.15', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1Y5-QKnPRqLvVQlqOHjeHbJP6OMGlKJk', grupo:'nueva' },
   { id:'30', zona:'Agronomía',                 poligono:'Polígono 30', comuna:'C.15', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1T4noPhcGo8Be-84jQEb14iMY-ij8kFk', grupo:'nueva' },
