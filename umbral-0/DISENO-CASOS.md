@@ -427,6 +427,27 @@ todo lo que pasa con ella en el tiempo.
           guardar sin tildar — mismo criterio de no arriesgar romper la
           carga en producción), es una lista visible y fácil de usar,
           no un gate.
+        - **Movido adentro de "Validar envío de KoBo"** (sept/2026,
+          pedido de Agustina, tras revisar un caso real en la
+          plataforma: "sigo sin poder ver que hacen con la acción mis
+          operadores"). El motivo: en el caso que revisamos, el
+          checklist nunca se llegaba a completar porque vivía en
+          "➕ Registrar intervención" — un paso opcional DESPUÉS de
+          validar, al que casi nadie llegaba (en ese caso ni siquiera
+          habían validado el envío todavía). Se agregó la MISMA lista
+          `ACCIONES_INTERVENCION` directo adentro del modal de
+          `Casos.abrirModalValidarKobo()` — el único paso que todas las
+          duplas sí hacen — junto con la nota, en un solo guardado
+          (`kobo_validaciones.acciones`, nueva columna). Al reabrir
+          "✏️ Editar nota" sobre una validación ya hecha, los checkboxes
+          quedan pre-tildados con lo que ya se había marcado. En el
+          timeline se ve como una línea aparte, "Qué se hizo (cargado
+          por la dupla): ...", distinta de "Qué pasó:" (que viene de la
+          pregunta de KoBo) — no se pisan entre sí, son dos fuentes
+          distintas mostradas juntas. "➕ Registrar intervención" se
+          mantiene, pero pasa a ser para lo que pasa APARTE de esa
+          visita puntual (ej. un llamado telefónico otro día) — ya no
+          hace falta para que quede el "qué se hizo" de la visita en sí.
      2. **Envíos sin DNI que podrían ser un caso ya cargado** — nueva
         sección en "KoBo pendientes", separada de la de altas nuevas: si
         un envío sin DNI de la propia dupla tiene el mismo nombre

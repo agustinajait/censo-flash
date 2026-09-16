@@ -2455,6 +2455,7 @@ const Casos = {
       ]);
       const subId = koboSubmissionId(p);
       const validacion = subId && koboValidacionesActuales[subId];
+      const accionesDupla = (validacion && validacion.acciones || []).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod);
       el.className = 'timeline-item tl-kobo';
       el.innerHTML = `
         <div class="tl-head">
@@ -2462,8 +2463,9 @@ const Casos = {
           <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(p.operador || '—')}</div>
         </div>
         ${terminos.length ? `<div class="tl-body"><b>Qué pasó:</b> ${terminos.map(t=>esc(t)).join(' · ')}</div>` : ''}
+        ${accionesDupla.length ? `<div class="tl-body"><b>Qué se hizo (cargado por la dupla):</b> ${accionesDupla.map(a=>esc(a)).join(' · ')}</div>` : ''}
         ${notas ? `<div class="tl-body" style="white-space:pre-wrap;font-size:0.82rem;color:#475569;">${esc(notas)}</div>` : ''}
-        ${!terminos.length && !notas ? '<div class="tl-body" style="font-size:0.78rem;color:#94a3b8;">Envío registrado, sin más detalle relevado.</div>' : ''}
+        ${!terminos.length && !accionesDupla.length && !notas ? '<div class="tl-body" style="font-size:0.78rem;color:#94a3b8;">Envío registrado, sin más detalle relevado.</div>' : ''}
         ${validacion && validacion.nota ? `<div class="tl-body" style="font-size:0.82rem;"><b>Nota de la dupla:</b> ${esc(validacion.nota)}</div>` : ''}
         ${subId ? `<div class="tl-foot">
           ${validacion
@@ -2554,9 +2556,20 @@ const Casos = {
   // en `kobo_validaciones` (upsert por kobo_submission_id + persona_id,
   // así reabrir el modal para editar la nota no crea un duplicado).
   abrirModalValidarKobo(subId){
-    const notaActual = (koboValidacionesActuales[subId] && koboValidacionesActuales[subId].nota) || '';
+    const validacionActual = koboValidacionesActuales[subId];
+    const notaActual = (validacionActual && validacionActual.nota) || '';
+    const accionesActuales = new Set((validacionActual && validacionActual.acciones) || []);
     const body = `
       <form id="form-validar-kobo" onsubmit="return false;">
+        <div class="form-field">
+          <label>¿Qué hiciste con este caso?</label>
+          <div class="hint">Elegí todo lo que corresponda a esta visita.</div>
+          <div class="form-check-grid">
+            ${ACCIONES_INTERVENCION.map((a, i) => `
+              <div class="form-check"><input type="checkbox" id="f_val_accion_${i}" class="val-accion-check" data-code="${escAttr(a.key)}" ${accionesActuales.has(a.key) ? 'checked' : ''}><label for="f_val_accion_${i}">${esc(a.label)}</label></div>
+            `).join('')}
+          </div>
+        </div>
         <div class="form-field">
           <label>Nota (opcional)</label>
           <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
@@ -2573,6 +2586,7 @@ const Casos = {
   async guardarValidacionKobo(subId){
     const btn = document.getElementById('btn-guardar-validacion-kobo');
     const nota = document.getElementById('f_nota_validacion_kobo').value.trim();
+    const acciones = [...document.querySelectorAll('.val-accion-check:checked')].map(el => el.dataset.code);
     btn.disabled = true;
     try{
       const client = await SupabaseClient.getClient();
@@ -2581,6 +2595,7 @@ const Casos = {
         persona_id: personaActual.id,
         dupla_id: miPerfil.dupla_id || null,
         nota: nota || null,
+        acciones,
         creado_por: miPerfil.id,
       }, { onConflict: 'kobo_submission_id,persona_id' });
       if(error) throw error;
