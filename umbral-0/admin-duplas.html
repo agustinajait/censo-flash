@@ -240,6 +240,19 @@
     </div>
 
     <div class="section-label">
+      <span>⚠️ KoBo con operador no reconocido <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(con DNI, no matchea ningún integrante activo)</span></span>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Nombre</th><th>DNI</th><th>Tipo</th><th>Fecha</th><th>Operador (tal cual en KoBo)</th></tr></thead>
+          <tbody id="kobo-sinasignar-admin-tbody"><tr><td colspan="5" class="empty-msg">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="section-hint" style="padding:8px 4px 2px;">Pasa con reemplazos/changos que no están cargados en "Duplas territoriales" — mientras no se agregue a la persona como integrante de una dupla, estos envíos no aparecen como pendientes en ningún lado (ni acá arriba, ni en la cuenta de la dupla). Agregala como integrante de la dupla que corresponda para destrabarlo.</div>
+    </div>
+
+    <div class="section-label">
       <span>🩺 Completar datos faltantes desde KoBo</span>
       <button class="btn btn-outline btn-sm" onclick="revisarCompletitudKobo()">🔍 Revisar</button>
     </div>
@@ -448,10 +461,12 @@ async function fetchKoboProxyAll(project, assetId){
 
 async function cargarKoboPendientesAdmin(){
   const tbody = document.getElementById('kobo-pend-admin-tbody');
+  const tbodySinAsignar = document.getElementById('kobo-sinasignar-admin-tbody');
   const project = window.PROJECT_CONFIG;
   const form = project && project.kobo && (project.kobo.forms||[])[0];
-  if(!form){ tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>'; return; }
+  if(!form){ tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>'; if(tbodySinAsignar) tbodySinAsignar.innerHTML = ''; return; }
   tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Cargando…</td></tr>';
+  if(tbodySinAsignar) tbodySinAsignar.innerHTML = '<tr><td colspan="5" class="empty-msg">Cargando…</td></tr>';
 
   try{
     const client = await SupabaseClient.getClient();
@@ -485,31 +500,51 @@ async function cargarKoboPendientesAdmin(){
     });
 
     const porDuplaYDni = new Map(); // "duplaId|dni" -> envío más reciente
+    const sinAsignarPorDni = new Map(); // dni -> envío más reciente (operador no matchea ningún integrante)
     koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
-      const duplaId = duplaPorNombre[normalizarNombreKobo(p.operador)];
-      if(!duplaId) return; // no matchea con ningún integrante de las 13 duplas
       const dni = String((p.persona && p.persona.dni) || '').trim();
-      if(!dni || (dnisPorDupla[duplaId] && dnisPorDupla[duplaId].has(dni))) return;
+      if(!dni) return;
+      const duplaId = duplaPorNombre[normalizarNombreKobo(p.operador)];
+      if(!duplaId){
+        // El operador de este envío no está cargado como integrante de
+        // ninguna dupla activa — típico caso: un reemplazo/changuito que
+        // hizo la salida pero nunca se agregó en "Duplas territoriales".
+        // Antes esto se descartaba acá mismo sin dejar rastro en ningún
+        // lado (ver DISENO-CASOS.md) — ahora se muestra aparte para que
+        // no se pierda.
+        const previo = sinAsignarPorDni.get(dni);
+        if(!previo || (p.fecha||'') > (previo.fecha||'')) sinAsignarPorDni.set(dni, p);
+        return;
+      }
+      if(dnisPorDupla[duplaId] && dnisPorDupla[duplaId].has(dni)) return;
       const key = duplaId + '|' + dni;
       const previo = porDuplaYDni.get(key);
       if(!previo || (p.fecha||'') > (previo.p.fecha||'')) porDuplaYDni.set(key, { duplaId, p });
     });
 
     const pendientes = [...porDuplaYDni.values()].sort((a,b) => (b.p.fecha||'').localeCompare(a.p.fecha||''));
-    if(!pendientes.length){
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Sin pendientes — todos los envíos de KoBo del equipo con DNI ya tienen caso cargado.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = pendientes.map(({ duplaId, p }) => `<tr>
+    tbody.innerHTML = pendientes.length ? pendientes.map(({ duplaId, p }) => `<tr>
       <td><b>${esc(codigoPorDupla[duplaId] || '—')}</b></td>
       <td>${esc(`${p.persona.nombre||''} ${p.persona.apellido||''}`.trim() || '(sin nombre en KoBo)')}</td>
       <td>${esc(p.persona.dni)}</td>
       <td>${esc(p.tipo||'—')}</td>
       <td>${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}</td>
       <td>${esc(p.operador||'—')}</td>
-    </tr>`).join('');
+    </tr>`).join('') : '<tr><td colspan="6" class="empty-msg">Sin pendientes — todos los envíos de KoBo del equipo con DNI ya tienen caso cargado.</td></tr>';
+
+    if(tbodySinAsignar){
+      const sinAsignar = [...sinAsignarPorDni.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+      tbodySinAsignar.innerHTML = sinAsignar.length ? sinAsignar.map(p => `<tr>
+        <td>${esc(`${p.persona.nombre||''} ${p.persona.apellido||''}`.trim() || '(sin nombre en KoBo)')}</td>
+        <td>${esc(p.persona.dni)}</td>
+        <td>${esc(p.tipo||'—')}</td>
+        <td>${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}</td>
+        <td><b>${esc(p.operador||'—')}</b></td>
+      </tr>`).join('') : '<tr><td colspan="5" class="empty-msg">Ninguno — todos los operadores de envíos recientes están reconocidos.</td></tr>';
+    }
   }catch(e){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
+    if(tbodySinAsignar) tbodySinAsignar.innerHTML = '';
   }
 }
 

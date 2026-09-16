@@ -1442,6 +1442,34 @@ equipos de GOPA).
   no diseñada todavía (pre-completar o importar el envío de KoBo directo a
   una ficha de `personas`) — ver también §11.
 
+### 10.1.1 El mismo agujero en `admin-duplas.html` (incidente real, 16/9/2026)
+
+El punto "Envíos sin dupla reconocida" de arriba solo estaba resuelto en
+`dashboard.html` (vista de coordinación). La tabla "📥 KoBo pendientes" de
+`admin-duplas.html` — la que de verdad importa para no perder un caso, porque
+es la que un admin mira para saber qué falta confirmar — tenía el mismo
+matching operador→dupla pero SIN el bucket de "sin reconocer": si el nombre
+no matcheaba ningún integrante, el envío se descartaba en el mismo `forEach`
+sin dejar ningún rastro visible, ni en esa tabla ni en el "KoBo pendientes"
+propio de la dupla en `casos.html` (que matchea igual, contra sus propios
+integrantes).
+
+Pasó en producción: dupla C tuvo un reemplazo (Mia Cubero, no cargada como
+integrante) que hizo 3 altas reales por KoBo. Ni la propia dupla C ni el
+admin vieron nada — la dupla decía "cargué 3 casos" y en la plataforma
+`personas` tenía 0 filas nuevas ese día. Se destrabó agregando a Mia como
+integrante de dupla C (con eso, el matching por nombre empieza a funcionar
+y sus 3 envíos aparecen como pendientes normales), y se agregó a
+`admin-duplas.html` la misma tabla "sin asignar" que ya tenía
+`dashboard.html`, para que la próxima vez que pase un reemplazo no cargado
+se note enseguida en vez de descubrirse porque la dupla reclama.
+
+No se tocó `casos.html`: agregar a la persona como integrante (el remedio de
+este incidente) arregla el matching ahí también, así que no hace falta
+duplicar el bucket "sin asignar" en la vista de la propia dupla — ese es un
+problema que solo necesita ser visible para quien puede agregar integrantes
+(el admin).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
