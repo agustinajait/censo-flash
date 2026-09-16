@@ -698,3 +698,61 @@ select
 from personas p
 join duplas d on d.id = p.dupla_id
 where coalesce(p.oculto, false) = false;
+
+-- ⚠️ INCIDENTE REAL (16/9/2026, ~14:37-14:54 UTC, ~17 min en producción):
+-- la migración de abajo (ultima_actividad_incluye_kobo_validaciones) sumó
+-- kobo_validaciones al cálculo de ultima_actividad en AMBAS vistas, pero
+-- el `create or replace view public.personas_actividad as select ...` se
+-- escribió SIN `with (security_invoker = true)` — el que sí tenía el
+-- original (ver más arriba, migración personas_actividad_para_seguimiento,
+-- comentario: "la vista es security_invoker"). Un CREATE OR REPLACE VIEW
+-- que no repite esa cláusula la PIERDE, aunque el resto de la definición
+-- sea idéntica. Sin ella, la vista corre con los privilegios del owner en
+-- vez de los del usuario logueado, así que el RLS por-dupla de `personas`
+-- dejaba de aplicarse — cualquier dupla que buscara un caso en Casos veía
+-- también los de las demás duplas. Detectado porque varias duplas
+-- reportaron "me aparecen casos de otras duplas" casi en el momento.
+-- Corregido con `alter view ... set (security_invoker = true)` apenas se
+-- detectó (no hace falta recrear toda la vista para esto). Las dos vistas
+-- de abajo son el estado YA CORREGIDO — personas_actividad con
+-- security_invoker explícito, personas_listado_publico SIN él a propósito
+-- (esa es pública/anon por diseño, bypasea el RLS por-dupla adrede para
+-- mostrar todas las duplas mezcladas en `casos-en-vivo.html`).
+--
+-- Lección para cualquier CREATE OR REPLACE VIEW futuro sobre una vista
+-- existente: revisar primero si tenía `with (security_invoker = true)`
+-- (buscar en este archivo) y repetirlo siempre en el reemplazo.
+create or replace view public.personas_actividad
+with (security_invoker = true) as
+select
+  p.*,
+  greatest(
+    p.created_at,
+    (select max(i.created_at) from public.intervenciones i where i.persona_id = p.id),
+    (select max(s.created_at) from public.seguimientos s where s.persona_id = p.id),
+    (select max(d.created_at) from public.derivaciones d where d.persona_id = p.id),
+    (select max(kv.created_at) from public.kobo_validaciones kv where kv.persona_id = p.id)
+  ) as ultima_actividad
+from public.personas p;
+
+create or replace view public.personas_listado_publico as
+select
+  p.id, p.nombre, p.apellido, p.dni, p.dni_denuncia_extravio, p.sin_identificar,
+  p.zona, p.comuna, p.punto_contacto, p.criticidad, p.nivel_actual,
+  p.acepta_entrevista, p.historia_breve, p.fecha_nacimiento, p.telefono_contacto,
+  p.situacion_habitacional, p.situacion_economica, p.situacion_educativa,
+  p.redes_contencion, p.estado, p.created_at, d.codigo as dupla_codigo,
+  p.nacionalidad, p.situacion_sanitaria, p.estado_salud, p.medicacion,
+  p.esquema, p.sube_escaleras, p.cama_arriba, p.estuvo_en_cis_antes,
+  p.estuvo_en_cis_detalle, p.consumo_activo, d.turno as dupla_turno,
+  d.es_referente as dupla_es_referente,
+  greatest(
+    p.created_at,
+    (select max(i.created_at) from intervenciones i where i.persona_id = p.id),
+    (select max(s.created_at) from seguimientos s where s.persona_id = p.id),
+    (select max(dv.created_at) from derivaciones dv where dv.persona_id = p.id),
+    (select max(kv.created_at) from kobo_validaciones kv where kv.persona_id = p.id)
+  ) as ultima_actividad
+from personas p
+join duplas d on d.id = p.dupla_id
+where coalesce(p.oculto, false) = false;
