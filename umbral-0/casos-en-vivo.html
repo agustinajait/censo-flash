@@ -84,7 +84,7 @@
 
 <div class="wrap">
   <div class="card">
-    <div class="section-hint">Filtrá por fecha de alta del caso y actualizá cuando quieras.</div>
+    <div class="section-hint">Filtrá por fecha de actividad del caso (alta, intervención, seguimiento o derivación — lo que sea más reciente) y actualizá cuando quieras.</div>
     <div class="rango-row">
       <div class="form-field"><label>Desde</label><input type="date" id="f-desde"></div>
       <div class="form-field"><label>Hasta</label><input type="date" id="f-hasta"></div>
@@ -210,6 +210,7 @@ function renderListadoCasosCards(lista){
         <div><span class="caso-detalle-lbl">Cama arriba</span><span>${siNoBool(c.camaArriba)}</span></div>
         <div><span class="caso-detalle-lbl">Estuvo en CIS</span><span>${c.estuvoEnCis===true ? 'Sí' + (c.estuvoEnCisDetalle ? ' — ' + esc(c.estuvoEnCisDetalle) : '') : siNoBool(c.estuvoEnCis)}</span></div>
         <div><span class="caso-detalle-lbl">Cargado</span><span>${c.creadoEn ? fmtFechaCorta(c.creadoEn) : '—'}</span></div>
+        <div><span class="caso-detalle-lbl">Última actividad</span><span>${c.ultimaActividad ? fmtFechaCorta(c.ultimaActividad) : '—'}</span></div>
         ${c.historiaBreve ? `<div class="caso-historia"><span class="caso-detalle-lbl">Historia breve</span><div>${esc(c.historiaBreve)}</div></div>` : ''}
         ${c.situacionHabitacional ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación habitacional</span><div>${esc(c.situacionHabitacional)}</div></div>` : ''}
         ${c.situacionEconomica ? `<div class="caso-historia"><span class="caso-detalle-lbl">Situación económica</span><div>${esc(c.situacionEconomica)}</div></div>` : ''}
@@ -315,12 +316,28 @@ async function cargar(){
   }
 }
 
+// Rango UTC real de un día local (Buenos Aires, UTC-3) — mismo cuidado
+// que hoyStr(): comparar el string de fecha a secas contra un timestamp
+// UTC subcuenta lo que pasó entre las 21:00 y las 23:59 hora local.
+function rangoUtcLocal(desde, hasta){
+  const desdeUtc = desde ? (desde + 'T03:00:00.000Z') : null;
+  const hastaUtc = hasta ? new Date(new Date(hasta + 'T03:00:00.000Z').getTime() + 24*60*60*1000).toISOString() : null;
+  return { desdeUtc, hastaUtc };
+}
+
 function aplicarFiltro(){
   const desde = document.getElementById('f-desde').value;
   const hasta = document.getElementById('f-hasta').value;
+  const { desdeUtc, hastaUtc } = rangoUtcLocal(desde, hasta);
   const filtrados = todosLosCasos.filter(p => {
-    const fecha = String(p.created_at||'').slice(0,10);
-    return (!desde || fecha >= desde) && (!hasta || fecha <= hasta);
+    // ultima_actividad (alta + cualquier intervención/seguimiento/
+    // derivación, lo que sea más reciente) en vez de created_at — si no,
+    // un seguimiento sobre un caso de días atrás no entraba en el rango
+    // de hoy, dando la impresión de que el operador no hizo nada en su
+    // jornada (pedido de Agustina, sept/2026).
+    const fecha = p.ultima_actividad || p.created_at;
+    if(!fecha) return false;
+    return (!desdeUtc || fecha >= desdeUtc) && (!hastaUtc || fecha < hastaUtc);
   });
   const lista = filtrados.map(p => ({
     id: p.id,
@@ -353,9 +370,10 @@ function aplicarFiltro(){
     consumoActivo: !!p.consumo_activo,
     duplicado: duplicadosActuales.idsDuplicados.has(p.id),
     creadoEn: p.created_at,
+    ultimaActividad: p.ultima_actividad,
   }));
 
-  document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'} cargado${lista.length===1?'':'s'} entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
+  document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
   document.getElementById('cont').innerHTML = renderAlertaDuplicados(duplicadosActuales.grupos) + renderAgrupadoPorTurno(lista);
 }
 

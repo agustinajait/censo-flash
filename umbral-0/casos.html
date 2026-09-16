@@ -328,12 +328,13 @@
         <select id="buscar-dupla" onchange="Casos.buscarPersonas(document.getElementById('buscar-input').value.trim())" style="display:none;max-width:180px;">
           <option value="">Todas las duplas</option>
         </select>
-        <!-- Filtro por fecha de alta — visible para todas las cuentas
+        <!-- Filtro por fecha de ACTIVIDAD — visible para todas las cuentas
              (admin y dupla), a diferencia del selector de dupla de arriba,
              que es redundante para una cuenta de dupla. Filtra sobre
-             `created_at` (cuándo se cargó el caso), no sobre la última
-             actividad. -->
-        <input type="date" id="buscar-fecha" title="Filtrar por fecha de alta" onchange="Casos.buscarPersonas(document.getElementById('buscar-input').value.trim())" style="max-width:150px;">
+             `ultima_actividad` (alta + cualquier intervención/seguimiento/
+             derivación, lo que sea más reciente), no sobre `created_at` a
+             secas — ver buscarPersonas() más abajo. -->
+        <input type="date" id="buscar-fecha" title="Filtrar por fecha de actividad (alta, intervención, seguimiento o derivación)" onchange="Casos.buscarPersonas(document.getElementById('buscar-input').value.trim())" style="max-width:150px;">
         <button type="button" class="btn btn-outline btn-sm" id="btn-limpiar-fecha" onclick="document.getElementById('buscar-fecha').value=''; Casos.buscarPersonas(document.getElementById('buscar-input').value.trim());" style="display:none;">✕ Fecha</button>
         <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Ingresar nuevo caso</button>
       </div>
@@ -1912,12 +1913,17 @@ const Casos = {
     const duplaSel = document.getElementById('buscar-dupla');
     const duplaId = duplaSel && duplaSel.style.display !== 'none' ? duplaSel.value : '';
     if(duplaId) query = query.eq('dupla_id', duplaId);
-    // Filtro por fecha de alta (sept/2026, pedido de Agustina) — compara
-    // contra el rango UTC del día LOCAL elegido (Buenos Aires, UTC-3), no
-    // contra el string de fecha tal cual: comparar created_at (timestamp
-    // UTC) contra "2026-09-16" a secas cuenta mal los casos cargados entre
-    // las 21:00 y las 23:59 hora local (mismo bug de huso horario que ya
-    // se corrigió en hoyStr() — ver DISENO-CASOS.md).
+    // Filtro por fecha de ACTIVIDAD (sept/2026, pedido de Agustina) —
+    // compara contra el rango UTC del día LOCAL elegido (Buenos Aires,
+    // UTC-3), no contra el string de fecha tal cual: comparar un timestamp
+    // UTC contra "2026-09-16" a secas cuenta mal lo pasado entre las 21:00
+    // y las 23:59 hora local (mismo bug de huso horario que ya se corrigió
+    // en hoyStr() — ver DISENO-CASOS.md). Filtra por `ultima_actividad`
+    // (alta + cualquier intervención/seguimiento/derivación, lo que sea
+    // más reciente — ya viene resuelto en la vista `personas_actividad`),
+    // NO por `created_at`: si no, un seguimiento sobre un caso de días
+    // atrás no aparecía en el filtro de "hoy", dando la impresión de que
+    // el operador no hizo nada en su jornada.
     const fechaInput = document.getElementById('buscar-fecha');
     const fechaSel = fechaInput ? fechaInput.value : '';
     const btnLimpiarFecha = document.getElementById('btn-limpiar-fecha');
@@ -1925,7 +1931,7 @@ const Casos = {
     if(fechaSel){
       const desdeUtc = new Date(fechaSel + 'T03:00:00.000Z');
       const hastaUtc = new Date(desdeUtc.getTime() + 24*60*60*1000);
-      query = query.gte('created_at', desdeUtc.toISOString()).lt('created_at', hastaUtc.toISOString());
+      query = query.gte('ultima_actividad', desdeUtc.toISOString()).lt('ultima_actividad', hastaUtc.toISOString());
     }
     const { data, error } = await query;
     if(error){ cont.innerHTML = `<div class="empty-msg">Error buscando personas: ${esc(error.message)}</div>`; return; }
