@@ -622,3 +622,15 @@ where coalesce(trim(p.dni), '') <> ''
 -- la ficha ("Qué se hizo: ...").
 alter table public.intervenciones
   add column if not exists acciones text[] not null default '{}'::text[];
+
+-- kobo_validaciones.acciones (sept/2026) — pedido de Agustina: "sigo sin
+-- poder ver qué hacen con la acción mis operadores". El checklist de
+-- arriba (ACCIONES_INTERVENCION) vivía solo en "Registrar intervención",
+-- un paso opcional aparte que casi nadie llegaba a tocar (caso real
+-- revisado en producción: el envío de KoBo ni siquiera estaba validado
+-- todavía). Se agrega la MISMA lista de acciones directo adentro del
+-- modal de "Validar envío de KoBo" — el único paso que todas las duplas
+-- sí hacen — para que quede capturado de forma confiable, en vez de
+-- depender de un cuarto click que se salta.
+alter table public.kobo_validaciones
+  add column if not exists acciones text[] not null default '{}'::text[];
