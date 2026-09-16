@@ -1561,6 +1561,30 @@ lista general de pendientes, pero disponible desde CUALQUIER ficha — no
 depende de que el caso ya tenga un nombre para sugerir la asociación, así
 que también sirve para casos completamente sin identificar.
 
+### 10.1.5 Filtros por fecha: `ultima_actividad`, no `created_at` (16/9/2026)
+
+Reportado por Agustina: "cuando veo los casos por fecha o en vivo, no se
+reflejan los casos de seguimiento, entonces parece que el operador no hizo
+nada en su jornada". Tanto el filtro por fecha de `casos.html` (§10.1.2)
+como el de `casos-en-vivo.html` filtraban por `created_at` (fecha de
+ALTA) — un seguimiento sobre un caso de días atrás no tocaba ese campo,
+así que un operador que solo hizo seguimientos (sin altas nuevas) en su
+jornada parecía no haber hecho nada al filtrar por "hoy".
+
+Fix: se agregó `ultima_actividad` a la vista `personas_listado_publico`
+(mismo cálculo `GREATEST()` que ya usaba `personas_actividad` para
+`casos.html` — alta + el más reciente entre intervenciones/seguimientos/
+derivaciones) y ambas pantallas pasaron a filtrar por ahí en vez de por
+`created_at`. `casos-en-vivo.html` de paso corrigió el mismo cuidado de
+huso horario que ya se aplicó en otros lados (comparar el string de fecha
+a secas contra un timestamp UTC subcuenta lo que pasó entre las 21:00 y
+las 23:59 hora local) — antes comparaba `created_at.slice(0,10)` contra el
+string de fecha del filtro directo, sin ese ajuste.
+
+`casos-en-vivo.html` también suma una fila "Última actividad" en el
+detalle de cada caso, al lado de "Cargado" (fecha de alta), para que se
+entienda por qué un caso con alta vieja aparece en un rango reciente.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

@@ -642,3 +642,59 @@ alter table public.kobo_validaciones
 -- propio de la dupla como en el del admin (ver DISENO-CASOS.md §10.1.1).
 -- insert into public.integrantes (dupla_id, rol, nombre, apellido, activo)
 -- values ('97385a43-466e-42a4-bf8f-7b129532d1c8', 'operador', 'Mia', 'Cubero', true);
+
+-- personas_listado_publico + ultima_actividad (16/9/2026) — pedido de
+-- Agustina: "cuando veo los casos por fecha o en vivo, no se reflejan los
+-- casos de seguimiento, entonces parece que el operador no hizo nada en
+-- su jornada". La vista solo traía `created_at` (fecha de alta); filtrar
+-- casos-en-vivo.html por ese campo hacía que un seguimiento sobre un caso
+-- de días atrás no apareciera en el rango de "hoy". Se agrega
+-- `ultima_actividad` (mismo cálculo GREATEST() que ya usa la vista
+-- `personas_actividad`) y casos-en-vivo.html/casos.html pasan a filtrar
+-- por ahí. Ya aplicada en producción vía mcp Supabase — dejo acá el
+-- create or replace view completo para que quede versionado.
+create or replace view public.personas_listado_publico as
+select
+  p.id,
+  p.nombre,
+  p.apellido,
+  p.dni,
+  p.dni_denuncia_extravio,
+  p.sin_identificar,
+  p.zona,
+  p.comuna,
+  p.punto_contacto,
+  p.criticidad,
+  p.nivel_actual,
+  p.acepta_entrevista,
+  p.historia_breve,
+  p.fecha_nacimiento,
+  p.telefono_contacto,
+  p.situacion_habitacional,
+  p.situacion_economica,
+  p.situacion_educativa,
+  p.redes_contencion,
+  p.estado,
+  p.created_at,
+  d.codigo as dupla_codigo,
+  p.nacionalidad,
+  p.situacion_sanitaria,
+  p.estado_salud,
+  p.medicacion,
+  p.esquema,
+  p.sube_escaleras,
+  p.cama_arriba,
+  p.estuvo_en_cis_antes,
+  p.estuvo_en_cis_detalle,
+  p.consumo_activo,
+  d.turno as dupla_turno,
+  d.es_referente as dupla_es_referente,
+  greatest(
+    p.created_at,
+    (select max(i.created_at) from intervenciones i where i.persona_id = p.id),
+    (select max(s.created_at) from seguimientos s where s.persona_id = p.id),
+    (select max(dv.created_at) from derivaciones dv where dv.persona_id = p.id)
+  ) as ultima_actividad
+from personas p
+join duplas d on d.id = p.dupla_id
+where coalesce(p.oculto, false) = false;
