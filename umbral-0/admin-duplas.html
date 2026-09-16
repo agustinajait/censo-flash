@@ -543,7 +543,7 @@ async function cargarOperadoresPorTurno(){
     const client = await SupabaseClient.getClient();
     const [{ data: duplas, error: errD }, { data: integrantes, error: errI }] = await Promise.all([
       client.from('duplas').select('id, codigo, zona, turno').eq('activa', true),
-      client.from('integrantes').select('nombre, apellido, dni, telefono, dupla_id').neq('rol', 'chofer'),
+      client.from('integrantes').select('nombre, apellido, dni, telefono, dupla_id').neq('rol', 'chofer').eq('activo', true),
     ]);
     if(errD) throw errD;
     if(errI) throw errI;
@@ -921,7 +921,12 @@ async function cargarDuplas(){
 function renderDuplaCard(d){
   const card = document.createElement('div');
   card.className = 'card';
-  const operadores = (d.integrantes || []).filter(i => i.rol !== 'chofer');
+  // activo !== false (no .eq('activo',true) en la query: el embed de
+  // Supabase no lo permite fácil) — un integrante dado de baja (ver
+  // "🗑️ Eliminar" en renderIntegranteRow) sigue existiendo en la base
+  // para que el matching de KoBo lo siga reconociendo en envíos viejos,
+  // pero no debe aparecer acá como si siguiera activo.
+  const operadores = (d.integrantes || []).filter(i => i.rol !== 'chofer' && i.activo !== false);
   const turnoOpts = ['', 'T1', 'T2', 'T3', 'T4'].map(t =>
     `<option value="${t}" ${t===(d.turno||'')?'selected':''}>${t ? t + ' · ' + TURNO_HORARIO[t] : '—'}</option>`
   ).join('');
@@ -1172,9 +1177,17 @@ function renderIntegranteRow(i){
     const { error } = await (await SupabaseClient.getClient()).from('integrantes').update(fields).eq('id', i.id);
     if(error){ alert('No se pudo guardar: ' + error.message); return; }
   };
+  // Baja lógica (activo=false), no delete real — incidente real (16/9/2026):
+  // se había borrado a dos integrantes de dupla C al reemplazarlas por dos
+  // nuevas, y eso rompió el matching de envíos de KoBo viejos hechos bajo
+  // su nombre (el operador de un envío de KoBo se matchea contra TODOS los
+  // integrantes que haya habido alguna vez, no solo los activos — ver
+  // cargarKoboPendientes() en casos.html). Con soft-delete, "eliminar"
+  // saca a la persona de las pantallas de roster (acá y en "Operadores por
+  // turno") sin perder ese historial.
   row.querySelector('[data-act="eliminar"]').onclick = async () => {
     if(!confirm('¿Eliminar a ' + (i.nombre || 'esta persona') + ' del equipo?')) return;
-    const { error } = await (await SupabaseClient.getClient()).from('integrantes').delete().eq('id', i.id);
+    const { error } = await (await SupabaseClient.getClient()).from('integrantes').update({ activo:false }).eq('id', i.id);
     if(error){ alert('No se pudo eliminar: ' + error.message); return; }
     row.remove();
   };
@@ -1193,7 +1206,7 @@ async function cargarChoferes(){
   const client = await SupabaseClient.getClient();
   const cont = document.getElementById('choferes-list');
   const { data, error } = await client
-    .from('integrantes').select('*').eq('rol', 'chofer').order('apellido', { ascending: true });
+    .from('integrantes').select('*').eq('rol', 'chofer').eq('activo', true).order('apellido', { ascending: true });
   if(error){ cont.innerHTML = '<div class="empty-msg">Error cargando choferes: '+esc(error.message)+'</div>'; return; }
   cont.innerHTML = '';
   if(!data || !data.length){ cont.innerHTML = '<div class="empty-msg">Todavía no hay choferes cargados.</div>'; return; }

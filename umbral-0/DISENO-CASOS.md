@@ -1624,6 +1624,43 @@ ya existente**: revisar primero si la definición original tenía `WITH
 siempre en el reemplazo — perderlo no da ningún error, así que hay que
 acordarse a propósito.
 
+### 10.1.7 `integrantes.activo` — de columna muerta a baja lógica real (16/9/2026)
+
+Otro incidente real encadenado con el de dupla C: al reemplazar a Rocio
+Puebla Zabala y Marina Zabala por Pablo Daniel Carrizo y Mia Cubero (pedido
+de Agustina, "van a ser fijos de dupla C"), se las sacó con un `DELETE`
+real de `integrantes`. Resultado: dupla C dejó de ver como pendientes los
+3 envíos de KoBo de ayer, porque el matching operador→dupla
+(`misNombres`/`duplaPorNombre`, ver §10.1) los compara contra los
+integrantes CARGADOS ACTUALMENTE — al borrar a Rocio y Marina, sus
+nombres dejaron de matchear contra nada, ni en dupla C ni en ningún lado.
+
+La columna `integrantes.activo` ya existía en el esquema (default `true`)
+pero **no la usaba ningún lado del código** — ni un toggle en la UI, ni
+ningún filtro en ninguna query. El único mecanismo real para sacar a
+alguien del equipo era el botón 🗑️ "Eliminar", que hacía un `DELETE`
+literal.
+
+Fix: se recuperó a Rocio y Marina como integrantes de dupla C
+(`activo=false`, para destrabar el matching de los 3 envíos viejos) y se
+terminó de conectar `activo` en todo el código:
+
+- **"Eliminar" ahora es baja lógica** (`update({activo:false})`, no
+  `delete()`) — en `admin-duplas.html`, tanto para integrantes de dupla
+  como para choferes (misma función `renderIntegranteRow`).
+- **Las pantallas de ROSTER filtran por activo** (para que una persona
+  dada de baja deje de aparecer como si siguiera en el equipo): el listado
+  editable de "Duplas territoriales" (client-side, el embed de Supabase no
+  filtra fácil un recurso anidado), "👥 Operadores por turno" (§10.1.1), la
+  lista de choferes, y el gate obligatorio de "completá tus datos" de
+  `casos.html` (si no, una persona dada de baja sin DNI/teléfono cargado
+  podía quedar bloqueando el ingreso de la dupla para siempre).
+- **El matching de KoBo (operador→dupla) NO filtra por activo, a
+  propósito** — sigue comparando contra TODOS los integrantes que haya
+  habido alguna vez en esa dupla, activos o no. Es la única forma de que
+  un envío viejo hecho por alguien que ya no está en el equipo se pueda
+  seguir reconociendo y confirmando.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

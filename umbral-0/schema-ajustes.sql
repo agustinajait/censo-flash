@@ -756,3 +756,16 @@ select
 from personas p
 join duplas d on d.id = p.dupla_id
 where coalesce(p.oculto, false) = false;
+
+-- Ya usado en producción (16/9/2026, ver DISENO-CASOS.md §10.1.7): al
+-- reemplazar a Rocio Puebla Zabala y Marina Zabala por Pablo Daniel
+-- Carrizo y Mia Cubero en dupla C se las había borrado con un DELETE
+-- real, lo que rompió el matching de 3 envíos de KoBo viejos hechos bajo
+-- su nombre. Se las recupera como integrantes inactivos (activo=false)
+-- para que el matching (que compara contra TODOS los integrantes que
+-- haya habido alguna vez, no solo los activos) los vuelva a reconocer.
+insert into public.integrantes (dupla_id, rol, nombre, apellido, activo)
+values
+  ('97385a43-466e-42a4-bf8f-7b129532d1c8', 'operador', 'Rocio', 'Puebla Zabala', false),
+  ('97385a43-466e-42a4-bf8f-7b129532d1c8', 'operador', 'Marina', 'Zabala', false)
+on conflict do nothing;
