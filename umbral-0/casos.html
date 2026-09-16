@@ -1553,6 +1553,17 @@ async function cargarKoboDePersona(persona){
   const project = window.PROJECT_CONFIG;
   const form = project && project.kobo && (project.kobo.forms||[])[0];
   const dni = String(persona.dni || '').trim();
+  // Fallback por nombre (sept/2026) — reportado por Gastón/dupla E: cargó
+  // en KoBo un "seguimiento" de un caso de ayer y no le apareció acá para
+  // validar. La rama de "Seguimiento" de KoBo re-pregunta el DNI
+  // (dni_segui) pero no es obligatorio — si la dupla ya conoce a la
+  // persona y no lo vuelve a tipear, el envío queda sin DNI y el matching
+  // exclusivo por DNI de abajo no lo encuentra nunca. Acá ya estamos dentro
+  // de la ficha de UNA persona puntual (no es una lista general como
+  // cargarKoboPendientes()), así que matchear por nombre normalizado es
+  // seguro: igual la dupla tiene que tocar "✅ Validar" a mano, no se
+  // asocia nada solo.
+  const nombrePersona = normalizarNombreKobo(`${persona.nombre||''} ${persona.apellido||''}`);
   try{
     const client = await SupabaseClient.getClient();
     const [{ data: validaciones }, parsed] = await Promise.all([
@@ -1561,13 +1572,19 @@ async function cargarKoboDePersona(persona){
     ]);
     (validaciones||[]).forEach(v => { koboValidacionesActuales[v.kobo_submission_id] = v; });
     const idsValidados = new Set(Object.keys(koboValidacionesActuales));
-    if(!dni && !idsValidados.size) return; // nada para matchear
+    if(!dni && !idsValidados.size && !nombrePersona) return; // nada para matchear
 
     koboEventosActuales = parsed
       .filter(p => {
-        if(dni && String((p.persona && p.persona.dni) || '').trim() === dni) return true;
+        const dniEnvio = String((p.persona && p.persona.dni) || '').trim();
+        if(dni && dniEnvio === dni) return true;
         const subId = koboSubmissionId(p);
-        return !!(subId && idsValidados.has(subId));
+        if(subId && idsValidados.has(subId)) return true;
+        if(!dniEnvio && nombrePersona){
+          const nombreEnvio = normalizarNombreKobo(`${(p.persona&&p.persona.nombre)||''} ${(p.persona&&p.persona.apellido)||''}`);
+          if(nombreEnvio && nombreEnvio === nombrePersona) return true;
+        }
+        return false;
       })
       .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
   }catch(e){
