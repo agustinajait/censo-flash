@@ -1484,6 +1484,26 @@ No se tocó `casos.html`: agregar a la persona como integrante arregla el
 matching ahí también, así que no hace falta ninguna vista adicional en la
 cuenta de la propia dupla.
 
+### 10.1.2 Filtro por fecha y duplicados directo en `casos.html` (16/9/2026)
+
+Mismo día, pedido de Agustina viendo la lista de casos de dupla C (con los
+duplicados de "Jorge Alejo Medina Avalos" a la vista):
+
+- **Filtro por fecha de alta** en la barra de búsqueda de `casos.html`
+  (`buscar-fecha`, junto a `buscar-input`/`buscar-dupla`) — a diferencia del
+  selector de dupla, es visible para TODAS las cuentas (admin y dupla), no
+  solo admin/coordinación. Filtra `personas.created_at` contra el rango UTC
+  del día local elegido (Buenos Aires, UTC-3) — comparar contra el string de
+  fecha a secas hubiera subcontado los casos cargados entre las 21:00 y las
+  23:59 hora local, mismo bug de huso horario que ya se corrigió en
+  `hoyStr()` en otras pantallas.
+- **Posibles duplicados** directo en la pantalla de Casos
+  (`duplicados-casos-box`, arriba de la lista de resultados) — mismo
+  criterio y mismo mecanismo reversible (`personas.oculto`) que ya existía
+  en `admin-duplas.html` (`revisarDuplicadosAdmin()`/`ocultarCasoAdmin()`),
+  duplicado acá para no obligar a ir a otra pantalla. Respeta el RLS de cada
+  cuenta: una dupla solo ve (y solo puede ocultar) sus propios duplicados.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
