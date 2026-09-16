@@ -2145,25 +2145,22 @@ const Casos = {
     }
   },
 
-  async asociarKoboCandidato(idx){
+  // Ojo: acá NO se guarda nada en kobo_validaciones todavía — eso pasaría
+  // por alto el checklist de "¿qué hiciste con este caso?" (mismo motivo
+  // por el que ese checklist se movió adentro de "Validar envío de KoBo",
+  // ver DISENO-CASOS.md §10.1.3/10.1.4: si se guarda como ya-validado sin
+  // pedir nada más, queda para siempre sin ese dato salvo que alguien
+  // vuelva a entrar a "✏️ Editar nota" por su cuenta, cosa que nadie hace).
+  // "Asociar" solo hace que el envío aparezca en el timeline de esta
+  // ficha; el guardado real pasa por el mismo paso de Validar de siempre.
+  asociarKoboCandidato(idx){
     const p = asociarKoboCandidatosActuales[idx];
     const subId = p && koboSubmissionId(p);
     if(!subId || !personaActual) return;
-    try{
-      const client = await SupabaseClient.getClient();
-      const { error } = await client.from('kobo_validaciones').upsert({
-        kobo_submission_id: subId,
-        persona_id: personaActual.id,
-        dupla_id: personaActual.dupla_id || null,
-        creado_por: miPerfil.id,
-      }, { onConflict: 'kobo_submission_id,persona_id' });
-      if(error) throw error;
-      closeModal();
-      await cargarKoboDePersona(personaActual);
-      Casos._renderTimeline();
-    }catch(e){
-      alert('No se pudo asociar: ' + e.message);
-    }
+    if(!koboEventosActuales.some(e => koboSubmissionId(e) === subId)) koboEventosActuales.push(p);
+    closeModal();
+    Casos._renderTimeline();
+    Casos.abrirModalValidarKobo(subId);
   },
 
   _renderFormPersona(persona, prefill){
