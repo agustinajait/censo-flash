@@ -77,7 +77,13 @@ const duplas = [
   // numeración. Ver DISENO-CASOS.md (Censo Flash) para más contexto si se
   // repite con otra dupla del grupo 'nueva' (21-33).
   { id:'27', zona:'Caballito Norte',           poligono:'Polígono 27', comuna:'C.6',  kobo:KOBO_SUR,    mymaps:'https://www.google.com/maps/d/viewer?mid=1w9FuYUSoMOfDtPC02a67h63zvj8kNyA', grupo:'nueva' },
-  { id:'28', zona:'Once',                      poligono:'Polígono 28', comuna:'C.3',  kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1vpaKauq8MKfhQ7j5MNJFqpQgrNUT4mU', grupo:'nueva' },
+  // mymaps actualizado 16/9/2026: el mapa viejo (mid=1vpaKauq8MKfhQ7j5MNJFqpQgrNUT4mU)
+  // quedó con el polígono de Caballito Norte pisado por encima del de Once
+  // (mismo incidente de numeración cruzada que dupla 27, ver esa entrada
+  // más arriba). Se recuperó el límite original de Once desde el mapa
+  // maestro "Recorridos flash agosto" (capa "Once", intacta ahí) y se
+  // armó un mapa nuevo con ese polígono.
+  { id:'28', zona:'Once',                      poligono:'Polígono 28', comuna:'C.3',  kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=16TqFFI88VB48VnqN1Hs9pWJDNfZYabo', grupo:'nueva' },
   { id:'29', zona:'Villa Crespo',              poligono:'Polígono 29', comuna:'C.15', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1Y5-QKnPRqLvVQlqOHjeHbJP6OMGlKJk', grupo:'nueva' },
   { id:'30', zona:'Agronomía',                 poligono:'Polígono 30', comuna:'C.15', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=1T4noPhcGo8Be-84jQEb14iMY-ij8kFk', grupo:'nueva' },
   { id:'31', zona:'Chacarita',                 poligono:'Polígono 31', comuna:'C.15', kobo:KOBO_CENTRO, mymaps:'https://www.google.com/maps/d/viewer?mid=16zz_Ns9avN3ni92oTIcEu2dF2xveFDg', grupo:'nueva' },
