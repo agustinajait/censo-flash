@@ -568,7 +568,8 @@
         <div class="paso-txt">
           <div class="titulo">4 · Validá lo que ya trajo KoBo</div>
           <div class="desc">Cada vez que vuelvas a completar el KoBo de alguien que <strong>ya tiene caso cargado acá</strong> (mismo DNI), ese envío aparece solo en el <strong>Historial</strong> de su ficha — con qué pasó (derivación, llamado a SAME, contacto con Policía/911, etc.), si sigue en seguimiento, y las notas que hayas puesto. Tocá <strong>"✅ Validar / agregar nota"</strong> para confirmar que está bien.
-            <div class="alert-info" style="margin-top:10px;">✅ Adentro de ese modal hay una lista <strong>"¿Qué hiciste con este caso?"</strong> — tildá todo lo que corresponda (llamado a SAME, derivación a CIS, llamado al teléfono rojo, contacto con Policía/911, "se acercó pero no aceptó hablar" si se negó a la entrevista, etc.) y una nota opcional para lo que el KoBo no preguntó. <strong>Esto es lo único que hace falta tocar</strong> para que quede registrado qué hiciste — no hace falta ningún paso extra después.</div>
+            <div class="alert-info" style="margin-top:10px;">✅ Adentro de ese modal hay una lista <strong>"¿Qué hiciste con este caso?"</strong> — la primera vez que validás un envío, viene <strong>pre-tildada con lo que ya contestaste en KoBo</strong> (llamado a SAME, contacto con Policía/911, etc.), así no lo volvés a tipear; revisala y ajustá si hace falta (hay opciones que KoBo no tiene, como derivación a CIS o llamado al teléfono rojo — esas las tildás vos a mano). Sumá una nota opcional para lo que KoBo no preguntó.</div>
+            <div class="alert-info" style="margin-top:10px;">📨 <strong>Si tildaste algo que necesita una derivación formal</strong> (CIS, Casa Vincular, Programa Ciudadanía Porteña, SAME, Salud Mental o Policía de la Ciudad), al guardar la plataforma te va a ofrecer un botón puntual como <strong>"📨 Completar derivación a CIS"</strong>, con el tipo ya elegido. Tildar la casilla del checklist <strong>no</strong> reemplaza pedirla de verdad — son dos registros distintos a propósito: uno es "qué pasó", el otro es la solicitud formal con los datos que pide ese tipo (por ejemplo, la foto de DNI para CIS).</div>
             <div class="alert-info" style="margin-top:10px;">📌 Si mañana (o cualquier otro día) vuelven a contactar a la misma persona: cargan el KoBo con su DNI de siempre, y ese envío nuevo aparece solo en <strong>el mismo legajo de esta persona</strong>, como una entrada nueva con la fecha de ese día — no se crea un caso aparte ni se pisa nada de lo que ya estaba. Validan, y listo: el legajo va sumando cada visita, todo junto.</div>
             <figure class="paso-captura">
               <img src="capturas/2-ficha-timeline-kobo.png" alt="Ficha de un caso con el Legajo y, debajo, el Historial mostrando la tarjeta &quot;Envío de KoBo — Seguimiento&quot; con qué pasó, si sigue en seguimiento, y el botón Validar / agregar nota.">
@@ -596,7 +597,7 @@
         <div class="paso-circulo">📝</div>
         <div class="paso-txt">
           <div class="titulo">6 · Seguimiento: intervención, comentario o derivación</div>
-          <div class="desc">Al validar un envío de KoBo, la plataforma te pregunta si querés agregar algo más: <strong>"➕ Registrar tu intervención"</strong> (para algo que pasó <strong>aparte</strong> de esa visita, ej. un llamado telefónico otro día), o <strong>"💬 Agregar un comentario"</strong> (una nota libre o un ítem de checklist). Si ya tildaste todo lo que corresponde al validar (paso 4), no hace falta tocar nada más acá — "No, ya terminé" alcanza. Si hace falta pedir un recurso puntual (CIS, Casa Vincular, etc.), usá <strong>"📨 Pedir derivación"</strong> desde la ficha. Para una urgencia (CIS espontáneo, salud mental, familias en riesgo), usá <strong>"🚨 Avisar a coordinación"</strong> — manda un WhatsApp con el mensaje ya armado.
+          <div class="desc">Al validar un envío de KoBo, la plataforma te pregunta si querés agregar algo más: <strong>"➕ Registrar tu intervención"</strong> (para algo que pasó <strong>aparte</strong> de esa visita, ej. un llamado telefónico otro día), o <strong>"💬 Agregar un comentario"</strong> (una nota libre o un ítem de checklist). Si tildaste en el checklist algo con derivación formal equivalente (CIS, Casa Vincular, Ciudadanía Porteña, SAME, Salud Mental, Policía), acá arriba de todo va a aparecer un botón puntual para completarla ya, con el tipo preseleccionado (ver paso 4). Si no hace falta nada de eso, "No, ya terminé" alcanza. Para pedir cualquier otro recurso puntual, usá <strong>"📨 Pedir derivación"</strong> desde la ficha cuando quieras. Para una urgencia (CIS espontáneo, salud mental, familias en riesgo), usá <strong>"🚨 Avisar a coordinación"</strong> — manda un WhatsApp con el mensaje ya armado.
             <figure class="paso-captura">
               <img src="capturas/4-modal-algo-mas.png" alt="Modal &quot;¿Algo más?&quot; después de validar, con los botones Registrar tu intervención, Agregar un comentario, y No ya terminé.">
               <div class="paso-captura-cap">Aparece apenas guardás la validación — elegís y listo.</div>
@@ -677,6 +678,16 @@
       <div class="gcard-body">
         <p><strong>"📄 Generar carta de soflex"</strong> abre un documento externo ya armado para pedir el beneficio social de soflex para esa persona.</p>
         <p><strong>"🗑️ Eliminar caso"</strong> borra el caso completo — ficha, intervenciones, derivaciones y seguimientos — de forma permanente, y por eso solo lo puede hacer una cuenta admin (ni coordinación puede). Para sacar un caso duplicado, no uses esto: usá "Ocultar" (ver "Posibles duplicados" arriba), que es reversible.</p>
+      </div>
+    </details>
+    <details class="gcard">
+      <summary>
+        <span class="gcard-icono" style="background:#fef3c7;">📨</span>
+        <div class="gcard-titulo"><div class="nombre">¿Alcanza con tildar "Derivación a CIS" en el checklist?</div></div>
+        <span class="chevron">▸</span>
+      </summary>
+      <div class="gcard-body">
+        <p>No. Tildar el checklist ("¿Qué hiciste con este caso?") solo deja constancia de <strong>qué pasó</strong> — no es lo mismo que pedirla de verdad. Cuando tildás algo con derivación formal equivalente (CIS, Casa Vincular, Programa Ciudadanía Porteña, SAME, Salud Mental o Policía de la Ciudad), la plataforma te ofrece un botón para completar <strong>ese</strong> formulario puntual apenas guardás — usalo, porque ahí es donde se cargan los datos que ese tipo de derivación necesita de verdad (por ejemplo, la foto de DNI para CIS) y es lo único que queda registrado como derivación en el reporte.</p>
       </div>
     </details>
   </div>
