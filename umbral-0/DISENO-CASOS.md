@@ -1864,6 +1864,50 @@ timeline distingue "vos" vs "equipo", ver `_renderTimelineItem` en
 `casos.html`). Ya aplicado en producción — `derivaciones` va a empezar a
 sumar filas reales a partir de ahora.
 
+### 10.1.14 "KoBo sin identificar" — pendientes sin nombre ni DNI dejaban de existir para la plataforma (17/9/2026)
+
+Reportado por dupla F: "Marcelo Gissi cargó 5 casos en KoBo (Primer
+Acercamiento) pero no los veo en la plataforma". Confirmado con
+Agustina: los 5 envíos no tenían nombre ni DNI (la persona no quiso
+identificarse). Respuesta de Agustina al plantear el problema: "si la
+persona no da nombre no es su culpa, tienen que aparecer y hacerle el
+seguimiento".
+
+Causa: "KoBo pendientes" (tanto `cargarKoboPendientes()` en `casos.html`
+como `cargarKoboPendientesAdmin()` en `admin-duplas.html`) solo mostraba
+envíos **con DNI** (`porDni`/`porDuplaYDni`). Un envío sin DNI solo se
+mostraba si el nombre matcheaba un caso YA cargado (`posiblesContinuaciones`,
+§4). Para un Primer Acercamiento sin nombre NI DNI no había ningún
+mecanismo — el envío quedaba invisible para siempre, sin ningún aviso.
+De paso se encontró un caso similar: un envío sin DNI **con** nombre
+pero que no matcheaba ningún caso existente (persona nueva sin DNI)
+tampoco se mostraba en ningún lado — mismo agujero, bonus fix.
+
+Fix — nueva sección **"🙈 X envíos de KoBo sin nombre ni DNI"** en
+`casos.html` (arriba de la búsqueda, junto a "KoBo pendientes") y
+**"🙈 KoBo sin identificar"** en `admin-duplas.html` (solo lectura,
+mismo criterio que la tabla de pendientes con DNI):
+
+- `casos.html` (`koboSinIdentificarActuales`): envíos de mi dupla sin DNI
+  y sin nombre que matchee un caso ya cargado (cubre tanto los
+  completamente anónimos como los que sí tienen nombre pero son
+  persona nueva). Botón **"➕ Cargar como 'Sin identificar'"** abre el
+  alta con esa casilla ya tildada y el resto del prefill de KoBo
+  (situación habitacional/económica/educativa/redes, igual que
+  `confirmarKoboPendiente()` — se extrajo un helper común,
+  `_prefillDesdeKobo()`). Un envío deja de aparecer acá en cuanto queda
+  vinculado a un caso vía `kobo_validaciones` (por ejemplo, usando
+  "🔗 Asociar envío de KoBo" desde la ficha recién creada — ver
+  §10.1.9/§10.1.10 del "Asociar" original).
+- `admin-duplas.html` (`cargarKoboPendientesAdmin()`, ahora calcula
+  ambas tablas en el mismo fetch de KoBo para no duplicar la carga de
+  ~3000 filas): mismo criterio pero simplificado a "sin DNI y sin
+  nombre" (no trae el padrón de nombres por dupla que sí tiene
+  `casos.html`) — cubre el caso real reportado. Muestra dupla/tipo/
+  fecha/operador/detalle (`características` de KoBo si está), sin botón
+  de acción — sigue siendo solo lectura, cada dupla resuelve los suyos
+  desde Casos.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

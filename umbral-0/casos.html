@@ -434,6 +434,7 @@ let koboEventosActuales = []; // envíos de KoBo de esta persona (ver cargarKobo
 let koboValidacionesActuales = {}; // kobo_submission_id -> fila de kobo_validaciones, de la persona abierta
 let koboPosiblesContinuacionesActuales = []; // envíos sin DNI que podrían ser un caso ya cargado (ver cargarKoboPendientes())
 const koboContinuacionesDescartadas = new Set(); // subIds que el operador ya dijo "no es ella" esta sesión
+let koboSinIdentificarActuales = []; // envíos sin DNI NI nombre matcheable — ver cargarKoboPendientes() y confirmarKoboSinIdentificar()
 let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
@@ -1416,6 +1417,64 @@ function parrafosKobo(textos){
   return textos.filter(Boolean).join('\n\n');
 }
 
+// Arma el prefill del alta a partir de un envío de KoBo parseado — usado
+// tanto por confirmarKoboPendiente() (con DNI) como por
+// confirmarKoboSinIdentificar() (sin nombre ni DNI, ver
+// koboSinIdentificarActuales). `esSinIdentificar` suma la fecha/tipo/
+// operador como primera línea de historia_breve, porque para un caso sin
+// identificar es la única pista de "cuándo y quién lo vio" — con nombre
+// ya queda claro en otro lado.
+function _prefillDesdeKobo(p, esSinIdentificar){
+  const per = p.persona;
+  return {
+    // KoBo devuelve la fecha con hora (ej. "1992-04-21T00:00:00") — el
+    // input type=date solo acepta "YYYY-MM-DD".
+    fecha_nacimiento: per.fechaNacimiento ? String(per.fechaNacimiento).slice(0, 10) : '',
+    nacionalidad: per.nacionalidad || '',
+    estado_salud: per.estadoSalud || '',
+    consumo_activo: per.identificoConsumosProblematicos === true,
+    acepta_entrevista: per.aceptaEntrevistaProlongada === true,
+    historia_breve: parrafosKobo([
+      esSinIdentificar ? `KoBo sin identificar — ${p.tipo||'intervención'} del ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}, cargado por ${p.operador||'—'}.` : null,
+      per.caracteristicas,
+      per.observacionPersona,
+      per.infoCualitativaMotivos,
+      per.estrategiasAbordaje,
+      per.notaDevolucion,
+    ]),
+    situacion_habitacional: lineasKobo([
+      ['Dónde duerme habitualmente', per.lugarHabitual],
+      ['Tiempo en situación de calle', per.tiempoEnCalle],
+      ['Lugar de nacimiento', per.lugarNacimiento],
+      ['De dónde vino antes de la calle', per.lugarViviendaPrevia],
+      ['Tenencia de la vivienda previa', per.tenenciaViviendaPrevia],
+      ['Con quién vivía antes', (per.conQuienVivias||[]).join(', ')],
+    ]),
+    situacion_economica: lineasKobo([
+      ['Tiene actividad económica', per.actividad === true ? 'Sí' : (per.actividad === false ? 'No' : '')],
+      ['Tipo de actividad', per.tipoActividad],
+      ['Prestaciones', (per.prestaciones||[]).join(', ')],
+      ['Ingresos (nota del equipo)', per.notaIngresosMonetarios],
+    ]),
+    situacion_educativa: lineasKobo([
+      ['Asiste a un espacio educativo', per.asisteEducativo],
+      ['Máximo nivel educativo alcanzado', per.maxNivelEducativo],
+    ]),
+    redes_contencion: lineasKobo([
+      ['Vínculos actuales', per.vinculos],
+      ['Cómo ayudan esos vínculos', (per.tipoVinculos||[]).join(', ')],
+      ['Asiste a una institución comunitaria', per.asisteInstitucionComunitaria === true ? (per.institucionComunitariaCual || 'Sí') : (per.asisteInstitucionComunitaria === false ? 'No' : '')],
+      ['Relaciones y vínculos (nota del equipo)', per.notaRelacionesVinculos],
+    ]),
+    situacion_sanitaria: lineasKobo([
+      ['Embarazo', per.embarazo === true ? 'Sí' : (per.embarazo === false ? 'No' : '')],
+      ['Se atiende en un hospital', per.seAtiendeHospital === true ? (per.seAtiendeHospitalCual || 'Sí') : (per.seAtiendeHospital === false ? 'No' : '')],
+      ['Discapacidad', per.discapacidad === true ? (per.discapacidadCual || 'Sí') : (per.discapacidad === false ? 'No' : '')],
+      ['Dificultades relevadas', (per.dificultadPara||[]).filter(d => d !== 'Ninguna' && d !== 'Nsnc').join(', ')],
+    ]),
+  };
+}
+
 function normalizarNombreKobo(s){
   return String(s||'')
     .normalize('NFKD').replace(/[̀-ͯ]/g, '')
@@ -1502,6 +1561,7 @@ async function cargarKoboPendientes(){
 
     const porDni = new Map(); // dni -> envío más reciente (altas nuevas)
     const posiblesContinuaciones = new Map(); // subId -> { persona, envio } (sin DNI, nombre matchea un caso propio)
+    const sinIdentificar = new Map(); // subId -> envío (sin DNI Y sin nombre que matchee un caso propio — ver §10.1.14)
     koboParseadas.forEach(p => {
       if(!misNombres.has(normalizarNombreKobo(p.operador))) return; // no es de mi dupla
       const dni = String((p.persona && p.persona.dni) || '').trim();
@@ -1518,16 +1578,27 @@ async function cargarKoboPendientes(){
       const subId = koboSubmissionId(p);
       if(!subId || idsYaValidados.has(subId) || koboContinuacionesDescartadas.has(subId)) return;
       const nom = normalizarNombreKobo(`${(p.persona&&p.persona.nombre)||''} ${(p.persona&&p.persona.apellido)||''}`);
-      if(!nom) return;
-      const personaMatch = personasPorNombre.get(nom);
-      if(!personaMatch) return;
-      const previo = posiblesContinuaciones.get(subId);
-      if(!previo || (p.fecha||'') > (previo.envio.fecha||'')) posiblesContinuaciones.set(subId, { persona:personaMatch, envio:p, subId });
+      const personaMatch = nom && personasPorNombre.get(nom);
+      if(personaMatch){
+        const previo = posiblesContinuaciones.get(subId);
+        if(!previo || (p.fecha||'') > (previo.envio.fecha||'')) posiblesContinuaciones.set(subId, { persona:personaMatch, envio:p, subId });
+        return;
+      }
+      // Ni DNI ni nombre que matchee un caso ya cargado — sin esto no hay
+      // forma de saber que este envío existe en ningún otro lado de la
+      // plataforma (pedido de Agustina, sept/2026: "cargó 5 casos en KoBo
+      // pero no los veo", los 5 sin nombre ni DNI). Solo un recordatorio —
+      // no se auto-crea nada, la dupla lo carga a mano como "Sin
+      // identificar" y opcionalmente lo vincula después con "🔗 Asociar
+      // envío de KoBo" desde la ficha nueva (eso hace que deje de aparecer
+      // acá, vía idsYaValidados más arriba).
+      sinIdentificar.set(subId, p);
     });
 
     koboPendientesActuales = [...porDni.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
     koboPosiblesContinuacionesActuales = [...posiblesContinuaciones.values()]
       .sort((a,b) => (b.envio.fecha||'').localeCompare(a.envio.fecha||''));
+    koboSinIdentificarActuales = [...sinIdentificar.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
     mostrarKoboPendientes();
   }catch(e){
     console.error('No se pudieron revisar los envíos de KoBo pendientes', e);
@@ -1609,7 +1680,8 @@ function mostrarKoboPendientes(){
   const box = document.getElementById('kobo-pend-box');
   const hayAltas = koboPendientesActuales.length > 0;
   const hayContinuaciones = koboPosiblesContinuacionesActuales.length > 0;
-  if(!hayAltas && !hayContinuaciones){ box.style.display = 'none'; return; }
+  const haySinIdentificar = koboSinIdentificarActuales.length > 0;
+  if(!hayAltas && !hayContinuaciones && !haySinIdentificar){ box.style.display = 'none'; return; }
   box.style.display = 'block';
   box.innerHTML = `
     ${hayAltas ? `
@@ -1639,6 +1711,21 @@ function mostrarKoboPendientes(){
               <button class="btn btn-green btn-sm" onclick="Casos.confirmarContinuacionKobo(${idx})">✅ Sí, es la misma</button>
               <button class="btn btn-outline btn-sm" onclick="Casos.descartarContinuacionKobo(${idx})">No es ella</button>
             </div>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+    ${haySinIdentificar ? `
+      <div class="kobo-pend">
+        <div class="kobo-pend-head">🙈 ${koboSinIdentificarActuales.length} envío${koboSinIdentificarActuales.length===1?'':'s'} de KoBo sin nombre ni DNI — todavía sin caso cargado</div>
+        <div class="section-hint" style="margin:-4px 0 8px;">La persona no quiso identificarse — no es un error, pero igual hay que dejar el contacto registrado para poder hacerle seguimiento.</div>
+        ${koboSinIdentificarActuales.map((p, idx) => `
+          <div class="kobo-pend-card">
+            <div class="kobo-pend-txt">
+              <strong>${esc(p.tipo||'Intervención')}</strong>
+              <div class="meta">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}${p.persona.caracteristicas ? ' · ' + esc(p.persona.caracteristicas) : ''}</div>
+            </div>
+            <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboSinIdentificar(${idx})">➕ Cargar como "Sin identificar"</button>
           </div>
         `).join('')}
       </div>
@@ -1999,55 +2086,26 @@ const Casos = {
   confirmarKoboPendiente(idx){
     const p = koboPendientesActuales[idx];
     if(!p) return;
-    const per = p.persona;
     Casos._renderFormPersona(null, {
-      nombre: per.nombre||'',
-      apellido: per.apellido||'',
-      dni: per.dni||'',
-      // KoBo devuelve la fecha con hora (ej. "1992-04-21T00:00:00") — el
-      // input type=date solo acepta "YYYY-MM-DD".
-      fecha_nacimiento: per.fechaNacimiento ? String(per.fechaNacimiento).slice(0, 10) : '',
-      nacionalidad: per.nacionalidad || '',
-      estado_salud: per.estadoSalud || '',
-      consumo_activo: per.identificoConsumosProblematicos === true,
-      acepta_entrevista: per.aceptaEntrevistaProlongada === true,
-      historia_breve: parrafosKobo([
-        per.caracteristicas,
-        per.observacionPersona,
-        per.infoCualitativaMotivos,
-        per.estrategiasAbordaje,
-        per.notaDevolucion,
-      ]),
-      situacion_habitacional: lineasKobo([
-        ['Dónde duerme habitualmente', per.lugarHabitual],
-        ['Tiempo en situación de calle', per.tiempoEnCalle],
-        ['Lugar de nacimiento', per.lugarNacimiento],
-        ['De dónde vino antes de la calle', per.lugarViviendaPrevia],
-        ['Tenencia de la vivienda previa', per.tenenciaViviendaPrevia],
-        ['Con quién vivía antes', (per.conQuienVivias||[]).join(', ')],
-      ]),
-      situacion_economica: lineasKobo([
-        ['Tiene actividad económica', per.actividad === true ? 'Sí' : (per.actividad === false ? 'No' : '')],
-        ['Tipo de actividad', per.tipoActividad],
-        ['Prestaciones', (per.prestaciones||[]).join(', ')],
-        ['Ingresos (nota del equipo)', per.notaIngresosMonetarios],
-      ]),
-      situacion_educativa: lineasKobo([
-        ['Asiste a un espacio educativo', per.asisteEducativo],
-        ['Máximo nivel educativo alcanzado', per.maxNivelEducativo],
-      ]),
-      redes_contencion: lineasKobo([
-        ['Vínculos actuales', per.vinculos],
-        ['Cómo ayudan esos vínculos', (per.tipoVinculos||[]).join(', ')],
-        ['Asiste a una institución comunitaria', per.asisteInstitucionComunitaria === true ? (per.institucionComunitariaCual || 'Sí') : (per.asisteInstitucionComunitaria === false ? 'No' : '')],
-        ['Relaciones y vínculos (nota del equipo)', per.notaRelacionesVinculos],
-      ]),
-      situacion_sanitaria: lineasKobo([
-        ['Embarazo', per.embarazo === true ? 'Sí' : (per.embarazo === false ? 'No' : '')],
-        ['Se atiende en un hospital', per.seAtiendeHospital === true ? (per.seAtiendeHospitalCual || 'Sí') : (per.seAtiendeHospital === false ? 'No' : '')],
-        ['Discapacidad', per.discapacidad === true ? (per.discapacidadCual || 'Sí') : (per.discapacidad === false ? 'No' : '')],
-        ['Dificultades relevadas', (per.dificultadPara||[]).filter(d => d !== 'Ninguna' && d !== 'Nsnc').join(', ')],
-      ]),
+      nombre: p.persona.nombre||'',
+      apellido: p.persona.apellido||'',
+      dni: p.persona.dni||'',
+      ..._prefillDesdeKobo(p),
+    });
+  },
+
+  // Mismo prefill que confirmarKoboPendiente() pero para un envío SIN
+  // nombre ni DNI (ver koboSinIdentificarActuales / cargarKoboPendientes,
+  // pedido de Agustina sept/2026: "si la persona no da nombre no es su
+  // culpa, tienen que aparecer y hacerle el seguimiento") — abre el alta
+  // con "Sin identificar" ya tildado, la dupla solo tiene que completar
+  // el punto de contacto (obligatorio en ese caso) y revisar el resto.
+  confirmarKoboSinIdentificar(idx){
+    const p = koboSinIdentificarActuales[idx];
+    if(!p) return;
+    Casos._renderFormPersona(null, {
+      sin_identificar: true,
+      ..._prefillDesdeKobo(p, true),
     });
   },
 
