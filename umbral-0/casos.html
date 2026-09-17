@@ -1340,7 +1340,8 @@ function mostrarJornada(){
   let estado, html;
   if(jornadaHoy && jornadaHoy.fin){
     estado = 'completa';
-    html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}</div>`;
+    html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}</div>
+      <button class="btn btn-outline btn-sm" onclick="reabrirJornada()">↩️ Reabrir jornada</button>`;
   } else if(jornadaHoy && jornadaHoy.inicio){
     estado = 'en-curso';
     html = `<div class="jornada-txt">🌤️ <strong>Jornada en curso</strong> — inicio ${fmtHora(jornadaHoy.inicio)}</div>
@@ -1376,6 +1377,27 @@ async function marcarFinJornada(){
     if(error) throw error;
   }catch(e){
     alert('No se pudo marcar el fin: ' + e.message);
+  }finally{
+    await cargarJornadaHoy();
+    mostrarJornada();
+  }
+}
+
+// Reportado en vivo (dupla K, 17/9/2026): marcó fin de jornada por error
+// a los pocos minutos de empezar y no tenía forma de volver a "en curso"
+// — "Jornada de hoy completa" no tenía ningún botón, solo texto. Vuelve
+// a `fin = null` sin tocar `inicio` (no se pierde la hora real de
+// arranque) — la dupla puede seguir trabajando y marcar fin de nuevo
+// cuando termine de verdad.
+async function reabrirJornada(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('jornadas')
+      .update({ fin: null })
+      .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr());
+    if(error) throw error;
+  }catch(e){
+    alert('No se pudo reabrir la jornada: ' + e.message);
   }finally{
     await cargarJornadaHoy();
     mostrarJornada();
