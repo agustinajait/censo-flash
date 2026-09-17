@@ -247,6 +247,20 @@
     </div>
 
     <div class="section-label">
+      <span>🙈 KoBo sin identificar <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(la persona no dio nombre ni DNI, sin caso cargado todavía)</span></span>
+      <button class="btn btn-outline btn-sm" onclick="cargarKoboPendientesAdmin()">🔄 Actualizar</button>
+    </div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Dupla</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th><th>Detalle</th></tr></thead>
+          <tbody id="kobo-sin-id-admin-tbody"><tr><td colspan="5" class="empty-msg">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="section-hint" style="padding:8px 4px 2px;">Que la persona no haya dado su nombre no es un error de carga — igual hay que dejar el contacto registrado. Solo lectura: cada dupla carga estos casos como "Sin identificar" desde su cuenta en Casos.</div>
+    </div>
+
+    <div class="section-label">
       <span>👥 Operadores por turno <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(roster actual, para revisar y corregir)</span></span>
       <button class="btn btn-outline btn-sm" onclick="cargarOperadoresPorTurno()">🔄 Actualizar</button>
     </div>
@@ -455,6 +469,18 @@ function normalizarNombreKobo(s){
     .split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+// Idem casos.html — identificador estable de un envío de KoBo, usado acá
+// solo para excluir de "KoBo sin identificar" los que ya quedaron
+// vinculados a un caso desde alguna cuenta de dupla (ver kobo_validaciones
+// en cargarKoboPendientesAdmin()).
+function koboSubmissionId(p){
+  const raw = p && p._raw;
+  if(!raw) return null;
+  if(raw._id !== undefined && raw._id !== null && raw._id !== '') return String(raw._id);
+  if(raw._uuid) return String(raw._uuid);
+  return null;
+}
+
 async function fetchKoboProxyAll(project, assetId){
   let results = [], next = `${project.kobo.base}/${assetId}/data/?format=json&limit=3000`;
   while(next){
@@ -470,22 +496,30 @@ async function fetchKoboProxyAll(project, assetId){
 
 async function cargarKoboPendientesAdmin(){
   const tbody = document.getElementById('kobo-pend-admin-tbody');
+  const tbodySinId = document.getElementById('kobo-sin-id-admin-tbody');
   const project = window.PROJECT_CONFIG;
   const form = project && project.kobo && (project.kobo.forms||[])[0];
-  if(!form){ tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>'; return; }
+  if(!form){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
+    tbodySinId.innerHTML = '<tr><td colspan="5" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
+    return;
+  }
   tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Cargando…</td></tr>';
+  tbodySinId.innerHTML = '<tr><td colspan="5" class="empty-msg">Cargando…</td></tr>';
 
   try{
     const client = await SupabaseClient.getClient();
-    const [{ data: duplas, error: errD }, { data: integrantes, error: errI }, { data: personas, error: errP }, koboRowsRaw] = await Promise.all([
+    const [{ data: duplas, error: errD }, { data: integrantes, error: errI }, { data: personas, error: errP }, { data: validaciones, error: errV }, koboRowsRaw] = await Promise.all([
       client.from('duplas').select('id, codigo').eq('activa', true),
       client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
       client.from('personas').select('dni, dupla_id').not('dni', 'is', null),
+      client.from('kobo_validaciones').select('kobo_submission_id'),
       fetchKoboProxyAll(project, form.id),
     ]);
     if(errD) throw errD;
     if(errI) throw errI;
     if(errP) throw errP;
+    if(errV) throw errV;
 
     const codigoPorDupla = {};
     (duplas||[]).forEach(d => { codigoPorDupla[d.id] = d.codigo; });
@@ -506,32 +540,57 @@ async function cargarKoboPendientesAdmin(){
       (dnisPorDupla[p.dupla_id] ||= new Set()).add(dni);
     });
 
+    const idsYaValidados = new Set((validaciones||[]).map(v => v.kobo_submission_id));
+
     const porDuplaYDni = new Map(); // "duplaId|dni" -> envío más reciente
+    // Ni DNI ni nombre — pedido de Agustina (sept/2026): "si la persona no
+    // da nombre no es su culpa, tienen que aparecer y hacerle el
+    // seguimiento". Vista de solo lectura para admin/coordinación, mismo
+    // criterio que koboSinIdentificarActuales en casos.html (ver
+    // DISENO-CASOS.md §10.1.14) pero sin el chequeo de "nombre matchea un
+    // caso ya cargado" (acá no se trae el padrón de nombres por dupla,
+    // solo importa detectar los completamente anónimos).
+    const sinIdentificarPorDupla = new Map(); // subId -> { duplaId, p }
     koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
       const duplaId = duplaPorNombre[normalizarNombreKobo(p.operador)];
       if(!duplaId) return; // no matchea con ningún integrante activo — ver "👥 Operadores por turno" para revisar el roster
       const dni = String((p.persona && p.persona.dni) || '').trim();
-      if(!dni || (dnisPorDupla[duplaId] && dnisPorDupla[duplaId].has(dni))) return;
-      const key = duplaId + '|' + dni;
-      const previo = porDuplaYDni.get(key);
-      if(!previo || (p.fecha||'') > (previo.p.fecha||'')) porDuplaYDni.set(key, { duplaId, p });
+      if(dni){
+        if(dnisPorDupla[duplaId] && dnisPorDupla[duplaId].has(dni)) return;
+        const key = duplaId + '|' + dni;
+        const previo = porDuplaYDni.get(key);
+        if(!previo || (p.fecha||'') > (previo.p.fecha||'')) porDuplaYDni.set(key, { duplaId, p });
+        return;
+      }
+      const nombre = `${p.persona.nombre||''} ${p.persona.apellido||''}`.trim();
+      if(nombre) return; // tiene nombre — casos.html lo puede matchear contra un caso ya cargado, ver koboPosiblesContinuacionesActuales
+      const subId = koboSubmissionId(p);
+      if(!subId || idsYaValidados.has(subId)) return; // ya vinculado a un caso desde alguna cuenta de dupla
+      const previo = sinIdentificarPorDupla.get(subId);
+      if(!previo || (p.fecha||'') > (previo.p.fecha||'')) sinIdentificarPorDupla.set(subId, { duplaId, p });
     });
 
     const pendientes = [...porDuplaYDni.values()].sort((a,b) => (b.p.fecha||'').localeCompare(a.p.fecha||''));
-    if(!pendientes.length){
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Sin pendientes — todos los envíos de KoBo del equipo con DNI ya tienen caso cargado.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = pendientes.map(({ duplaId, p }) => `<tr>
+    tbody.innerHTML = pendientes.length ? pendientes.map(({ duplaId, p }) => `<tr>
       <td><b>${esc(codigoPorDupla[duplaId] || '—')}</b></td>
       <td>${esc(`${p.persona.nombre||''} ${p.persona.apellido||''}`.trim() || '(sin nombre en KoBo)')}</td>
       <td>${esc(p.persona.dni)}</td>
       <td>${esc(p.tipo||'—')}</td>
       <td>${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}</td>
       <td>${esc(p.operador||'—')}</td>
-    </tr>`).join('');
+    </tr>`).join('') : '<tr><td colspan="6" class="empty-msg">Sin pendientes — todos los envíos de KoBo del equipo con DNI ya tienen caso cargado.</td></tr>';
+
+    const sinIdentificar = [...sinIdentificarPorDupla.values()].sort((a,b) => (b.p.fecha||'').localeCompare(a.p.fecha||''));
+    tbodySinId.innerHTML = sinIdentificar.length ? sinIdentificar.map(({ duplaId, p }) => `<tr>
+      <td><b>${esc(codigoPorDupla[duplaId] || '—')}</b></td>
+      <td>${esc(p.tipo||'—')}</td>
+      <td>${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}</td>
+      <td>${esc(p.operador||'—')}</td>
+      <td>${esc(p.persona.caracteristicas||'—')}</td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty-msg">Sin pendientes — no hay envíos sin identificar del equipo esperando caso.</td></tr>';
   }catch(e){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
+    tbodySinId.innerHTML = '<tr><td colspan="5" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
   }
 }
 
