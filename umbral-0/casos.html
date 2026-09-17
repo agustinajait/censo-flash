@@ -991,11 +991,12 @@ function mostrarDuplicadosCasos(){
       ${duplicadosCasosActuales.map(g => `
         <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
           <div class="kobo-pend-txt">
-            <strong>${esc(g.etiqueta)}</strong> — ${g.casos.length} casos cargados
-            ${g.casos.map((c, i) => `
+            <strong>${esc(g.etiqueta)}</strong> — ${g.casos.length} casos cargados. Revisá cada uno y ocultá los que no correspondan (ninguno está pre-marcado como "el correcto" — el más viejo no siempre es el mejor cargado).
+            ${g.casos.map((c) => `
               <div style="display:flex; align-items:center; gap:8px; margin-top:6px; font-size:0.82rem; color:#475569;">
-                <span>${i===0 ? '🟢' : '⚪'} ${esc(nombreDisplay(c))}${miPerfil && miPerfil.rol !== 'dupla' ? ' — dupla ' + esc(duplasMap[c.dupla_id] || '—') : ''}, ${c.created_at ? new Date(c.created_at).toLocaleString('es-AR') : '—'}${i===0 ? ' (el más viejo — sugerido para dejar)' : ''}</span>
-                ${i>0 ? `<button class="btn btn-outline btn-sm" onclick="ocultarCasoDesdeCasos('${c.id}')">🙈 Ocultar</button>` : ''}
+                <span>${esc(nombreDisplay(c))}${miPerfil && miPerfil.rol !== 'dupla' ? ' — dupla ' + esc(duplasMap[c.dupla_id] || '—') : ''}, cargado ${c.created_at ? new Date(c.created_at).toLocaleString('es-AR') : '—'}</span>
+                <button class="btn btn-outline btn-sm" onclick="Casos.abrirFicha('${c.id}')">👁️ Ver ficha</button>
+                <button class="btn btn-outline btn-sm" onclick="ocultarCasoDesdeCasos('${c.id}')">🙈 Ocultar</button>
               </div>
             `).join('')}
           </div>
