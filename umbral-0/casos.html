@@ -83,7 +83,15 @@
   .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   @media(max-width:560px){ .form-grid-2 { grid-template-columns:1fr; } }
 
-  #app-screen, #denied-screen, #onboarding-screen, #datos-screen { display:none; }
+  #app-screen, #denied-screen, #onboarding-screen, #datos-screen, #login-screen { display:none; }
+  /* Visible por defecto (antes de que boot() resuelva si hay sesión o no) —
+     sept/2026, reportado por Agustina: navegar de admin-duplas.html a
+     casos.html (o viceversa) es un reload de página completo, y como
+     login-screen no tenía display:none acá, se veía un flash del
+     formulario de login incluso estando ya loggeada, antes de que
+     getSession() resolviera y showScreen() lo tapara. Con esto se ve un
+     "Cargando…" simple en su lugar, nunca el login de mentira. */
+  #loading-screen { max-width:380px; margin:120px auto; padding:0 18px; text-align:center; color:var(--gray); font-size:0.9rem; }
 
   /* DATOS DE CONTACTO — gate de primer login (DNI/teléfono de integrantes) */
   .datos-persona { background:white; border-radius:14px; padding:16px 18px; margin-bottom:12px; border:1.5px solid var(--border); }
@@ -205,6 +213,8 @@
 </style>
 </head>
 <body>
+
+<div id="loading-screen">Cargando…</div>
 
 <!-- LOGIN -->
 <div id="login-screen">
@@ -834,7 +844,7 @@ function togglePwd(){
 }
 
 function showScreen(id){
-  ['login-screen','denied-screen','datos-screen','onboarding-screen','app-screen'].forEach(s=>{
+  ['loading-screen','login-screen','denied-screen','datos-screen','onboarding-screen','app-screen'].forEach(s=>{
     document.getElementById(s).style.display = (s===id) ? 'block' : 'none';
   });
 }
@@ -3194,7 +3204,15 @@ const Casos = {
 
 };
 
-boot();
+// Si boot() falla (ej. un error de red al chequear la sesión), no se puede
+// quedar trabado en "Cargando…" para siempre — se cae al login con el
+// error a la vista, para que se pueda reintentar.
+boot().catch(e => {
+  console.error('boot() falló', e);
+  showScreen('login-screen');
+  const errBox = document.getElementById('login-error');
+  if(errBox){ errBox.textContent = 'No se pudo cargar: ' + e.message + '. Probá de nuevo.'; errBox.style.display = 'block'; }
+});
 
 </script>
 </body>
