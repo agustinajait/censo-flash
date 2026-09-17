@@ -65,7 +65,12 @@
   .integrante-row input:focus { border-color:var(--blue); background:white; outline:none; }
   .mini-btn { border:none; border-radius:7px; padding:7px 10px; font-size:0.76rem; font-weight:700; cursor:pointer; white-space:nowrap; }
 
-  #app-screen, #denied-screen { display:none; }
+  #app-screen, #denied-screen, #login-screen { display:none; }
+  /* Visible por defecto (antes de que boot() resuelva si hay sesión) — mismo
+     fix que casos.html: navegar entre páginas de Umbral 0 es un reload
+     completo, y sin esto se veía un flash del login aunque ya estuviera
+     loggeada, hasta que getSession() resolvía. */
+  #loading-screen { max-width:380px; margin:120px auto; padding:0 18px; text-align:center; color:#64748b; font-size:0.9rem; }
   .denied-box { max-width:420px; margin:80px auto; text-align:center; padding:0 20px; }
   .denied-box .emoji { font-size:2.4rem; margin-bottom:10px; }
   .denied-box h2 { font-family:'Sora',sans-serif; color:var(--navy); margin-bottom:8px; }
@@ -140,6 +145,8 @@
 </style>
 </head>
 <body>
+
+<div id="loading-screen">Cargando…</div>
 
 <!-- LOGIN -->
 <div id="login-screen">
@@ -350,7 +357,7 @@ function showScreen(id){
   // OJO: app-screen/denied-screen tienen `display:none` por CSS por defecto —
   // sacar el inline style (display='') no alcanza para mostrarlos de nuevo,
   // hay que forzar un valor explícito.
-  ['login-screen','denied-screen','app-screen'].forEach(s=>{
+  ['loading-screen','login-screen','denied-screen','app-screen'].forEach(s=>{
     document.getElementById(s).style.display = (s===id) ? 'block' : 'none';
   });
 }
@@ -1262,7 +1269,15 @@ function setRangoReporte(tipo){
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
-boot();
+// Si boot() falla (ej. un error de red al chequear la sesión), no se puede
+// quedar trabado en "Cargando…" para siempre — se cae al login con el
+// error a la vista, para que se pueda reintentar.
+boot().catch(e => {
+  console.error('boot() falló', e);
+  showScreen('login-screen');
+  const errBox = document.getElementById('login-error');
+  if(errBox){ errBox.textContent = 'No se pudo cargar: ' + e.message + '. Probá de nuevo.'; errBox.style.display = 'block'; }
+});
 
 // ─────────────────────────────────────────────────────────────────────────
 // PESTAÑA REPORTE (ex reporte.html) — cálculo 100% desde nuestra base

@@ -1661,6 +1661,36 @@ terminó de conectar `activo` en todo el código:
   un envío viejo hecho por alguien que ya no está en el equipo se pueda
   seguir reconociendo y confirmando.
 
+### 10.1.8 Flash del login al navegar entre páginas (17/9/2026)
+
+Reportado por Agustina: loggeada en `admin-duplas.html`, al tocar "Casos"
+(o "Reporte") la llevaba de nuevo a la pantalla de login — "me toma
+igualmente como ya estoy registrada pero tiene que ser como una sección
+dentro del admin, no como una página aparte".
+
+Causa: cada página de Umbral 0 es un HTML separado (no es una SPA), así
+que navegar entre ellas es un reload completo — `casos.html`/
+`admin-duplas.html` vuelven a arrancar de cero y `boot()` tiene que volver
+a chequear la sesión con `getSession()` (async). El CSS tenía
+`#app-screen, #denied-screen, ...` con `display:none` por defecto pero
+**no incluía a `#login-screen`** — así que mientras `getSession()`
+resolvía (aunque sea rápido), se veía el formulario de login un instante,
+aunque la sesión siguiera siendo válida y `boot()` terminara mostrando
+`app-screen` enseguida. No era un logout real ni pedía credenciales de
+nuevo (por eso "me toma igual"), pero se sentía como volver a loguearse.
+
+Fix: se agrega `#login-screen` a la lista de pantallas ocultas por CSS por
+defecto, y una pantalla nueva `#loading-screen` ("Cargando…") que SÍ es
+visible por defecto — es la única que se ve mientras `boot()` no resolvió
+todavía. `showScreen()` la agrega a la lista que gestiona. De paso se
+envuelve el `boot()` inicial en un `.catch()`: si falla (ej. error de red),
+cae al login con el error a la vista en vez de quedar trabado en
+"Cargando…" para siempre.
+
+Aplicado en `casos.html` y `admin-duplas.html` (las dos páginas con
+login). `casos-en-vivo.html` no tiene este problema — no tiene login,
+usa la anon key directo.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
