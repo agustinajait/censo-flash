@@ -539,7 +539,7 @@
         <div class="paso-circulo">🔍</div>
         <div class="paso-txt">
           <div class="titulo">1 · Buscá antes de cargar</div>
-          <div class="desc">Al entrar a Casos, buscá por nombre, apellido o DNI antes de dar de alta a alguien — así no se duplica a una persona que el equipo ya conoce. Si aparece, entrás directo a su ficha.</div>
+          <div class="desc">Al entrar a Casos, buscá por nombre, apellido o DNI antes de dar de alta a alguien — así no se duplica a una persona que el equipo ya conoce. Si aparece, entrás directo a su ficha. También podés filtrar por <strong>fecha de actividad</strong> con el selector de fecha al lado del buscador, para ver quién tuvo alta, intervención, seguimiento o derivación en un día puntual.</div>
         </div>
       </div>
       <div class="paso-item">
@@ -559,7 +559,7 @@
         <div class="paso-txt">
           <div class="titulo">3 · Si no aparece, date de alta a mano</div>
           <div class="desc">Botón <strong>"➕ Ingresar nuevo caso"</strong>. Si la persona no quiere identificarse, tildá <strong>"Sin identificar"</strong> y completá al menos el punto de contacto (dirección o referencia) para poder ubicarla en el próximo recorrido.
-            <div class="alert-info" style="margin-top:10px;">⚠️ <strong>Si el caso ya existe y solo te faltó cargar un dato</strong> (nacionalidad, teléfono, lo que sea): no vuelvas a tocar "➕ Ingresar nuevo caso" — eso crea un caso <strong>duplicado</strong>. Usá <strong>"🔍 Buscar"</strong>, encontrala por nombre o DNI, abrí su ficha y tocá <strong>"✏️ Editar"</strong>. Si igual intentás dar de alta un DNI que ya existe, la plataforma te va a avisar antes de guardar.</div>
+            <div class="alert-info" style="margin-top:10px;">⚠️ <strong>Si el caso ya existe y solo te faltó cargar un dato</strong> (nacionalidad, teléfono, lo que sea): no vuelvas a tocar "➕ Ingresar nuevo caso" — eso crea un caso <strong>duplicado</strong>. Usá <strong>"🔍 Buscar"</strong>, encontrala por nombre o DNI, abrí su ficha y tocá <strong>"✏️ Editar"</strong>. Si igual intentás dar de alta un DNI que ya existe, la plataforma frena el guardado y te muestra quién ya lo cargó y cuándo — para crearlo igual (solo si estás segura/o de que es una persona distinta) hay que tildar una casilla de confirmación antes de que se habilite "Crear de todas formas".</div>
           </div>
         </div>
       </div>
@@ -645,7 +645,38 @@
         <span class="chevron">▸</span>
       </summary>
       <div class="gcard-body">
-        <p><strong>Nunca uses "➕ Ingresar nuevo caso" para eso</strong> — crea un caso nuevo y separado, con su propio historial, y el caso original queda igual de incompleto. Usá <strong>"🔍 Buscar"</strong> (por nombre o DNI), abrí la ficha de la persona y tocá <strong>"✏️ Editar"</strong> para completar lo que faltaba. Si por las dudas intentás dar de alta un DNI que ya tiene caso cargado, la plataforma te va a mostrar un aviso antes de guardar, mostrándote quién ya lo cargó y cuándo.</p>
+        <p><strong>Nunca uses "➕ Ingresar nuevo caso" para eso</strong> — crea un caso nuevo y separado, con su propio historial, y el caso original queda igual de incompleto. Usá <strong>"🔍 Buscar"</strong> (por nombre o DNI), abrí la ficha de la persona y tocá <strong>"✏️ Editar"</strong> para completar lo que faltaba. Si por las dudas intentás dar de alta un DNI que ya tiene caso cargado, la plataforma frena el guardado y te muestra quién ya lo cargó y cuándo — para crearlo igual hay que tildar a propósito una casilla de confirmación.</p>
+      </div>
+    </details>
+    <details class="gcard">
+      <summary>
+        <span class="gcard-icono" style="background:#fee2e2;">⚠️</span>
+        <div class="gcard-titulo"><div class="nombre">Veo un aviso de "Posibles duplicados" — ¿cómo lo resuelvo?</div></div>
+        <span class="chevron">▸</span>
+      </summary>
+      <div class="gcard-body">
+        <p>Cuando hay dos o más personas cargadas con el mismo DNI (o el mismo nombre, si no tienen DNI), aparece un cartel <strong>"⚠️ Posibles duplicados"</strong> arriba de los resultados de la búsqueda. Ahí ves todas las entradas del grupo — tocá <strong>"👁️ Ver ficha"</strong> en cada una para comparar cuál tiene más información cargada, y <strong>"🙈 Ocultar"</strong> en la que no corresponda dejar. No se borra nada: ocultar solo saca ese caso de las búsquedas, y se puede revertir si hace falta.</p>
+      </div>
+    </details>
+    <details class="gcard">
+      <summary>
+        <span class="gcard-icono" style="background:#ede9fe;">🔗</span>
+        <div class="gcard-titulo"><div class="nombre">¿Cuándo uso "Asociar envío de KoBo"?</div></div>
+        <span class="chevron">▸</span>
+      </summary>
+      <div class="gcard-body">
+        <p>Cuando un envío de KoBo quedó sin DNI y el nombre tampoco coincide exacto con ningún caso (por ejemplo, quedó incompleto o la persona no quiso identificarse), la plataforma no puede asociarlo solo a ninguna ficha. Desde la ficha de la persona correcta, tocá <strong>"🔗 Asociar envío de KoBo"</strong>, elegí el envío correspondiente de la lista, y se abre el mismo modal de validación de siempre — completá el checklist "¿Qué hiciste con este caso?" como en cualquier otra validación.</p>
+      </div>
+    </details>
+    <details class="gcard">
+      <summary>
+        <span class="gcard-icono" style="background:#f1f5f9;">📄</span>
+        <div class="gcard-titulo"><div class="nombre">¿Qué son "Generar carta de soflex" y "Eliminar caso"?</div></div>
+        <span class="chevron">▸</span>
+      </summary>
+      <div class="gcard-body">
+        <p><strong>"📄 Generar carta de soflex"</strong> abre un documento externo ya armado para pedir el beneficio social de soflex para esa persona.</p>
+        <p><strong>"🗑️ Eliminar caso"</strong> borra el caso completo — ficha, intervenciones, derivaciones y seguimientos — de forma permanente, y por eso solo lo puede hacer una cuenta admin (ni coordinación puede). Para sacar un caso duplicado, no uses esto: usá "Ocultar" (ver "Posibles duplicados" arriba), que es reversible.</p>
       </div>
     </details>
   </div>
