@@ -2272,7 +2272,8 @@ const Casos = {
         btn.disabled = true; btn.textContent = 'Revisando…';
         try{
           const client = await SupabaseClient.getClient();
-          const { data: coincidencias } = await client.from('personas_dni_index').select('*').eq('dni', dniTrim);
+          const { data: coincidencias, error: errDni } = await client.from('personas_dni_index').select('*').eq('dni', dniTrim);
+          if(errDni) throw errDni;
           if(coincidencias && coincidencias.length){
             Casos._mostrarAvisoDniDuplicado(form, coincidencias, campos.dni);
             btn.disabled = false; btn.textContent = '💾 Dar de alta';
@@ -2280,7 +2281,14 @@ const Casos = {
             return;
           }
         }catch(e){
-          console.error('No se pudo chequear DNI duplicado, se sigue sin avisar', e);
+          // Antes esto quedaba mudo (log en consola nomás) y dejaba
+          // guardar igual sin haber podido chequear duplicados — un
+          // fallo de red silenciaba justo la protección que se supone
+          // que evita duplicados. Ahora frena y pide reintentar.
+          modalError('No se pudo chequear si el DNI ya existe (' + e.message + '). Probá guardar de nuevo.');
+          btn.disabled = false; btn.textContent = '💾 Dar de alta';
+          _guardandoPersona = false;
+          return;
         }
       }
     }
@@ -2351,10 +2359,14 @@ const Casos = {
     cont.innerHTML = `
       <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ Ya hay ${coincidencias.length===1?'un caso':coincidencias.length+' casos'} con el DNI ${esc(dni)}</div>
       ${filas}
-      <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona, cerrá este formulario y buscala en el listado de casos en vez de dar de alta uno nuevo. Si es otra persona (o ese DNI está mal cargado en el caso anterior), podés seguir igual.</div>
+      <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona, cerrá este formulario y buscala en el listado de casos en vez de dar de alta uno nuevo. Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.</div>
+      <div class="form-check" style="margin-bottom:10px;">
+        <input type="checkbox" id="f_confirmar_dni_distinto" onchange="document.getElementById('btn-crear-dni-duplicado').disabled = !this.checked;">
+        <label for="f_confirmar_dni_distinto">Confirmo que es una persona distinta a la(s) de arriba (no la misma cargada de nuevo)</label>
+      </div>
       <div style="display:flex; gap:8px;">
         <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('dni-dup-aviso').remove()">Volver a editar</button>
-        <button type="button" class="btn btn-amber btn-sm" onclick="Casos.guardarPersona(null, true)">Crear de todas formas</button>
+        <button type="button" class="btn btn-amber btn-sm" id="btn-crear-dni-duplicado" disabled onclick="Casos.guardarPersona(null, true)">Crear de todas formas</button>
       </div>
     `;
     cont.scrollIntoView({ behavior:'smooth', block:'start' });
