@@ -1829,26 +1829,55 @@ sandbox y verifica que ambos mapeos solo apunten a claves/tipos que
 existen de verdad (`accionesIntervencion`/`derivacionOpciones`), más
 casos simulados de pre-tildado y sugerencia.
 
+### 10.1.13 "Pedir derivación" estaba roto para TODAS las cuentas de dupla desde el 3/9 (17/9/2026)
+
+Encontrado en vivo: una dupla usó el botón nuevo de "Completar
+derivación" (§10.1.12) y le saltó `No se pudo enviar la derivación: new
+row violates row-level security policy for table "derivaciones"`.
+
+**Causa raíz — esto reescribe lo que se había asumido en §11 ("Pedir
+derivación"/"Registrar intervención" casi no se usan"):** el 3/9/2026 se
+corrigió la FK `derivaciones.solicitado_por` para apuntar a `perfiles`
+(la cuenta logueada real) en vez de `integrantes` — pero las tres
+policies de RLS (`derivaciones_select`/`insert`/`update`) **nunca se
+actualizaron para el mismo cambio**: seguían comparando `solicitado_por`
+contra `integrantes.id`. Como `guardarDerivacion()` en `casos.html`
+siempre guardó `solicitado_por: miPerfil.id` (un id de `perfiles`, no de
+`integrantes`), esa condición no podía ser verdadera nunca para una
+cuenta de dupla — **cualquier intento de "Pedir derivación" desde una
+cuenta de dupla estaba bloqueado desde el 3/9/2026**, sin excepción.
+Recién ahora, probando el botón nuevo de "Completar derivación", quedó
+al descubierto — antes nadie había insistido lo suficiente con el error
+silencioso/no reportado como para que se investigara.
+
+O sea: **no era un problema de adopción** ("las duplas no usan el
+botón"), era un bug de backend que lo rompía para todas. El § anterior
+que especulaba sobre por qué las duplas no usaban el formulario queda
+desactualizado en ese punto — sí lo intentaban, y fallaba.
+
+Fix: las tres policies ahora comparan `solicitado_por` contra
+`perfiles.id` con `dupla_id = mi_dupla_id()`, igual que ya usa
+internamente la función `mi_dupla_id()`. Efecto secundario bueno: ahora
+toda la dupla ve las derivaciones pedidas por cualquiera de sus
+compañeros (no solo las propias) — que es lo que la UI ya esperaba (el
+timeline distingue "vos" vs "equipo", ver `_renderTimelineItem` en
+`casos.html`). Ya aplicado en producción — `derivaciones` va a empezar a
+sumar filas reales a partir de ahora.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
-- **"Pedir derivación"/"Registrar intervención" casi no se usan**
-  (encontrado sept/2026, revisando por qué el reporte no reflejaba la
-  situación real): `derivaciones` está vacía y `intervenciones` tiene un
-  solo tipo real (`contacto_espontaneo`, el que se crea solo al dar de
-  alta el caso). Lo que pasa en el territorio (derivaciones espontáneas,
-  llamados a SAME/policía) se resuelve por teléfono/WhatsApp, no por la
-  plataforma. La sección **e.** del reporte (§9) tapa el agujero leyendo
-  KoBo en vez de `derivaciones`, y §4 ahora hace lo mismo por caso
-  individual ("Envíos de KoBo de esta persona, auto-completados") — pero
-  sigue sin resolverse **por qué** las duplas no usan esos dos botones:
-  ¿el formulario es muy largo para cargarlo en el momento? ¿no saben que
-  existe? ¿prefieren resolverlo por teléfono y ya está? Con el timeline
-  ahora completándose solo desde KoBo, puede que directamente no haga
-  falta que lo usen más — vale la pena preguntarles antes de invertir en
-  rediseñar esos formularios.
+- ~~"Pedir derivación"/"Registrar intervención" casi no se usan~~ —
+  **actualizado 17/9/2026, ver §10.1.13**: no era falta de uso, era un
+  bug real de RLS que bloqueaba CUALQUIER "Pedir derivación" desde una
+  cuenta de dupla desde el 3/9/2026 (ya arreglado). `intervenciones`
+  sigue teniendo un solo tipo real (`contacto_espontaneo`) — ese sí
+  puede ser genuinamente falta de uso de "Registrar intervención", pero
+  ahora que "Pedir derivación" funciona de verdad, vale la pena esperar
+  una semana más de datos reales (ver §f. del reporte semanal) antes de
+  asumir que tampoco se usa por elección.
 - **Casos duplicados entre duplas** (sección 1): con `personas` ahora
   restringida por dupla, si una persona pasa por la zona de dos duplas
   distintas, la segunda no la encuentra al buscar y puede darla de alta

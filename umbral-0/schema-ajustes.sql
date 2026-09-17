@@ -811,3 +811,41 @@ where coalesce(p.oculto, false) = false;
 revoke all on public.personas_dni_index from anon;
 revoke insert, update, delete, truncate, references, trigger
   on public.personas_dni_index from authenticated;
+
+-- derivaciones_select/insert/update — RLS comparaba solicitado_por contra
+-- `integrantes.id` en vez de `perfiles.id` (17/9/2026, incidente real: una
+-- dupla reportó "new row violates row-level security policy for table
+-- derivaciones" al usar "Pedir derivación"). Causa raíz: el 3/9/2026 se
+-- corrigió la FK de derivaciones.solicitado_por para apuntar a `perfiles`
+-- (la cuenta logueada real, ver comentario arriba en este mismo archivo),
+-- pero las policies de RLS nunca se actualizaron para el mismo cambio —
+-- seguían comparando contra `integrantes.id`. Como el código SIEMPRE
+-- guardó `solicitado_por: miPerfil.id` (un perfiles.id), la condición
+-- nunca podía ser verdadera para una cuenta de dupla: CUALQUIER intento de
+-- "Pedir derivación" desde una cuenta de dupla estaba bloqueado desde el
+-- 3/9/2026. Esto explica por qué `derivaciones` tenía 0 filas en TOTAL —
+-- no por falta de uso, como se había asumido antes de este hallazgo (ver
+-- DISENO-CASOS.md §10.1.13). Ya aplicado en producción.
+alter policy derivaciones_select on public.derivaciones
+  using (
+    (mi_rol() = any (array['admin','coordinacion','cliente']))
+    or (mi_rol() = 'dupla' and solicitado_por in (
+      select id from public.perfiles where dupla_id = mi_dupla_id()
+    ))
+  );
+
+alter policy derivaciones_insert on public.derivaciones
+  with check (
+    (mi_rol() = any (array['admin','coordinacion']))
+    or (mi_rol() = 'dupla' and solicitado_por in (
+      select id from public.perfiles where dupla_id = mi_dupla_id()
+    ))
+  );
+
+alter policy derivaciones_update on public.derivaciones
+  using (
+    (mi_rol() = any (array['admin','coordinacion']))
+    or (mi_rol() = 'dupla' and solicitado_por in (
+      select id from public.perfiles where dupla_id = mi_dupla_id()
+    ))
+  );
