@@ -153,6 +153,8 @@ function render(r){
   const porTipo = idyv.porTipo || {};
   const koboOutcomes = d.koboOutcomes || null;
   const labelsKobo = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.terminoIntervencionLabels) || {};
+  const accionesPlataforma = d.accionesPlataforma || { conteo:{}, totalIntervenciones:0, totalValidaciones:0 };
+  const labelsAcciones = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
 
   document.getElementById('cont').innerHTML = `
     <div class="section-title">a. Cobertura territorial</div>
@@ -214,6 +216,18 @@ function render(r){
           </tbody>
         </table>
       ` : '<div class="nota-libre">Sin datos de KoBo para este reporte.</div>'}
+    </div>
+
+    <div class="section-title">f. Qué hicieron las duplas — confirmado en la plataforma</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Qué hicieron</th><th style="text-align:right;">Cantidad</th></tr></thead>
+        <tbody>
+          ${Object.keys(accionesPlataforma.conteo).length ? Object.entries(accionesPlataforma.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
+            `<tr><td>${esc(labelsAcciones[codigo]||codigo)}</td><td class="num">${n}</td></tr>`).join('')
+            : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin acciones confirmadas en la plataforma en el período</td></tr>'}
+        </tbody>
+      </table>
     </div>
 
     <div class="section-title">Listado de casos del período</div>

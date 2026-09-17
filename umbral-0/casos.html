@@ -503,23 +503,11 @@ const CAMPOS_PERSONA_INFORME = [
 // config/umbral-0.js) — mismas categorías donde tiene sentido, más CIS y
 // teléfono rojo (que KoBo no tiene como opción). Vive en
 // `intervenciones.acciones`, no depende de que KoBo pregunte bien.
-const ACCIONES_INTERVENCION = [
-  { key:'entrevista', label:'Entrevista con la persona' },
-  { key:'rechazo_entrevista', label:'Se acercó, pero no aceptó hablar / se negó a la entrevista' },
-  { key:'llamado_same_medica', label:'Llamado a SAME (emergencia médica)' },
-  { key:'llamado_same_salud_mental', label:'Llamado a SAME (emergencia de salud mental)' },
-  { key:'telefono_rojo', label:'Llamado al teléfono rojo' },
-  { key:'policia', label:'Contacto con Policía / 911' },
-  { key:'derivacion_cis', label:'Derivación a CIS' },
-  { key:'derivacion_casa_vincular', label:'Derivación a Casa Vincular' },
-  { key:'derivacion_red', label:'Derivación a la RED' },
-  { key:'derivacion_ciudadania_portena', label:'Derivación a Ciudadanía Porteña' },
-  { key:'hospital', label:'Traslado/derivación a hospital' },
-  { key:'acompanamiento_salud', label:'Acompañamiento por afección física / CeSAC' },
-  { key:'vuelve_manana', label:'Se acordó volver a verla' },
-  { key:'otro', label:'Otro (detallar abajo)' },
-];
-const ACCIONES_INTERVENCION_LABELS = Object.fromEntries(ACCIONES_INTERVENCION.map(a => [a.key, a.label]));
+// Definida en config/umbral-0.js (accionesIntervencion) — única fuente,
+// también la usan admin-duplas.html/reporte-publico.html para el reporte
+// semanal (calcularAccionesPlataforma()), sin duplicar el diccionario.
+const ACCIONES_INTERVENCION = window.PROJECT_CONFIG.accionesIntervencion;
+const ACCIONES_INTERVENCION_LABELS = window.PROJECT_CONFIG.accionesIntervencionLabels;
 
 // "Informe social" — mismo formato para Casa Vincular y ASA (documento
 // UMBRAL_0_1.docx: "el equipo territorial deberá realizar un informe

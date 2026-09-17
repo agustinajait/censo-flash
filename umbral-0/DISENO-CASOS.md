@@ -1743,6 +1743,47 @@ más para `anon`/`authenticated` heredados por default al crearse la
 vista — revocados, queda solo `authenticated: SELECT` (esta vista expone
 DNI real de todas las duplas, nunca debería ser legible sin login).
 
+### 10.1.11 Reporte semanal — sección "f." con lo que confirman las duplas en la plataforma (17/9/2026)
+
+Pregunta de Agustina revisando por qué "d. Intervenciones y derivaciones"
+del reporte estaba en cero: "pero no les pregunta qué hiciste vos? y ese
+dato cómo lo tomamos?" — refiriéndose a la casilla "¿Qué hiciste con este
+caso?" que aparece al validar un envío de KoBo o registrar una
+intervención en `casos.html` (`ACCIONES_INTERVENCION`, guardada en
+`intervenciones.acciones` / `kobo_validaciones.acciones`).
+
+Encontrado: ese dato existía desde hace rato y se mostraba caso por caso
+en el Historial de cada ficha ("Qué se hizo — cargado por la dupla"),
+pero **no se agregaba en ningún reporte** — ni en "d." (que depende de
+`derivaciones`, la tabla que llena "Pedir derivación" y que sigue vacía)
+ni en "e." (que lee directo la respuesta cruda de KoBo,
+`termino_intervencion_diaria`). Es, en teoría, la fuente más confiable de
+las tres: la confirma la propia dupla en la plataforma, con categorías
+más completas que las de KoBo (suma CIS y teléfono rojo).
+
+Se agrega como sección nueva **"f. Qué hicieron las duplas — confirmado
+en la plataforma"**, en `admin-duplas.html` (pantalla y mensaje de
+WhatsApp), `reporte-publico.html` y el JSON que se guarda en
+`reportes_semanales.datos`. Fuente: `intervenciones.acciones` (ya
+filtrado por `fecha` en el período, no hace falta re-consultar) +
+`kobo_validaciones.acciones` (filtrado por `created_at`, con el mismo
+criterio de límites de día local→UTC que `casos-en-vivo.html`, porque
+esta tabla no tiene columna `fecha`).
+
+De paso, `ACCIONES_INTERVENCION`/`ACCIONES_INTERVENCION_LABELS` — que
+vivían solo adentro de `casos.html` — se movieron a
+`config/umbral-0.js` (`accionesIntervencion`/`accionesIntervencionLabels`)
+para que `admin-duplas.html`/`reporte-publico.html` no tuvieran que
+duplicar el diccionario, mismo criterio que ya se usaba para
+`terminoIntervencionLabels`.
+
+**Sigue abierto** (explícito en el `section-hint` de la pantalla): no
+está claro todavía si "f." termina reemplazando a "d." — si las duplas
+nunca terminan usando "Pedir derivación" (§11, primer punto), puede que
+"f." sea, en la práctica, el reemplazo real y "d." quede para sacar. Por
+ahora se muestran las tres secciones por separado para poder comparar
+con datos reales antes de decidir.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
