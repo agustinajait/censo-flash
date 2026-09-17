@@ -1908,6 +1908,26 @@ mismo criterio que la tabla de pendientes con DNI):
   de acción — sigue siendo solo lectura, cada dupla resuelve los suyos
   desde Casos.
 
+### 10.1.15 "Jornada de hoy completa" no tenía forma de reabrirse (17/9/2026)
+
+Reportado por dupla K: "no puede iniciar jornada". Revisando la fila de
+`jornadas` de hoy: marcó inicio a las 18:15 y fin a las 18:57 (42
+minutos) — un "fin de jornada" claramente prematuro, seguramente sin
+querer. El problema: `mostrarJornada()` en `casos.html` solo mostraba
+el texto **"✅ Jornada de hoy completa"** cuando `jornadaHoy.fin` está
+seteado — sin ningún botón. Con el turno todavía en curso y sin forma
+de volver atrás desde la UI, la dupla quedó bloqueada hasta que alguien
+lo arreglara a mano en la base.
+
+Fix aplicado en caliente (Supabase, `jornadas.fin = null` en la fila de
+hoy de dupla K, sin tocar `inicio`) y en el código: nuevo botón
+**"↩️ Reabrir jornada"** junto al texto de "Jornada de hoy completa" —
+`reabrirJornada()` vuelve a poner `fin = null` (conserva la hora real
+de inicio) y la jornada pasa a "en curso" de nuevo, lista para marcar
+fin cuando termine de verdad. Mismas policies de RLS que ya usaba
+`marcarFinJornada()` (`jornadas_propia_dupla`, scope por `dupla_id`),
+sin cambios de permisos necesarios.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
