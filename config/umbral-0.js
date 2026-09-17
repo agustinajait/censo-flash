@@ -157,6 +157,50 @@ const ACCIONES_INTERVENCION = [
 ];
 const ACCIONES_INTERVENCION_LABELS = Object.fromEntries(ACCIONES_INTERVENCION.map(a => [a.key, a.label]));
 
+// Puente KoBo → plataforma (sept/2026, pedido de Agustina): al validar un
+// envío, la casilla "¿Qué hiciste con este caso?" arrancaba siempre en
+// blanco aunque KoBo ya había preguntado algo muy parecido
+// (termino_intervencion_diaria) — la dupla terminaba re-tildando lo mismo
+// dos veces. Este mapeo pre-tilda solo los casos donde el código de KoBo
+// tiene un equivalente directo y sin ambigüedad en ACCIONES_INTERVENCION
+// (ver abrirModalValidarKobo() en casos.html); los que no tienen
+// equivalente claro (ej. traslado_dipa, derivacion_internacion_asa)
+// quedan sin pre-tildar a propósito, para no inventar una equivalencia
+// dudosa — la dupla los agrega a mano si corresponde.
+const KOBO_TERMINO_A_ACCION = {
+  entrevista_persona: 'entrevista',
+  derivacion_ciudadania_portena: 'derivacion_ciudadania_portena',
+  acompanamiento_afeccion_fisica: 'acompanamiento_salud',
+  acompanamiento_cesac: 'acompanamiento_salud',
+  llamado_same_emergencia_medica: 'llamado_same_medica',
+  llamado_same_emergencia_sm: 'llamado_same_salud_mental',
+  derivacion_red: 'derivacion_red',
+  hospital: 'hospital',
+  derivacion_casa_vincular: 'derivacion_casa_vincular',
+  policia: 'policia',
+  otro: 'otro',
+};
+
+// Puente checklist → "Pedir derivación" (sept/2026, pedido de Agustina:
+// "a veces hay que hacer una instancia más después de KoBo que es pedir
+// la derivación a un CIS o llamar a SAME, y eso hay que registrarlo").
+// Cuando la dupla tilda una de estas acciones al validar, casos.html le
+// sugiere completar el formulario formal de "Pedir derivación" con el
+// tipo ya preseleccionado — porque ESE es el feature que tiene los
+// campos obligatorios por tipo (ej. foto de DNI para CIS) y el que
+// alimenta el reporte semanal (secciones d./f., ver DISENO-CASOS.md
+// §10.1.11). Solo se mapean los tipos que existen tal cual en
+// derivacionOpciones (arriba) — evita registrar "que hizo algo" sin
+// completar los datos que ese tipo de derivación necesita de verdad.
+const ACCION_A_TIPO_DERIVACION = {
+  derivacion_cis: 'CIS',
+  derivacion_casa_vincular: 'Casa Vincular',
+  derivacion_ciudadania_portena: 'Programa Ciudadanía Porteña',
+  llamado_same_medica: 'SAME',
+  llamado_same_salud_mental: 'Salud Mental',
+  policia: 'Policía de la Ciudad',
+};
+
 // "¿Dónde naciste?" / "¿Dónde vivías antes de estar en calle por primera
 // vez?" — mismas opciones geográficas en las dos preguntas (confirmado
 // contra un export real en formato "XML values", sept/2026: los valores
@@ -434,5 +478,9 @@ window.PROJECT_CONFIG_UMBRAL_0.terminoIntervencionLabels = TERMINO_INTERVENCION_
 // y reporte-publico.html solo necesitan las etiquetas para el reporte.
 window.PROJECT_CONFIG_UMBRAL_0.accionesIntervencion = ACCIONES_INTERVENCION;
 window.PROJECT_CONFIG_UMBRAL_0.accionesIntervencionLabels = ACCIONES_INTERVENCION_LABELS;
+// Idem — usados solo por casos.html (abrirModalValidarKobo /
+// _mostrarSiguientePasoValidacion), ver los mapeos arriba.
+window.PROJECT_CONFIG_UMBRAL_0.koboTerminoAAccion = KOBO_TERMINO_A_ACCION;
+window.PROJECT_CONFIG_UMBRAL_0.accionATipoDerivacion = ACCION_A_TIPO_DERIVACION;
 
 })();

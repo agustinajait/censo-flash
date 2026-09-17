@@ -2789,11 +2789,26 @@ const Casos = {
     const validacionActual = koboValidacionesActuales[subId];
     const notaActual = (validacionActual && validacionActual.nota) || '';
     const accionesActuales = new Set((validacionActual && validacionActual.acciones) || []);
+    // Primera vez validando este envío (todavía no hay fila en
+    // kobo_validaciones) — pre-tilda lo que tiene equivalente directo en
+    // la respuesta de KoBo (KOBO_TERMINO_A_ACCION en config/umbral-0.js),
+    // para que la dupla no re-tilde a mano lo que ya contestó en el
+    // celular. Si ya está validado, se respeta lo que la dupla eligió la
+    // vez anterior (no se vuelve a pre-tildar encima).
+    let preTildadoDeKobo = false;
+    if(!validacionActual){
+      const koboItem = koboEventosActuales.find(p => koboSubmissionId(p) === subId);
+      const mapeo = window.PROJECT_CONFIG.koboTerminoAAccion || {};
+      (koboItem && koboItem.terminoIntervencionDiaria || []).forEach(codigo => {
+        const accion = mapeo[codigo];
+        if(accion){ accionesActuales.add(accion); preTildadoDeKobo = true; }
+      });
+    }
     const body = `
       <form id="form-validar-kobo" onsubmit="return false;">
         <div class="form-field">
           <label>¿Qué hiciste con este caso?</label>
-          <div class="hint">Elegí todo lo que corresponda a esta visita.</div>
+          <div class="hint">${preTildadoDeKobo ? 'Pre-tildado con lo que ya contestaste en KoBo — revisá y ajustá si hace falta.' : 'Elegí todo lo que corresponda a esta visita.'}</div>
           <div class="form-check-grid">
             ${ACCIONES_INTERVENCION.map((a, i) => `
               <div class="form-check"><input type="checkbox" id="f_val_accion_${i}" class="val-accion-check" data-code="${escAttr(a.key)}" ${accionesActuales.has(a.key) ? 'checked' : ''}><label for="f_val_accion_${i}">${esc(a.label)}</label></div>
@@ -2831,7 +2846,7 @@ const Casos = {
       if(error) throw error;
       await cargarKoboDePersona(personaActual);
       Casos._renderTimeline();
-      Casos._mostrarSiguientePasoValidacion();
+      Casos._mostrarSiguientePasoValidacion(acciones);
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
@@ -2847,11 +2862,28 @@ const Casos = {
   // en vez de dejar que tenga que encontrar solo los otros botones de la
   // ficha. Reutiliza los formularios ya existentes (nada nuevo que
   // mantener) — "No, ya terminé" simplemente cierra.
-  _mostrarSiguientePasoValidacion(){
+  //
+  // `acciones` (sept/2026, mismo pedido): "a veces hay que hacer una
+  // instancia más después de KoBo que es pedir la derivación a un CIS o
+  // llamar a SAME, y eso hay que registrarlo" — si lo que se acaba de
+  // tildar en "¿Qué hiciste?" tiene un tipo de derivación formal
+  // equivalente (ACCION_A_TIPO_DERIVACION), se ofrece completar ESE
+  // formulario puntual (con el tipo ya preseleccionado) antes que las
+  // opciones genéricas, porque es el que tiene los campos obligatorios
+  // por tipo y el que alimenta el reporte semanal — tildar la casilla
+  // sola no reemplaza pedirla de verdad.
+  _mostrarSiguientePasoValidacion(acciones){
+    const mapeo = window.PROJECT_CONFIG.accionATipoDerivacion || {};
+    const tiposSugeridos = [...new Set((acciones||[]).map(a => mapeo[a]).filter(Boolean))];
+    const sugerencias = tiposSugeridos.map(tipo => `
+      <button class="btn btn-amber" onclick="Casos.abrirModalDerivacion('${escAttr(tipo)}')">📨 Completar derivación a ${esc(tipo)}</button>
+    `).join('');
     const body = `
       <div style="text-align:center;padding:6px 0 4px;">
         <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Envío validado. ¿Querés agregar algo más sobre esta visita?</div>
+        ${sugerencias ? `<div style="font-size:0.8rem;color:#92400e;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;padding:8px 12px;margin-bottom:12px;">Marcaste algo que necesita registrarse como derivación formal — completá el formulario para que quede la solicitud (y los datos que pide ese tipo, como la foto de DNI en CIS).</div>` : ''}
         <div style="display:flex;flex-direction:column;gap:10px;">
+          ${sugerencias}
           <button class="btn btn-blue" onclick="Casos.abrirModalIntervencion()">➕ Registrar tu intervención</button>
           <button class="btn btn-green" onclick="Casos.abrirModalSeguimiento()">💬 Agregar un comentario</button>
           <button class="btn btn-outline" onclick="closeModal()">No, ya terminé</button>
@@ -2937,7 +2969,11 @@ const Casos = {
 
   // ── PEDIR DERIVACIÓN ─────────────────────────────────────────────────
 
-  abrirModalDerivacion(){
+  // `tipoPreseleccionado` (sept/2026): cuando se llega acá sugerido desde
+  // _mostrarSiguientePasoValidacion() porque se tildó una acción con
+  // derivación formal equivalente — arranca con el tipo ya elegido y el
+  // subformulario ya armado, en vez de forzar a elegirlo de nuevo.
+  abrirModalDerivacion(tipoPreseleccionado){
     const opciones = window.PROJECT_CONFIG.derivacionOpciones || [];
     const body = `
       <form id="form-derivacion" onsubmit="return false;">
@@ -2945,7 +2981,7 @@ const Casos = {
           <label>Tipo de derivación</label>
           <select id="f_tipo_deriv" onchange="Casos._renderSubformDerivacion(this.value)">
             <option value="">— Elegir —</option>
-            ${opciones.map(o => `<option value="${escAttr(o)}">${esc(o)}</option>`).join('')}
+            ${opciones.map(o => `<option value="${escAttr(o)}" ${o===tipoPreseleccionado?'selected':''}>${esc(o)}</option>`).join('')}
           </select>
         </div>
         <div id="subform-derivacion"></div>
@@ -2957,6 +2993,7 @@ const Casos = {
     `;
     openModal('📨 Pedir derivación', body);
     document.getElementById('btn-guardar-deriv').onclick = Casos.guardarDerivacion;
+    if(tipoPreseleccionado && opciones.includes(tipoPreseleccionado)) Casos._renderSubformDerivacion(tipoPreseleccionado);
   },
 
   _renderSubformDerivacion(tipo){

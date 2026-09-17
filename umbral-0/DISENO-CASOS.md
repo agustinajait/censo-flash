@@ -1784,6 +1784,51 @@ nunca terminan usando "Pedir derivación" (§11, primer punto), puede que
 ahora se muestran las tres secciones por separado para poder comparar
 con datos reales antes de decidir.
 
+### 10.1.12 Puente KoBo ↔ checklist ↔ "Pedir derivación" (17/9/2026)
+
+Charlando §10.1.11, Agustina confirmó dos cosas sobre cómo tiene que
+funcionar el puente entre KoBo y la casilla "¿Qué hiciste con este
+caso?": (1) el dato tiene que seguir levantándose como etiqueta propia
+(no colapsar en texto libre, "porque necesitamos saber qué hace la
+dupla"), y (2) a veces hace falta una instancia más después de KoBo —
+pedir la derivación de verdad a un CIS o llamar a SAME — "y eso hay que
+registrarlo porque además dentro de nuestro feature de derivación está
+lo que tienen que completar para cada caso" (foto de DNI, informe
+social, etc., según el tipo — ver glosario).
+
+Dos cambios en `casos.html`, con las tablas de mapeo movidas a
+`config/umbral-0.js` (únca fuente, no duplicar):
+
+1. **Pre-tildado del checklist desde KoBo** (`KOBO_TERMINO_A_ACCION`):
+   al abrir "Validar envío de KoBo" por primera vez (todavía sin fila en
+   `kobo_validaciones`), se pre-tilda lo que tiene equivalente directo
+   y sin ambigüedad con lo que la dupla ya contestó en
+   `termino_intervencion_diaria` de KoBo — evita reescribir dos veces
+   lo mismo. Los códigos de KoBo sin equivalente claro en el listado de
+   la plataforma (`traslado_dipa`, `derivacion_internacion_asa`,
+   `traslado_centro_barrial`, `derivacion_apoyo_familias`,
+   `traslado_efector_neuropsiquiatrico`, `derivacion_adicciones_ambulatoria`)
+   quedan **sin pre-tildar a propósito** — mejor no marcar nada que
+   inventar una equivalencia dudosa. Si ya existe una validación previa,
+   no se vuelve a pre-tildar encima (se respeta lo que la dupla eligió).
+2. **Sugerencia de "Pedir derivación" al validar** (`ACCION_A_TIPO_DERIVACION`):
+   si lo que se tilda en el checklist incluye algo con tipo de
+   derivación formal equivalente (CIS, Casa Vincular, Programa
+   Ciudadanía Porteña, SAME, Salud Mental, Policía de la Ciudad),
+   `_mostrarSiguientePasoValidacion()` ofrece un botón puntual
+   ("📨 Completar derivación a CIS") arriba de las opciones genéricas,
+   que abre `abrirModalDerivacion(tipo)` con el tipo ya preseleccionado
+   — reutiliza el mismo formulario/campos obligatorios de siempre, no
+   crea un circuito paralelo. Tildar la casilla del checklist **no**
+   reemplaza pedir la derivación de verdad — son dos registros
+   distintos a propósito (uno es "qué pasó", el otro es "la solicitud
+   formal con sus datos").
+
+Validado con un script de Node que carga `config/umbral-0.js` en un
+sandbox y verifica que ambos mapeos solo apunten a claves/tipos que
+existen de verdad (`accionesIntervencion`/`derivacionOpciones`), más
+casos simulados de pre-tildado y sugerencia.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
