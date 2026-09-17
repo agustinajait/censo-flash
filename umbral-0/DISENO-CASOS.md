@@ -1691,6 +1691,24 @@ Aplicado en `casos.html` y `admin-duplas.html` (las dos páginas con
 login). `casos-en-vivo.html` no tiene este problema — no tiene login,
 usa la anon key directo.
 
+### 10.1.9 Posibles duplicados: sacar el "el más viejo — sugerido para dejar" (17/9/2026)
+
+Feedback de Agustina viendo duplicados reales (Mangel Sánchez x5, Elías
+Simón Hernández x2): "no me convence que sugieras que el correcto es el
+más viejo". Tenía razón — `revisarDuplicadosCasos()`/`revisarDuplicadosAdmin()`
+marcaban el primer caso cargado (por fecha) con 🟢 y el texto "sugerido
+para dejar", asumiendo que la carga más vieja era la más confiable. No
+hay ninguna razón real para asumir eso — el caso más viejo puede tener
+menos datos cargados que uno posterior.
+
+Se sacó esa marca en las dos pantallas (`casos.html` y
+`admin-duplas.html`): ahora los `N` casos de un grupo se muestran todos
+con el mismo peso, cada uno con su propio botón "🙈 Ocultar" — ninguno
+pre-señalado como "el bueno". En `casos.html` se agregó además "👁️ Ver
+ficha" en cada uno, para poder revisar el contenido de cada caso antes de
+decidir cuál ocultar (en `admin-duplas.html` no hay ficha propia — la
+ficha vive en `casos.html` — así que ese botón no se agregó ahí).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
