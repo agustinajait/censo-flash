@@ -1709,6 +1709,40 @@ ficha" en cada uno, para poder revisar el contenido de cada caso antes de
 decidir cuál ocultar (en `admin-duplas.html` no hay ficha propia — la
 ficha vive en `casos.html` — así que ese botón no se agregó ahí).
 
+### 10.1.10 "Ocultar" no sacaba el caso de la búsqueda + refuerzo del aviso de DNI duplicado (17/9/2026)
+
+Reportado por Agustina: "oculté a Luciano Romero y sigue apareciendo".
+
+Causa: `buscarPersonas()` (la búsqueda principal de `casos.html`) consulta
+la vista `personas_actividad`, que **nunca filtraba `personas.oculto`** —
+a diferencia de `personas_listado_publico`, que sí lo hacía desde que se
+creó. Ocultar guardaba bien la marca en la base, pero esta vista la
+ignoraba, así que el caso seguía apareciendo en la búsqueda (aunque ya no
+en el cartel de "Posibles duplicados", que sí filtra `oculto` del lado
+del cliente). Fix: se agrega `where coalesce(oculto,false)=false` a la
+vista — manteniendo `security_invoker=true` explícito (ver incidente de
+seguridad del 16/9, §10.1.6).
+
+De paso, investigando el caso real de Luciano Romero (duplicado por DNI,
+dupla F 15/9 y dupla C 17/9), se encontró que el aviso preventivo de "ya
+existe este DNI" al dar de alta (existente de antes) tenía dos huecos:
+
+- Si la consulta a `personas_dni_index` fallaba (red, permisos), el
+  código lo atrapaba y dejaba guardar igual **sin avisar nada** — un
+  fallo silenciaba justo la protección que se supone que evita
+  duplicados. Ahora frena y pide reintentar en vez de seguir de largo.
+- El botón "Crear de todas formas" era un solo click, fácil de apretar
+  sin leer. Ahora hay que tildar primero una casilla ("Confirmo que es
+  una persona distinta a la de arriba") para que el botón se habilite —
+  mismo espíritu que el "escribí el nombre para confirmar" de "Eliminar
+  caso", pero más liviano porque acá no es una acción destructiva.
+
+También se encontró (achaque aparte, mismo patrón que `duplas_publico` en
+su momento) que `personas_dni_index` tenía privilegios de escritura de
+más para `anon`/`authenticated` heredados por default al crearse la
+vista — revocados, queda solo `authenticated: SELECT` (esta vista expone
+DNI real de todas las duplas, nunca debería ser legible sin login).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

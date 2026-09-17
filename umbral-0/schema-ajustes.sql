@@ -769,3 +769,45 @@ values
   ('97385a43-466e-42a4-bf8f-7b129532d1c8', 'operador', 'Rocio', 'Puebla Zabala', false),
   ('97385a43-466e-42a4-bf8f-7b129532d1c8', 'operador', 'Marina', 'Zabala', false)
 on conflict do nothing;
+
+-- personas_actividad: filtra oculto (17/9/2026) — Agustina reportó "oculté
+-- a Luciano Romero y sigue apareciendo". Causa: buscarPersonas() en
+-- casos.html consulta esta vista, que nunca filtraba personas.oculto (a
+-- diferencia de personas_listado_publico, que sí lo hacía desde que se
+-- creó). El marcado de "ocultar" quedaba bien guardado en la base, pero
+-- esta vista lo ignoraba. security_invoker=true se mantiene explícito
+-- (ver incidente de seguridad del 16/9 en DISENO-CASOS.md §10.1.6) — ojo
+-- con esto en cualquier CREATE OR REPLACE VIEW futuro sobre esta vista.
+create or replace view public.personas_actividad
+with (security_invoker = true) as
+select
+  id, nombre, apellido, dni, dni_denuncia_extravio, fecha_nacimiento,
+  nacionalidad, telefono_contacto, punto_contacto, zona, comuna, foto_url,
+  criticidad, estado_salud, medicacion, esquema, sube_escaleras,
+  cama_arriba, estuvo_en_cis_antes, estuvo_en_cis_detalle, consumo_activo,
+  situacion_habitacional, situacion_economica, situacion_educativa,
+  redes_contencion, historia_breve, estado, created_at, updated_at,
+  situacion_sanitaria, nivel_actual, dupla_id, sin_identificar,
+  acepta_entrevista,
+  greatest(
+    created_at,
+    (select max(i.created_at) from intervenciones i where i.persona_id = p.id),
+    (select max(s.created_at) from seguimientos s where s.persona_id = p.id),
+    (select max(d.created_at) from derivaciones d where d.persona_id = p.id),
+    (select max(kv.created_at) from kobo_validaciones kv where kv.persona_id = p.id)
+  ) as ultima_actividad
+from personas p
+where coalesce(p.oculto, false) = false;
+
+-- personas_dni_index: revoca privilegios de más a anon/authenticated
+-- (17/9/2026) — encontrado revisando por qué el aviso de "DNI duplicado"
+-- no frenó a Luciano Romero: la vista en sí estaba bien, pero al crearse
+-- había heredado los privilegios default de Supabase para anon
+-- (INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER/SELECT), mismo
+-- patrón de riesgo que ya se había corregido antes en duplas_publico.
+-- Esta vista expone DNI+nombre+apellido (PII real) de TODAS las duplas a
+-- propósito para el aviso — nunca debería ser legible sin login, y nunca
+-- debería ser escribible por nadie a través de la vista.
+revoke all on public.personas_dni_index from anon;
+revoke insert, update, delete, truncate, references, trigger
+  on public.personas_dni_index from authenticated;
