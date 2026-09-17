@@ -1333,6 +1333,8 @@ async function generarReporte(){
 
     const reporte = calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId });
     reporte.koboOutcomes = koboOutcomes;
+    reporte.accionesPlataforma = await calcularAccionesPlataforma(desde, hasta, intervenciones)
+      .catch(e => { console.error('No se pudo calcular acciones de la plataforma', e); return { conteo:{}, totalIntervenciones:0, totalValidaciones:0 }; });
     // Listado de casos del período (nuevos + recontactados) — pedido de
     // Agustina: "en el reporte tenemos que poder ver los casos también",
     // para no depender solo de agregados cuando "d." está en cero.
@@ -1380,6 +1382,40 @@ async function calcularOutcomesKobo(desde, hasta){
     });
   });
   return { totalEnvios, conteo };
+}
+
+// ── f. Qué hicieron las duplas — confirmado en la plataforma ───────────
+// Complementa "e." (respuesta cruda de KoBo): esto es lo que la propia
+// dupla tildó en "¿Qué hiciste con este caso?" al validar un envío de
+// KoBo (`kobo_validaciones.acciones`) o al registrar una intervención
+// (`intervenciones.acciones`) — pedido de Agustina (sept/2026), después
+// de notar que ese dato no se sumaba en ningún reporte. `intervenciones`
+// ya viene filtrado por período desde generarReporte(); `kobo_validaciones`
+// no tiene columna `fecha` (solo `created_at`), así que se filtra acá con
+// el mismo criterio de límites de día local→UTC que casos-en-vivo.html
+// (rangoUtcLocal).
+async function calcularAccionesPlataforma(desde, hasta, intervenciones){
+  const client = await SupabaseClient.getClient();
+  const desdeUtc = desde + 'T03:00:00.000Z';
+  const hastaUtc = new Date(new Date(hasta + 'T03:00:00.000Z').getTime() + 24*60*60*1000).toISOString();
+  const { data: validaciones, error } = await client.from('kobo_validaciones')
+    .select('acciones, created_at').gte('created_at', desdeUtc).lt('created_at', hastaUtc);
+  if(error) throw error;
+
+  const conteo = {};
+  let totalIntervenciones = 0;
+  (intervenciones||[]).forEach(i => {
+    if(!(i.acciones||[]).length) return;
+    totalIntervenciones++;
+    i.acciones.forEach(codigo => { conteo[codigo] = (conteo[codigo] || 0) + 1; });
+  });
+  let totalValidaciones = 0;
+  (validaciones||[]).forEach(v => {
+    if(!(v.acciones||[]).length) return;
+    totalValidaciones++;
+    v.acciones.forEach(codigo => { conteo[codigo] = (conteo[codigo] || 0) + 1; });
+  });
+  return { conteo, totalIntervenciones, totalValidaciones };
 }
 
 // Listado de casos del período — no solo agregados, para que el reporte
@@ -1609,6 +1645,20 @@ function renderReporte(cont, r){
         `}
     </div>
 
+    <div class="section-title">f. Qué hicieron las duplas — confirmado en la plataforma</div>
+    <div class="section-hint">Sale de "¿Qué hiciste con este caso?" — la casilla que tildan acá al validar un envío de KoBo o registrar una intervención, no de la respuesta cruda de KoBo. Categorías más completas que "e." (incluye CIS y teléfono rojo). Todavía no está claro si esto termina reemplazando a "d." (que depende de "Pedir derivación") — por ahora se muestra aparte para poder comparar.</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Qué hicieron</th><th style="text-align:right;">Cantidad</th></tr></thead>
+        <tbody>
+          ${Object.keys(r.accionesPlataforma.conteo).length ? Object.entries(r.accionesPlataforma.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
+            `<tr><td>${esc((window.PROJECT_CONFIG.accionesIntervencionLabels||{})[codigo] || codigo)}</td><td class="num">${n}</td></tr>`).join('')
+            : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin acciones confirmadas en la plataforma en el período</td></tr>'}
+        </tbody>
+      </table>
+      <div class="section-hint" style="margin-top:10px;">${r.accionesPlataforma.totalIntervenciones} intervención(es) y ${r.accionesPlataforma.totalValidaciones} validación(es) de KoBo con acciones cargadas en este período (una misma intervención/validación puede sumar en más de una fila).</div>
+    </div>
+
     <div class="section-title">Listado de casos del período</div>
     <div class="section-hint">Casos nuevos o recontactados en el rango elegido — tocá una tarjeta para ver el detalle.</div>
     ${renderListadoCasosCards(r.listadoCasos)}
@@ -1674,6 +1724,9 @@ function armarMensaje(){
   const koboLinea = r.koboOutcomes
     ? (Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) => `  · ${labelsKobo[codigo]||codigo}: ${n}`).join('\n') || '  (sin envíos de KoBo del equipo en el período)')
     : '  (no se pudo traer KoBo para esta sección)';
+  const labelsAcciones = window.PROJECT_CONFIG.accionesIntervencionLabels || {};
+  const accionesLinea = Object.entries(r.accionesPlataforma.conteo).sort((a,b)=>b[1]-a[1])
+    .map(([codigo,n]) => `  · ${labelsAcciones[codigo]||codigo}: ${n}`).join('\n') || '  (sin acciones confirmadas en la plataforma en el período)';
   const casosLinea = (r.listadoCasos||[]).map(c =>
     `  · [${c.dupla}] ${c.nombre}${c.dni ? ' — DNI ' + c.dni : ''}${c.criticidad ? ' — ' + c.criticidad : ''}${c.esNuevo ? ' (nuevo)' : ' (recontactado)'}`
   ).join('\n') || '  (sin casos nuevos ni recontactados en el período)';
@@ -1703,6 +1756,9 @@ Total: ${r.intervencionesDerivaciones.totalDerivaciones} · Efectivizadas: ${r.i
 
 e. DERIVACIONES Y CONTACTOS SEGÚN KOBO (terreno)
 ${koboLinea}
+
+f. QUÉ HICIERON LAS DUPLAS (confirmado en la plataforma)
+${accionesLinea}
 
 LISTADO DE CASOS DEL PERÍODO
 ${casosLinea}
@@ -1761,6 +1817,9 @@ async function publicarReporte(){
       // ya carga config/umbral-0.js y busca las etiquetas ahí, una sola
       // fuente de verdad en vez de duplicar el diccionario acá.
       koboOutcomes: r.koboOutcomes,
+      // Idem koboOutcomes — códigos crudos, reporte-publico.html busca las
+      // etiquetas en accionesIntervencionLabels de config/umbral-0.js.
+      accionesPlataforma: r.accionesPlataforma,
       // Va también en el link público para GOPA (confirmado con
       // Agustina, sept/2026) — a diferencia del resto de "datos", esto sí
       // incluye nombre/DNI de personas.

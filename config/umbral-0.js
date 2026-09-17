@@ -128,6 +128,35 @@ const TERMINO_INTERVENCION_LABELS = {
   otro: 'Otro',
 };
 
+// Qué hizo el operador con el caso, confirmado ACÁ en la plataforma (no
+// en KoBo) — pedido de Agustina (sept/2026): "yo no manejo el kobo,
+// manejo esta plataforma... el que hizo debe verse en el legajo". Es la
+// versión NATIVA de TERMINO_INTERVENCION_LABELS de arriba — mismas
+// categorías donde tiene sentido, más CIS y teléfono rojo (que KoBo no
+// tiene como opción). Vive en `intervenciones.acciones` y
+// `kobo_validaciones.acciones`, no depende de que KoBo pregunte bien.
+// Única fuente: casos.html arma el checklist de "¿Qué hiciste con este
+// caso?" a partir de esta lista, y admin-duplas.html/reporte-publico.html
+// la usan para mostrar los conteos agregados del reporte semanal — ver
+// calcularAccionesPlataforma() en admin-duplas.html.
+const ACCIONES_INTERVENCION = [
+  { key:'entrevista', label:'Entrevista con la persona' },
+  { key:'rechazo_entrevista', label:'Se acercó, pero no aceptó hablar / se negó a la entrevista' },
+  { key:'llamado_same_medica', label:'Llamado a SAME (emergencia médica)' },
+  { key:'llamado_same_salud_mental', label:'Llamado a SAME (emergencia de salud mental)' },
+  { key:'telefono_rojo', label:'Llamado al teléfono rojo' },
+  { key:'policia', label:'Contacto con Policía / 911' },
+  { key:'derivacion_cis', label:'Derivación a CIS' },
+  { key:'derivacion_casa_vincular', label:'Derivación a Casa Vincular' },
+  { key:'derivacion_red', label:'Derivación a la RED' },
+  { key:'derivacion_ciudadania_portena', label:'Derivación a Ciudadanía Porteña' },
+  { key:'hospital', label:'Traslado/derivación a hospital' },
+  { key:'acompanamiento_salud', label:'Acompañamiento por afección física / CeSAC' },
+  { key:'vuelve_manana', label:'Se acordó volver a verla' },
+  { key:'otro', label:'Otro (detallar abajo)' },
+];
+const ACCIONES_INTERVENCION_LABELS = Object.fromEntries(ACCIONES_INTERVENCION.map(a => [a.key, a.label]));
+
 // "¿Dónde naciste?" / "¿Dónde vivías antes de estar en calle por primera
 // vez?" — mismas opciones geográficas en las dos preguntas (confirmado
 // contra un export real en formato "XML values", sept/2026: los valores
@@ -400,5 +429,10 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
 // pueda armar etiquetas legibles al mostrar terminoIntervencionDiaria en el
 // reporte semanal, sin tener que duplicar el diccionario.
 window.PROJECT_CONFIG_UMBRAL_0.terminoIntervencionLabels = TERMINO_INTERVENCION_LABELS;
+// Idem — casos.html arma el checklist "¿Qué hiciste con este caso?" a
+// partir de accionesIntervencion (necesita key+label); admin-duplas.html
+// y reporte-publico.html solo necesitan las etiquetas para el reporte.
+window.PROJECT_CONFIG_UMBRAL_0.accionesIntervencion = ACCIONES_INTERVENCION;
+window.PROJECT_CONFIG_UMBRAL_0.accionesIntervencionLabels = ACCIONES_INTERVENCION_LABELS;
 
 })();
