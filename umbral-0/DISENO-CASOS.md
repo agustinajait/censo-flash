@@ -2026,6 +2026,54 @@ con apellido "-") más tres regresiones (nombre+apellido real repetido
 sin DNI, DNI real repetido, nombre repetido con apellido vacío) — los 4
 checks pasan.
 
+### 10.1.19 Excepción a "solo seguimiento" para Casa Vincular/ASA cuando KoBo ya registró la derivación (18/9/2026)
+
+Agustina reporta un caso real: César Osmar Colman Lovera (DNI 1840781),
+dado de alta a partir de un envío de KoBo donde el equipo territorial ya
+registró que la persona aceptó ir a Casa Vincular en ESE mismo contacto
+(`kobo_validaciones.acciones` incluye `derivacion_casa_vincular` para su
+envío). Al validar el caso y tocar "Pedir derivación → Casa Vincular", el
+sistema lo bloqueaba: "Este recurso solo está habilitado para casos en
+seguimiento (la persona todavía no tiene más de un contacto
+registrado)" — la regla de §5.2 (`soloSeguimiento`, derivada de
+`intervencionesActuales.length > 1`) no contempla que el propio KoBo del
+único contacto ya haya registrado la aceptación.
+
+Confirmado que la regla en sí no es un bug — viene del documento
+original ("únicamente para los seguimientos de los equipos
+territoriales") — pero no contemplaba esta situación real. Agustina pidió
+ajustarla: "Ajustá la regla, por favor."
+
+Fix: nueva excepción puntual a `soloSeguimiento`, solo para Casa
+Vincular/ASA. Cada config suma `koboCodigoHabilitante` (el código de
+`termino_intervencion_diaria` de KoBo que corresponde a esa derivación —
+`derivacion_casa_vincular` / `derivacion_internacion_asa`, ver
+`TERMINO_INTERVENCION_LABELS` en `config/umbral-0.js`). Nuevo método
+`Casos._koboYaRegistroDerivacion(cfg)` revisa `koboEventosActuales` (los
+envíos de KoBo ya asociados a esa persona, cargados por
+`cargarKoboDePersona()`) buscando ese código. El gate en
+`_renderSubformDerivacion()`/`guardarDerivacion()` pasa de
+`!Casos.esSeguimiento()` a `!Casos.esSeguimiento() &&
+!Casos._koboYaRegistroDerivacion(cfg)` — sigue bloqueando cuando no hay
+ninguna de las dos señales, y ya no bloquea cuando el contacto único que
+existe ya trae en KoBo la aceptación de esa derivación puntual. Un caso
+con 2+ intervenciones sigue habilitado igual que antes, sin depender de
+KoBo. Mensaje de error actualizado para mencionar la nueva vía.
+
+Nota: como `koboEventosActuales` se completa aparte (asíncrono, no
+bloquea abrir la ficha — ver 4), si la dupla abre "Pedir derivación" antes
+de que termine de cargar, el chequeo da `false` y se comporta como antes
+(bloqueado) — no hay falso positivo, en el peor caso hay que reabrir el
+modal una vez que cargó.
+
+Validado con script de Node que reproduce el gate (`soloSeguimiento` +
+`esSeguimiento` + `_koboYaRegistroDerivacion`) sobre el caso real de
+César, más: sin señal de KoBo (sigue bloqueado), con
+`koboEventosActuales` todavía vacío (sigue bloqueado, no rompe), con 2+
+intervenciones (sigue habilitado sin depender de KoBo), código de Casa
+Vincular no habilita ASA y viceversa, y un tipo sin `soloSeguimiento`
+(CIS) no se ve afectado — los 7 checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

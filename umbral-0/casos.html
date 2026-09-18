@@ -564,16 +564,28 @@ const TIPOS_DERIVACION_CONFIG = {
       { key:'resumen_intervencion', label:'Resumen de la intervención', type:'textarea', hint:'Hace cuánto está en situación de calle, motivo, redes de contención socio-familiar, instituciones comunitarias.' },
     ],
   },
+  // soloSeguimiento = solo para casos con vínculo ya establecido (más de un
+  // contacto registrado, ver Casos.esSeguimiento()) — así lo pide el
+  // documento original. Excepción (sept/2026, caso real de Agustina: César
+  // Osmar Colman Lovera aceptó ir a Casa Vincular en un único contacto de
+  // terreno, ya registrado en KoBo): si ESE mismo contacto ya trae en KoBo
+  // (`termino_intervencion_diaria`) el código de esta derivación, el
+  // vínculo ya quedó demostrado en el territorio aunque la plataforma solo
+  // tenga 1 intervención cargada — koboCodigoHabilitante lo destraba, ver
+  // Casos._koboYaRegistroDerivacion().
   'Casa Vincular': {
     soloSeguimiento: true,
+    koboCodigoHabilitante: 'derivacion_casa_vincular',
     campos: CAMPOS_INFORME_SOCIAL,
   },
   // Mismo informe social que Casa Vincular — el doc dice explícitamente que
   // usa "el mismo formato". También solo para seguimientos: el doc pide que
   // haya vínculo previo y diálogo sobre la conciencia del consumo antes de
-  // proponer ASA.
+  // proponer ASA. Misma excepción de arriba si KoBo ya trae
+  // "derivacion_internacion_asa" en ese contacto.
   'ASA (ex Centro de Admisión, Evaluación y Derivación)': {
     soloSeguimiento: true,
+    koboCodigoHabilitante: 'derivacion_internacion_asa',
     campos: CAMPOS_INFORME_SOCIAL,
   },
   'Micro': {
@@ -2514,6 +2526,18 @@ const Casos = {
     return intervencionesActuales.length > 1;
   },
 
+  // Excepción a soloSeguimiento para Casa Vincular/ASA (§10.1.19): el mismo
+  // contacto de terreno ya trae en KoBo el código de esta derivación
+  // (`termino_intervencion_diaria`) — no hace falta un segundo contacto
+  // registrado en la plataforma para confirmar que el vínculo se estableció,
+  // ya está confirmado en el territorio. koboEventosActuales se completa
+  // aparte (async, ver cargarKoboDePersona) — si todavía no llegó, esto da
+  // false y el gate de soloSeguimiento se comporta como antes.
+  _koboYaRegistroDerivacion(cfg){
+    if(!cfg || !cfg.koboCodigoHabilitante) return false;
+    return koboEventosActuales.some(p => (p.terminoIntervencionDiaria||[]).includes(cfg.koboCodigoHabilitante));
+  },
+
   _renderFichaHeader(){
     const p = personaActual;
     document.getElementById('ficha-nombre').textContent = nombreDisplay(p);
@@ -3117,8 +3141,8 @@ const Casos = {
 
     const cfg = TIPOS_DERIVACION_CONFIG[tipo];
 
-    if(cfg && cfg.soloSeguimiento && !Casos.esSeguimiento()){
-      sub.innerHTML = `<div class="modal-err show">Este recurso solo está habilitado para casos en seguimiento (la persona todavía no tiene más de un contacto registrado). Registrá otra intervención antes de pedir esta derivación.</div>`;
+    if(cfg && cfg.soloSeguimiento && !Casos.esSeguimiento() && !Casos._koboYaRegistroDerivacion(cfg)){
+      sub.innerHTML = `<div class="modal-err show">Este recurso solo está habilitado para casos en seguimiento (la persona todavía no tiene más de un contacto registrado, ni KoBo registró esta derivación en el contacto que ya tiene). Registrá otra intervención, o revisá que el envío de KoBo esté asociado a este caso, antes de pedir esta derivación.</div>`;
       btn.disabled = true;
       return;
     }
@@ -3147,7 +3171,7 @@ const Casos = {
     const sub = document.getElementById('subform-derivacion');
     const btn = document.getElementById('btn-guardar-deriv');
 
-    if(cfg && cfg.soloSeguimiento && !Casos.esSeguimiento()){
+    if(cfg && cfg.soloSeguimiento && !Casos.esSeguimiento() && !Casos._koboYaRegistroDerivacion(cfg)){
       modalError('Este recurso solo está habilitado para casos en seguimiento.');
       return;
     }
