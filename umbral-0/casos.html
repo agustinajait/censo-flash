@@ -1448,6 +1448,15 @@ function parrafosKobo(textos){
 // ya queda claro en otro lado.
 function _prefillDesdeKobo(p, esSinIdentificar){
   const per = p.persona;
+  // KoBo geolocaliza automáticamente CADA envío (permiso de ubicación del
+  // celular, no depende de que el operador cargue nada) — pedido de
+  // Agustina (sept/2026), viendo fichas "sin identificar" que quedaban sin
+  // punto de contacto ni descripción: "si cargó KoBo, alguna latitud
+  // tenemos que tener". Para "Sin identificar" (donde punto_contacto es
+  // obligatorio y hoy no hay ningún otro dato de ubicación) se precarga
+  // con el link al mapa en vez de dejarlo vacío — la dupla lo revisa/
+  // reemplaza por una dirección real si la tiene.
+  const linkMapa = (p.lat != null && p.lng != null) ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '';
   return {
     // KoBo devuelve la fecha con hora (ej. "1992-04-21T00:00:00") — el
     // input type=date solo acepta "YYYY-MM-DD".
@@ -1456,8 +1465,10 @@ function _prefillDesdeKobo(p, esSinIdentificar){
     estado_salud: per.estadoSalud || '',
     consumo_activo: per.identificoConsumosProblematicos === true,
     acepta_entrevista: per.aceptaEntrevistaProlongada === true,
+    punto_contacto: esSinIdentificar ? linkMapa : '',
     historia_breve: parrafosKobo([
-      esSinIdentificar ? `KoBo sin identificar — ${p.tipo||'intervención'} del ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}, cargado por ${p.operador||'—'}.` : null,
+      esSinIdentificar ? `KoBo sin identificar — ${p.tipo||'intervención'} del ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}, cargado por ${p.operador||'—'}.${linkMapa ? ' Ubicación del envío: ' + linkMapa : ' Sin ubicación en el envío de KoBo.'}` : null,
+      esSinIdentificar && !per.caracteristicas && !per.observacionPersona ? '⚠️ KoBo no trajo ninguna descripción de la persona — completar a mano si se recuerda algo (vestimenta, edad aproximada, algo que la identifique para la próxima vez).' : null,
       per.caracteristicas,
       per.observacionPersona,
       per.infoCualitativaMotivos,
@@ -1745,7 +1756,7 @@ function mostrarKoboPendientes(){
           <div class="kobo-pend-card">
             <div class="kobo-pend-txt">
               <strong>${esc(p.tipo||'Intervención')}</strong>
-              <div class="meta">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}${p.persona.caracteristicas ? ' · ' + esc(p.persona.caracteristicas) : ''}</div>
+              <div class="meta">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}${p.persona.caracteristicas ? ' · ' + esc(p.persona.caracteristicas) : ''}${(p.lat!=null && p.lng!=null) ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Ver ubicación</a>` : ''}</div>
             </div>
             <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboSinIdentificar(${idx})">➕ Cargar como "Sin identificar"</button>
           </div>

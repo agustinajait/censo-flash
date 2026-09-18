@@ -1928,6 +1928,44 @@ fin cuando termine de verdad. Mismas policies de RLS que ya usaba
 `marcarFinJornada()` (`jornadas_propia_dupla`, scope por `dupla_id`),
 sin cambios de permisos necesarios.
 
+### 10.1.16 Alta "Sin identificar" usa la geolocalización de KoBo (18/9/2026)
+
+Agustina, revisando fichas reales de "sin identificar" (ej. Tomás
+García, dupla K, varios "primer_acercamiento" seguidos con "No quiso
+hablar" y nada más): "si cargó KoBo, alguna latitud tenemos que tener.
+Y además si cargan en KoBo pero no les dan el DNI o la entrevista,
+aunque sea el nombre o una descripción de la persona tiene que haber."
+
+Confirmado: KoBo geolocaliza automáticamente **cada** envío (permiso de
+ubicación del celular — no depende de que el operador cargue nada),
+`parseUmbral0()` ya lo trae parseado como `lat`/`lng` (§10.1, campo
+`_geolocation` de KoBo), pero nada del flujo de alta lo estaba usando
+— el punto de contacto (único campo obligatorio en "Sin identificar")
+quedaba en blanco a pesar de tener la coordenada disponible.
+
+Fix en `_prefillDesdeKobo()` (`casos.html`), solo para el flujo "Sin
+identificar" (`confirmarKoboSinIdentificar()`):
+
+- `punto_contacto` se precarga con un link a Google Maps
+  (`https://www.google.com/maps?q=lat,lng`) cuando el envío trae
+  geolocalización — la dupla lo revisa/reemplaza por una dirección real
+  si la tiene, pero ya no arranca vacío.
+- `historia_breve` suma la ubicación (o aclara "sin ubicación en el
+  envío" si KoBo no la trajo) y, si no hay `características` ni
+  `observación de la persona`, un aviso pidiendo completar a mano
+  alguna descripción (vestimenta, edad aproximada) para la próxima vez.
+- El link al mapa también se agrega como columna nueva ("Ubicación") en
+  la tabla de solo lectura de `admin-duplas.html` y como enlace extra
+  en el recordatorio de `casos.html` — mismo dato, visible antes de
+  siquiera abrir el alta.
+
+El flujo "con DNI" (`confirmarKoboPendiente()`) no cambia — ese ya
+tiene DNI/nombre como identificador principal, la ubicación de KoBo no
+es su punto débil.
+
+Validado con script de Node que reproduce `_prefillDesdeKobo()`
+(4 casos: con geo, sin geo, con descripción, flujo con DNI sin tocar).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
