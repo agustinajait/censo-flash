@@ -818,6 +818,17 @@ function normalizarNombreDup(s){
   return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 }
 
+// DNI "placeholder" — ver el mismo helper y su comentario en casos.html
+// (esDniPlaceholderDup). Evita que "Nsnc"/"."/etc. tipeados en el campo
+// DNI agrupen a personas distintas como si compartieran DNI real.
+function esDniPlaceholderDup(dni){
+  const s = String(dni||'').trim().toLowerCase();
+  if(!s) return true;
+  if(!/[a-z0-9]/i.test(s)) return true;
+  if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  return false;
+}
+
 async function revisarDuplicadosAdmin(){
   const cont = document.getElementById('duplicados-cont');
   cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">Buscando…</div>';
@@ -840,7 +851,7 @@ async function revisarDuplicadosAdmin(){
     const porNombre = new Map();
     visibles.forEach(p => {
       const dni = String(p.dni||'').trim();
-      if(dni){
+      if(dni && !esDniPlaceholderDup(dni)){
         if(!porDni.has(dni)) porDni.set(dni, []);
         porDni.get(dni).push(p);
       }else if(!p.sin_identificar){

@@ -146,6 +146,17 @@ function normalizarNombreDup(s){
   return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 }
 
+// DNI "placeholder" — ver el mismo helper y su comentario en casos.html
+// (esDniPlaceholderDup). Evita que "Nsnc"/"."/etc. tipeados en el campo
+// DNI agrupen a personas distintas como si compartieran DNI real.
+function esDniPlaceholderDup(dni){
+  const s = String(dni||'').trim().toLowerCase();
+  if(!s) return true;
+  if(!/[a-z0-9]/i.test(s)) return true;
+  if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  return false;
+}
+
 // Pedido de Agustina (sept/2026): "revisa que hay duplicados de nombres
 // tb" — detecta personas con más de un caso cargado: mismo DNI, o (si
 // ninguno tiene DNI) mismo nombre+apellido normalizado. Corre sobre TODO
@@ -157,7 +168,7 @@ function detectarDuplicados(casos){
   const porNombre = new Map();
   (casos||[]).forEach(p => {
     const dni = String(p.dni||'').trim();
-    if(dni){
+    if(dni && !esDniPlaceholderDup(dni)){
       if(!porDni.has(dni)) porDni.set(dni, []);
       porDni.get(dni).push(p);
     } else if(!p.sin_identificar){

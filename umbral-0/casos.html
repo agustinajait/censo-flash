@@ -933,6 +933,22 @@ function normalizarNombreDupCasos(s){
   return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 }
 
+// DNI "placeholder" (sept/2026, pedido de Agustina viendo el panel de
+// duplicados: "no los pongas como que están duplicados" — dos personas
+// distintas con dni="Nsnc" o dni="." quedaban agrupadas como si
+// compartieran el mismo DNI real, porque quien cargó el caso tipeó eso
+// en el campo en vez de dejarlo vacío y tildar "Sin identificar"). Si el
+// "DNI" no tiene ninguna letra ni dígito real, o es una de estas frases
+// genéricas de "no sabe/no contesta", no cuenta como identificador
+// compartido — cae al chequeo por nombre (que ya filtra sin_identificar).
+function esDniPlaceholderDup(dni){
+  const s = String(dni||'').trim().toLowerCase();
+  if(!s) return true;
+  if(!/[a-z0-9]/i.test(s)) return true;
+  if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  return false;
+}
+
 async function revisarDuplicadosCasos(){
   const box = document.getElementById('duplicados-casos-box');
   try{
@@ -946,7 +962,7 @@ async function revisarDuplicadosCasos(){
     const porNombre = new Map();
     visibles.forEach(p => {
       const dni = String(p.dni||'').trim();
-      if(dni){
+      if(dni && !esDniPlaceholderDup(dni)){
         if(!porDni.has(dni)) porDni.set(dni, []);
         porDni.get(dni).push(p);
       }else if(!p.sin_identificar){
