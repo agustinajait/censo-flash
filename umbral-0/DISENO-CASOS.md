@@ -2109,11 +2109,66 @@ KoBo → mensaje original; plataforma vacía + KoBo vacío → mensaje
 original; plataforma con datos reales → usa plataforma, ignora KoBo) —
 los 4 checks pasan.
 
+### 10.1.21 "Hacer DNI" formalizado (1) vs. personas que en realidad lo necesitan (§10.1.20 continuación, 18/9/2026)
+
+Con "d." ya sin quedar vacía, Agustina miró el desglose real y notó algo
+que no cerraba: "Hacer DNI: 1" — "revisá que se haya hecho solo 1 DNI,
+me parece poco". Confirmado con una consulta a `personas`: hay **39**
+personas cargadas con `dni_denuncia_extravio = true` (la dupla ya marcó
+en la ficha que la persona no tiene DNI y necesita el trámite) pero
+**solo 1** tiene el trámite formalizado como derivación "Hacer DNI" en
+la plataforma. No es un error de conteo — "d." cuenta bien lo que hay en
+`derivaciones` — es el mismo patrón de siempre (§10.1.13 y el propio
+§10.1.20): las duplas marcan la denuncia de extravío en la ficha pero
+casi nunca formalizan el trámite con "Pedir derivación → Hacer DNI".
+
+A diferencia de §10.1.20, acá el fallback de KoBo no sirve: KoBo no
+tiene un código propio de "Hacer DNI" en `termino_intervencion_diaria`,
+así que ni "d." (con su fallback) ni "e." lo capturan. La única fuente
+confiable es el campo dedicado `personas.dni_denuncia_extravio`, que ya
+se estaba trayendo en el reporte (columna del `select` de `personas`)
+pero nadie lo cruzaba contra `derivaciones`.
+
+Pedido explícito: "cambialo el [c]ódigo y veamos después cómo reforzar
+que las duplas lo carguen en nuestra plataforma" — lo segundo (reforzar
+la carga) queda pendiente como punto de proceso/capacitación, no es
+código (ver sección 11).
+
+Fix: `calcularReporte()` suma `dniPendientes = { personasConDenunciaExtravio,
+derivacionesHacerDni }` (ambos ya calculables con los datos que el
+reporte ya trae, sin queries nuevas). En "d.", si
+`personasConDenunciaExtravio > derivacionesHacerDni`, se agrega una nota
+aparte (no se mezcla con la fila "Hacer DNI" de la tabla, que sigue
+siendo la cifra formal real) con los dos números y cuántas personas les
+faltaría iniciar el trámite. Como `dni_denuncia_extravio` es un estado
+de la ficha sin fecha propia (no un evento), la nota aclara que es foto
+actual, no acotada al período — mismo criterio que "c. Evolución de los
+casos". Igual que con `koboOutcomes` (§10.1.20), se suma a `datos` en
+`publicarReporte()` para que también aparezca en el link público de
+`reporte-publico.html` — a diferencia de `koboOutcomes`, este campo es
+nuevo, así que los reportes publicados ANTES de este fix no lo van a
+tener hasta que se regenere y publique uno nuevo.
+
+Validado con script de Node que reproduce el caso real (39 vs. 1 → se
+muestra la nota), más regresiones: todas formalizadas → no se muestra;
+sin denuncias de extravío → no se muestra; `dniPendientes` ausente
+(reporte viejo) → no rompe, no se muestra — los 4 checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
+- **Reforzar que las duplas carguen "Pedir derivación" cuando corresponde**
+  (§10.1.21, 18/9/2026): confirmado que 39 personas tienen denuncia de
+  extravío de DNI marcada en la ficha pero solo 1 tiene el trámite
+  "Hacer DNI" formalizado como derivación — el patrón se repite con el
+  resto de "d." (§10.1.13, §10.1.20). El reporte ya avisa del hueco; falta
+  definir CÓMO reforzar la carga en la práctica (¿recordatorio en la
+  ficha cuando hay denuncia de extravío sin derivación asociada?
+  ¿capacitación con las duplas? ¿ambas?) — pedido explícito de Agustina
+  de dejarlo para después ("veamos después cómo reforzar que las duplas
+  lo carguen").
 - ~~"Pedir derivación"/"Registrar intervención" casi no se usan~~ —
   **actualizado 17/9/2026, ver §10.1.13**: no era falta de uso, era un
   bug real de RLS que bloqueaba CUALQUIER "Pedir derivación" desde una

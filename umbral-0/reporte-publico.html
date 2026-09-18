@@ -152,6 +152,7 @@ function render(r){
   const idyv = d.intervencionesDerivaciones || {};
   const porTipo = idyv.porTipo || {};
   const koboOutcomes = d.koboOutcomes || null;
+  const dniPendientes = d.dniPendientes || null;
   const labelsKobo = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.terminoIntervencionLabels) || {};
   const accionesPlataforma = d.accionesPlataforma || { conteo:{}, totalIntervenciones:0, totalValidaciones:0 };
   const labelsAcciones = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
@@ -209,6 +210,8 @@ function render(r){
            período, la tabla y el KPI de arriba ya muestran el desglose de
            KoBo en su lugar — no queda vacío. -->
       ${!idyv.totalDerivaciones && koboOutcomes && Object.keys(koboOutcomes.conteo).length ? '<div class="nota-limite">⚠️ No hubo "Pedir derivación" cargado en la plataforma en este período — la tabla de arriba muestra en su lugar lo que KoBo registró en terreno (mismo dato que la sección e., de abajo; sin desglose de efectivizadas/rechazadas porque KoBo no lo pregunta).</div>' : ''}
+      <!-- Denuncia de extravío de DNI vs. trámite formalizado (§10.1.21) -->
+      ${dniPendientes && dniPendientes.personasConDenunciaExtravio > dniPendientes.derivacionesHacerDni ? `<div class="nota-limite">⚠️ Hay ${dniPendientes.personasConDenunciaExtravio} personas cargadas con denuncia de extravío de DNI (estado actual de la ficha, no acotado al período) pero solo ${dniPendientes.derivacionesHacerDni} con el trámite de "Hacer DNI" formalizado como derivación en la plataforma — a ${dniPendientes.personasConDenunciaExtravio - dniPendientes.derivacionesHacerDni} les faltaría iniciar el trámite ahí.</div>` : ''}
     </div>
 
     <div class="section-title">e. Derivaciones y contactos según KoBo (terreno)</div>

@@ -1637,6 +1637,17 @@ function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones,
   const totalEfectivizadas = derivaciones.filter(d => d.estado === 'efectivizado').length;
   const totalRechazadas = derivaciones.filter(d => d.estado === 'rechazado').length;
 
+  // Denuncia de extravío de DNI vs. trámite formalizado (18/9/2026, pedido
+  // de Agustina: "revisá que se haya hecho solo 1 DNI, me parece poco").
+  // `personas.dni_denuncia_extravio` es la señal directa de que la dupla ya
+  // sabe que esa persona necesita el trámite — mucho más confiable que
+  // esperar a que alguien toque "Pedir derivación → Hacer DNI" (que en la
+  // práctica casi no se usa, mismo patrón que el resto de "d."). No tiene
+  // fecha propia (es un estado de la ficha, no un evento), así que es foto
+  // actual — no un delta del período, igual que "c." de arriba.
+  const personasConDenunciaExtravio = personas.filter(p => p.dni_denuncia_extravio === true).length;
+  const derivacionesHacerDni = derivaciones.filter(d => d.tipo === 'Hacer DNI').length;
+
   return {
     desde, hasta,
     cobertura: { zonas, puntos, dias, pctZonasCubiertas, totalIntervenciones: intervenciones.length },
@@ -1644,6 +1655,7 @@ function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones,
     evolucion: { porNivel },
     intervencionesDerivaciones: { porTipo, totalDerivaciones, totalEfectivizadas, totalRechazadas,
       pctConcretadas: totalDerivaciones ? Math.round((totalEfectivizadas/totalDerivaciones)*100) : null },
+    dniPendientes: { personasConDenunciaExtravio, derivacionesHacerDni },
   };
 }
 
@@ -1710,6 +1722,14 @@ function renderReporte(cont, r){
            derivación" en el período, la tabla y el KPI de arriba ya
            muestran el desglose de KoBo en su lugar — no queda vacío. -->
       ${!r.intervencionesDerivaciones.totalDerivaciones ? `<div class="nota-limite">⚠️ ${(r.koboOutcomes && Object.keys(r.koboOutcomes.conteo).length) ? 'No hubo "Pedir derivación" cargado en la plataforma en este período — la tabla de arriba muestra en su lugar lo que KoBo registró en terreno (mismo dato que la sección e., de abajo; sin desglose de efectivizadas/rechazadas porque KoBo no lo pregunta).' : 'Esta tabla sale de "Pedir derivación" en casos.html — si nadie la usó en el período, va a quedar en cero aunque hayan pasado cosas en el territorio. Ver la sección de abajo, que sí sale de KoBo.'}</div>` : ''}
+      <!-- Denuncia de extravío de DNI vs. trámite formalizado (§10.1.21):
+           personas.dni_denuncia_extravio es una señal directa de que la
+           persona necesita el trámite, mucho más confiable que esperar a
+           que alguien toque "Pedir derivación → Hacer DNI". Se muestra
+           aparte (no se mezcla con la fila "Hacer DNI" de la tabla de
+           arriba, que sí es la cifra formal) porque es foto actual de la
+           ficha, no un evento con fecha — no se puede acotar al período. -->
+      ${r.dniPendientes && r.dniPendientes.personasConDenunciaExtravio > r.dniPendientes.derivacionesHacerDni ? `<div class="nota-limite">⚠️ Hay ${r.dniPendientes.personasConDenunciaExtravio} personas cargadas con denuncia de extravío de DNI (estado actual de la ficha, no acotado al período) pero solo ${r.dniPendientes.derivacionesHacerDni} con el trámite de "Hacer DNI" formalizado como derivación en la plataforma — a ${r.dniPendientes.personasConDenunciaExtravio - r.dniPendientes.derivacionesHacerDni} les faltaría iniciar el trámite ahí.</div>` : ''}
     </div>
 
     <div class="section-title">e. Derivaciones y contactos según KoBo (terreno)</div>
@@ -1898,6 +1918,7 @@ async function publicarReporte(){
       poblacion: r.poblacion,
       evolucion: r.evolucion,
       intervencionesDerivaciones: r.intervencionesDerivaciones,
+      dniPendientes: r.dniPendientes,
       // Guarda los códigos crudos (no las etiquetas) — reporte-publico.html
       // ya carga config/umbral-0.js y busca las etiquetas ahí, una sola
       // fuente de verdad en vez de duplicar el diccionario acá.
