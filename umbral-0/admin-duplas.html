@@ -253,8 +253,8 @@
     <div class="card">
       <div class="tbl-wrap">
         <table class="reporte-tabla">
-          <thead><tr><th>Dupla</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th><th>Detalle</th></tr></thead>
-          <tbody id="kobo-sin-id-admin-tbody"><tr><td colspan="5" class="empty-msg">Cargando…</td></tr></tbody>
+          <thead><tr><th>Dupla</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th><th>Detalle</th><th>Ubicación</th></tr></thead>
+          <tbody id="kobo-sin-id-admin-tbody"><tr><td colspan="6" class="empty-msg">Cargando…</td></tr></tbody>
         </table>
       </div>
       <div class="section-hint" style="padding:8px 4px 2px;">Que la persona no haya dado su nombre no es un error de carga — igual hay que dejar el contacto registrado. Solo lectura: cada dupla carga estos casos como "Sin identificar" desde su cuenta en Casos.</div>
@@ -501,11 +501,11 @@ async function cargarKoboPendientesAdmin(){
   const form = project && project.kobo && (project.kobo.forms||[])[0];
   if(!form){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
-    tbodySinId.innerHTML = '<tr><td colspan="5" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
+    tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
     return;
   }
   tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Cargando…</td></tr>';
-  tbodySinId.innerHTML = '<tr><td colspan="5" class="empty-msg">Cargando…</td></tr>';
+  tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Cargando…</td></tr>';
 
   try{
     const client = await SupabaseClient.getClient();
@@ -587,10 +587,11 @@ async function cargarKoboPendientesAdmin(){
       <td>${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}</td>
       <td>${esc(p.operador||'—')}</td>
       <td>${esc(p.persona.caracteristicas||'—')}</td>
-    </tr>`).join('') : '<tr><td colspan="5" class="empty-msg">Sin pendientes — no hay envíos sin identificar del equipo esperando caso.</td></tr>';
+      <td>${(p.lat!=null && p.lng!=null) ? `<a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺️ Ver mapa</a>` : '—'}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="empty-msg">Sin pendientes — no hay envíos sin identificar del equipo esperando caso.</td></tr>';
   }catch(e){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
-    tbodySinId.innerHTML = '<tr><td colspan="5" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
+    tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
   }
 }
 
