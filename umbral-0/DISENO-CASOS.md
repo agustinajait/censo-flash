@@ -1966,6 +1966,38 @@ es su punto débil.
 Validado con script de Node que reproduce `_prefillDesdeKobo()`
 (4 casos: con geo, sin geo, con descripción, flujo con DNI sin tocar).
 
+### 10.1.17 Duplicados falsos por texto de relleno en el campo DNI (18/9/2026)
+
+Agustina, sobre el panel "⚠️ posibles duplicados" (screenshot con grupos
+"DNI Nsnc" y "DNI ."): "ahí me aparecen como que son para identificar
+porque no tienen DNIs, pero son casos diferentes. Uno es de alguien que
+no sabe no contesta y otro es de personas que tienen el nombre pero no
+el apellido. No los pongas como que están duplicados."
+
+Confirmado con una consulta a `personas` (agrupando por `dni` con
+`sin_identificar` y `dni is not null`): el campo `dni` tenía cargado
+texto literal como `"Nsnc"` o `"."` en vez de quedar vacío con el
+checkbox "Sin identificar" tildado. La detección de duplicados
+(`porDni`, la misma lógica repetida en `casos.html`,
+`admin-duplas.html` y `casos-en-vivo.html`) trataba ese texto como un
+DNI real compartido y agrupaba como "duplicados" a personas que no
+tienen nada que ver entre sí.
+
+Fix: nuevo helper `esDniPlaceholderDup(dni)` — considera "relleno, no
+DNI real" a un valor vacío, sin ningún caracter alfanumérico, o que
+matchea variantes de "NN / SD / NS-NC / no sabe / no contesta / no
+responde / sin datos". Se agregó igual en los tres archivos y la rama
+`porDni` de la detección ahora es `if(dni && !esDniPlaceholderDup(dni))`
+— un DNI real repetido se sigue agrupando como antes, un DNI de relleno
+ya no agrupa a nadie por sí solo (si dos personas comparten además
+nombre y apellido normalizados, siguen apareciendo agrupadas por esa
+otra vía, que no cambió).
+
+Validado con script de Node que reproduce `porDni`/`porNombre` sobre
+los casos exactos del screenshot ("DNI Nsnc" con 2 personas, "DNI ."
+con 3 personas) más dos regresiones (DNI real repetido, nombre repetido
+sin DNI) — los 4 checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
