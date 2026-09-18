@@ -966,10 +966,16 @@ async function revisarDuplicadosCasos(){
         if(!porDni.has(dni)) porDni.set(dni, []);
         porDni.get(dni).push(p);
       }else if(!p.sin_identificar){
-        const nom = normalizarNombreDupCasos(`${p.nombre||''} ${p.apellido||''}`);
-        if(nom){
-          if(!porNombre.has(nom)) porNombre.set(nom, []);
-          porNombre.get(nom).push(p);
+        const apellido = String(p.apellido||'').trim();
+        // Mismo criterio que con el DNI: un apellido vacío o "relleno" (ej.
+        // "-") no es un apellido real — dos personas distintas con nombre
+        // pero sin apellido cargado no deben agruparse como si lo compartieran.
+        if(apellido && !esDniPlaceholderDup(apellido)){
+          const nom = normalizarNombreDupCasos(`${p.nombre||''} ${p.apellido||''}`);
+          if(nom){
+            if(!porNombre.has(nom)) porNombre.set(nom, []);
+            porNombre.get(nom).push(p);
+          }
         }
       }
     });

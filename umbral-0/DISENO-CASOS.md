@@ -1998,6 +1998,34 @@ los casos exactos del screenshot ("DNI Nsnc" con 2 personas, "DNI ."
 con 3 personas) más dos regresiones (DNI real repetido, nombre repetido
 sin DNI) — los 4 checks pasan.
 
+### 10.1.18 El mismo problema de §10.1.17, pero en el apellido (18/9/2026)
+
+Con §10.1.17 ya en producción, Agustina reporta que el panel de posibles
+duplicados bajó de 8 a 6, pero seguía viendo uno que no correspondía.
+Confirmado en la base: dos personas distintas, ambas cargadas como
+`nombre="Juan"` y `apellido="-"` (el operador tipeó "-" en vez de dejar
+el apellido vacío) — mismo patrón que el DNI de relleno, pero esta vez
+en el campo `apellido`, y la agrupación por nombre (`porNombre`, la que
+se usa cuando no hay DNI) no tenía ningún filtro para eso: normalizaba
+"Juan -" para las dos y las agrupaba como si compartieran apellido real.
+
+Fix, mismo criterio que §10.1.17 y reutilizando el mismo helper
+(`esDniPlaceholderDup`, ya genérico — no es específico de DNI a pesar
+del nombre): antes de agrupar por nombre, ahora se exige que `apellido`
+esté presente y no sea relleno (`if(apellido && !esDniPlaceholderDup(apellido))`).
+Si el apellido está vacío o es relleno, esa persona ya no entra en
+`porNombre` — dos personas con el mismo nombre de pila pero sin apellido
+real cargado no se agrupan más, tal como pidió Agustina en §10.1.17
+("uno es de alguien que no sabe no contesta y otro es de personas que
+tienen el nombre pero no el apellido. No los pongas como que están
+duplicados"). Un nombre+apellido real repetido (con o sin DNI) se sigue
+detectando igual que antes.
+
+Validado con script de Node que reproduce el caso exacto ("Juan"/"Juan"
+con apellido "-") más tres regresiones (nombre+apellido real repetido
+sin DNI, DNI real repetido, nombre repetido con apellido vacío) — los 4
+checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
