@@ -2074,6 +2074,41 @@ intervenciones (sigue habilitado sin depender de KoBo), código de Casa
 Vincular no habilita ASA y viceversa, y un tipo sin `soloSeguimiento`
 (CIS) no se ve afectado — los 7 checks pasan.
 
+### 10.1.20 "d. Intervenciones y derivaciones" no puede quedar vacío en el reporte que se entrega a gobierno (18/9/2026)
+
+Con la sección "e. Derivaciones y contactos según KoBo (terreno)" ya
+andando, Agustina necesitaba entregar el reporte semanal a gobierno en
+minutos y la sección "d. Intervenciones y derivaciones" (la que sale de
+`derivaciones`, la tabla que llena "Pedir derivación" en casos.html)
+seguía en cero para el período — el reporte se lo iba a entregar así.
+Pidió explícitamente: "las derivaciones de nuestra plataforma no pueden
+quedar vacías. De última, poner el mismo dato que levantamos en KoBo,
+[o] eliminar la sección."
+
+Se eligió la primera opción (más informativa que borrar la sección):
+cuando "d." no tiene ninguna derivación cargada en la plataforma para el
+período **y** "e." sí tiene datos de KoBo, la tabla y el KPI "Total
+derivaciones" de "d." muestran en su lugar el desglose de KoBo (mismos
+datos que "e.", con las columnas "Efectivizadas"/"Rechazadas" en "—"
+porque KoBo no distingue eso) — la sección deja de aparecer vacía, con
+una nota aclarando la fuente. Si "d." sí tiene datos propios, no cambia
+nada (la plataforma sigue siendo la fuente cuando existe). Si ni "d." ni
+"e." tienen datos, se mantiene el mensaje original de "sin derivaciones
+en el período" — no se inventa un cero disfrazado de dato.
+
+Aplicado en los dos lugares que renderizan esta tabla: `admin-duplas.html`
+(pestaña Reporte, donde se genera) y `reporte-publico.html` (el link que
+efectivamente se comparte con gobierno — el snapshot congelado en
+`reportes_semanales.datos` trae `koboOutcomes` desde que se agregó la
+sección "e.", así que el fallback funciona igual sobre reportes ya
+publicados sin tener que regenerarlos).
+
+Validado con script de Node que reproduce las 4 combinaciones
+(plataforma vacía + KoBo con datos → usa KoBo; plataforma vacía + sin
+KoBo → mensaje original; plataforma vacía + KoBo vacío → mensaje
+original; plataforma con datos reales → usa plataforma, ignora KoBo) —
+los 4 checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
