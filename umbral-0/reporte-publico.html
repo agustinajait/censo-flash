@@ -195,13 +195,20 @@ function render(r){
         <tbody>
           ${Object.keys(porTipo).length ? Object.entries(porTipo).sort((a,b)=>b[1].total-a[1].total).map(([tipo,t]) =>
             `<tr><td>${esc(tipo)}</td><td class="num">${t.total}</td><td class="num">${t.efectivizado}</td><td class="num">${t.rechazado}</td></tr>`).join('')
-            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>'}
+            : (koboOutcomes && Object.keys(koboOutcomes.conteo).length
+                ? Object.entries(koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
+                    `<tr><td>${esc(labelsKobo[codigo]||codigo)}</td><td class="num">${n}</td><td class="num">—</td><td class="num">—</td></tr>`).join('')
+                : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>')}
         </tbody>
       </table>
       <div class="kpi-grid" style="margin-top:14px;">
-        <div class="kpi"><div class="num">${idyv.totalDerivaciones ?? '—'}</div><div class="lbl">Total derivaciones</div></div>
+        <div class="kpi"><div class="num">${idyv.totalDerivaciones || (koboOutcomes ? Object.values(koboOutcomes.conteo).reduce((a,b)=>a+b,0) : 0)}</div><div class="lbl">Total derivaciones</div></div>
         <div class="kpi"><div class="num">${idyv.pctConcretadas!=null?idyv.pctConcretadas+'%':'—'}</div><div class="lbl">% efectivamente concretadas</div></div>
       </div>
+      <!-- Fallback (§10.1.20): si "Pedir derivación" no se usó en el
+           período, la tabla y el KPI de arriba ya muestran el desglose de
+           KoBo en su lugar — no queda vacío. -->
+      ${!idyv.totalDerivaciones && koboOutcomes && Object.keys(koboOutcomes.conteo).length ? '<div class="nota-limite">⚠️ No hubo "Pedir derivación" cargado en la plataforma en este período — la tabla de arriba muestra en su lugar lo que KoBo registró en terreno (mismo dato que la sección e., de abajo; sin desglose de efectivizadas/rechazadas porque KoBo no lo pregunta).</div>' : ''}
     </div>
 
     <div class="section-title">e. Derivaciones y contactos según KoBo (terreno)</div>

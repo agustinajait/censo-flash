@@ -1694,14 +1694,22 @@ function renderReporte(cont, r){
         <tbody>
           ${Object.keys(r.intervencionesDerivaciones.porTipo).length ? Object.entries(r.intervencionesDerivaciones.porTipo).sort((a,b)=>b[1].total-a[1].total).map(([tipo,d]) =>
             `<tr><td>${esc(tipo)}</td><td class="num">${d.total}</td><td class="num">${d.efectivizado}</td><td class="num">${d.rechazado}</td></tr>`).join('')
-            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>'}
+            : (r.koboOutcomes && Object.keys(r.koboOutcomes.conteo).length
+                ? Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
+                    `<tr><td>${esc((window.PROJECT_CONFIG.terminoIntervencionLabels||{})[codigo] || codigo)}</td><td class="num">${n}</td><td class="num">—</td><td class="num">—</td></tr>`).join('')
+                : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>')}
         </tbody>
       </table>
       <div class="kpi-grid" style="margin-top:14px;">
-        <div class="kpi"><div class="num">${r.intervencionesDerivaciones.totalDerivaciones}</div><div class="lbl">Total derivaciones</div></div>
+        <div class="kpi"><div class="num">${r.intervencionesDerivaciones.totalDerivaciones || (r.koboOutcomes ? Object.values(r.koboOutcomes.conteo).reduce((a,b)=>a+b,0) : 0)}</div><div class="lbl">Total derivaciones</div></div>
         <div class="kpi"><div class="num">${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}</div><div class="lbl">% efectivamente concretadas</div></div>
       </div>
-      ${!r.intervencionesDerivaciones.totalDerivaciones ? '<div class="nota-limite">⚠️ Esta tabla sale de "Pedir derivación" en casos.html — si nadie la usó en el período, va a quedar en cero aunque hayan pasado cosas en el territorio. Ver la sección de abajo, que sí sale de KoBo.</div>' : ''}
+      <!-- Fallback (sept/2026, pedido de Agustina: "las derivaciones de
+           nuestra plataforma no pueden quedar vacías, de última poner el
+           mismo dato que levantamos en KoBo"): si nadie usó "Pedir
+           derivación" en el período, la tabla y el KPI de arriba ya
+           muestran el desglose de KoBo en su lugar — no queda vacío. -->
+      ${!r.intervencionesDerivaciones.totalDerivaciones ? `<div class="nota-limite">⚠️ ${(r.koboOutcomes && Object.keys(r.koboOutcomes.conteo).length) ? 'No hubo "Pedir derivación" cargado en la plataforma en este período — la tabla de arriba muestra en su lugar lo que KoBo registró en terreno (mismo dato que la sección e., de abajo; sin desglose de efectivizadas/rechazadas porque KoBo no lo pregunta).' : 'Esta tabla sale de "Pedir derivación" en casos.html — si nadie la usó en el período, va a quedar en cero aunque hayan pasado cosas en el territorio. Ver la sección de abajo, que sí sale de KoBo.'}</div>` : ''}
     </div>
 
     <div class="section-title">e. Derivaciones y contactos según KoBo (terreno)</div>
