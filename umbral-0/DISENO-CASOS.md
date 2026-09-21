@@ -2596,6 +2596,54 @@ que `demanda_espontanea_cis` está en `ACCIONES_INTERVENCION` y
 `ACCION_A_TIPO_DERIVACION`, y ausente de `KOBO_TERMINO_A_ACCION` a
 propósito.
 
+### 10.1.30 "Mis derivaciones y seguimientos" (21/9/2026)
+
+Pedido: "en duplas habría que poder ver mis derivaciones, mis
+seguimientos, etc" — mientras se trabajaba en §10.1.29. Hasta ahora, la
+única forma de ver una derivación o un seguimiento era abrir la ficha
+del caso puntual y mirar su timeline — no había ninguna vista que
+juntara TODAS las derivaciones o TODOS los seguimientos de la propia
+dupla en un solo lugar (mismo hueco que ya resolvía §10.1.23 pero solo
+para "Hacer DNI" sin resolver — acá es cualquier tipo/estado).
+
+Nuevo botón "📋 Mis derivaciones y seguimientos" en la topbar de
+`casos.html` — a diferencia de "🪪 Trámites de DNI pendientes"
+(§10.1.23, visible para todas las cuentas), este solo se muestra para
+cuentas `dupla`: "mi dupla" no significa nada para admin/coordinación,
+que ya ven todo desde `admin-duplas.html`.
+
+Abre una vista con dos listas, cada card lleva directo a
+`Casos.abrirFicha()`:
+- **Mis derivaciones**: las últimas 100 (`.order('fecha_solicitud',
+  {ascending:false}).limit(100)`), cualquier tipo o estado — RLS ya
+  scopea `derivaciones` a la propia dupla (mismo criterio de
+  `solicitado_por`, §10.1.22), no hace falta filtrar a mano.
+- **Mis seguimientos**: las últimas 100 (`.order('fecha',
+  {ascending:false}).limit(100)`), con un extracto del contenido (120
+  caracteres). `seguimientos` tiene su propia policy de RLS con el mismo
+  criterio (`dupla_id = mi_dupla_id()`), confirmada antes de escribir el
+  código (no asumida por analogía con `derivaciones`, que usa
+  `solicitado_por` en vez de `dupla_id` directo).
+
+Nombre/DNI de cada caso se resuelve con una sola consulta a `personas`
+(todas las de mi dupla, vía RLS) en paralelo con las otras dos, mismo
+patrón que `cargarYRenderResumenDia()`/`cargarDniPendientesCount()`.
+
+El límite de 100 es a propósito — sin filtro de fecha para mantenerlo
+simple en esta primera versión; si en la práctica el volumen lo pide,
+sumar un filtro de fecha (mismo patrón que `buscar-fecha` en la vista de
+búsqueda) es un cambio chico sobre esta base.
+
+Validado: balance de `<div>` y chequeo de sintaxis de los bloques
+`<script>` de `casos.html` sobre el archivo completo, grep cruzado de
+que todos los ids/funciones nuevos (`link-mi-actividad`,
+`view-mi-actividad`, `mis-derivaciones-list`, `mis-seguimientos-list`,
+`Casos.mostrarMiActividad`) están referenciados en los lugares que
+hacían falta (mostrar el link solo a `dupla`, ocultar la vista al volver
+a buscar o abrir una ficha), y confirmación directa contra las policies
+de RLS de `derivaciones` y `seguimientos` (no asumidas) antes de escribir
+las consultas.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
