@@ -2091,11 +2091,18 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha){
   const casoLinea = p => `${esc(nombreDisplayReporte(p))}${p.dni ? ' · DNI ' + esc(p.dni) : (p.sin_identificar ? ' · sin identificar' : '')}${p.historia_breve ? '<br><span style="color:#64748b;">' + esc(truncar(p.historia_breve, 180)) + '</span>' : ''}`;
   const listaCasos = arr => arr.length ? arr.map(p => `<div>· ${casoLinea(p)}</div>`).join('') : '<div style="color:#94a3b8;">(ninguno)</div>';
   const accionesLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
+  // "contacto_espontaneo"/"seguimiento" (intervenciones.tipo) — etiquetas
+  // propias (21/9/2026): el valor crudo confundía a Agustina con "demanda
+  // espontánea" (CIS, ver §10.1.29) siendo algo totalmente distinto —
+  // clasifica CUALQUIER intervención según si fue primer contacto o
+  // seguimiento, nada que ver con CIS.
+  const tipoLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.tipoIntervencionLabels) || {};
   const intervHtml = r.intervenciones.length
     ? r.intervenciones.map(i => {
         const nombre = i.persona ? nombreDisplayReporte(i.persona) : '(persona no encontrada)';
         const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
-        return `<div>· <b>${esc(nombre)}</b>${i.tipo ? ' — ' + esc(i.tipo) : ''}${accionesTxt ? ' — ' + esc(accionesTxt) : ''}${i.resumen ? '<br><span style="color:#64748b;">' + esc(i.resumen) + '</span>' : ''}</div>`;
+        const tipoTxt = tipoLabels[i.tipo] || i.tipo;
+        return `<div>· <b>${esc(nombre)}</b>${tipoTxt ? ' — ' + esc(tipoTxt) : ''}${accionesTxt ? ' — ' + esc(accionesTxt) : ''}${i.resumen ? '<br><span style="color:#64748b;">' + esc(i.resumen) + '</span>' : ''}</div>`;
       }).join('')
     : '<div style="color:#94a3b8;">(ninguna)</div>';
   cont.innerHTML = `
@@ -2145,11 +2152,13 @@ function armarMensajeDiarioAdmin(){
   const casoLineaTxt = p => `${nombreDisplayReporte(p)}${p.dni ? ' — DNI ' + p.dni : (p.sin_identificar ? ' — sin identificar' : '')}${p.historia_breve ? '\n    ' + truncar(p.historia_breve, 180) : ''}`;
   const listaCasosTxt = arr => arr.length ? arr.map(p => '  · ' + casoLineaTxt(p)).join('\n') : '  (ninguno)';
   const accionesLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
+  const tipoLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.tipoIntervencionLabels) || {};
   const intervTxt = r.intervenciones.length
     ? r.intervenciones.map(i => {
         const nombre = i.persona ? nombreDisplayReporte(i.persona) : '(persona no encontrada)';
         const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
-        return `  · ${nombre}${i.tipo ? ' — ' + i.tipo : ''}${accionesTxt ? ' — ' + accionesTxt : ''}${i.resumen ? '\n    ' + i.resumen.trim() : ''}`;
+        const tipoTxt = tipoLabels[i.tipo] || i.tipo;
+        return `  · ${nombre}${tipoTxt ? ' — ' + tipoTxt : ''}${accionesTxt ? ' — ' + accionesTxt : ''}${i.resumen ? '\n    ' + i.resumen.trim() : ''}`;
       }).join('\n')
     : '  (ninguna)';
   const texto = `🌒 RESUMEN DEL DÍA — Dupla ${duplaCod}
