@@ -1394,12 +1394,13 @@ function mostrarJornada(){
   if(jornadaHoy && jornadaHoy.fin){
     estado = 'completa';
     html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}</div>
+      ${jornadaHoy.observaciones ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>💬 Observaciones del día:</b><br>${esc(jornadaHoy.observaciones)}</div>` : ''}
       <div id="resumen-dia-box"></div>
       <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="reabrirJornada()">↩️ Reabrir jornada</button>`;
   } else if(jornadaHoy && jornadaHoy.inicio){
     estado = 'en-curso';
     html = `<div class="jornada-txt">🌤️ <strong>Jornada en curso</strong> — inicio ${fmtHora(jornadaHoy.inicio)}</div>
-      <button class="btn btn-blue" onclick="marcarFinJornada()">⏹️ Marcar fin de jornada</button>`;
+      <button class="btn btn-blue" onclick="abrirModalCierreJornada()">⏹️ Marcar fin de jornada</button>`;
   } else {
     estado = 'pendiente';
     html = `<div class="jornada-txt">☀️ Todavía no marcaste el <strong>inicio de la jornada de hoy</strong>.</div>
@@ -1508,18 +1509,48 @@ async function marcarInicioJornada(){
   }
 }
 
+// Cierre de jornada con observaciones obligatorias (§10.1.28, pedido de
+// Agustina: "necesitamos sí o sí que el operador cargue todos los días
+// información sobre su desempeño... observaciones diarias libre"). Antes
+// "Marcar fin de jornada" guardaba `fin` directo con un solo click —
+// ahora primero abre este modal pidiendo el texto, y recién al confirmar
+// (marcarFinJornada()) se guardan `fin` + `observaciones` juntos.
+function abrirModalCierreJornada(){
+  const body = `
+    <form id="form-cierre-jornada" onsubmit="return false;">
+      <div class="form-field">
+        <label>¿Cómo estuvo la jornada de hoy? *</label>
+        <div class="hint">Contá brevemente cómo te fue — zonas recorridas, dificultades, algo a tener en cuenta. Es obligatorio para poder cerrar la jornada.</div>
+        <textarea id="f-observaciones-cierre" rows="4"></textarea>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-blue" id="btn-confirmar-cierre">⏹️ Cerrar jornada</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      </div>
+    </form>
+  `;
+  openModal('Cierre de jornada', body);
+  document.getElementById('btn-confirmar-cierre').onclick = marcarFinJornada;
+}
+
 async function marcarFinJornada(){
+  const ta = document.getElementById('f-observaciones-cierre');
+  const observaciones = ta.value.trim();
+  if(!observaciones){ modalError('Contá cómo estuvo la jornada — es obligatorio para cerrarla.'); return; }
+  const btn = document.getElementById('btn-confirmar-cierre');
+  btn.disabled = true; btn.textContent = 'Guardando…';
   try{
     const client = await SupabaseClient.getClient();
     const { error } = await client.from('jornadas')
-      .update({ fin: new Date().toISOString() })
+      .update({ fin: new Date().toISOString(), observaciones })
       .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr());
     if(error) throw error;
-  }catch(e){
-    alert('No se pudo marcar el fin: ' + e.message);
-  }finally{
+    closeModal();
     await cargarJornadaHoy();
     mostrarJornada();
+  }catch(e){
+    modalError('No se pudo marcar el fin: ' + e.message);
+    btn.disabled = false; btn.textContent = '⏹️ Cerrar jornada';
   }
 }
 
@@ -2275,9 +2306,12 @@ ${derivLinea}
 
 📄 Seguimientos agregados: ${r.seguimientos}
 
+💬 OBSERVACIONES DEL DÍA:
+${jornadaHoy && jornadaHoy.observaciones ? jornadaHoy.observaciones : '(sin cargar)'}
+
 Umbral Cero — Huehaci`;
     const body = `
-      <textarea id="ta-mensaje-cierre" rows="20" readonly style="width:100%;font-family:monospace;font-size:0.82rem;"></textarea>
+      <textarea id="ta-mensaje-cierre" rows="22" readonly style="width:100%;font-family:monospace;font-size:0.82rem;"></textarea>
       <div class="modal-foot">
         <button type="button" class="btn btn-green" onclick="Casos.compartirWhatsappCierre()">📱 Compartir por WhatsApp</button>
         <button type="button" class="btn btn-blue" onclick="Casos.copiarMensajeCierre()">📋 Copiar</button>

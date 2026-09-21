@@ -2496,6 +2496,57 @@ que no aparece en ninguna de las dos listas (oculta, o un error de
 datos): la intervención igual se lista, con `persona: null`, en vez de
 romper o desaparecer en silencio — los 6 checks pasan.
 
+### 10.1.28 Observaciones diarias obligatorias, de la dupla al reporte semanal (21/9/2026)
+
+Pedido: "hay que mejorar la experiencia de usuario. Necesitamos sí o sí
+que el operador cargue todos los días información sobre su desempeño,
+creá un feature de observaciones diarias libre para sumar al reporte
+diario y que después se sumen al reporte semanal." Tres partes.
+
+**1. Columna nueva**: `jornadas.observaciones` (text, nullable a nivel
+de base — lo "obligatorio" se exige en la UI, no con un CHECK/NOT NULL,
+para no romper filas viejas ni bloquear `marcarInicioJornada()`, que no
+toca esta columna). Migración `jornadas_add_observaciones`, documentada
+también en `schema-ajustes.sql`.
+
+**2. Mandatorio al cerrar la jornada** (`casos.html`): "Marcar fin de
+jornada" ya no guarda `fin` con un solo click — ahora
+`abrirModalCierreJornada()` abre un modal que pide el texto ("¿Cómo
+estuvo la jornada de hoy?", obligatorio) y recién al confirmar,
+`marcarFinJornada()` guarda `fin` + `observaciones` juntos en el mismo
+UPDATE. Si cancela el modal, la jornada sigue "en curso" — no hay forma
+de cerrarla sin cargar el texto. La observación queda visible en
+"Jornada de hoy completa" y se suma al mensaje de WhatsApp del cierre
+(§10.1.25/27), en una sección nueva "💬 OBSERVACIONES DEL DÍA".
+
+**3. Se suma a los dos reportes que ya existían**:
+- **Resumen diario del admin** (`admin-duplas.html`, §10.1.26): nueva
+  consulta a `jornadas` (dupla + fecha elegidas, `maybeSingle()` porque
+  puede no existir la fila todavía) — se muestra y se suma al mensaje de
+  WhatsApp igual que del lado de la dupla.
+- **Reporte semanal** (`admin-duplas.html` + `reporte-publico.html`):
+  nueva sección **"g. Observaciones diarias del equipo"** — junta
+  `jornadas.observaciones` de TODAS las duplas en el período elegido
+  (filtro de vacíos hecho en el cliente, no server-side, para no
+  depender de sintaxis de filtro sin probar antes en este código —
+  `.filter(j => (j.observaciones||'').trim())`), agrupado por dupla y
+  fecha. Es un dato distinto de "Alertas y desvíos" (`alertas-texto`,
+  que sigue siendo texto editorial que escribe coordinación a mano) —
+  "g." es lo que cada dupla vivió y cargó ese día, sin que nadie lo
+  reescriba. Se suma en las 4 salidas del reporte: pantalla
+  (`renderReporte()`), mensaje de WhatsApp (`armarMensaje()`), snapshot
+  publicado (`publicarReporte()` → `datos.observacionesDiarias`) y su
+  render en `reporte-publico.html`.
+
+Validado: balance de `<div>` y sintaxis de los bloques `<script>` de los
+tres archivos tocados (`casos.html`, `admin-duplas.html`,
+`reporte-publico.html`), grep cruzado de que todos los identificadores
+nuevos están referenciados en los 4 lugares del reporte semanal, y
+script de Node que reproduce el armado de `observacionesDiarias` —
+filtra observaciones vacías/solo-espacios y jornadas viejas sin este
+campo (`null`), resuelve el código de dupla, y no rompe si una
+`dupla_id` no está en el mapa (cae a "—") — los 4 checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

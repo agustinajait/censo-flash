@@ -1424,16 +1424,23 @@ async function generarReporte(){
   try{
     const client = await SupabaseClient.getClient();
 
-    const [personasRes, intervencionesRes, derivacionesRes, koboOutcomes, duplasRes] = await Promise.all([
+    const [personasRes, intervencionesRes, derivacionesRes, koboOutcomes, duplasRes, jornadasRes] = await Promise.all([
       client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').eq('oculto', false),
       client.from('intervenciones').select('*').gte('fecha', desde).lte('fecha', hasta),
       client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
       calcularOutcomesKobo(desde, hasta).catch(e => { console.error('No se pudo traer KoBo para el reporte', e); return null; }),
       client.from('duplas').select('id, codigo'),
+      // Observaciones diarias libres que cargan las duplas al cerrar la
+      // jornada (§10.1.28, pedido de Agustina: "que después se sumen al
+      // reporte semanal") — mismo dato que ya arma cada resumen diario
+      // (§10.1.26), agregado acá para todo el período y todas las duplas.
+      client.from('jornadas').select('dupla_id, fecha, observaciones').gte('fecha', desde).lte('fecha', hasta)
+        .order('fecha', { ascending: false }),
     ]);
     if(personasRes.error) throw personasRes.error;
     if(intervencionesRes.error) throw intervencionesRes.error;
     if(derivacionesRes.error) throw derivacionesRes.error;
+    if(jornadasRes.error) throw jornadasRes.error;
 
     const personas = personasRes.data || [];
     const intervenciones = intervencionesRes.data || [];
@@ -1451,6 +1458,13 @@ async function generarReporte(){
     // Agustina: "en el reporte tenemos que poder ver los casos también",
     // para no depender solo de agregados cuando "d." está en cero.
     reporte.listadoCasos = armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla);
+    // g. Observaciones diarias del equipo (§10.1.28) — filtra las que
+    // quedaron en '' tras un trim (observaciones no-null pero vacías no
+    // deberían pasar el gate de casos.html, pero por las dudas con datos
+    // viejos o cargados por otro camino).
+    reporte.observacionesDiarias = (jornadasRes.data||[])
+      .filter(j => (j.observaciones||'').trim())
+      .map(j => ({ dupla: codigoPorDupla[j.dupla_id] || '—', fecha: j.fecha, texto: j.observaciones.trim() }));
     renderReporte(cont, reporte);
     estadoEl.textContent = `Listo — ${intervenciones.length} intervenciones, ${derivaciones.length} derivaciones en el período` +
       (koboOutcomes ? `, ${koboOutcomes.totalEnvios} envíos de KoBo del equipo revisados.` : ' (no se pudo revisar KoBo).');
@@ -1812,6 +1826,17 @@ function renderReporte(cont, r){
       <div class="section-hint" style="margin-top:10px;">${r.accionesPlataforma.totalIntervenciones} intervención(es) y ${r.accionesPlataforma.totalValidaciones} validación(es) de KoBo con acciones cargadas en este período (una misma intervención/validación puede sumar en más de una fila).</div>
     </div>
 
+    <div class="section-title">g. Observaciones diarias del equipo</div>
+    <div class="section-hint">Lo que cada dupla cargó al cerrar su jornada (obligatorio desde el 21/9/2026) — ver "📅 Resumen diario" para el detalle de casos/intervenciones de un día puntual.</div>
+    <div class="card">
+      ${r.observacionesDiarias.length ? r.observacionesDiarias.map(o => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:0.78rem;color:#64748b;font-weight:700;">Dupla ${esc(o.dupla)} · ${fmtFechaCorta(o.fecha)}</div>
+          <div style="font-size:0.85rem;white-space:pre-wrap;margin-top:2px;">${esc(o.texto)}</div>
+        </div>
+      `).join('') : '<div class="empty-msg">Sin observaciones cargadas en este período.</div>'}
+    </div>
+
     <div class="section-title">Listado de casos del período</div>
     <div class="section-hint">Casos nuevos o recontactados en el rango elegido — tocá una tarjeta para ver el detalle.</div>
     ${renderListadoCasosCards(r.listadoCasos)}
@@ -1886,6 +1911,9 @@ function armarMensaje(){
   const casosLinea = (r.listadoCasos||[]).map(c =>
     `  · [${c.dupla}] ${c.nombre}${c.dni ? ' — DNI ' + c.dni : ''}${c.criticidad ? ' — ' + c.criticidad : ''}${c.esNuevo ? ' (nuevo)' : ' (recontactado)'}`
   ).join('\n') || '  (sin casos nuevos ni recontactados en el período)';
+  const observacionesLinea = (r.observacionesDiarias||[]).map(o =>
+    `  · [Dupla ${o.dupla} · ${fmtFechaCorta(o.fecha)}] ${o.texto}`
+  ).join('\n') || '  (sin observaciones cargadas en este período)';
 
   const texto = `REPORTE SEMANAL — UMBRAL CERO
 Período: ${fmt(r.desde)} al ${fmt(r.hasta)}
@@ -1915,6 +1943,9 @@ ${koboLinea}
 
 f. QUÉ HICIERON LAS DUPLAS (confirmado en la plataforma)
 ${accionesLinea}
+
+g. OBSERVACIONES DIARIAS DEL EQUIPO
+${observacionesLinea}
 
 LISTADO DE CASOS DEL PERÍODO
 ${casosLinea}
@@ -1975,7 +2006,7 @@ async function calcularResumenDiarioAdmin(){
     const desdeUtc = fecha + 'T03:00:00.000Z';
     const hastaUtc = new Date(new Date(desdeUtc).getTime() + 24*60*60*1000).toISOString();
 
-    const [personasHoyRes, personasTodasRes, intervRes, seguRes, duplaRes] = await Promise.all([
+    const [personasHoyRes, personasTodasRes, intervRes, seguRes, duplaRes, jornadaRes] = await Promise.all([
       client.from('personas').select('id, nombre, apellido, dni, sin_identificar').eq('dupla_id', duplaId).eq('oculto', false)
         .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
       // Todos los persona_id de la dupla (sin filtro de fecha) — hace
@@ -1986,12 +2017,19 @@ async function calcularResumenDiarioAdmin(){
       client.from('seguimientos').select('id').eq('dupla_id', duplaId)
         .gte('fecha', desdeUtc).lt('fecha', hastaUtc),
       client.from('duplas').select('codigo').eq('id', duplaId).single(),
+      // Observaciones libres que cargó la propia dupla al cerrar esa
+      // jornada (§10.1.28) — puede no existir todavía la fila (si ese día
+      // ni siquiera marcó inicio) o no tener observaciones (jornadas
+      // cerradas antes de este fix), por eso maybeSingle() en vez de
+      // single() y el fallback a null más abajo.
+      client.from('jornadas').select('inicio, fin, observaciones').eq('dupla_id', duplaId).eq('fecha', fecha).maybeSingle(),
     ]);
     if(personasHoyRes.error) throw personasHoyRes.error;
     if(personasTodasRes.error) throw personasTodasRes.error;
     if(intervRes.error) throw intervRes.error;
     if(seguRes.error) throw seguRes.error;
     if(duplaRes.error) throw duplaRes.error;
+    if(jornadaRes.error) throw jornadaRes.error;
 
     const personasTodas = personasTodasRes.data || [];
     const idsPersonasDupla = personasTodas.map(p => p.id);
@@ -2028,6 +2066,7 @@ async function calcularResumenDiarioAdmin(){
       derivacionesPorTipo,
       totalDerivaciones: derivData.length,
       seguimientos: (seguRes.data||[]).length,
+      jornada: jornadaRes.data || null,
     };
     _renderResumenDiarioAdmin(r, duplaRes.data.codigo, fecha);
     estadoEl.textContent = 'Listo.';
@@ -2069,6 +2108,14 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha){
         <div style="margin-bottom:8px;"><b>📝 Intervenciones:</b>${intervHtml}</div>
       </div>
       ${r.totalDerivaciones ? `<div class="nota-limite" style="background:#f0f6ff;border-color:#93c5fd;color:#1e3a5f;">📨 Derivaciones: ${esc(derivLinea)}</div>` : ''}
+      <!-- Observaciones del día cargadas por la propia dupla al cerrar la
+           jornada (§10.1.28) — jornadaRes puede venir null (ese día no
+           marcó inicio) o sin observaciones (jornadas cerradas antes de
+           este fix). -->
+      <div class="nota-limite" style="background:#f0fdf4;border-color:#86efac;color:#14532d;margin-top:10px;">
+        💬 <b>Observaciones del día (cargadas por la dupla):</b><br>
+        ${r.jornada && r.jornada.observaciones ? esc(r.jornada.observaciones) : '<span style="color:#94a3b8;">(sin cargar)</span>'}
+      </div>
       <button class="btn btn-amber" style="margin-top:14px;margin-bottom:10px;" onclick="armarMensajeDiarioAdmin()">✍️ Armar mensaje</button>
       <textarea id="diario-texto" readonly></textarea>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
@@ -2113,6 +2160,9 @@ ${intervTxt}
 ${derivLinea}
 
 📄 Seguimientos agregados: ${r.seguimientos}
+
+💬 OBSERVACIONES DEL DÍA:
+${r.jornada && r.jornada.observaciones ? r.jornada.observaciones : '(sin cargar)'}
 
 Umbral Cero — Huehaci`;
   document.getElementById('diario-texto').value = texto;
@@ -2180,6 +2230,9 @@ async function publicarReporte(){
       // Agustina, sept/2026) — a diferencia del resto de "datos", esto sí
       // incluye nombre/DNI de personas.
       listadoCasos: r.listadoCasos,
+      // g. — observaciones que cada dupla cargó al cerrar su jornada
+      // (§10.1.28), no texto editorial de coordinación como "alertas".
+      observacionesDiarias: r.observacionesDiarias,
       alertas: (document.getElementById('alertas-texto')||{}).value || '',
     };
     const client = await SupabaseClient.getClient();

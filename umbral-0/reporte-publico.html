@@ -157,6 +157,7 @@ function render(r){
   const labelsKobo = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.terminoIntervencionLabels) || {};
   const accionesPlataforma = d.accionesPlataforma || { conteo:{}, totalIntervenciones:0, totalValidaciones:0 };
   const labelsAcciones = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
+  const observacionesDiarias = d.observacionesDiarias || [];
 
   document.getElementById('cont').innerHTML = `
     <div class="section-title">a. Cobertura territorial</div>
@@ -243,6 +244,16 @@ function render(r){
             : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin acciones confirmadas en la plataforma en el período</td></tr>'}
         </tbody>
       </table>
+    </div>
+
+    <div class="section-title">g. Observaciones diarias del equipo</div>
+    <div class="card">
+      ${observacionesDiarias.length ? observacionesDiarias.map(o => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:0.78rem;color:#64748b;font-weight:700;">Dupla ${esc(o.dupla)} · ${fmtFechaCorta(o.fecha)}</div>
+          <div style="font-size:0.85rem;white-space:pre-wrap;margin-top:2px;">${esc(o.texto)}</div>
+        </div>
+      `).join('') : '<div class="nota-libre">Sin observaciones cargadas en este período.</div>'}
     </div>
 
     <div class="section-title">Listado de casos del período</div>

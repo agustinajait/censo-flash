@@ -849,3 +849,14 @@ alter policy derivaciones_update on public.derivaciones
       select id from public.perfiles where dupla_id = mi_dupla_id()
     ))
   );
+
+-- jornadas.observaciones (21/9/2026) — pedido de Agustina: "necesitamos
+-- sí o sí que el operador cargue todos los días información sobre su
+-- desempeño... observaciones diarias libre para sumar al reporte diario
+-- y que después se sumen al reporte semanal". Columna nueva, nullable a
+-- nivel de base (lo obligatorio se exige en la UI, al marcar fin de
+-- jornada en casos.html — ver DISENO-CASOS.md §10.1.28, no como
+-- constraint NOT NULL, para no romper jornadas ya existentes sin este
+-- dato). RLS de `jornadas` ya cubre esta columna nueva sin cambios (la
+-- policy es por fila, no por columna). Ya aplicado en producción.
+alter table public.jornadas add column observaciones text;
