@@ -300,6 +300,14 @@
     <div class="topbar-right">
       <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
       <a href="#" id="link-kobo-form" class="btn btn-ghost" target="_blank" rel="noopener" style="display:none;background:#fee2e2;color:#991b1b;border-color:#fca5a5;">📝 Cargar KoBo</a>
+      <!-- Trámites de DNI pendientes (21/9/2026, pedido de Agustina: "una
+           pestaña o botón de color para que los operadores entren a
+           revisar y hagan el seguimiento" — de las derivaciones "Hacer
+           DNI" sin resolver, ver §10.1.23 en DISENO-CASOS.md). Visible
+           para todas las cuentas (no solo admin/coordinación, a
+           diferencia de "👥 Duplas") — es el propio operador quien tiene
+           que hacer el seguimiento. -->
+      <a href="#" id="link-dni-pendientes" class="btn btn-ghost" style="display:none;background:#fef3c7;color:#92400e;border-color:#fcd34d;" onclick="event.preventDefault(); Casos.mostrarDniPendientes();">🪪 Trámites de DNI pendientes</a>
       <a href="./instructivo.html" class="btn btn-ghost" target="_blank" rel="noopener">📖 Glosario</a>
       <a href="#" id="link-quiz" class="btn btn-ghost" style="display:none;" onclick="event.preventDefault(); showScreen('onboarding-screen'); renderOnboarding();">🎓 Test</a>
       <a href="./admin-duplas.html" class="btn btn-ghost" id="link-admin-duplas" style="display:none;">👥 Duplas</a>
@@ -397,6 +405,14 @@
 
       <div class="section-label">Historial</div>
       <div id="timeline-list"></div>
+    </div>
+
+    <!-- VISTA: TRÁMITES DE DNI PENDIENTES (§10.1.23) -->
+    <div id="view-dni-pendientes" style="display:none;">
+      <button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="Casos.volverABuscar()">← Volver a la búsqueda</button>
+      <div class="section-label">🪪 Trámites de DNI pendientes</div>
+      <div class="section-hint">Personas con la derivación "Hacer DNI" todavía sin resolver — entrá al caso para hacer el seguimiento y marcarla como efectivizada o rechazada cuando corresponda (eso además la saca de esta lista).</div>
+      <div id="dni-pendientes-list"></div>
     </div>
 
   </div>
@@ -915,6 +931,7 @@ async function entrarAlApp(){
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-dashboard').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
+  document.getElementById('link-dni-pendientes').style.display = 'inline-flex';
   const koboFormLink = window.PROJECT_CONFIG.koboFormLink;
   if(koboFormLink){
     const linkKobo = document.getElementById('link-kobo-form');
@@ -929,6 +946,7 @@ async function entrarAlApp(){
   mostrarJornada();
   cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
   revisarDuplicadosCasos(); // no se espera, mismo motivo
+  cargarDniPendientesCount(); // no se espera, mismo motivo — solo actualiza el contador del botón
   Casos.volverABuscar();
 }
 
@@ -1800,6 +1818,39 @@ function mostrarKoboPendientes(){
   `;
 }
 
+// ── TRÁMITES DE DNI PENDIENTES (§10.1.23, 21/9/2026) ─────────────────────
+// Derivaciones tipo "Hacer DNI" sin resolver (no efectivizado/rechazado) —
+// separado de dniPendientesActuales del reporte (ver admin-duplas.html,
+// que cuenta personas.dni_denuncia_extravio): esto lista derivaciones
+// reales para que el operador entre caso por caso a hacer seguimiento, no
+// solo un número agregado. RLS ya scopea `derivaciones`/`personas` a la
+// propia dupla para cuentas rol=dupla, así que no hace falta filtrar acá.
+let dniPendientesActuales = [];
+
+async function cargarDniPendientesCount(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const [{ data: derivs, error: errD }, { data: personas, error: errP }] = await Promise.all([
+      client.from('derivaciones').select('id, estado, fecha_solicitud, persona_id').eq('tipo', 'Hacer DNI'),
+      client.from('personas').select('id, nombre, apellido, dni, sin_identificar, oculto'),
+    ]);
+    if(errD) throw errD;
+    if(errP) throw errP;
+    const personaPorId = {};
+    (personas||[]).forEach(p => personaPorId[p.id] = p);
+    dniPendientesActuales = (derivs||[])
+      .filter(d => d.estado !== 'efectivizado' && d.estado !== 'rechazado')
+      .map(d => ({ ...d, persona: personaPorId[d.persona_id] }))
+      .filter(d => d.persona && !d.persona.oculto)
+      .sort((a,b) => (a.fecha_solicitud||'').localeCompare(b.fecha_solicitud||''));
+    const link = document.getElementById('link-dni-pendientes');
+    if(link) link.textContent = `🪪 Trámites de DNI pendientes${dniPendientesActuales.length ? ' (' + dniPendientesActuales.length + ')' : ''}`;
+    if(document.getElementById('view-dni-pendientes').style.display !== 'none') Casos._renderDniPendientes();
+  }catch(e){
+    console.error('No se pudieron traer los trámites de DNI pendientes', e);
+  }
+}
+
 // ── UTILIDADES ──────────────────────────────────────────────────────────
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -2035,9 +2086,38 @@ const Casos = {
   volverABuscar(){
     personaActual = null;
     document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
+  },
+
+  mostrarDniPendientes(){
+    document.getElementById('view-buscar').style.display = 'none';
+    document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-dni-pendientes').style.display = 'block';
+    Casos._renderDniPendientes();
+  },
+
+  _renderDniPendientes(){
+    const box = document.getElementById('dni-pendientes-list');
+    if(!dniPendientesActuales.length){
+      box.innerHTML = '<div class="empty-msg">No hay trámites de DNI pendientes — están todos resueltos. 🎉</div>';
+      return;
+    }
+    box.innerHTML = dniPendientesActuales.map(d => {
+      const p = d.persona;
+      const dias = d.fecha_solicitud ? Math.floor((Date.now() - new Date(d.fecha_solicitud).getTime()) / 86400000) : null;
+      return `
+        <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${p.id}')">
+          <div class="kobo-pend-txt">
+            <strong>${esc(nombreDisplay(p))}</strong>${p.dni ? ' · DNI ' + esc(p.dni) : ''}
+            <div class="meta">Pedido el ${fmtFecha(d.fecha_solicitud)}${dias!=null ? ' · hace ' + dias + (dias===1?' día':' días') : ''} · estado: ${esc(d.estado||'solicitado')}</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${p.id}')">Ver caso →</button>
+        </div>
+      `;
+    }).join('');
   },
 
   onBuscarInput(){
@@ -2504,6 +2584,7 @@ const Casos = {
     koboEventosActuales = []; // se completa aparte, no bloquea abrir la ficha (ver abajo)
 
     document.getElementById('view-buscar').style.display = 'none';
+    document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'block';
     Casos._renderFichaHeader();
     Casos._renderChecklistEntrevista();
@@ -3370,6 +3451,7 @@ const Casos = {
       if(error) throw error;
       closeModal();
       await Casos.abrirFicha(personaActual.id);
+      cargarDniPendientesCount(); // no se espera — refresca el contador del botón si esto era un trámite de DNI
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
       btn.disabled = false; btn.textContent = '💾 Guardar';

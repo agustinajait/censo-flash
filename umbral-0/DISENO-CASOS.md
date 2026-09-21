@@ -2236,6 +2236,49 @@ cruzada de que las funciones nuevas (`cambiarEstadoDerivacion`,
 `confirmarResolucionDerivacion`) están todas referenciadas donde
 corresponde.
 
+### 10.1.23 Botón "🪪 Trámites de DNI pendientes" (21/9/2026)
+
+Con §10.1.22 ya dándole al operador la forma de marcar una derivación
+como resuelta, faltaba la otra mitad: cómo se ENTERA de cuáles tiene
+pendientes sin tener que acordarse caso por caso. Pedido: "quiero que
+agregues una pestaña o botón en duplas de color que dice pendientes o
+validar trayectoria o algo para que los operadores entren a revisar y
+hagan el seguimiento. Trámites de DNI pendientes podría ser" — nombre
+tomado tal cual lo propuso.
+
+Nuevo botón en la topbar de `casos.html` (visible para todas las
+cuentas, no solo admin/coordinación como "👥 Duplas" — es el propio
+operador quien tiene que revisar), con el conteo de pendientes en el
+texto (`cargarDniPendientesCount()`, se llama al entrar a la app igual
+que `cargarKoboPendientes()`/`revisarDuplicadosCasos()`, sin bloquear).
+Al tocarlo (`Casos.mostrarDniPendientes()`) se abre una vista nueva
+(`view-dni-pendientes`) con la lista de derivaciones "Hacer DNI" sin
+resolver (`estado` distinto de `efectivizado`/`rechazado`), cada una con
+fecha del pedido y hace cuántos días — tocar cualquiera abre esa ficha
+directo (`Casos.abrirFicha()`) para hacer el seguimiento con el flujo de
+§10.1.22. RLS ya scopea `derivaciones`/`personas` por dupla para cuentas
+`dupla`, así que la lista sale scopeada sola, sin filtrar nada a mano en
+el cliente. El contador se refresca solo después de resolver una
+derivación desde `confirmarResolucionDerivacion()`.
+
+Es una lista DISTINTA del `dniPendientes` del reporte semanal (§10.1.21,
+`admin-duplas.html`): ese cuenta personas por `dni_denuncia_extravio`
+(para el número agregado de gobierno); esta cuenta derivaciones "Hacer
+DNI" reales sin resolver (para que el operador entre caso por caso) —
+mismos datos de fondo, pero un número puede no coincidir exactamente con
+el otro si alguien carga la denuncia de extravío sin pasar todavía por
+"Pedir derivación" (para eso está el backfill de §10.1.21, que ya cerró
+ese hueco una vez).
+
+Validado manualmente (sin script de Node — depende del DOM real):
+balance de `<div>` y chequeo de sintaxis de los bloques `<script>` de
+`casos.html`, más grep cruzado de que todos los ids nuevos
+(`link-dni-pendientes`, `view-dni-pendientes`, `dni-pendientes-list`) y
+funciones (`cargarDniPendientesCount`, `Casos.mostrarDniPendientes`,
+`Casos._renderDniPendientes`) están referenciados en todos los lugares
+que hacían falta (mostrarlo al entrar, ocultarlo al volver a buscar o
+abrir una ficha, refrescarlo al resolver una derivación).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
