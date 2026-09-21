@@ -1348,6 +1348,14 @@ function renderUmbral0(rows, sinDupla){
   } else {
     sinDuplaBox.style.display = 'none';
   }
+
+  // Mapa de puntos visitados (§10.1.24) — no se espera (carga Leaflet la
+  // primera vez, no tiene que bloquear el resto del render). `rows` ya
+  // respeta el filtro de fecha de arriba (aplicarFiltroUmbral0() le pasa
+  // el subconjunto filtrado, no todo umbral0Crudo).
+  if(window.renderMapaPuntos){
+    renderMapaPuntos('u0-map', rows.map(r => ({ lat: r.lat, lng: r.lng, fecha: r.fecha, tipo: r.tipo })));
+  }
 }
 
 // ── SECCIÓN KOBO COLAPSABLE ─────────────────────────────────────────────

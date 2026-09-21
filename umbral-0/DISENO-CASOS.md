@@ -2279,6 +2279,75 @@ funciones (`cargarDniPendientesCount`, `Casos.mostrarDniPendientes`,
 que hacían falta (mostrarlo al entrar, ocultarlo al volver a buscar o
 abrir una ficha, refrescarlo al resolver una derivación).
 
+### 10.1.24 Mapa de puntos visitados (21/9/2026)
+
+Pedido: "agregás un mapa con los puntos que visitaron los operadores?".
+Se confirmó el alcance con Agustina antes de tocar código: en los dos
+lugares (reporte semanal para gobierno + dashboard en vivo), no solo uno.
+
+Fuente de los puntos: `_geolocation` de KoBo, la misma que ya usa
+`historia_breve`/"Ver ubicación" (§10.1.16) y la sección "e." del reporte
+(§10.1.20-ish, `calcularOutcomesKobo()`) — no hay que agregar ningún dato
+nuevo, cada envío ya trae `lat`/`lng` parseados por `parseUmbral0()`.
+
+**Decisión de color** (consultado el skill de dataviz antes de elegir):
+NO se le asigna un color distinto a cada dupla. Son ~13 duplas, muy por
+encima del tope de 2-3 categorías que un mapa (comparación "todos contra
+todos", no una serie ordenada) puede sostener con colores distinguibles
+para daltonismo — más allá de eso hay que pasar a "Other" o a otra
+codificación. Se usa un solo color de marcador (`--blue` del propio
+dashboard, `#1a56db`) y la identidad (tipo de intervención, fecha) va en
+el popup al tocar cada punto — codificación compuesta en vez de color
+por categoría.
+
+**Implementación**: nuevo archivo `shared/js/mapa-puntos.js` —
+`renderMapaPuntos(containerId, puntos)`, reusado en los tres lugares en
+vez de triplicar la lógica de Leaflet:
+
+- Carga Leaflet (JS+CSS) desde cdnjs solo la primera vez que hace falta,
+  sin bloquear el resto de la página si no se usa esa sección.
+  Mosaico de OpenStreetMap (gratis, sin API key).
+- Un solo color de marcador (`circleMarker`), sin librería de clustering
+  aparte (se evaluó `leaflet.markercluster`, se descartó para no sumar
+  una segunda dependencia externa que no se puede probar en vivo desde
+  este entorno — mejor una sola librería bien probada que dos con más
+  superficie de falla).
+- Reusa la instancia del mapa por `containerId` entre renders (filtros de
+  fecha, resolución de un caso, etc.) en vez de recrearlo cada vez — solo
+  limpia y vuelve a poner los marcadores.
+- Si no hay ningún punto con geolocalización, igual muestra el mapa
+  (centrado en CABA) con un aviso al pie, no lo oculta.
+
+**Dónde quedó conectado**:
+
+- `dashboard.html`/`dashboard-engine.js`: nueva tarjeta "🗺️ Puntos
+  visitados" en la sección de Umbral 0, `renderUmbral0()` llama a
+  `renderMapaPuntos('u0-map', rows...)` al final — respeta el mismo
+  filtro de fecha que ya tenía el resto de esa sección, sin pedir nada
+  nuevo a KoBo (reusa `rows`, ya en memoria).
+- `admin-duplas.html`: `calcularOutcomesKobo()` ahora también junta
+  `puntos` (mismo forEach que ya arma `conteo`, sin pedidos nuevos) y lo
+  devuelve junto con `totalEnvios`/`conteo`; `renderReporte()` agrega el
+  mapa dentro de la tarjeta de "a. Cobertura territorial" y llama a
+  `renderMapaPuntos('reporte-map', r.koboOutcomes.puntos)` al final.
+- `reporte-publico.html`: mismo mapa con los `puntos` que ya viajan
+  dentro de `koboOutcomes` en el snapshot publicado — como `koboOutcomes`
+  ya se guarda entero en `publicarReporte()` (§10.1.20), no hizo falta
+  tocar ese archivo para que `puntos` llegue al link público; reportes
+  publicados ANTES de este fix no van a tener `puntos` (van a mostrar el
+  mapa vacío con el aviso) hasta que se regenere y publique uno nuevo.
+
+Validado: `node --check` sobre `shared/js/mapa-puntos.js` y
+`dashboard-engine.js`, balance de `<div>` y sintaxis de los bloques
+`<script>` de los tres HTML tocados, script de Node que reproduce el
+armado de `puntos` dentro de `calcularOutcomesKobo()` (excluye
+correctamente envíos sin geolocalización, de gente fuera del equipo y
+fuera del rango de fechas) — los 3 checks pasan. **No se pudo probar en
+un navegador real** (sin acceso de red desde este entorno a KoBo ni a
+los CDN de Leaflet) — pedirle a Agustina que confirme que el mapa
+efectivamente carga y muestra puntos en los tres lugares la primera vez
+que los abra.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
