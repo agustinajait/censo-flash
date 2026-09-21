@@ -1351,6 +1351,7 @@ function mostrarMiTurno(){
 // botón desde esa cuenta compartida — no hace falta modelar "quién de los
 // dos" lo marcó.
 let jornadaHoy = null; // fila de `jornadas` de hoy para mi dupla, o null si todavía no existe
+let resumenDiaHoy = null; // ver cargarYRenderResumenDia() — casos/intervenciones/derivaciones/seguimientos de hoy, para el cierre de jornada (§10.1.25)
 
 // OJO: NO usar toISOString() acá — es UTC, y Buenos Aires es UTC-3. Desde
 // las 21hs locales en adelante, toISOString() ya muestra la fecha de
@@ -1393,7 +1394,8 @@ function mostrarJornada(){
   if(jornadaHoy && jornadaHoy.fin){
     estado = 'completa';
     html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}</div>
-      <button class="btn btn-outline btn-sm" onclick="reabrirJornada()">↩️ Reabrir jornada</button>`;
+      <div id="resumen-dia-box"></div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="reabrirJornada()">↩️ Reabrir jornada</button>`;
   } else if(jornadaHoy && jornadaHoy.inicio){
     estado = 'en-curso';
     html = `<div class="jornada-txt">🌤️ <strong>Jornada en curso</strong> — inicio ${fmtHora(jornadaHoy.inicio)}</div>
@@ -1404,6 +1406,67 @@ function mostrarJornada(){
       <button class="btn btn-green" onclick="marcarInicioJornada()">▶️ Marcar inicio de jornada</button>`;
   }
   box.innerHTML = `<div class="jornada"><div class="jornada-card ${estado}">${html}</div></div>`;
+  // Resumen del día + mensaje de WhatsApp (§10.1.25, pedido de Agustina:
+  // "cuando la dupla hace el cierre se crea un informe de los casos
+  // diarios... así lo comparte con el grupo") — solo tiene sentido
+  // calcularlo con la jornada ya completa, no mientras está "en curso".
+  if(estado === 'completa') cargarYRenderResumenDia();
+}
+
+// Casos nuevos/recontactados, intervenciones, derivaciones y seguimientos
+// de HOY para mi propia dupla — mismo criterio de "nuevo vs. recontactado"
+// que calcularReporte() en admin-duplas.html (b. Población abordada),
+// pero acotado a un solo día y una sola dupla. `derivaciones` no tiene
+// `dupla_id` propio — RLS ya scopea el SELECT a las propias (mismo
+// criterio de solicitado_por, ver DISENO-CASOS.md §10.1.22), así que
+// alcanza con filtrar por fecha.
+async function cargarYRenderResumenDia(){
+  const box = document.getElementById('resumen-dia-box');
+  if(!box || !miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
+  box.innerHTML = '<div class="jornada-txt" style="font-size:0.78rem;color:#94a3b8;">Calculando el resumen del día…</div>';
+  try{
+    const client = await SupabaseClient.getClient();
+    const hoy = hoyStr();
+    // Mismo criterio de rango UTC del día LOCAL que buscarPersonas() (ver
+    // más arriba) — Buenos Aires es UTC-3, comparar contra el string de
+    // fecha a secas corta mal lo pasado entre las 21:00 y las 23:59.
+    const desdeUtc = new Date(hoy + 'T03:00:00.000Z');
+    const hastaUtc = new Date(desdeUtc.getTime() + 24*60*60*1000);
+
+    const [personasRes, intervRes, derivRes, seguRes] = await Promise.all([
+      client.from('personas').select('id').eq('dupla_id', miPerfil.dupla_id).eq('oculto', false)
+        .gte('created_at', desdeUtc.toISOString()).lt('created_at', hastaUtc.toISOString()),
+      client.from('intervenciones').select('id, persona_id').eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoy),
+      client.from('derivaciones').select('id, tipo')
+        .gte('fecha_solicitud', desdeUtc.toISOString()).lt('fecha_solicitud', hastaUtc.toISOString()),
+      client.from('seguimientos').select('id').eq('dupla_id', miPerfil.dupla_id)
+        .gte('fecha', desdeUtc.toISOString()).lt('fecha', hastaUtc.toISOString()),
+    ]);
+    if(personasRes.error) throw personasRes.error;
+    if(intervRes.error) throw intervRes.error;
+    if(derivRes.error) throw derivRes.error;
+    if(seguRes.error) throw seguRes.error;
+
+    const idsNuevas = new Set((personasRes.data||[]).map(p => p.id));
+    const idsTocadas = new Set((intervRes.data||[]).map(i => i.persona_id).filter(Boolean));
+    const recontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id));
+    const derivacionesPorTipo = {};
+    (derivRes.data||[]).forEach(d => { derivacionesPorTipo[d.tipo] = (derivacionesPorTipo[d.tipo]||0) + 1; });
+
+    resumenDiaHoy = {
+      casosNuevos: idsNuevas.size,
+      casosRecontactados: recontactadas.length,
+      totalIntervenciones: (intervRes.data||[]).length,
+      derivacionesPorTipo,
+      totalDerivaciones: (derivRes.data||[]).length,
+      seguimientos: (seguRes.data||[]).length,
+    };
+    Casos._renderResumenDia();
+  }catch(e){
+    resumenDiaHoy = null;
+    box.innerHTML = '<div class="jornada-txt" style="font-size:0.78rem;color:#ef4444;">No se pudo calcular el resumen del día.</div>';
+    console.error('No se pudo calcular el resumen del día', e);
+  }
 }
 
 async function marcarInicioJornada(){
@@ -2118,6 +2181,71 @@ const Casos = {
         </div>
       `;
     }).join('');
+  },
+
+  // ── RESUMEN DEL DÍA / CIERRE DE JORNADA (§10.1.25) ──────────────────────
+  _renderResumenDia(){
+    const box = document.getElementById('resumen-dia-box');
+    if(!box || !resumenDiaHoy) return;
+    const r = resumenDiaHoy;
+    const derivLinea = Object.keys(r.derivacionesPorTipo).length
+      ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `${esc(tipo)}: ${n}`).join(' · ')
+      : 'ninguna';
+    box.innerHTML = `
+      <div class="jornada-resumen" style="font-size:0.82rem;line-height:1.7;margin-top:6px;">
+        <div>📋 <b>${r.casosNuevos}</b> caso${r.casosNuevos===1?'':'s'} nuevo${r.casosNuevos===1?'':'s'} · 🔁 <b>${r.casosRecontactados}</b> recontactado${r.casosRecontactados===1?'':'s'}</div>
+        <div>📝 <b>${r.totalIntervenciones}</b> intervención${r.totalIntervenciones===1?'':'es'} registrada${r.totalIntervenciones===1?'':'s'}</div>
+        <div>📨 <b>${r.totalDerivaciones}</b> derivación${r.totalDerivaciones===1?'':'es'} pedida${r.totalDerivaciones===1?'':'s'}${r.totalDerivaciones?' (' + derivLinea + ')':''}</div>
+        <div>📄 <b>${r.seguimientos}</b> seguimiento${r.seguimientos===1?'':'s'} agregado${r.seguimientos===1?'':'s'}</div>
+      </div>
+      <button class="btn btn-green btn-sm" style="margin-top:8px;" onclick="Casos.abrirModalMensajeCierre()">📱 Armar mensaje de WhatsApp</button>
+    `;
+  },
+
+  abrirModalMensajeCierre(){
+    if(!resumenDiaHoy) return;
+    const r = resumenDiaHoy;
+    const fecha = new Date().toLocaleDateString('es-AR');
+    const duplaCod = (duplasPorId[miPerfil.dupla_id] && duplasPorId[miPerfil.dupla_id].codigo) || '';
+    const inicioTxt = jornadaHoy && jornadaHoy.inicio ? fmtHora(jornadaHoy.inicio) : '—';
+    const finTxt = jornadaHoy && jornadaHoy.fin ? fmtHora(jornadaHoy.fin) : '—';
+    const derivLinea = Object.keys(r.derivacionesPorTipo).length
+      ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `  · ${tipo}: ${n}`).join('\n')
+      : '  (ninguna)';
+    const texto = `🌒 CIERRE DE JORNADA — Dupla ${duplaCod}
+${fecha} · ${inicioTxt} a ${finTxt}
+
+📋 Casos nuevos: ${r.casosNuevos}
+🔁 Casos recontactados: ${r.casosRecontactados}
+📝 Intervenciones registradas: ${r.totalIntervenciones}
+📨 Derivaciones pedidas: ${r.totalDerivaciones}
+${derivLinea}
+📄 Seguimientos agregados: ${r.seguimientos}
+
+Umbral Cero — Huehaci`;
+    const body = `
+      <textarea id="ta-mensaje-cierre" rows="14" readonly style="width:100%;font-family:monospace;font-size:0.82rem;"></textarea>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-green" onclick="Casos.compartirWhatsappCierre()">📱 Compartir por WhatsApp</button>
+        <button type="button" class="btn btn-blue" onclick="Casos.copiarMensajeCierre()">📋 Copiar</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+      </div>
+    `;
+    openModal('Cierre de jornada — mensaje para el grupo', body);
+    document.getElementById('ta-mensaje-cierre').value = texto;
+  },
+
+  async copiarMensajeCierre(){
+    const ta = document.getElementById('ta-mensaje-cierre');
+    try{ await navigator.clipboard.writeText(ta.value); }catch(e){ ta.select(); document.execCommand('copy'); }
+  },
+
+  // wa.me abre WhatsApp (app o web) con el texto ya cargado, sin fijar un
+  // número/grupo — la dupla elige el chat del grupo desde ahí mismo. No
+  // hace falta guardar el número del grupo en ningún lado.
+  compartirWhatsappCierre(){
+    const ta = document.getElementById('ta-mensaje-cierre');
+    window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank');
   },
 
   onBuscarInput(){
