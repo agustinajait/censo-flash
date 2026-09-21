@@ -565,6 +565,13 @@ const TIPOS_DERIVACION_CONFIG = {
   'CIS': {
     requiereFoto: true,
     campos: [
+      // Origen (21/9/2026, pedido de Agustina): cierra un hueco marcado
+      // desde hace rato en el reporte ("origen de cada derivación a CIS
+      // — espontánea vs. seguimiento — no se guarda ese dato todavía",
+      // ver generarReporte() en admin-duplas.html). Se precarga según
+      // esSeguimiento() de la ficha ABIERTA en este momento, pero queda
+      // editable — es una propuesta, no una verdad asumida.
+      { key:'origen', label:'Origen de la derivación', type:'select', options:()=>['Demanda espontánea (primer contacto)','Seguimiento'], prefill:()=> Casos.esSeguimiento() ? 'Seguimiento' : 'Demanda espontánea (primer contacto)' },
       { key:'punto_contacto', label:'Punto de contacto', prefill:p=>p.punto_contacto },
       { key:'nombre_apellido', label:'Nombre y apellido', prefill:p=>`${p.nombre||''} ${p.apellido||''}`.trim() },
       { key:'fecha_nacimiento', label:'Fecha de nacimiento', type:'date', prefill:p=>p.fecha_nacimiento },
@@ -718,6 +725,7 @@ const RESUMEN_DERIVACION_CONFIG = {
     titulo: 'Solicitud de ingreso a CIS',
     ayuda: 'Copiá este mensaje y mandalo por WhatsApp al referente territorial / coordinación, junto con la foto del DNI o denuncia que ya quedó adjunta acá.',
     campos: [
+      ['Origen de la derivación', 'origen'],
       ['Punto de contacto', 'punto_contacto'],
       ['Nombre y apellido', 'nombre_apellido'],
       ['Fecha de nacimiento', 'fecha_nacimiento'],

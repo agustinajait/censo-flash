@@ -2547,6 +2547,55 @@ filtra observaciones vacías/solo-espacios y jornadas viejas sin este
 campo (`null`), resuelve el código de dupla, y no rompe si una
 `dupla_id` no está en el mapa (cae a "—") — los 4 checks pasan.
 
+### 10.1.29 "Demanda espontánea" para CIS (21/9/2026)
+
+Pedido: "agregá también la opción de demanda espontánea, para casos que
+cargan en KoBo — demanda espontánea son los casos de personas que en el
+primer contacto quieren ir a un CIS". Cierra un hueco marcado desde
+hacía rato en el propio código del reporte (comentario en
+`generarReporte()`, `admin-duplas.html`): "Origen de cada derivación a
+CIS (espontánea vs. seguimiento) — no se guarda ese dato en
+`derivaciones.datos` todavía". El concepto ya existía en el resto de la
+app (el quiz ya distingue "a diferencia de Casa Vincular, CIS admite
+demanda espontánea"; el aviso rápido de "🚨 Avisar a coordinación" ya
+tiene una opción "CIS espontáneo" al handy rojo) pero nunca había quedado
+como un dato guardado y reportable.
+
+Dos partes, en `config/umbral-0.js` y `casos.html`:
+
+1. **Checklist "¿Qué hiciste con este caso?"** (`ACCIONES_INTERVENCION`)
+   — nueva opción `demanda_espontanea_cis`, "para casos que cargan en
+   KoBo" literal: es exactamente el checklist que se usa al validar un
+   envío de KoBo (`abrirModalValidarKobo()`) además de al registrar una
+   intervención manual. KoBo no tiene una pregunta propia para esto
+   (mismo caso ya documentado de CIS y teléfono rojo), así que queda
+   sin pre-tildar en `KOBO_TERMINO_A_ACCION` — la dupla la tilda a
+   mano. Se sumó a `ACCION_A_TIPO_DERIVACION` (→ 'CIS') para que,
+   igual que "Derivación a CIS", sugiera completar el formulario
+   formal de "Pedir derivación" al tildarla.
+2. **Campo "Origen de la derivación" en el formulario de CIS**
+   (`TIPOS_DERIVACION_CONFIG['CIS']` y su espejo en
+   `RESUMEN_DERIVACION_CONFIG['CIS']`, para que también salga en el
+   informe que se copia a WhatsApp) — select con "Demanda espontánea
+   (primer contacto)" / "Seguimiento", precargado según
+   `Casos.esSeguimiento()` de la ficha abierta pero editable (es una
+   propuesta, no una verdad asumida). Este es el dato que efectivamente
+   cierra el hueco del reporte — vive en `derivaciones.datos.origen`,
+   visible en el timeline de la ficha (ya renderiza genérico todo lo
+   que hay en `datos`) sin tocar nada más.
+
+No se tocó el reporte semanal todavía para agregar un conteo agregado de
+"espontánea vs. seguimiento" — por ahora el dato queda capturado y
+visible por caso (ficha + informe de CIS) y en el conteo de "f." (vía
+`demanda_espontanea_cis`); agregarlo como columna propia en "d." queda
+para cuando haya volumen real para evaluar cómo se ve.
+
+Validado: `node --check` sobre `config/umbral-0.js`, balance de `<div>`
+y sintaxis de los bloques `<script>` de `casos.html`, y grep cruzado de
+que `demanda_espontanea_cis` está en `ACCIONES_INTERVENCION` y
+`ACCION_A_TIPO_DERIVACION`, y ausente de `KOBO_TERMINO_A_ACCION` a
+propósito.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
