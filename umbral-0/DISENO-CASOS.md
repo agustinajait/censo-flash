@@ -2407,6 +2407,48 @@ nuevos/recontactados/derivaciones-por-tipo sobre casos sintéticos
 recontactado; caso nuevo tocado hoy no cuenta como recontactado; día sin
 actividad da todo en cero sin romper) — los 7 checks pasan.
 
+### 10.1.26 El mismo resumen diario, pero desde el admin (21/9/2026)
+
+Pedido inmediato después de §10.1.25: "y que se pueda hacer desde el
+admin por dupla y por día". Nueva pestaña en `admin-duplas.html`, "📅
+Resumen diario" (junto a "Duplas y equipo" y "Reporte semanal") — mismo
+cálculo y mismo mensaje que ve la dupla al cerrar su jornada, pero
+eligiendo cualquier dupla y cualquier día en vez de "hoy, mi propia
+dupla".
+
+Diferencia real con el lado de la dupla (no es un copy-paste): en
+`casos.html`, una cuenta `dupla` ya viene limitada por RLS a sus propios
+datos, así que ni hace falta filtrar `derivaciones` por dupla a mano (el
+SELECT ya viene scopeado). Acá admin/coordinación ven TODAS las duplas,
+así que hay que armar el scope a mano: se trae la lista de `persona_id`
+que pertenecen a la dupla elegida (`personas.dupla_id`) y se filtran las
+derivaciones del día con `.in('persona_id', esaLista)` — sin esto, el
+resumen de una dupla mostraría derivaciones de cualquier otra. Caso
+límite cubierto explícitamente: si la dupla elegida todavía no tiene
+ningún caso cargado (`idsPersonasDupla` vacío), NO se corre la consulta
+de derivaciones sin filtro — se deja en cero directamente, para no traer
+por error las derivaciones de todas las demás duplas.
+
+`personas`/`intervenciones`/`seguimientos` sí tienen `dupla_id` propio,
+así que esos se filtran directo con `.eq('dupla_id', duplaId)`, igual
+que del lado de la dupla.
+
+El mensaje (`armarMensajeDiarioAdmin()`) es texto casi idéntico al que
+arma `Casos.abrirModalMensajeCierre()` del lado de la dupla (mismo
+formato, mismos emojis) — no se reusa literalmente el mismo código
+porque viven en archivos y contextos distintos (uno depende de
+`resumenDiaHoy`/`jornadaHoy` de `casos.html`, el otro del resultado de
+la consulta de admin), pero el texto que le llega a la dupla es
+reconocible sea cual sea el origen.
+
+Validado: balance de `<div>` y chequeo de sintaxis de los bloques
+`<script>` de `admin-duplas.html`, grep cruzado de que todos los
+ids/funciones nuevos están referenciados donde corresponde, y script de
+Node que reproduce el cálculo — incluyendo el caso de derivaciones
+"cruzadas" (una derivación de otra dupla en el mismo período no se cuela
+en el resumen) y el caso límite de una dupla sin casos (no rompe, no
+trae de más) — los 5 checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

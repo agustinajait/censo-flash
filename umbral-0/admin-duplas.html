@@ -140,8 +140,9 @@
   .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; flex:none; }
   .caso-card .caso-historia div { white-space:pre-wrap; color:#334155; }
   .btn-amber { background:var(--amber); color:white; }
-  textarea#reporte-texto, textarea#alertas-texto, .form-field textarea { width:100%; min-height:100px; font-family:monospace; font-size:0.8rem; border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; background:#f8faff; }
+  textarea#reporte-texto, textarea#alertas-texto, textarea#diario-texto, .form-field textarea { width:100%; min-height:100px; font-family:monospace; font-size:0.8rem; border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; background:#f8faff; }
   #reporte-texto { min-height:340px; }
+  #diario-texto { min-height:180px; }
 </style>
 </head>
 <body>
@@ -214,6 +215,7 @@
   <div class="admin-tabs">
     <button class="admin-tab active" data-tab="duplas" onclick="switchTab('duplas')">👥 Duplas y equipo</button>
     <button class="admin-tab" data-tab="reporte" onclick="switchTab('reporte')">📊 Reporte semanal</button>
+    <button class="admin-tab" data-tab="diario" onclick="switchTab('diario')">📅 Resumen diario</button>
   </div>
 
   <!-- PESTAÑA: DUPLAS Y EQUIPO -->
@@ -336,6 +338,31 @@
     <div id="reporte-cont"></div>
 
   </div>
+
+  <!-- PESTAÑA: RESUMEN DIARIO (§10.1.26, pedido de Agustina: "que se
+       pueda hacer desde el admin por dupla y por día") — mismo cálculo y
+       mismo mensaje de WhatsApp que ve la dupla al cerrar su jornada en
+       casos.html (§10.1.25), pero eligiendo cualquier dupla/día en vez de
+       "hoy, mi propia dupla". Ver calcularResumenDiarioAdmin(). -->
+  <div class="wrap" id="tab-diario" style="display:none;">
+
+    <div class="rango-card">
+      <div class="form-field">
+        <label>Dupla</label>
+        <select id="diario-dupla"></select>
+      </div>
+      <div class="form-field">
+        <label>Día</label>
+        <input type="date" id="diario-fecha">
+      </div>
+      <button class="btn btn-blue" id="btn-diario-calcular" onclick="calcularResumenDiarioAdmin()">📅 Calcular</button>
+      <span id="diario-estado" style="font-size:0.8rem;color:#64748b;"></span>
+    </div>
+
+    <div id="diario-cont"></div>
+
+  </div>
+
   <div class="huehaci-credit">
     <img src="../assets/huehaci-logo.png" alt="Huehaci">
     <span>Huehaci — Consultora de innovación cívica y tecnológica</span>
@@ -425,16 +452,23 @@ async function boot(){
 
 // ── PESTAÑAS ────────────────────────────────────────────────────────────
 let _reporteCargado = false;
+let _diarioCargado = false;
 function switchTab(nombre){
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === nombre));
   document.getElementById('tab-duplas').style.display = nombre === 'duplas' ? 'block' : 'none';
   document.getElementById('tab-reporte').style.display = nombre === 'reporte' ? 'block' : 'none';
-  history.replaceState(null, '', nombre === 'reporte' ? '#reporte' : '#duplas');
+  document.getElementById('tab-diario').style.display = nombre === 'diario' ? 'block' : 'none';
+  history.replaceState(null, '', nombre === 'duplas' ? '#duplas' : '#' + nombre);
   if(nombre === 'reporte' && !_reporteCargado){
     _reporteCargado = true;
     document.getElementById('f-desde').value = hoyStr(-6);
     document.getElementById('f-hasta').value = hoyStr(0);
     generarReporte();
+  }
+  if(nombre === 'diario' && !_diarioCargado){
+    _diarioCargado = true;
+    cargarDuplasSelectDiario();
+    document.getElementById('diario-fecha').value = hoyStr(0);
   }
 }
 
@@ -1900,6 +1934,158 @@ async function copiarMensaje(){
     ta.select();
     document.execCommand('copy');
   }
+}
+
+// ── RESUMEN DIARIO POR DUPLA (§10.1.26) ─────────────────────────────────
+// Mismo cálculo y mismo mensaje que ve la dupla al cerrar su jornada en
+// casos.html (§10.1.25, cargarYRenderResumenDia()) — acá con dupla/día
+// elegidos a mano en vez de "hoy, mi propia dupla": ahí alcanzaba con que
+// RLS scopeara solo; acá un admin ve todas las duplas, así que hay que
+// filtrar por dupla_id explícito. `derivaciones` no tiene dupla_id propio
+// (ver §10.1.22) — se resuelve con los persona_id de esa dupla en vez del
+// truco de RLS que usa el lado de la dupla.
+async function cargarDuplasSelectDiario(){
+  const sel = document.getElementById('diario-dupla');
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('duplas').select('id, codigo').order('codigo');
+    if(error) throw error;
+    sel.innerHTML = (data||[]).map(d => `<option value="${d.id}">${esc(d.codigo)}</option>`).join('');
+  }catch(e){
+    sel.innerHTML = '<option value="">Error cargando duplas</option>';
+    console.error('No se pudieron traer las duplas', e);
+  }
+}
+
+async function calcularResumenDiarioAdmin(){
+  const duplaId = document.getElementById('diario-dupla').value;
+  const fecha = document.getElementById('diario-fecha').value;
+  const estadoEl = document.getElementById('diario-estado');
+  const cont = document.getElementById('diario-cont');
+  if(!duplaId || !fecha){ estadoEl.textContent = 'Elegí dupla y día.'; return; }
+  const btn = document.getElementById('btn-diario-calcular');
+  btn.disabled = true; estadoEl.textContent = 'Calculando…';
+  cont.innerHTML = '';
+  try{
+    const client = await SupabaseClient.getClient();
+    // Mismo criterio de rango UTC del día LOCAL que el resto del archivo
+    // (generarReporte()/calcularAccionesPlataforma()) — Buenos Aires es
+    // UTC-3, comparar contra el string de fecha a secas corta mal lo
+    // pasado entre las 21:00 y las 23:59 locales.
+    const desdeUtc = fecha + 'T03:00:00.000Z';
+    const hastaUtc = new Date(new Date(desdeUtc).getTime() + 24*60*60*1000).toISOString();
+
+    const [personasHoyRes, personasTodasRes, intervRes, seguRes, duplaRes] = await Promise.all([
+      client.from('personas').select('id').eq('dupla_id', duplaId).eq('oculto', false)
+        .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
+      client.from('personas').select('id').eq('dupla_id', duplaId).eq('oculto', false),
+      client.from('intervenciones').select('id, persona_id').eq('dupla_id', duplaId).eq('fecha', fecha),
+      client.from('seguimientos').select('id').eq('dupla_id', duplaId)
+        .gte('fecha', desdeUtc).lt('fecha', hastaUtc),
+      client.from('duplas').select('codigo').eq('id', duplaId).single(),
+    ]);
+    if(personasHoyRes.error) throw personasHoyRes.error;
+    if(personasTodasRes.error) throw personasTodasRes.error;
+    if(intervRes.error) throw intervRes.error;
+    if(seguRes.error) throw seguRes.error;
+    if(duplaRes.error) throw duplaRes.error;
+
+    const idsPersonasDupla = (personasTodasRes.data||[]).map(p => p.id);
+    let derivData = [];
+    if(idsPersonasDupla.length){
+      const derivRes = await client.from('derivaciones').select('id, tipo')
+        .in('persona_id', idsPersonasDupla)
+        .gte('fecha_solicitud', desdeUtc).lt('fecha_solicitud', hastaUtc);
+      if(derivRes.error) throw derivRes.error;
+      derivData = derivRes.data || [];
+    }
+
+    const idsNuevas = new Set((personasHoyRes.data||[]).map(p => p.id));
+    const idsTocadas = new Set((intervRes.data||[]).map(i => i.persona_id).filter(Boolean));
+    const recontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id));
+    const derivacionesPorTipo = {};
+    derivData.forEach(d => { derivacionesPorTipo[d.tipo] = (derivacionesPorTipo[d.tipo]||0) + 1; });
+
+    const r = {
+      casosNuevos: idsNuevas.size,
+      casosRecontactados: recontactadas.length,
+      totalIntervenciones: (intervRes.data||[]).length,
+      derivacionesPorTipo,
+      totalDerivaciones: derivData.length,
+      seguimientos: (seguRes.data||[]).length,
+    };
+    _renderResumenDiarioAdmin(r, duplaRes.data.codigo, fecha);
+    estadoEl.textContent = 'Listo.';
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">Error calculando el resumen: ${esc(e.message)}</div>`;
+    estadoEl.textContent = '';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function _renderResumenDiarioAdmin(r, duplaCod, fecha){
+  const cont = document.getElementById('diario-cont');
+  const derivLinea = Object.keys(r.derivacionesPorTipo).length
+    ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `${esc(tipo)}: ${n}`).join(' · ')
+    : 'ninguna';
+  cont.innerHTML = `
+    <div class="card">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="num">${r.casosNuevos}</div><div class="lbl">Casos nuevos</div></div>
+        <div class="kpi"><div class="num">${r.casosRecontactados}</div><div class="lbl">Casos recontactados</div></div>
+        <div class="kpi"><div class="num">${r.totalIntervenciones}</div><div class="lbl">Intervenciones registradas</div></div>
+        <div class="kpi"><div class="num">${r.totalDerivaciones}</div><div class="lbl">Derivaciones pedidas</div></div>
+        <div class="kpi"><div class="num">${r.seguimientos}</div><div class="lbl">Seguimientos agregados</div></div>
+      </div>
+      ${r.totalDerivaciones ? `<div class="nota-limite" style="background:#f0f6ff;border-color:#93c5fd;color:#1e3a5f;">📨 Derivaciones: ${esc(derivLinea)}</div>` : ''}
+      <button class="btn btn-amber" style="margin-top:14px;margin-bottom:10px;" onclick="armarMensajeDiarioAdmin()">✍️ Armar mensaje</button>
+      <textarea id="diario-texto" readonly></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-blue" onclick="copiarMensajeDiarioAdmin()">📋 Copiar mensaje</button>
+        <button class="btn btn-green" onclick="compartirWhatsappDiarioAdmin()">📱 Compartir por WhatsApp</button>
+      </div>
+    </div>
+  `;
+  window._ultimoResumenDiario = { r, duplaCod, fecha };
+}
+
+function armarMensajeDiarioAdmin(){
+  const d = window._ultimoResumenDiario;
+  if(!d) return;
+  const { r, duplaCod, fecha } = d;
+  const derivLinea = Object.keys(r.derivacionesPorTipo).length
+    ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `  · ${tipo}: ${n}`).join('\n')
+    : '  (ninguna)';
+  const texto = `🌒 RESUMEN DEL DÍA — Dupla ${duplaCod}
+${fmtFechaCorta(fecha)}
+
+📋 Casos nuevos: ${r.casosNuevos}
+🔁 Casos recontactados: ${r.casosRecontactados}
+📝 Intervenciones registradas: ${r.totalIntervenciones}
+📨 Derivaciones pedidas: ${r.totalDerivaciones}
+${derivLinea}
+📄 Seguimientos agregados: ${r.seguimientos}
+
+Umbral Cero — Huehaci`;
+  document.getElementById('diario-texto').value = texto;
+}
+
+async function copiarMensajeDiarioAdmin(){
+  const ta = document.getElementById('diario-texto');
+  if(!ta.value) armarMensajeDiarioAdmin();
+  try{
+    await navigator.clipboard.writeText(ta.value);
+  }catch(e){
+    ta.select();
+    document.execCommand('copy');
+  }
+}
+
+function compartirWhatsappDiarioAdmin(){
+  const ta = document.getElementById('diario-texto');
+  if(!ta.value) armarMensajeDiarioAdmin();
+  window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank');
 }
 
 // ── REPORTE PÚBLICO (link para compartir) ───────────────────────────────
