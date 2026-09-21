@@ -147,6 +147,15 @@ const ACCIONES_INTERVENCION = [
   { key:'telefono_rojo', label:'Llamado al teléfono rojo' },
   { key:'policia', label:'Contacto con Policía / 911' },
   { key:'derivacion_cis', label:'Derivación a CIS' },
+  // Demanda espontánea (21/9/2026, pedido de Agustina: "para casos que
+  // cargan en KoBo, demanda espontánea son los casos de personas que en
+  // el primer contacto quieren ir a un CIS") — distinta de "Derivación a
+  // CIS" a secas: ese caso puede venir de un seguimiento; esta es
+  // específicamente cuando la persona lo pide YA, en el primer contacto.
+  // KoBo no tiene una pregunta propia para esto (mismo caso que CIS y
+  // teléfono rojo, ver comentario de arriba), así que queda sin
+  // pre-tildar en KOBO_TERMINO_A_ACCION — la dupla la tilda a mano.
+  { key:'demanda_espontanea_cis', label:'Demanda espontánea — pidió ir a un CIS en el primer contacto' },
   { key:'derivacion_casa_vincular', label:'Derivación a Casa Vincular' },
   { key:'derivacion_red', label:'Derivación a la RED' },
   { key:'derivacion_ciudadania_portena', label:'Derivación a Ciudadanía Porteña' },
@@ -194,6 +203,7 @@ const KOBO_TERMINO_A_ACCION = {
 // completar los datos que ese tipo de derivación necesita de verdad.
 const ACCION_A_TIPO_DERIVACION = {
   derivacion_cis: 'CIS',
+  demanda_espontanea_cis: 'CIS',
   derivacion_casa_vincular: 'Casa Vincular',
   derivacion_ciudadania_portena: 'Programa Ciudadanía Porteña',
   llamado_same_medica: 'SAME',
