@@ -308,6 +308,14 @@
            diferencia de "👥 Duplas") — es el propio operador quien tiene
            que hacer el seguimiento. -->
       <a href="#" id="link-dni-pendientes" class="btn btn-ghost" style="display:none;background:#fef3c7;color:#92400e;border-color:#fcd34d;" onclick="event.preventDefault(); Casos.mostrarDniPendientes();">🪪 Trámites de DNI pendientes</a>
+      <!-- Mis derivaciones y seguimientos (21/9/2026, pedido de Agustina:
+           "en duplas habría que poder ver mis derivaciones, mis
+           seguimientos, etc") — vista propia con TODAS las derivaciones y
+           seguimientos de mi dupla (cualquier tipo/estado), no solo los de
+           un caso puntual como en la ficha. Solo para cuentas dupla — para
+           admin/coordinación no aplica "mi dupla" (ven todo desde
+           admin-duplas.html). Ver §10.1.30 en DISENO-CASOS.md. -->
+      <a href="#" id="link-mi-actividad" class="btn btn-ghost" style="display:none;background:#e0e7ff;color:#3730a3;border-color:#c7d2fe;" onclick="event.preventDefault(); Casos.mostrarMiActividad();">📋 Mis derivaciones y seguimientos</a>
       <a href="./instructivo.html" class="btn btn-ghost" target="_blank" rel="noopener">📖 Glosario</a>
       <a href="#" id="link-quiz" class="btn btn-ghost" style="display:none;" onclick="event.preventDefault(); showScreen('onboarding-screen'); renderOnboarding();">🎓 Test</a>
       <a href="./admin-duplas.html" class="btn btn-ghost" id="link-admin-duplas" style="display:none;">👥 Duplas</a>
@@ -413,6 +421,17 @@
       <div class="section-label">🪪 Trámites de DNI pendientes</div>
       <div class="section-hint">Personas con la derivación "Hacer DNI" todavía sin resolver — entrá al caso para hacer el seguimiento y marcarla como efectivizada o rechazada cuando corresponda (eso además la saca de esta lista).</div>
       <div id="dni-pendientes-list"></div>
+    </div>
+
+    <!-- VISTA: MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) -->
+    <div id="view-mi-actividad" style="display:none;">
+      <button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="Casos.volverABuscar()">← Volver a la búsqueda</button>
+      <div class="section-label">📨 Mis derivaciones</div>
+      <div class="section-hint">Todas las derivaciones pedidas por mi dupla, cualquier tipo o estado — tocá una para ir al caso.</div>
+      <div id="mis-derivaciones-list"></div>
+      <div class="section-label" style="margin-top:22px;">📝 Mis seguimientos</div>
+      <div class="section-hint">Todos los seguimientos que cargó mi dupla — tocá uno para ir al caso.</div>
+      <div id="mis-seguimientos-list"></div>
     </div>
 
   </div>
@@ -940,6 +959,7 @@ async function entrarAlApp(){
   document.getElementById('link-dashboard').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-dni-pendientes').style.display = 'inline-flex';
+  document.getElementById('link-mi-actividad').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
   const koboFormLink = window.PROJECT_CONFIG.koboFormLink;
   if(koboFormLink){
     const linkKobo = document.getElementById('link-kobo-form');
@@ -2214,6 +2234,7 @@ const Casos = {
     personaActual = null;
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
@@ -2222,8 +2243,70 @@ const Casos = {
   mostrarDniPendientes(){
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'block';
     Casos._renderDniPendientes();
+  },
+
+  // ── MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) ──────────────────────────
+  // RLS ya scopea derivaciones/seguimientos a la propia dupla (mismo
+  // criterio que §10.1.22/§10.1.23) — no hace falta filtrar por dupla_id
+  // a mano acá.
+  async mostrarMiActividad(){
+    document.getElementById('view-buscar').style.display = 'none';
+    document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-mi-actividad').style.display = 'block';
+    const boxDeriv = document.getElementById('mis-derivaciones-list');
+    const boxSegu = document.getElementById('mis-seguimientos-list');
+    boxDeriv.innerHTML = '<div class="empty-msg">Cargando…</div>';
+    boxSegu.innerHTML = '<div class="empty-msg">Cargando…</div>';
+    try{
+      const client = await SupabaseClient.getClient();
+      const [derivRes, seguRes, personasRes] = await Promise.all([
+        client.from('derivaciones').select('id, tipo, estado, fecha_solicitud, persona_id').order('fecha_solicitud', { ascending: false }).limit(100),
+        client.from('seguimientos').select('id, fecha, contenido, persona_id').order('fecha', { ascending: false }).limit(100),
+        client.from('personas').select('id, nombre, apellido, dni, sin_identificar').eq('oculto', false),
+      ]);
+      if(derivRes.error) throw derivRes.error;
+      if(seguRes.error) throw seguRes.error;
+      if(personasRes.error) throw personasRes.error;
+      const personaPorId = {};
+      (personasRes.data||[]).forEach(p => personaPorId[p.id] = p);
+
+      const derivaciones = derivRes.data || [];
+      boxDeriv.innerHTML = derivaciones.length ? derivaciones.map(d => {
+        const p = personaPorId[d.persona_id];
+        return `
+          <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${d.persona_id}')">
+            <div class="kobo-pend-txt">
+              <strong>${p ? esc(nombreDisplay(p)) : '(caso no encontrado)'}</strong>${p && p.dni ? ' · DNI ' + esc(p.dni) : ''}
+              <div class="meta">${esc(d.tipo||'')} · pedida el ${fmtFecha(d.fecha_solicitud)} · estado: ${esc(d.estado||'solicitado')}</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${d.persona_id}')">Ver caso →</button>
+          </div>
+        `;
+      }).join('') : '<div class="empty-msg">Todavía no hay derivaciones pedidas por tu dupla.</div>';
+
+      const seguimientos = seguRes.data || [];
+      boxSegu.innerHTML = seguimientos.length ? seguimientos.map(s => {
+        const p = personaPorId[s.persona_id];
+        const contenido = (s.contenido||'').trim();
+        return `
+          <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${s.persona_id}')">
+            <div class="kobo-pend-txt">
+              <strong>${p ? esc(nombreDisplay(p)) : '(caso no encontrado)'}</strong>
+              <div class="meta">${fmtFecha(s.fecha)}${contenido ? ' · ' + esc(contenido.length > 120 ? contenido.slice(0,120) + '…' : contenido) : ''}</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${s.persona_id}')">Ver caso →</button>
+          </div>
+        `;
+      }).join('') : '<div class="empty-msg">Todavía no hay seguimientos cargados por tu dupla.</div>';
+    }catch(e){
+      boxDeriv.innerHTML = `<div class="empty-msg">Error cargando derivaciones: ${esc(e.message)}</div>`;
+      boxSegu.innerHTML = '';
+      console.error('No se pudo cargar "Mis derivaciones y seguimientos"', e);
+    }
   },
 
   _renderDniPendientes(){
@@ -2808,6 +2891,7 @@ Umbral Cero — Huehaci`;
 
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'block';
     Casos._renderFichaHeader();
     Casos._renderChecklistEntrevista();
