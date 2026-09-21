@@ -2644,6 +2644,38 @@ a buscar o abrir una ficha), y confirmación directa contra las policies
 de RLS de `derivaciones` y `seguimientos` (no asumidas) antes de escribir
 las consultas.
 
+### 10.1.31 El resumen diario con descripción de caso y de la intervención (21/9/2026)
+
+Con §10.1.27 ya listando casos e intervenciones (no solo números),
+Agustina lo siguió viendo "muy sintético": "necesito que venga con una
+descripción de caso y de la intervención de la dupla" — un nombre y un
+tipo no alcanzan, hace falta saber DE QUÉ SE TRATA cada uno.
+
+Dos partes, en `casos.html` y `admin-duplas.html` (mismo criterio,
+código separado, como el resto de este feature):
+
+1. **Descripción de caso**: las consultas a `personas` (altas de hoy y
+   recontactados) ahora también piden `historia_breve` — la misma
+   narrativa que ya se arma en la ficha (KoBo + carga manual, ver
+   §10.1.16) — y se muestra truncada a 180 caracteres debajo de cada
+   caso listado, tanto en pantalla como en el mensaje de WhatsApp.
+2. **Resumen de la intervención**: ya estaba en pantalla desde §10.1.27
+   (`intervenciones.resumen`, el campo libre de "Registrar
+   intervención") pero **faltaba en el mensaje de WhatsApp** — el
+   `intervTxt` de `abrirModalMensajeCierre()`/`armarMensajeDiarioAdmin()`
+   armaba la línea sin `i.resumen`, a diferencia de la versión HTML que
+   sí lo tenía. Se agregó ahí también, completo (sin truncar — a
+   diferencia de `historia_breve`, que puede ser largo por acumular
+   varios contactos, el resumen de una sola intervención de un día
+   puntual suele ser corto).
+
+Validado: balance de `<div>` y chequeo de sintaxis de los bloques
+`<script>` de los dos archivos, y script de Node que reproduce
+`truncar()` (corta a N + "…", no toca texto corto, no rompe con
+null/undefined, recorta espacios de los bordes) y el armado de las
+líneas de caso/intervención con y sin el dato opcional — los 8 checks
+pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

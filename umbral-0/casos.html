@@ -1463,7 +1463,7 @@ async function cargarYRenderResumenDia(){
     const hastaUtc = new Date(desdeUtc.getTime() + 24*60*60*1000);
 
     const [personasRes, intervRes, derivRes, seguRes] = await Promise.all([
-      client.from('personas').select('id, nombre, apellido, dni, sin_identificar').eq('dupla_id', miPerfil.dupla_id).eq('oculto', false)
+      client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve').eq('dupla_id', miPerfil.dupla_id).eq('oculto', false)
         .gte('created_at', desdeUtc.toISOString()).lt('created_at', hastaUtc.toISOString()),
       client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoy),
       client.from('derivaciones').select('id, tipo')
@@ -1485,7 +1485,7 @@ async function cargarYRenderResumenDia(){
     // trae altas de HOY), así que se pide aparte solo si hace falta.
     let recontactadas = [];
     if(idsRecontactadas.length){
-      const { data, error } = await client.from('personas').select('id, nombre, apellido, dni, sin_identificar')
+      const { data, error } = await client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve')
         .in('id', idsRecontactadas).eq('oculto', false);
       if(error) throw error;
       recontactadas = data || [];
@@ -2338,7 +2338,13 @@ const Casos = {
     const derivLinea = Object.keys(r.derivacionesPorTipo).length
       ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `${esc(tipo)}: ${n}`).join(' · ')
       : 'ninguna';
-    const casoLinea = p => `${esc(nombreDisplay(p))}${p.dni ? ' · DNI ' + esc(p.dni) : (p.sin_identificar ? ' · sin identificar' : '')}`;
+    // Descripción de caso (§10.1.31, pedido de Agustina: "el resumen
+    // sigue siendo muy sintético... necesito que venga con una
+    // descripción de caso y de la intervención de la dupla") — usa
+    // historia_breve (la misma narrativa que se arma en la ficha, ver
+    // §10.1.16), truncada para no volver el resumen ilegible.
+    const truncar = (s, n) => { s = (s||'').trim(); return s.length > n ? s.slice(0,n) + '…' : s; };
+    const casoLinea = p => `${esc(nombreDisplay(p))}${p.dni ? ' · DNI ' + esc(p.dni) : (p.sin_identificar ? ' · sin identificar' : '')}${p.historia_breve ? '<br><span style="color:#64748b;">' + esc(truncar(p.historia_breve, 180)) + '</span>' : ''}`;
     const listaCasos = arr => arr.length ? arr.map(p => `<div>· ${casoLinea(p)}</div>`).join('') : '<div style="color:#94a3b8;">(ninguno)</div>';
     const accionesLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
     const intervHtml = r.intervenciones.length
@@ -2370,14 +2376,19 @@ const Casos = {
     const derivLinea = Object.keys(r.derivacionesPorTipo).length
       ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `  · ${tipo}: ${n}`).join('\n')
       : '  (ninguna)';
-    const casoLineaTxt = p => `${nombreDisplay(p)}${p.dni ? ' — DNI ' + p.dni : (p.sin_identificar ? ' — sin identificar' : '')}`;
+    // §10.1.31: mismo criterio que _renderResumenDia() — descripción de
+    // caso (historia_breve, truncada) y resumen de la intervención, acá
+    // también en el mensaje de WhatsApp (antes solo estaban en la
+    // pantalla, no en el texto que efectivamente se comparte).
+    const truncar = (s, n) => { s = (s||'').trim(); return s.length > n ? s.slice(0,n) + '…' : s; };
+    const casoLineaTxt = p => `${nombreDisplay(p)}${p.dni ? ' — DNI ' + p.dni : (p.sin_identificar ? ' — sin identificar' : '')}${p.historia_breve ? '\n    ' + truncar(p.historia_breve, 180) : ''}`;
     const listaCasosTxt = arr => arr.length ? arr.map(p => '  · ' + casoLineaTxt(p)).join('\n') : '  (ninguno)';
     const accionesLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
     const intervTxt = r.intervenciones.length
       ? r.intervenciones.map(i => {
           const nombre = i.persona ? nombreDisplay(i.persona) : '(persona no encontrada)';
           const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
-          return `  · ${nombre}${i.tipo ? ' — ' + i.tipo : ''}${accionesTxt ? ' — ' + accionesTxt : ''}`;
+          return `  · ${nombre}${i.tipo ? ' — ' + i.tipo : ''}${accionesTxt ? ' — ' + accionesTxt : ''}${i.resumen ? '\n    ' + i.resumen.trim() : ''}`;
         }).join('\n')
       : '  (ninguna)';
     const texto = `🌒 CIERRE DE JORNADA — Dupla ${duplaCod}
