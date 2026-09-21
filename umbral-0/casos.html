@@ -2870,21 +2870,39 @@ const Casos = {
       const filas = Object.keys(datos)
         .filter(k => datos[k] !== null && datos[k] !== '' && k !== 'foto_dni_path')
         .map(k => `<dt>${esc(k.replace(/_/g,' '))}</dt><dd>${esc(String(datos[k]))}</dd>`).join('');
-      const puedeGestionar = ['admin','coordinacion'].includes(miPerfil.rol);
+      // puedeGestionar (18/9→21/9, pedido de Agustina: "cómo hace el
+      // operador para validar que la persona hizo el trámite... necesito
+      // mostrar la trazabilidad"): antes solo admin/coordinación veían el
+      // selector de estado, aunque el permiso de UPDATE en la base ya le
+      // daba a la dupla que la solicitó (mismo dupla_id que solicitado_por,
+      // ver RLS de `derivaciones`) — la UI era más restrictiva que el
+      // permiso real. Se abre a 'dupla' también: si esta fila ya se está
+      // viendo en el timeline es porque el SELECT de RLS la dejó pasar (o
+      // sea, ya es de su propia dupla), así que el mismo criterio aplica
+      // para el UPDATE. 'cliente' sigue sin poder (solo lectura por RLS).
+      const puedeGestionar = ['admin','coordinacion','dupla'].includes(miPerfil.rol);
       const estadoActual = it.data.estado || 'solicitado';
       const selectEstado = puedeGestionar ? `
-        <select data-est-id="${it.data.id}" onchange="Casos.actualizarEstadoDerivacion('${it.data.id}', this.value)" style="font-size:0.76rem;padding:4px 8px;border-radius:7px;border:1.5px solid #cbd5e1;">
+        <select data-est-id="${it.data.id}" onchange="Casos.cambiarEstadoDerivacion('${it.data.id}', this.value)" style="font-size:0.76rem;padding:4px 8px;border-radius:7px;border:1.5px solid #cbd5e1;">
           ${['solicitado','en_espera','aprobado','rechazado','efectivizado'].map(e=>`<option value="${e}" ${e===estadoActual?'selected':''}>${e}</option>`).join('')}
         </select>` : '';
       const fotoBtn = datos.foto_dni_path ? `<button class="btn btn-outline btn-sm" onclick="verFoto('${escAttr(datos.foto_dni_path)}')">📎 Ver foto DNI</button>` : '';
       const cierreBtn = (puedeGestionar && estadoActual === 'efectivizado' && personaActual.estado !== 'egresado')
         ? `<button class="btn btn-green btn-sm" onclick="Casos.marcarCierreCaso('${it.data.id}')">✅ Marcar como cierre del caso</button>` : '';
+      // Trazabilidad de la resolución (§10.1.22): fecha_resolucion existía
+      // en la tabla pero nunca se escribía — ahora sí, junto con una nota
+      // obligatoria en `observaciones` (esa columna también estaba sin
+      // usar) cuando se marca efectivizado/rechazado, ver
+      // Casos.confirmarResolucionDerivacion().
+      const resueltaLinea = it.data.fecha_resolucion
+        ? `<div class="tl-body" style="font-size:0.78rem;color:#64748b;">✅ Resuelta el ${fmtFecha(it.data.fecha_resolucion)}</div>` : '';
       el.innerHTML = `
         <div class="tl-head">
           <div class="tl-title">📨 Derivación — ${esc(it.data.tipo || '')} ${badgeEstado(estadoActual)}</div>
           <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(quien)}</div>
         </div>
         ${it.data.observaciones ? `<div class="tl-body">${esc(it.data.observaciones)}</div>` : ''}
+        ${resueltaLinea}
         ${filas ? `<div class="tl-body"><dl>${filas}</dl></div>` : ''}
         <div class="tl-foot">${selectEstado}${fotoBtn}${cierreBtn}</div>
       `;
@@ -3279,6 +3297,19 @@ const Casos = {
     await Casos.abrirFicha(personaActual.id);
   },
 
+  // Estados intermedios (solicitado/en_espera/aprobado) se actualizan
+  // directo, como siempre. Los dos estados de RESOLUCIÓN
+  // (efectivizado/rechazado) piden antes una nota — ver
+  // confirmarResolucionDerivacion() — porque son los que necesitan quedar
+  // trazables (§10.1.22).
+  cambiarEstadoDerivacion(derivacionId, nuevoEstado){
+    if(nuevoEstado === 'efectivizado' || nuevoEstado === 'rechazado'){
+      Casos._abrirModalResolucionDerivacion(derivacionId, nuevoEstado);
+    }else{
+      Casos.actualizarEstadoDerivacion(derivacionId, nuevoEstado);
+    }
+  },
+
   async actualizarEstadoDerivacion(derivacionId, nuevoEstado){
     try{
       const client = await SupabaseClient.getClient();
@@ -3287,6 +3318,61 @@ const Casos = {
       await Casos.abrirFicha(personaActual.id);
     }catch(e){
       alert('No se pudo actualizar el estado: ' + e.message);
+    }
+  },
+
+  // Pedido de Agustina (21/9/2026): "cómo hace el operador para validar
+  // que la persona fue e hizo el trámite... necesito mostrar la
+  // trazabilidad". Guarda fecha_resolucion (columna que ya existía sin
+  // usarse) y una nota obligatoria en `observaciones` (columna también sin
+  // usar hasta ahora, se muestra en el timeline junto al resto de la
+  // derivación) — sin esto, marcar "efectivizado" no dejaba ningún rastro
+  // de cómo se confirmó.
+  _abrirModalResolucionDerivacion(derivacionId, nuevoEstado){
+    const accionLabel = nuevoEstado === 'efectivizado' ? 'efectivizada' : 'rechazada';
+    const body = `
+      <form id="form-resolucion-deriv" onsubmit="return false;">
+        <div class="form-field">
+          <label>¿Cómo se confirmó? *</label>
+          <div class="hint">Ej.: "Fue al Registro Civil el 20/9, ya tiene el DNI nuevo" o "La persona no quiso continuar el trámite".</div>
+          <textarea id="f-nota-resolucion" rows="3"></textarea>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-green" id="btn-guardar-resolucion">💾 Guardar</button>
+          <button type="button" class="btn btn-outline" onclick="Casos._cancelarResolucionDerivacion()">Cancelar</button>
+        </div>
+      </form>
+    `;
+    openModal(`Marcar derivación como ${accionLabel}`, body);
+    document.getElementById('btn-guardar-resolucion').onclick = () => Casos.confirmarResolucionDerivacion(derivacionId, nuevoEstado);
+  },
+
+  async _cancelarResolucionDerivacion(){
+    // El <select> del timeline ya cambió de valor visualmente al tocar la
+    // opción (el onchange ya disparó) — como no se guardó nada, hay que
+    // volver a pintar la ficha para que vuelva a mostrar el estado real.
+    closeModal();
+    await Casos.abrirFicha(personaActual.id);
+  },
+
+  async confirmarResolucionDerivacion(derivacionId, nuevoEstado){
+    const nota = document.getElementById('f-nota-resolucion').value.trim();
+    if(!nota){ modalError('Contá brevemente cómo se confirmó — es obligatorio para poder mostrar la trazabilidad.'); return; }
+    const btn = document.getElementById('btn-guardar-resolucion');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try{
+      const client = await SupabaseClient.getClient();
+      const { error } = await client.from('derivaciones').update({
+        estado: nuevoEstado,
+        fecha_resolucion: new Date().toISOString(),
+        observaciones: nota,
+      }).eq('id', derivacionId);
+      if(error) throw error;
+      closeModal();
+      await Casos.abrirFicha(personaActual.id);
+    }catch(e){
+      modalError('No se pudo guardar: ' + e.message);
+      btn.disabled = false; btn.textContent = '💾 Guardar';
     }
   },
 

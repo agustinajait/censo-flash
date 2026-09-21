@@ -2154,6 +2154,88 @@ muestra la nota), más regresiones: todas formalizadas → no se muestra;
 sin denuncias de extravío → no se muestra; `dniPendientes` ausente
 (reporte viejo) → no rompe, no se muestra — los 4 checks pasan.
 
+**Backfill puntual (21/9/2026, one-off, no forma parte del código):**
+Agustina pidió resolver el hueco de una vez para la entrega: "necesito
+que pase a derivación DNI a las personas que tienen ese trámite como
+nota". Se corrió un `INSERT ... SELECT` (con `NOT EXISTS` como guarda
+contra duplicados) que creó la derivación "Hacer DNI" formal para las 41
+personas con `dni_denuncia_extravio = true` que todavía no la tenían —
+`estado: 'solicitado'` (ninguna está realmente efectivizada todavía, eso
+se mantuvo honesto), con una `observación` aclarando que se generó a
+partir de la denuncia ya cargada, no de un "Pedir derivación" hecho en
+el momento. Confirmado después: 42 con denuncia de extravío = 42 con
+derivación formal.
+
+### 10.1.22 Trazabilidad de la resolución de una derivación (21/9/2026)
+
+Con el backfill de arriba ya mostrando "Hacer DNI: 42" en el reporte,
+Agustina preguntó lo obvio: "¿cómo hace el operador para validar que la
+persona fue e hizo el trámite? Porque necesito mostrar la
+trazabilidad." Revisando el código, dos problemas reales:
+
+1. El selector para cambiar el estado de una derivación (solicitado →
+   efectivizado/rechazado) en el timeline de la ficha solo se le
+   mostraba a admin/coordinación — el operador (rol `dupla`) no tenía
+   forma de tocarlo, aunque el permiso de UPDATE en la base **ya se lo
+   permitía** para las derivaciones de su propia dupla (RLS de
+   `derivaciones`: mismo criterio de `solicitado_por` que el SELECT). La
+   UI era más restrictiva que el permiso real.
+2. Aunque alguien cambiara el estado, no quedaba ningún rastro de CÓMO
+   se confirmó: `fecha_resolucion` existe como columna desde el
+   principio pero nunca se escribía, y `observaciones` (columna de texto
+   de la tabla, además de la key homónima dentro de `datos`) tampoco se
+   usaba. Cero trazabilidad real, ni para admin.
+
+Antes de tocar permisos se le preguntó a Agustina el alcance (quién
+puede resolver, qué evidencia exigir) — eligió las dos opciones
+recomendadas: el operador que la pidió (o cualquiera de su misma dupla,
+ver más abajo) además de admin/coordinación, y fecha automática + nota
+obligatoria (sin foto por ahora).
+
+Fix en `casos.html`:
+
+- `puedeGestionar` pasa de `['admin','coordinacion']` a
+  `['admin','coordinacion','dupla']`. No hace falta filtrar más fino por
+  `solicitado_por` en el cliente: si una fila de derivación ya aparece en
+  el timeline de una cuenta `dupla`, es porque el SELECT de RLS ya la
+  dejó pasar (mismo `dupla_id` que `solicitado_por`) — el mismo criterio
+  vale para el UPDATE, así que mostrar el control ahí es seguro. `cliente`
+  sigue sin poder (solo lectura por RLS, no cambia).
+- El `<select>` de estado ahora llama a
+  `Casos.cambiarEstadoDerivacion(id, nuevoEstado)`: si el nuevo valor es
+  `solicitado`/`en_espera`/`aprobado` (estados intermedios), actualiza
+  directo como siempre (`actualizarEstadoDerivacion()`, sin cambios). Si
+  es `efectivizado` o `rechazado` (los dos estados de RESOLUCIÓN, los que
+  necesitan trazabilidad), abre un modal (`_abrirModalResolucionDerivacion()`)
+  que pide una nota obligatoria ("¿Cómo se confirmó?") antes de guardar
+  nada — si cancela, se vuelve a pintar la ficha para que el `<select>`
+  no quede mostrando un valor no guardado.
+- `confirmarResolucionDerivacion()` guarda en la misma fila: `estado`,
+  `fecha_resolucion: now()` (la columna que ya existía) y `observaciones`
+  = la nota (la columna de texto de la tabla, ya se mostraba en el
+  timeline si tenía algo — antes nunca tenía nada). El timeline ahora
+  también muestra "✅ Resuelta el <fecha>" cuando `fecha_resolucion` está
+  cargada.
+- No se tocó RLS — el permiso de UPDATE para `dupla` ya existía desde
+  antes, esto solo destraba la UI para usarlo.
+
+Nota de alcance para el backfill de las 41 derivaciones de arriba: se
+insertaron con `solicitado_por = null`, lo que las hacía invisibles para
+cuentas `dupla` bajo RLS (el SELECT de `dupla` exige `solicitado_por` en
+su propia dupla — `null` nunca matchea). Se corrigió con un UPDATE
+puntual que les asignó el perfil de la dupla correspondiente a cada
+persona (`personas.dupla_id` → `perfiles.dupla_id`), así quedaron
+visibles y gestionables por la dupla que corresponde, no solo por
+admin/coordinación.
+
+Validado manualmente (sin script de Node — depende del DOM real del
+modal): balance de `<div>` y chequeo de sintaxis de los bloques
+`<script>` de `casos.html` sobre el archivo completo, más revisión
+cruzada de que las funciones nuevas (`cambiarEstadoDerivacion`,
+`_abrirModalResolucionDerivacion`, `_cancelarResolucionDerivacion`,
+`confirmarResolucionDerivacion`) están todas referenciadas donde
+corresponde.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
