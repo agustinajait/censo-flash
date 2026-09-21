@@ -71,6 +71,7 @@
 <script src="../config/umbral-0.js"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
+<script src="../shared/js/mapa-puntos.js"></script>
 <script>
 
 const NOMBRE_NIVEL = {1:'Identificación', 2:'Construcción del vínculo', 3:'Monitoreo territorial', 4:'Anclaje comunitario', 5:'Proyecto de inclusión'};
@@ -167,6 +168,10 @@ function render(r){
         <div class="kpi"><div class="num">${cobertura.dias ?? '—'}</div><div class="lbl">Días con presencia territorial</div></div>
       </div>
       ${cobertura.puntosFrecuencia ? `<div class="nota-libre" style="margin-top:12px;"><b>Puntos que requieren aumentar la frecuencia:</b><br>${esc(cobertura.puntosFrecuencia)}</div>` : ''}
+      <!-- Mapa de puntos visitados (§10.1.24) — mismo dato guardado en el
+           snapshot que "e." (koboOutcomes.puntos), ver renderMapaPuntos()
+           llamado después de setear innerHTML, más abajo. -->
+      <div id="reporte-publico-map" style="height:380px;border-radius:10px;margin-top:14px;"></div>
     </div>
 
     <div class="section-title">b. Población abordada</div>
@@ -255,6 +260,9 @@ function render(r){
       <span>Reporte elaborado por Huehaci — Consultora de innovación cívica y tecnológica</span>
     </div>
   `;
+  if(window.renderMapaPuntos){
+    renderMapaPuntos('reporte-publico-map', (koboOutcomes && koboOutcomes.puntos) || []);
+  }
 }
 
 cargar();

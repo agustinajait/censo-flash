@@ -444,6 +444,16 @@
         <div class="metric m-purple"><div class="metric-icon">📅</div><div class="metric-val" id="u0-dias">—</div><div class="metric-lbl">Días con actividad</div></div>
       </div>
 
+      <!-- Mapa de puntos visitados (§10.1.24, pedido de Agustina: "un mapa
+           con los puntos que visitaron los operadores") — misma fuente que
+           el resto de esta sección (_geolocation de KoBo), respeta el
+           filtro de fecha de arriba. Ver renderUmbral0Mapa() en
+           dashboard-engine.js. -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">🗺️ Puntos visitados</div>
+        <div id="u0-map" style="height:420px;border-radius:10px;"></div>
+      </div>
+
       <div class="card" style="margin-bottom:14px;">
         <div class="card-title">📊 Por dupla</div>
         <div class="tbl-wrap">
@@ -535,11 +545,15 @@
 <!-- Para la vista de Umbral 0: matchear operador de KoBo contra
      `integrantes` (Supabase) para atribuir cada envío a una dupla. -->
 <script src="./shared/js/supabase-client.js"></script>
+<!-- Mapa de puntos visitados (§10.1.24) — carga Leaflet solo cuando hace
+     falta (ver renderMapaPuntos() en mapa-puntos.js), así que este script
+     en sí es liviano aunque nadie mire la sección de Umbral 0. -->
+<script src="./shared/js/mapa-puntos.js?v=2026-09-21"></script>
 <!-- ?v= es cache-busting manual: sin esto, el navegador (o el CDN) puede
      seguir sirviendo una copia vieja de este archivo después de un deploy,
      aunque el HTML sí se actualice — pasó hoy con el fix del filtro de
      fechas, que quedaba "sin aplicar" del lado de quien ya tenía el sitio
      abierto. Subir este número cada vez que se edite dashboard-engine.js. -->
-<script src="./shared/js/dashboard-engine.js?v=2026-09-16-2"></script>
+<script src="./shared/js/dashboard-engine.js?v=2026-09-21"></script>
 </body>
 </html>

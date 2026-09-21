@@ -350,6 +350,7 @@
 <script src="../config/umbral-0.js"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
+<script src="../shared/js/mapa-puntos.js"></script>
 <script>
 
 let miPerfil = null;
@@ -1448,6 +1449,13 @@ async function calcularOutcomesKobo(desde, hasta){
   const misNombres = new Set((integrantes||[]).map(i => normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`)).filter(Boolean));
 
   const conteo = {}; // código de termino_intervencion_diaria -> cantidad
+  // Puntos para el mapa de cobertura (§10.1.24, pedido de Agustina: "un
+  // mapa con los puntos que visitaron los operadores"). Misma fuente que
+  // el resto de "e." — _geolocation de KoBo, ya parseada como lat/lng en
+  // parseUmbral0() — no hace falta ningún dato nuevo. Se guarda liviano
+  // (sin nombre/DNI de la persona) porque esto viaja tal cual al link
+  // público de reporte-publico.html.
+  const puntos = [];
   let totalEnvios = 0;
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
     if(!misNombres.has(normalizarNombreKobo(p.operador))) return; // no es de las 13 duplas
@@ -1457,8 +1465,9 @@ async function calcularOutcomesKobo(desde, hasta){
     (p.terminoIntervencionDiaria || []).forEach(codigo => {
       conteo[codigo] = (conteo[codigo] || 0) + 1;
     });
+    if(p.lat != null && p.lng != null) puntos.push({ lat: p.lat, lng: p.lng, fecha: p.fecha, tipo: p.tipo || null });
   });
-  return { totalEnvios, conteo };
+  return { totalEnvios, conteo, puntos };
 }
 
 // ── f. Qué hicieron las duplas — confirmado en la plataforma ───────────
@@ -1675,6 +1684,11 @@ function renderReporte(cont, r){
         <label>Puntos que requieren aumentar la frecuencia de presencia</label>
         <textarea id="txt-puntos-frecuencia" rows="2" placeholder="Es un juicio de coordinación, no se calcula solo — completalo acá antes de copiar el reporte."></textarea>
       </div>
+      <!-- Mapa de puntos visitados (§10.1.24, pedido de Agustina: "un mapa
+           con los puntos que visitaron los operadores") — misma fuente que
+           "e." (_geolocation de KoBo), ver renderMapaPuntos() en
+           mapa-puntos.js, llamado al final de renderReporte(). -->
+      <div id="reporte-map" style="height:380px;border-radius:10px;margin-top:14px;"></div>
     </div>
 
     <div class="section-title">b. Población abordada</div>
@@ -1814,6 +1828,9 @@ function renderReporte(cont, r){
   `;
 
   window._ultimoReporte = r;
+  if(window.renderMapaPuntos){
+    renderMapaPuntos('reporte-map', (r.koboOutcomes && r.koboOutcomes.puntos) || []);
+  }
 }
 
 function armarMensaje(){
