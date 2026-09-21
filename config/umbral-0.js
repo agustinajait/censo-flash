@@ -166,6 +166,24 @@ const ACCIONES_INTERVENCION = [
 ];
 const ACCIONES_INTERVENCION_LABELS = Object.fromEntries(ACCIONES_INTERVENCION.map(a => [a.key, a.label]));
 
+// `intervenciones.tipo` — clasificación amplia de CUALQUIER intervención
+// (¿fue un primer contacto o una visita de seguimiento sobre un caso ya
+// conocido?), no tiene nada que ver con CIS. Reportado como confuso
+// (21/9/2026, Agustina viendo el resumen diario): el valor crudo
+// "contacto_espontaneo" se mostraba tal cual, y como "demanda espontánea"
+// significa algo puntual y distinto en la jerga del equipo (ver
+// ACCIONES_INTERVENCION.demanda_espontanea_cis arriba: alguien que en el
+// primer contacto pide ir a un CIS), leerlo ahí daba a entender —
+// incorrectamente— que esos casos "no son nuestra población". Se
+// renombra la ETIQUETA a "Primer contacto" para sacar la ambigüedad; el
+// valor guardado en la base (`contacto_espontaneo`) no cambia, sería una
+// migración de datos históricos innecesaria para lo que es un problema
+// de redacción, no de modelo.
+const TIPO_INTERVENCION_LABELS = {
+  contacto_espontaneo: 'Primer contacto',
+  seguimiento: 'Seguimiento en territorio',
+};
+
 // Puente KoBo → plataforma (sept/2026, pedido de Agustina): al validar un
 // envío, la casilla "¿Qué hiciste con este caso?" arrancaba siempre en
 // blanco aunque KoBo ya había preguntado algo muy parecido
@@ -488,6 +506,7 @@ window.PROJECT_CONFIG_UMBRAL_0.terminoIntervencionLabels = TERMINO_INTERVENCION_
 // y reporte-publico.html solo necesitan las etiquetas para el reporte.
 window.PROJECT_CONFIG_UMBRAL_0.accionesIntervencion = ACCIONES_INTERVENCION;
 window.PROJECT_CONFIG_UMBRAL_0.accionesIntervencionLabels = ACCIONES_INTERVENCION_LABELS;
+window.PROJECT_CONFIG_UMBRAL_0.tipoIntervencionLabels = TIPO_INTERVENCION_LABELS;
 // Idem — usados solo por casos.html (abrirModalValidarKobo /
 // _mostrarSiguientePasoValidacion), ver los mapeos arriba.
 window.PROJECT_CONFIG_UMBRAL_0.koboTerminoAAccion = KOBO_TERMINO_A_ACCION;

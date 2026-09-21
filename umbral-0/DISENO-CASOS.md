@@ -2676,6 +2676,57 @@ null/undefined, recorta espacios de los bordes) y el armado de las
 líneas de caso/intervención con y sin el dato opcional — los 8 checks
 pasan.
 
+### 10.1.32 "Contacto espontáneo" (tipo de intervención) confundía con "demanda espontánea" (CIS)
+
+Viendo el resumen recién agregado (§10.1.31), Agustina preguntó: "¿qué
+sería 'contacto_espontaneo' acá? Porque contacto espontáneo es solo
+cuando se encuentran con una persona en la calle que quiere ir a un CIS
+— entonces es como que no es nuestra población." Confusión real y
+entendible: `intervenciones.tipo` tiene un valor `contacto_espontaneo`
+que se usaba como texto crudo en varios lugares, y ese mismo texto
+literal coincide con la jerga del equipo para algo totalmente distinto
+(§10.1.29, `demanda_espontanea_cis`: alguien que en el primer contacto
+pide ir a un CIS).
+
+Raíz del problema: `contacto_espontaneo` (tipo de intervención) es una
+clasificación AMPLIA de cualquier intervención — primer contacto vs.
+seguimiento sobre un caso ya conocido, ver el dropdown "Tipo" al
+registrar una intervención y el alta automática de cada caso nuevo
+(`guardarPersona()`, que crea la primera intervención con
+`tipo:'contacto_espontaneo', resumen:'Ingreso inicial del caso.'`) — no
+tiene nada que ver con CIS. Pero se mostraba tal cual (valor crudo, sin
+pasar por ninguna etiqueta legible) en el timeline de la ficha, en el
+resumen diario y en el mensaje de WhatsApp — ahí es donde generaba la
+lectura errónea de "esta persona no es nuestra población".
+
+Fix — no se tocó el valor guardado en la base (`contacto_espontaneo`
+sigue siendo la clave; cambiarla sería una migración de datos
+innecesaria para lo que es un problema de redacción, no de modelo), solo
+la ETIQUETA visible:
+
+- Nuevo `TIPO_INTERVENCION_LABELS` en `config/umbral-0.js` —
+  `contacto_espontaneo: 'Primer contacto'`, `seguimiento: 'Seguimiento
+  en territorio'` — expuesto como `window.PROJECT_CONFIG_UMBRAL_0.tipoIntervencionLabels`,
+  mismo patrón que `accionesIntervencionLabels`/`terminoIntervencionLabels`.
+- Opción del dropdown "Tipo" al registrar una intervención (`casos.html`)
+  renombrada de "Contacto espontáneo" a "Primer contacto" — mismo valor
+  (`contacto_espontaneo`), otro texto.
+- Los 4 lugares que mostraban `tipo` crudo ahora pasan por el mapa de
+  etiquetas: timeline de la ficha ("🚶 Intervención — ..."), resumen
+  diario en pantalla y en el mensaje de WhatsApp (`casos.html` y
+  `admin-duplas.html`, los mismos 4 puntos que se tocaron en §10.1.31
+  para agregar `resumen`).
+
+Validado: `node --check` sobre `config/umbral-0.js`, balance de `<div>`
+y sintaxis de los bloques `<script>` de los dos archivos, grep de que no
+queda ningún lugar mostrando `i.tipo`/`it.data.tipo` de una intervención
+sin pasar por el mapa de etiquetas (confirmado también que
+`casos-en-vivo.html` y `reporte-publico.html` no tienen este patrón, no
+hacía falta tocarlos), y script de Node que reproduce la resolución de
+etiquetas (mapea los dos valores conocidos, cae al valor crudo para uno
+desconocido en vez de romper, no rompe con vacío/`undefined`) — los 4
+checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

@@ -2351,7 +2351,8 @@ const Casos = {
       ? r.intervenciones.map(i => {
           const nombre = i.persona ? nombreDisplay(i.persona) : '(persona no encontrada)';
           const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
-          return `<div>· <b>${esc(nombre)}</b>${i.tipo ? ' — ' + esc(i.tipo) : ''}${accionesTxt ? ' — ' + esc(accionesTxt) : ''}${i.resumen ? '<br><span style="color:#64748b;">' + esc(i.resumen) + '</span>' : ''}</div>`;
+          const tipoTxt = TIPO_INTERVENCION_LABELS[i.tipo] || i.tipo;
+          return `<div>· <b>${esc(nombre)}</b>${tipoTxt ? ' — ' + esc(tipoTxt) : ''}${accionesTxt ? ' — ' + esc(accionesTxt) : ''}${i.resumen ? '<br><span style="color:#64748b;">' + esc(i.resumen) + '</span>' : ''}</div>`;
         }).join('')
       : '<div style="color:#94a3b8;">(ninguna)</div>';
     box.innerHTML = `
@@ -2388,7 +2389,8 @@ const Casos = {
       ? r.intervenciones.map(i => {
           const nombre = i.persona ? nombreDisplay(i.persona) : '(persona no encontrada)';
           const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
-          return `  · ${nombre}${i.tipo ? ' — ' + i.tipo : ''}${accionesTxt ? ' — ' + accionesTxt : ''}${i.resumen ? '\n    ' + i.resumen.trim() : ''}`;
+          const tipoTxt = TIPO_INTERVENCION_LABELS[i.tipo] || i.tipo;
+          return `  · ${nombre}${tipoTxt ? ' — ' + tipoTxt : ''}${accionesTxt ? ' — ' + accionesTxt : ''}${i.resumen ? '\n    ' + i.resumen.trim() : ''}`;
         }).join('\n')
       : '  (ninguna)';
     const texto = `🌒 CIERRE DE JORNADA — Dupla ${duplaCod}
@@ -3248,7 +3250,7 @@ Umbral Cero — Huehaci`;
       el.className = 'timeline-item tl-intervencion';
       el.innerHTML = `
         <div class="tl-head">
-          <div class="tl-title">🚶 Intervención — ${esc(it.data.tipo || '')}</div>
+          <div class="tl-title">🚶 Intervención — ${esc(TIPO_INTERVENCION_LABELS[it.data.tipo] || it.data.tipo || '')}</div>
           <div class="tl-fecha">${fmtFecha(it.fecha)} · ${esc(duplaCod)}</div>
         </div>
         ${acciones.length ? `<div class="tl-body"><b>Qué se hizo:</b> ${acciones.map(a=>esc(a)).join(' · ')}</div>` : ''}
@@ -3464,7 +3466,7 @@ Umbral Cero — Huehaci`;
           <label>Tipo</label>
           <select id="f_tipo_interv" data-f="tipo">
             <option value="seguimiento">Seguimiento en territorio</option>
-            <option value="contacto_espontaneo">Contacto espontáneo</option>
+            <option value="contacto_espontaneo">Primer contacto</option>
           </select>
         </div>
         <div class="form-field">
