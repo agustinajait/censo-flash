@@ -2348,6 +2348,65 @@ los CDN de Leaflet) — pedirle a Agustina que confirme que el mapa
 efectivamente carga y muestra puntos en los tres lugares la primera vez
 que los abra.
 
+### 10.1.25 Resumen del día + mensaje de WhatsApp al cerrar la jornada (21/9/2026)
+
+Pedido: "que tal si todos los días cuando la dupla hace el cierre se crea
+un informe de los casos diarios y después podemos generar un mensaje de
+WhatsApp así lo comparte con el grupo y nos queda la info más a mano
+guardada". El "cierre" al que se refiere es `marcarFinJornada()` (botón
+"⏹️ Marcar fin de jornada" en `jornada-box`, ver sección 4) — hay un
+archivo aparte, `cierre.html` (formulario de GeoTracker/clima/
+inconvenientes), pero ESE no es el punto de enganche: es un form
+distinto, no tiene relación con el conteo de casos.
+
+No hizo falta ninguna tabla nueva para "que quede guardado": los datos
+de fondo (`personas`/`intervenciones`/`derivaciones`/`seguimientos`) ya
+son permanentes — lo que faltaba era juntarlos al momento del cierre y
+dejarlos a mano para compartir. El propio mensaje de WhatsApp, una vez
+compartido al grupo, es el "archivo" que pidió Agustina — no se duplica
+el dato en Supabase.
+
+**Cuándo se calcula**: `mostrarJornada()` ya se llama después de cada
+acción de jornada (inicio/fin/reabrir) y al entrar a la app — cuando el
+estado es `'completa'` (jornada de hoy con `fin` cargado), dispara
+`cargarYRenderResumenDia()` (no bloqueante). Si la dupla reabre la
+jornada a la mañana siguiente sin querer, el resumen simplemente no se
+muestra (mismo criterio que el resto de "completa").
+
+**Qué cuenta, todo acotado a HOY (rango UTC del día LOCAL, mismo
+criterio de huso horario que `buscarPersonas()`/`hoyStr()` — Buenos
+Aires es UTC-3) y a la propia dupla**:
+- Casos nuevos: `personas` con `created_at` de hoy.
+- Casos recontactados: `persona_id` distintos en `intervenciones` de hoy
+  que NO están entre los casos nuevos de hoy — mismo criterio que
+  "b. Población abordada" de `calcularReporte()`, acotado a un día.
+- Intervenciones registradas hoy (todas las filas, sin dedup por
+  persona).
+- Derivaciones pedidas hoy, con desglose por tipo. `derivaciones` no
+  tiene `dupla_id` propio — no hace falta filtrar a mano, el SELECT de
+  RLS ya scopea a las propias (mismo criterio que §10.1.22).
+- Seguimientos agregados hoy.
+
+**El mensaje**: `Casos.abrirModalMensajeCierre()` arma un texto plano
+(dupla, fecha, horario de inicio/fin de la jornada, los 5 números de
+arriba) en un modal con tres botones:
+- **📱 Compartir por WhatsApp** — abre `https://wa.me/?text=<mensaje
+  codificado>`, que abre WhatsApp (app o web) con el texto ya cargado y
+  la dupla elige el chat del grupo ahí mismo — no hace falta guardar el
+  número del grupo en ningún lado ni pedirlo.
+- **📋 Copiar** — mismo patrón que `copiarMensaje()` del reporte semanal
+  en `admin-duplas.html`, por si prefieren pegarlo a mano.
+- **Cerrar**.
+
+Validado: balance de `<div>` y chequeo de sintaxis de los bloques
+`<script>` de `casos.html` sobre el archivo completo, grep cruzado de
+que todos los ids/funciones nuevos están referenciados donde
+corresponde, y script de Node que reproduce el cálculo de
+nuevos/recontactados/derivaciones-por-tipo sobre casos sintéticos
+(intervención repetida sobre el mismo caso viejo no duplica el
+recontactado; caso nuevo tocado hoy no cuenta como recontactado; día sin
+actividad da todo en cero sin romper) — los 7 checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
