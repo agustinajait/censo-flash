@@ -142,7 +142,7 @@
   .btn-amber { background:var(--amber); color:white; }
   textarea#reporte-texto, textarea#alertas-texto, textarea#diario-texto, .form-field textarea { width:100%; min-height:100px; font-family:monospace; font-size:0.8rem; border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; background:#f8faff; }
   #reporte-texto { min-height:340px; }
-  #diario-texto { min-height:180px; }
+  #diario-texto { min-height:260px; }
 </style>
 </head>
 <body>
@@ -1976,10 +1976,13 @@ async function calcularResumenDiarioAdmin(){
     const hastaUtc = new Date(new Date(desdeUtc).getTime() + 24*60*60*1000).toISOString();
 
     const [personasHoyRes, personasTodasRes, intervRes, seguRes, duplaRes] = await Promise.all([
-      client.from('personas').select('id').eq('dupla_id', duplaId).eq('oculto', false)
+      client.from('personas').select('id, nombre, apellido, dni, sin_identificar').eq('dupla_id', duplaId).eq('oculto', false)
         .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
-      client.from('personas').select('id').eq('dupla_id', duplaId).eq('oculto', false),
-      client.from('intervenciones').select('id, persona_id').eq('dupla_id', duplaId).eq('fecha', fecha),
+      // Todos los persona_id de la dupla (sin filtro de fecha) — hace
+      // falta tanto para resolver nombre/DNI de los recontactados como
+      // para el .in() de abajo, que scopea las derivaciones a esta dupla.
+      client.from('personas').select('id, nombre, apellido, dni, sin_identificar').eq('dupla_id', duplaId).eq('oculto', false),
+      client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', duplaId).eq('fecha', fecha),
       client.from('seguimientos').select('id').eq('dupla_id', duplaId)
         .gte('fecha', desdeUtc).lt('fecha', hastaUtc),
       client.from('duplas').select('codigo').eq('id', duplaId).single(),
@@ -1990,7 +1993,8 @@ async function calcularResumenDiarioAdmin(){
     if(seguRes.error) throw seguRes.error;
     if(duplaRes.error) throw duplaRes.error;
 
-    const idsPersonasDupla = (personasTodasRes.data||[]).map(p => p.id);
+    const personasTodas = personasTodasRes.data || [];
+    const idsPersonasDupla = personasTodas.map(p => p.id);
     let derivData = [];
     if(idsPersonasDupla.length){
       const derivRes = await client.from('derivaciones').select('id, tipo')
@@ -2000,16 +2004,27 @@ async function calcularResumenDiarioAdmin(){
       derivData = derivRes.data || [];
     }
 
-    const idsNuevas = new Set((personasHoyRes.data||[]).map(p => p.id));
+    const nuevas = personasHoyRes.data || [];
+    const idsNuevas = new Set(nuevas.map(p => p.id));
     const idsTocadas = new Set((intervRes.data||[]).map(i => i.persona_id).filter(Boolean));
-    const recontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id));
+    const personaPorId = {};
+    personasTodas.forEach(p => personaPorId[p.id] = p); // ya trae nombre/DNI de TODA la dupla, no hace falta pedir aparte
+    const recontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id)).map(id => personaPorId[id]).filter(Boolean);
     const derivacionesPorTipo = {};
     derivData.forEach(d => { derivacionesPorTipo[d.tipo] = (derivacionesPorTipo[d.tipo]||0) + 1; });
 
     const r = {
-      casosNuevos: idsNuevas.size,
-      casosRecontactados: recontactadas.length,
-      totalIntervenciones: (intervRes.data||[]).length,
+      casosNuevos: nuevas,
+      casosRecontactados: recontactadas,
+      // Detalle por intervención (§10.1.27, pedido de Agustina: "el
+      // resumen tiene que tener el resumen de las intervenciones, los
+      // casos con la info") — no alcanza con un número.
+      intervenciones: (intervRes.data||[]).map(i => ({
+        persona: personaPorId[i.persona_id] || null,
+        tipo: i.tipo,
+        resumen: i.resumen,
+        acciones: i.acciones || [],
+      })),
       derivacionesPorTipo,
       totalDerivaciones: derivData.length,
       seguimientos: (seguRes.data||[]).length,
@@ -2029,14 +2044,29 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha){
   const derivLinea = Object.keys(r.derivacionesPorTipo).length
     ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `${esc(tipo)}: ${n}`).join(' · ')
     : 'ninguna';
+  const casoLinea = p => `${esc(nombreDisplayReporte(p))}${p.dni ? ' · DNI ' + esc(p.dni) : (p.sin_identificar ? ' · sin identificar' : '')}`;
+  const listaCasos = arr => arr.length ? arr.map(p => `<div>· ${casoLinea(p)}</div>`).join('') : '<div style="color:#94a3b8;">(ninguno)</div>';
+  const accionesLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
+  const intervHtml = r.intervenciones.length
+    ? r.intervenciones.map(i => {
+        const nombre = i.persona ? nombreDisplayReporte(i.persona) : '(persona no encontrada)';
+        const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
+        return `<div>· <b>${esc(nombre)}</b>${i.tipo ? ' — ' + esc(i.tipo) : ''}${accionesTxt ? ' — ' + esc(accionesTxt) : ''}${i.resumen ? '<br><span style="color:#64748b;">' + esc(i.resumen) + '</span>' : ''}</div>`;
+      }).join('')
+    : '<div style="color:#94a3b8;">(ninguna)</div>';
   cont.innerHTML = `
     <div class="card">
       <div class="kpi-grid">
-        <div class="kpi"><div class="num">${r.casosNuevos}</div><div class="lbl">Casos nuevos</div></div>
-        <div class="kpi"><div class="num">${r.casosRecontactados}</div><div class="lbl">Casos recontactados</div></div>
-        <div class="kpi"><div class="num">${r.totalIntervenciones}</div><div class="lbl">Intervenciones registradas</div></div>
+        <div class="kpi"><div class="num">${r.casosNuevos.length}</div><div class="lbl">Casos nuevos</div></div>
+        <div class="kpi"><div class="num">${r.casosRecontactados.length}</div><div class="lbl">Casos recontactados</div></div>
+        <div class="kpi"><div class="num">${r.intervenciones.length}</div><div class="lbl">Intervenciones registradas</div></div>
         <div class="kpi"><div class="num">${r.totalDerivaciones}</div><div class="lbl">Derivaciones pedidas</div></div>
         <div class="kpi"><div class="num">${r.seguimientos}</div><div class="lbl">Seguimientos agregados</div></div>
+      </div>
+      <div style="margin-top:14px;font-size:0.85rem;line-height:1.6;">
+        <div style="margin-bottom:8px;"><b>📋 Casos nuevos:</b>${listaCasos(r.casosNuevos)}</div>
+        <div style="margin-bottom:8px;"><b>🔁 Casos recontactados:</b>${listaCasos(r.casosRecontactados)}</div>
+        <div style="margin-bottom:8px;"><b>📝 Intervenciones:</b>${intervHtml}</div>
       </div>
       ${r.totalDerivaciones ? `<div class="nota-limite" style="background:#f0f6ff;border-color:#93c5fd;color:#1e3a5f;">📨 Derivaciones: ${esc(derivLinea)}</div>` : ''}
       <button class="btn btn-amber" style="margin-top:14px;margin-bottom:10px;" onclick="armarMensajeDiarioAdmin()">✍️ Armar mensaje</button>
@@ -2057,14 +2087,31 @@ function armarMensajeDiarioAdmin(){
   const derivLinea = Object.keys(r.derivacionesPorTipo).length
     ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `  · ${tipo}: ${n}`).join('\n')
     : '  (ninguna)';
+  const casoLineaTxt = p => `${nombreDisplayReporte(p)}${p.dni ? ' — DNI ' + p.dni : (p.sin_identificar ? ' — sin identificar' : '')}`;
+  const listaCasosTxt = arr => arr.length ? arr.map(p => '  · ' + casoLineaTxt(p)).join('\n') : '  (ninguno)';
+  const accionesLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
+  const intervTxt = r.intervenciones.length
+    ? r.intervenciones.map(i => {
+        const nombre = i.persona ? nombreDisplayReporte(i.persona) : '(persona no encontrada)';
+        const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
+        return `  · ${nombre}${i.tipo ? ' — ' + i.tipo : ''}${accionesTxt ? ' — ' + accionesTxt : ''}`;
+      }).join('\n')
+    : '  (ninguna)';
   const texto = `🌒 RESUMEN DEL DÍA — Dupla ${duplaCod}
 ${fmtFechaCorta(fecha)}
 
-📋 Casos nuevos: ${r.casosNuevos}
-🔁 Casos recontactados: ${r.casosRecontactados}
-📝 Intervenciones registradas: ${r.totalIntervenciones}
-📨 Derivaciones pedidas: ${r.totalDerivaciones}
+📋 CASOS NUEVOS (${r.casosNuevos.length}):
+${listaCasosTxt(r.casosNuevos)}
+
+🔁 CASOS RECONTACTADOS (${r.casosRecontactados.length}):
+${listaCasosTxt(r.casosRecontactados)}
+
+📝 INTERVENCIONES (${r.intervenciones.length}):
+${intervTxt}
+
+📨 DERIVACIONES (${r.totalDerivaciones}):
 ${derivLinea}
+
 📄 Seguimientos agregados: ${r.seguimientos}
 
 Umbral Cero — Huehaci`;

@@ -1434,9 +1434,9 @@ async function cargarYRenderResumenDia(){
     const hastaUtc = new Date(desdeUtc.getTime() + 24*60*60*1000);
 
     const [personasRes, intervRes, derivRes, seguRes] = await Promise.all([
-      client.from('personas').select('id').eq('dupla_id', miPerfil.dupla_id).eq('oculto', false)
+      client.from('personas').select('id, nombre, apellido, dni, sin_identificar').eq('dupla_id', miPerfil.dupla_id).eq('oculto', false)
         .gte('created_at', desdeUtc.toISOString()).lt('created_at', hastaUtc.toISOString()),
-      client.from('intervenciones').select('id, persona_id').eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoy),
+      client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoy),
       client.from('derivaciones').select('id, tipo')
         .gte('fecha_solicitud', desdeUtc.toISOString()).lt('fecha_solicitud', hastaUtc.toISOString()),
       client.from('seguimientos').select('id').eq('dupla_id', miPerfil.dupla_id)
@@ -1447,16 +1447,41 @@ async function cargarYRenderResumenDia(){
     if(derivRes.error) throw derivRes.error;
     if(seguRes.error) throw seguRes.error;
 
-    const idsNuevas = new Set((personasRes.data||[]).map(p => p.id));
+    const nuevas = personasRes.data || [];
+    const idsNuevas = new Set(nuevas.map(p => p.id));
     const idsTocadas = new Set((intervRes.data||[]).map(i => i.persona_id).filter(Boolean));
-    const recontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id));
+    const idsRecontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id));
+
+    // Nombre/DNI de los recontactados — no vienen en personasRes (ese solo
+    // trae altas de HOY), así que se pide aparte solo si hace falta.
+    let recontactadas = [];
+    if(idsRecontactadas.length){
+      const { data, error } = await client.from('personas').select('id, nombre, apellido, dni, sin_identificar')
+        .in('id', idsRecontactadas).eq('oculto', false);
+      if(error) throw error;
+      recontactadas = data || [];
+    }
+    const personaPorId = {};
+    nuevas.forEach(p => personaPorId[p.id] = p);
+    recontactadas.forEach(p => personaPorId[p.id] = p);
+
     const derivacionesPorTipo = {};
     (derivRes.data||[]).forEach(d => { derivacionesPorTipo[d.tipo] = (derivacionesPorTipo[d.tipo]||0) + 1; });
 
     resumenDiaHoy = {
-      casosNuevos: idsNuevas.size,
-      casosRecontactados: recontactadas.length,
-      totalIntervenciones: (intervRes.data||[]).length,
+      casosNuevos: nuevas,
+      casosRecontactados: recontactadas,
+      // Cada intervención con su persona resuelta (§10.1.27, pedido de
+      // Agustina: "el resumen tiene que tener el resumen de las
+      // intervenciones, los casos con la info" — no alcanza con un
+      // número). Una persona puede tener más de una intervención en el
+      // mismo día — no se deduplica, se listan todas.
+      intervenciones: (intervRes.data||[]).map(i => ({
+        persona: personaPorId[i.persona_id] || null,
+        tipo: i.tipo,
+        resumen: i.resumen,
+        acciones: i.acciones || [],
+      })),
       derivacionesPorTipo,
       totalDerivaciones: (derivRes.data||[]).length,
       seguimientos: (seguRes.data||[]).length,
@@ -2183,7 +2208,7 @@ const Casos = {
     }).join('');
   },
 
-  // ── RESUMEN DEL DÍA / CIERRE DE JORNADA (§10.1.25) ──────────────────────
+  // ── RESUMEN DEL DÍA / CIERRE DE JORNADA (§10.1.25, detalle §10.1.27) ────
   _renderResumenDia(){
     const box = document.getElementById('resumen-dia-box');
     if(!box || !resumenDiaHoy) return;
@@ -2191,12 +2216,23 @@ const Casos = {
     const derivLinea = Object.keys(r.derivacionesPorTipo).length
       ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `${esc(tipo)}: ${n}`).join(' · ')
       : 'ninguna';
+    const casoLinea = p => `${esc(nombreDisplay(p))}${p.dni ? ' · DNI ' + esc(p.dni) : (p.sin_identificar ? ' · sin identificar' : '')}`;
+    const listaCasos = arr => arr.length ? arr.map(p => `<div>· ${casoLinea(p)}</div>`).join('') : '<div style="color:#94a3b8;">(ninguno)</div>';
+    const accionesLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
+    const intervHtml = r.intervenciones.length
+      ? r.intervenciones.map(i => {
+          const nombre = i.persona ? nombreDisplay(i.persona) : '(persona no encontrada)';
+          const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
+          return `<div>· <b>${esc(nombre)}</b>${i.tipo ? ' — ' + esc(i.tipo) : ''}${accionesTxt ? ' — ' + esc(accionesTxt) : ''}${i.resumen ? '<br><span style="color:#64748b;">' + esc(i.resumen) + '</span>' : ''}</div>`;
+        }).join('')
+      : '<div style="color:#94a3b8;">(ninguna)</div>';
     box.innerHTML = `
-      <div class="jornada-resumen" style="font-size:0.82rem;line-height:1.7;margin-top:6px;">
-        <div>📋 <b>${r.casosNuevos}</b> caso${r.casosNuevos===1?'':'s'} nuevo${r.casosNuevos===1?'':'s'} · 🔁 <b>${r.casosRecontactados}</b> recontactado${r.casosRecontactados===1?'':'s'}</div>
-        <div>📝 <b>${r.totalIntervenciones}</b> intervención${r.totalIntervenciones===1?'':'es'} registrada${r.totalIntervenciones===1?'':'s'}</div>
-        <div>📨 <b>${r.totalDerivaciones}</b> derivación${r.totalDerivaciones===1?'':'es'} pedida${r.totalDerivaciones===1?'':'s'}${r.totalDerivaciones?' (' + derivLinea + ')':''}</div>
-        <div>📄 <b>${r.seguimientos}</b> seguimiento${r.seguimientos===1?'':'s'} agregado${r.seguimientos===1?'':'s'}</div>
+      <div class="jornada-resumen" style="font-size:0.82rem;line-height:1.6;margin-top:6px;">
+        <div style="margin-bottom:8px;"><b>📋 Casos nuevos (${r.casosNuevos.length}):</b>${listaCasos(r.casosNuevos)}</div>
+        <div style="margin-bottom:8px;"><b>🔁 Casos recontactados (${r.casosRecontactados.length}):</b>${listaCasos(r.casosRecontactados)}</div>
+        <div style="margin-bottom:8px;"><b>📝 Intervenciones (${r.intervenciones.length}):</b>${intervHtml}</div>
+        <div style="margin-bottom:8px;"><b>📨 Derivaciones (${r.totalDerivaciones}):</b> ${r.totalDerivaciones ? derivLinea : 'ninguna'}</div>
+        <div>📄 Seguimientos agregados: <b>${r.seguimientos}</b></div>
       </div>
       <button class="btn btn-green btn-sm" style="margin-top:8px;" onclick="Casos.abrirModalMensajeCierre()">📱 Armar mensaje de WhatsApp</button>
     `;
@@ -2212,19 +2248,36 @@ const Casos = {
     const derivLinea = Object.keys(r.derivacionesPorTipo).length
       ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `  · ${tipo}: ${n}`).join('\n')
       : '  (ninguna)';
+    const casoLineaTxt = p => `${nombreDisplay(p)}${p.dni ? ' — DNI ' + p.dni : (p.sin_identificar ? ' — sin identificar' : '')}`;
+    const listaCasosTxt = arr => arr.length ? arr.map(p => '  · ' + casoLineaTxt(p)).join('\n') : '  (ninguno)';
+    const accionesLabels = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
+    const intervTxt = r.intervenciones.length
+      ? r.intervenciones.map(i => {
+          const nombre = i.persona ? nombreDisplay(i.persona) : '(persona no encontrada)';
+          const accionesTxt = (i.acciones||[]).map(a => accionesLabels[a]||a).join(', ');
+          return `  · ${nombre}${i.tipo ? ' — ' + i.tipo : ''}${accionesTxt ? ' — ' + accionesTxt : ''}`;
+        }).join('\n')
+      : '  (ninguna)';
     const texto = `🌒 CIERRE DE JORNADA — Dupla ${duplaCod}
 ${fecha} · ${inicioTxt} a ${finTxt}
 
-📋 Casos nuevos: ${r.casosNuevos}
-🔁 Casos recontactados: ${r.casosRecontactados}
-📝 Intervenciones registradas: ${r.totalIntervenciones}
-📨 Derivaciones pedidas: ${r.totalDerivaciones}
+📋 CASOS NUEVOS (${r.casosNuevos.length}):
+${listaCasosTxt(r.casosNuevos)}
+
+🔁 CASOS RECONTACTADOS (${r.casosRecontactados.length}):
+${listaCasosTxt(r.casosRecontactados)}
+
+📝 INTERVENCIONES (${r.intervenciones.length}):
+${intervTxt}
+
+📨 DERIVACIONES (${r.totalDerivaciones}):
 ${derivLinea}
+
 📄 Seguimientos agregados: ${r.seguimientos}
 
 Umbral Cero — Huehaci`;
     const body = `
-      <textarea id="ta-mensaje-cierre" rows="14" readonly style="width:100%;font-family:monospace;font-size:0.82rem;"></textarea>
+      <textarea id="ta-mensaje-cierre" rows="20" readonly style="width:100%;font-family:monospace;font-size:0.82rem;"></textarea>
       <div class="modal-foot">
         <button type="button" class="btn btn-green" onclick="Casos.compartirWhatsappCierre()">📱 Compartir por WhatsApp</button>
         <button type="button" class="btn btn-blue" onclick="Casos.copiarMensajeCierre()">📋 Copiar</button>

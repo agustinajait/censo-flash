@@ -2449,6 +2449,53 @@ Node que reproduce el cálculo — incluyendo el caso de derivaciones
 en el resumen) y el caso límite de una dupla sin casos (no rompe, no
 trae de más) — los 5 checks pasan.
 
+### 10.1.27 El resumen diario con el detalle, no solo números (21/9/2026)
+
+Con §10.1.25/§10.1.26 ya andando (casos.html y admin-duplas.html),
+Agustina pidió más: "el resumen tiene que tener el resumen de las
+intervenciones, los casos con la info" — un número solo ("3 casos
+nuevos") no alcanza, hace falta saber CUÁLES y qué pasó en cada
+intervención. Mismo espíritu que ya tenía `armarListadoCasos()` del
+reporte semanal (§9, "necesito poder ver los casos también").
+
+Cambio en los dos lugares (mismo criterio, cada uno con su propia
+fuente de datos — no hay código compartido entre `casos.html` y
+`admin-duplas.html` para esto, ver nota de §10.1.26):
+
+- `casosNuevos`/`casosRecontactados` pasan de ser un número a ser un
+  array de personas (`id, nombre, apellido, dni, sin_identificar`) — se
+  listan con `nombreDisplay()`/`nombreDisplayReporte()` (fallback "Persona
+  sin identificar") y el DNI si lo tienen, o "sin identificar" si
+  corresponde.
+- Nueva clave `intervenciones`: cada intervención del día con su persona
+  ya resuelta (no dedup por persona — si hubo dos intervenciones sobre el
+  mismo caso en el día, se listan las dos), el `tipo`, las `acciones`
+  tildadas (traducidas con `accionesIntervencionLabels`) y el `resumen`
+  libre si lo cargaron.
+- Para resolver nombre/DNI de los RECONTACTADOS hace falta una consulta
+  aparte a `personas` (no vienen en la consulta de "altas de hoy"):
+  - Lado dupla (`casos.html`): solo pide los `id`s recontactados
+    puntuales, con `.in('id', idsRecontactadas)` — no trae toda la
+    dupla.
+  - Lado admin (`admin-duplas.html`): ya estaba pidiendo TODOS los
+    `persona_id` de la dupla para el filtro de derivaciones (§10.1.26) —
+    se aprovechó esa misma consulta (ahora trae nombre/DNI en vez de
+    solo `id`) para resolver los recontactados también, sin sumar una
+    consulta nueva.
+- El mensaje de WhatsApp (los dos lados) ahora lista los casos y las
+  intervenciones en vez de solo contarlos — headers en mayúscula por
+  sección para que se lea bien en el celular. El textarea de
+  `admin-duplas.html` (`#diario-texto`) subió el `min-height` de 180px a
+  260px porque el texto es bastante más largo ahora.
+
+Validado: balance de `<div>` y sintaxis de los bloques `<script>` de
+`casos.html` y `admin-duplas.html`, y script de Node que reproduce el
+armado de `casosNuevos`/`casosRecontactados`/`intervenciones` con
+persona resuelta — incluye el caso de una intervención sobre una persona
+que no aparece en ninguna de las dos listas (oculta, o un error de
+datos): la intervención igual se lista, con `persona: null`, en vez de
+romper o desaparecer en silencio — los 6 checks pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
