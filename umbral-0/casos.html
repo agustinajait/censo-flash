@@ -152,13 +152,21 @@
   .section-label { font-family:'Sora',sans-serif; font-weight:800; font-size:1.02rem; color:var(--navy); margin:22px 0 12px; }
   .empty-msg { font-size:0.84rem; color:#94a3b8; padding:20px; text-align:center; }
 
-  .persona-card { background:white; border-radius:12px; padding:13px 16px; margin-bottom:8px; border:1px solid var(--border); display:flex; align-items:center; gap:12px; cursor:pointer; transition:border-color .15s; }
+  .persona-card { background:white; border-radius:12px; padding:13px 16px; margin-bottom:8px; border:1px solid var(--border); display:flex; align-items:center; gap:12px; cursor:pointer; transition:border-color .15s; flex-wrap:wrap; }
   .persona-card:hover { border-color:var(--blue); }
   .persona-avatar { width:42px; height:42px; border-radius:50%; background:#e0ebff; color:var(--blue); display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-weight:800; font-size:1rem; flex-shrink:0; }
   .persona-info { flex:1; min-width:0; }
   .persona-nombre { font-family:'Sora',sans-serif; font-weight:700; font-size:0.92rem; color:var(--navy); }
   .persona-sub { font-size:0.76rem; color:#64748b; margin-top:1px; }
-  .persona-badges { display:flex; gap:6px; flex-shrink:0; }
+  /* Los badges (activo/Baja/criticidad/"hace N días sin seguimiento")
+     pueden ser varios y cada uno es ancho — con solo flex-wrap, cuando
+     entraban "de rebote" en la misma línea que nombre/DNI apretaban
+     .persona-info a un ancho mínimo y el texto quedaba partido palabra
+     por palabra (peor que el bug original). flex-basis:100% los manda
+     SIEMPRE a su propia línea, completa, debajo — predecible en
+     cualquier ancho, no depende de si "casi entran" o no (bug real,
+     22/9/2026). */
+  .persona-badges { display:flex; gap:6px; flex-wrap:wrap; flex-basis:100%; margin-top:4px; }
 
   .badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; white-space:nowrap; }
   .badge-gray { background:#f1f5f9; color:#475569; }
