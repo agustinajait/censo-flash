@@ -31,19 +31,18 @@
 
   .wrap { max-width:860px; margin:0 auto; padding:22px 18px 60px; }
 
-  /* HOME: turno (angosto) a la izquierda, pendientes/jornada/KoBo a la
-     derecha (§10.1.56). mi-turno/jornada/kobo-pend/acciones-pend ya NO
-     centran ni acotan su propio ancho — eso lo maneja este contenedor;
-     antes cada uno era un bloque full-width apilado, ahora son hijos de
-     una columna. En mobile se reordena para que "Para revisar" (la
-     columna derecha) quede arriba del todo, turno abajo. */
-  .home-top { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; max-width:860px; margin:16px auto 0; padding:0 18px; }
-  .home-top-left { flex:1 1 240px; }
-  .home-top-right { flex:2 1 380px; display:flex; flex-direction:column; gap:12px; }
-  @media(max-width:680px){
-    .home-top-left { order:2; }
-    .home-top-right { order:1; }
-  }
+  /* HOME: los 4 widgets (turno, para revisar, jornada, KoBo pendientes)
+     vuelven a ser bloques full-width apilados, en ESE orden fijo — el
+     layout de dos columnas (§10.1.56) armaba "todo desalineado" en
+     desktop (las tarjetas están pensadas para 860px de ancho, no para
+     una columna de ~400px) y en mobile terminaba mandando el turno
+     debajo de los recordatorios de KoBo, que no tiene sentido: el turno
+     es la primera orientación ("¿dónde/con quién estoy hoy?"), tiene
+     que ir primero siempre. "Para revisar" pasa a segundo — ya no hace
+     falta más que eso para que se note (§10.1.59, pedido de Agustina:
+     "te pido un poco de criterio"). */
+  .mi-turno, .jornada, .kobo-pend, .acciones-pend { max-width:860px; margin:12px auto 0; padding:0 18px; }
+  .mi-turno { margin-top:16px; }
 
   /* MI TURNO DE HOY */
   .mi-turno-card { background:linear-gradient(135deg,#eef2ff,#f0f6ff); border:1.5px solid var(--border); border-radius:14px; padding:16px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
@@ -372,34 +371,26 @@
     </div>
   </div>
 
-  <!-- HOME: turno a la izquierda (angosto, secundario), pendientes +
-       jornada + KoBo a la derecha (§10.1.56, pedido de Agustina: "poner
-       la franja del turno al costado izquierdo... dejar espacio para
-       poner arriba los pendientes"). En mobile se reordena por CSS para
-       que "Para revisar" quede arriba de todo (ver .home-top-*). -->
-  <div class="home-top">
-    <div class="home-top-left">
-      <!-- MI TURNO DE HOY — solo para cuentas de dupla (admin/coordinación
-           ven todas las duplas desde "👥 Duplas", no tiene sentido acá). -->
-      <div id="mi-turno-box" style="display:none;"></div>
-    </div>
-    <div class="home-top-right">
-      <!-- ACCIONES PENDIENTES (§10.1.55) — trámites de DNI y casos sin
-           identificar, como chips de acceso directo — ver
-           renderAccionesPendientes(). Primero en el orden a propósito:
-           "para revisar más arriba, más a mano". -->
-      <div id="acciones-box" style="display:none;"></div>
+  <!-- HOME (§10.1.59): turno primero siempre — es la orientación básica
+       ("¿dónde/con quién estoy hoy?"), no puede quedar debajo de
+       recordatorios de casos. "Para revisar" segundo, bien arriba. -->
 
-      <!-- JORNADA DE HOY — inicio/fin, una marca por dupla por día (alcanza
-           con que lo toque cualquiera de los dos integrantes, es la misma
-           cuenta). -->
-      <div id="jornada-box" style="display:none;"></div>
+  <!-- MI TURNO DE HOY — solo para cuentas de dupla (admin/coordinación
+       ven todas las duplas desde "👥 Duplas", no tiene sentido acá). -->
+  <div id="mi-turno-box" style="display:none;"></div>
 
-      <!-- KOBO PENDIENTES — envíos de KoBo del equipo (propio) con DNI que
-           todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
-      <div id="kobo-pend-box" style="display:none;"></div>
-    </div>
-  </div>
+  <!-- ACCIONES PENDIENTES (§10.1.55) — trámites de DNI y casos sin
+       identificar, como chips de acceso directo — ver
+       renderAccionesPendientes(). -->
+  <div id="acciones-box" style="display:none;"></div>
+
+  <!-- JORNADA DE HOY — inicio/fin, una marca por dupla por día (alcanza con
+       que lo toque cualquiera de los dos integrantes, es la misma cuenta). -->
+  <div id="jornada-box" style="display:none;"></div>
+
+  <!-- KOBO PENDIENTES — envíos de KoBo del equipo (propio) con DNI que
+       todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
+  <div id="kobo-pend-box" style="display:none;"></div>
 
   <div class="wrap">
 
