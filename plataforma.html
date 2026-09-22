@@ -13,13 +13,12 @@
 
   .cover {
     background:radial-gradient(circle at 15% 0%,#14261a 0%,var(--hero-bg) 55%),var(--hero-bg);
-    color:var(--cream); padding:44px 24px 40px; text-align:center; position:relative; overflow:hidden;
+    color:var(--cream); padding:88px 24px 40px; text-align:center; position:relative; overflow:hidden;
   }
   .cover::before { content:''; position:absolute; width:360px; height:360px; background:radial-gradient(circle,rgba(159,237,123,0.14) 0%,transparent 70%); top:-110px; right:-90px; border-radius:50%; }
 
-  .cover-brand { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:24px; position:relative; }
-  .cover-brand img { height:60px; width:auto; background:white; border-radius:8px; padding:6px 10px; }
-  .cover-brand span { font-size:0.76rem; color:rgba(246,243,234,0.72); text-align:left; line-height:1.35; max-width:220px; }
+  .cover-brand { position:absolute; top:20px; left:20px; z-index:2; }
+  .cover-brand img { height:48px; width:auto; background:white; border-radius:8px; padding:6px 10px; display:block; }
 
   .eyebrow { display:inline-flex; align-items:center; gap:7px; font-family:'Sora',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--green); margin-bottom:14px; position:relative; }
   .eyebrow::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--green); }
@@ -45,17 +44,6 @@
   .project-desc { font-size:0.82rem; color:#64748b; line-height:1.5; }
   .project-arrow { margin-top:auto; font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; color:var(--green-dark); }
 
-  .dashboard-link {
-    display:flex; align-items:center; gap:14px;
-    background:linear-gradient(135deg,var(--navy),var(--blue));
-    color:white; padding:18px 22px; border-radius:16px;
-    text-decoration:none; box-shadow:0 4px 14px rgba(15,31,61,0.25);
-  }
-  .dashboard-link-icon { font-size:1.8rem; }
-  .dashboard-link-title { font-family:'Sora',sans-serif; font-weight:800; font-size:0.98rem; }
-  .dashboard-link-sub { font-size:0.78rem; opacity:0.85; margin-top:2px; }
-  .dashboard-link-arr { margin-left:auto; font-size:1.2rem; opacity:0.7; }
-
   .footer { text-align:center; padding:20px; font-size:0.72rem; color:#94a3b8; }
   .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; margin-top:6px; }
   .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
@@ -66,7 +54,6 @@
 <div class="cover">
   <div class="cover-brand">
     <img src="assets/huehaci-logo.png" alt="Huehaci">
-    <span>Desarrollado por Huehaci<br>Desarrolladora de sistemas y contenidos digitales de innovación local sustentable</span>
   </div>
   <div class="eyebrow">Plataforma de gestión territorial</div>
   <h1>Bienvenidos.</h1>
@@ -77,16 +64,6 @@
 <div class="body">
   <div class="section-label">Proyectos activos</div>
   <div class="project-grid" id="project-grid"></div>
-
-  <div class="section-label">Resultados</div>
-  <a href="./dashboard.html" class="dashboard-link">
-    <span class="dashboard-link-icon">📊</span>
-    <div>
-      <div class="dashboard-link-title">Dashboard unificado</div>
-      <div class="dashboard-link-sub">Vista por proyecto y vista global — acceso con contraseña</div>
-    </div>
-    <span class="dashboard-link-arr">→</span>
-  </a>
 </div>
 
 <div class="footer">
