@@ -241,28 +241,19 @@ async function renderMapaPuntos(containerId, puntos, zonas){
       resumen.style.cssText = 'margin-top:10px;font-size:0.8rem;';
       cont.insertAdjacentElement('afterend', resumen);
     }
-    // Ojo con la redacción acá (corregido 22/9/2026, Agustina: "las
-    // iglesias marcadas en el mapa son zonas nuestras eh" / "pero
-    // contabiliza los casos esos como dentro de nuestra zona de
-    // cobertura, sí?") — las duplas "iglesias" SÍ tienen zona asignada
-    // (el comedor puntual) y SÍ cuentan como cobertura propia; lo que NO
-    // tienen es un polígono de manzanas contra el que comparar un punto
-    // GPS con sentido geométrico (comparar "¿cayó adentro del edificio?"
-    // no dice nada de si el operador hizo bien su recorrido alrededor).
-    // Primera frase, siempre: confirma que TODOS los puntos con dupla
-    // reconocida cuentan como cobertura — sin ninguna condición ni
-    // exclusión silenciosa. Recién después se aclara el detalle geométrico
-    // de la subzona con polígono.
-    let texto = `✅ Los <b>${coberturaCount}</b> puntos con dupla reconocida cuentan como cobertura propia.`;
-    if(conZonaCount > 0){
-      texto += fueraDeZonaCount > 0
-        ? ` De esos, <b style="color:#b91c1c;">${fueraDeZonaCount} de ${conZonaCount}</b> (los que tienen un polígono de patrullaje asignado) quedaron ⚠️ fuera de ese polígono.`
-        : ` Los ${conZonaCount} que tienen un polígono de patrullaje asignado están dentro de esa zona.`;
-    }
+    // §10.1.49, Agustina sobre la versión anterior de este texto: "no se
+    // entiende esto y no es necesario, solo digo que las iglesias son
+    // zona nuestra tb" — de vuelta a una sola frase corta con el número,
+    // más una aclaración de una línea si hay duplas de iglesias en este
+    // rango. Sin explicar polígonos ni geometría acá (eso queda en los
+    // comentarios del código para quien lo edite, no en la pantalla).
+    let texto = conZonaCount > 0
+      ? (fueraDeZonaCount > 0
+          ? `⚠️ <b style="color:#b91c1c;">${fueraDeZonaCount} de ${conZonaCount}</b> puntos quedaron fuera de la zona asignada a su dupla.`
+          : `✅ Los ${conZonaCount} puntos están dentro de la zona asignada a su dupla.`)
+      : `✅ Los ${coberturaCount} puntos están dentro de zona.`;
     const hayComedores = duplasVistas.size > [...duplasVistas.values()].filter(v => !v.esIglesia).length;
-    if(hayComedores){
-      texto += ' Los puntos de las duplas de comedores (C, F, I, L, M) se cuentan siempre dentro de su zona de cobertura — es la dirección del comedor asignado, no hay un polígono de manzanas para chequearlos geométricamente.';
-    }
+    if(hayComedores) texto += ' Las iglesias también son zona nuestra.';
     resumen.innerHTML = texto;
   } else if(resumen){
     resumen.remove();
