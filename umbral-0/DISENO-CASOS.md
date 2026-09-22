@@ -3717,6 +3717,35 @@ contenido de ejemplo) en dos anchos — 900px: turno a la izquierda,
 "Para revisar" primero, después jornada, después KoBo, turno al
 final, todo en una sola columna — ambos coinciden con lo pedido.
 
+### 10.1.57 Bug: el menú de arriba se cortaba en celular, "Mis derivaciones" invisible (22/9/2026)
+
+Agustina, con captura desde el celular: "no se llegan a ver todas las
+opciones del menú. Mis derivaciones falta, [...] no se llega a ver
+todo lo del menú". También aclaró, sobre el §10.1.56: "tené en cuenta
+que lo tienen que ver desde el celular... no sé si está bien lo que te
+dije de la izquierda" — quedó resuelto sin cambios: en celular no hay
+columnas, `.home-top-left`/`.home-top-right` se apilan y el orden ya
+pone "para revisar" arriba y turno al final (ver captura del
+§10.1.56), el layout de dos columnas solo se activa en pantallas
+anchas.
+
+Causa de lo del menú: `.topbar-right` (los ~9 botones del nav para una
+cuenta dupla — Portal, Cargar KoBo, DNI pendientes, Sin identificar,
+Mis derivaciones, Cierres de jornada, Glosario, Test, Cerrar sesión)
+es un `display:flex` sin `flex-wrap:wrap` — en desktop entran todos en
+una fila, pero en una pantalla de celular (~390-412px) no entran ni
+cerca, y sin wrap los botones que no entran quedan cortados fuera del
+viewport en vez de bajar a una segunda línea. `.topbar` (el padre) sí
+tenía `flex-wrap:wrap`, pero eso solo le permite a `.topbar-right`
+completo bajar como bloque debajo del logo — no hacía que sus propios
+botones internos se acomodaran en varias líneas.
+
+Arreglado agregando `flex-wrap:wrap` a `.topbar-right`. Validado con
+una captura de Playwright de una página de prueba standalone (mismo
+CSS real + los 9 botones de una cuenta dupla) a 412px de ancho — los 9
+quedan visibles, acomodados en varias líneas, incluido "📋 Mis
+derivaciones y seguimientos" que antes quedaba cortado.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
