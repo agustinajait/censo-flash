@@ -1211,17 +1211,36 @@ function normalizarNombre(s){
     .split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+// Coincide si los tokens de un nombre son subconjunto de los del otro, en
+// cualquier dirección — así "Yesica Cuenca" (como se tipeó en KoBo) matchea
+// contra "Yesica Soledad Cuenca" (como está en integrantes) aunque falte el
+// segundo nombre. Antes `roster` era un objeto indexado por string exacto
+// y esto era una igualdad de string: cualquier integrante con nombre
+// compuesto que no tipeara el nombre completo en KoBo quedaba "sin dupla
+// reconocida" entero — bug real reportado por Agustina (22/9/2026):
+// "Yesica Cuenca es un caso de ayer que no lo estamos viendo en la
+// plataforma, y está en KoBo". Confirmado: 8 de los integrantes activos
+// tienen nombre compuesto, todos con el mismo riesgo.
+function nombresCoincidenKobo(a, b){
+  const ta = normalizarNombre(a).split(' ').filter(Boolean);
+  const tb = normalizarNombre(b).split(' ').filter(Boolean);
+  if(!ta.length || !tb.length) return false;
+  const setA = new Set(ta), setB = new Set(tb);
+  return ta.every(t => setB.has(t)) || tb.every(t => setA.has(t));
+}
+
 async function cargarRosterUmbral0(){
   const client = await SupabaseClient.getClient(window.PROJECT_CONFIG_UMBRAL_0);
   const { data, error } = await client.from('integrantes_publico').select('*');
   if(error) throw error;
-  const roster = {};
-  (data||[]).forEach(i => {
-    const nombre = `${i.nombre||''} ${i.apellido||''}`.trim();
-    if(!nombre) return;
-    roster[normalizarNombre(nombre)] = i.dupla_codigo;
-  });
-  return roster;
+  return (data||[])
+    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`.trim(), dupla_codigo: i.dupla_codigo }))
+    .filter(r => r.nombre);
+}
+
+function buscarDuplaPorNombre(roster, nombreOperador){
+  const match = (roster||[]).find(r => nombresCoincidenKobo(r.nombre, nombreOperador));
+  return match ? match.dupla_codigo : null;
 }
 
 // Cache del último fetch a KoBo — el filtro por fecha (sept/2026, pedido
@@ -1244,7 +1263,7 @@ async function cargarUmbral0(project){
     const parsed = koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean);
     const sinDupla = new Map(); // nombre operador -> cantidad de envíos
     parsed.forEach(p => {
-      const dupla = roster[normalizarNombre(p.operador)] || null;
+      const dupla = buscarDuplaPorNombre(roster, p.operador);
       p.dupla = dupla;
       if(!dupla && p.operador) sinDupla.set(p.operador, (sinDupla.get(p.operador)||0) + 1);
     });

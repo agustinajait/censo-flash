@@ -1818,6 +1818,23 @@ function normalizarNombreKobo(s){
     .split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+// Coincide si los tokens de un nombre son subconjunto de los del otro, en
+// cualquier dirección — así "Yesica Cuenca" (como se tipeó en KoBo) matchea
+// contra "Yesica Soledad Cuenca" (como está en integrantes) aunque falte el
+// segundo nombre. Antes era una igualdad exacta de string (Set.has()) y eso
+// perdía ENTERO el envío para cualquier integrante con nombre compuesto que
+// no tipeara el nombre completo en KoBo — bug real reportado por Agustina
+// (22/9/2026): "Yesica Cuenca es un caso de ayer que no lo estamos viendo
+// en la plataforma, y está en KoBo". Confirmado: 8 de los integrantes
+// activos tienen nombre compuesto, todos con el mismo riesgo.
+function nombresCoincidenKobo(a, b){
+  const ta = normalizarNombreKobo(a).split(' ').filter(Boolean);
+  const tb = normalizarNombreKobo(b).split(' ').filter(Boolean);
+  if(!ta.length || !tb.length) return false;
+  const setA = new Set(ta), setB = new Set(tb);
+  return ta.every(t => setB.has(t)) || tb.every(t => setA.has(t));
+}
+
 async function fetchKoboProxyAll(project, assetId){
   let results = [], next = `${project.kobo.base}/${assetId}/data/?format=json&limit=3000`;
   while(next){
@@ -1880,9 +1897,9 @@ async function cargarKoboPendientes(){
       obtenerKoboRowsParseadas(project, form),
     ]);
 
-    const misNombres = new Set((integrantes||[])
-      .map(i => normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`))
-      .filter(Boolean));
+    const misNombres = (integrantes||[])
+      .map(i => `${i.nombre||''} ${i.apellido||''}`)
+      .filter(n => n.trim());
     const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
     const idsYaValidados = new Set((validacionesPropias||[]).map(v => v.kobo_submission_id));
     // Nombre normalizado -> persona ya cargada, SOLO las que tienen nombre
@@ -1898,7 +1915,7 @@ async function cargarKoboPendientes(){
     const posiblesContinuaciones = new Map(); // subId -> { persona, envio } (sin DNI, nombre matchea un caso propio)
     const sinIdentificar = new Map(); // subId -> envío (sin DNI Y sin nombre que matchee un caso propio — ver §10.1.14)
     koboParseadas.forEach(p => {
-      if(!misNombres.has(normalizarNombreKobo(p.operador))) return; // no es de mi dupla
+      if(!misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return; // no es de mi dupla
       const dni = String((p.persona && p.persona.dni) || '').trim();
       if(dni){
         if(dnisExistentes.has(dni)) return; // ya es un caso cargado — cargarKoboDePersona() ya lo muestra en esa ficha
@@ -2870,16 +2887,16 @@ const Casos = {
         client.from('kobo_validaciones').select('kobo_submission_id'),
         obtenerKoboRowsParseadas(project, form),
       ]);
-      const misNombres = new Set((integrantes||[])
-        .map(i => normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`))
-        .filter(Boolean));
+      const misNombres = (integrantes||[])
+        .map(i => `${i.nombre||''} ${i.apellido||''}`)
+        .filter(n => n.trim());
       const idsAsociados = new Set((yaAsociados||[]).map(v => v.kobo_submission_id));
       const idsYaEnTimeline = new Set(koboEventosActuales.map(p => koboSubmissionId(p)).filter(Boolean));
       const haceDias = new Date(Date.now() - 14*24*60*60*1000).toISOString();
 
       asociarKoboCandidatosActuales = parsed
         .filter(p => {
-          if(!misNombres.has(normalizarNombreKobo(p.operador))) return false; // no es de esta dupla
+          if(!misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return false; // no es de esta dupla
           const subId = koboSubmissionId(p);
           // ya asociado a algún caso, o ya se ve automático en esta ficha
           if(!subId || idsAsociados.has(subId) || idsYaEnTimeline.has(subId)) return false;

@@ -504,6 +504,24 @@ function normalizarNombreKobo(s){
     .split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+// Coincide si los tokens de un nombre son subconjunto de los del otro, en
+// cualquier dirección — así "Yesica Cuenca" (como se tipeó en KoBo) matchea
+// contra "Yesica Soledad Cuenca" (como está en integrantes) aunque falte el
+// segundo nombre. Antes `duplaPorNombreKobo` era un objeto indexado por
+// string exacto: cualquier integrante con nombre compuesto que no tipeara
+// el nombre completo en KoBo quedaba "fuera de las 13 duplas" entero — bug
+// real reportado por Agustina (22/9/2026): "Yesica Cuenca es un caso de
+// ayer que no lo estamos viendo en la plataforma, y está en KoBo".
+// Confirmado: 8 de los integrantes activos tienen nombre compuesto, todos
+// con el mismo riesgo.
+function nombresCoincidenKobo(a, b){
+  const ta = normalizarNombreKobo(a).split(' ').filter(Boolean);
+  const tb = normalizarNombreKobo(b).split(' ').filter(Boolean);
+  if(!ta.length || !tb.length) return false;
+  const setA = new Set(ta), setB = new Set(tb);
+  return ta.every(t => setB.has(t)) || tb.every(t => setA.has(t));
+}
+
 // Idem casos.html — identificador estable de un envío de KoBo, usado acá
 // solo para excluir de "KoBo sin identificar" los que ya quedaron
 // vinculados a un caso desde alguna cuenta de dupla (ver kobo_validaciones
@@ -1503,11 +1521,10 @@ async function calcularOutcomesKobo(desde, hasta){
   // poder colorear el punto en el mapa por dupla (§10.1.43, pedido de
   // Agustina: "quiero que en reporte se vea el mismo mapa" que ya tiene
   // el Dashboard con las zonas y los colores).
-  const duplaPorNombreKobo = {};
-  (integrantes||[]).forEach(i => {
-    const nombre = normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`);
-    if(nombre && i.dupla_id) duplaPorNombreKobo[nombre] = codigoPorDuplaId[i.dupla_id] || null;
-  });
+  const duplaPorNombreKobo = (integrantes||[])
+    .filter(i => i.dupla_id)
+    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null }))
+    .filter(r => r.nombre.trim());
 
   const conteo = {}; // código de termino_intervencion_diaria -> cantidad
   // Puntos para el mapa de cobertura (§10.1.24, pedido de Agustina: "un
@@ -1519,7 +1536,8 @@ async function calcularOutcomesKobo(desde, hasta){
   const puntos = [];
   let totalEnvios = 0;
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
-    const codigoDupla = duplaPorNombreKobo[normalizarNombreKobo(p.operador)];
+    const match = duplaPorNombreKobo.find(r => nombresCoincidenKobo(r.nombre, p.operador));
+    const codigoDupla = match ? match.codigo : null;
     if(!codigoDupla) return; // no es de las 13 duplas
     const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
     if(!fechaSolo || fechaSolo < desde || fechaSolo > hasta) return;

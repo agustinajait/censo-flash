@@ -3486,6 +3486,65 @@ Validado: balance de `<div>`/`<details>`/`<summary>` de
 bloque `<script>` principal (progreso + `UITheme.init()`) con
 `node --check`.
 
+### 10.1.52 Bug: nombre compuesto en `integrantes` perdía el envío de KoBo entero (22/9/2026)
+
+Agustina: "Yesica Cuenca es un caso de ayer que no lo estamos viendo en
+la plataforma, y está en KoBo". Confirmado con la base (Supabase, tabla
+`personas`): no hay ningún caso "Yesica Cuenca" cargado. El primer
+sospechoso — el filtro `identificacion/equipo !== 'umbral_0'` de
+`parseUmbral0()` (§ ya documentado) — quedó descartado: Agustina mandó
+una captura del Excel de KoBo (columna "Umbral 0" con el label ya
+resuelto) confirmando que ese campo está bien puesto en su envío.
+
+Root cause real, encontrado leyendo `integrantes` en Supabase: "Yesica
+Cuenca" no es la persona relevada — es la OPERADORA que cargó el envío
+(columna `identificacion/operador_nombre`), registrada en `integrantes`
+como **"Yesica soledad Cuenca"** (con segundo nombre). En KoBo tipeó
+solo "Yesica cuenca" (sin el "Soledad"). Las tres pantallas que
+matchean el operador de un envío contra `integrantes` para decidir si
+"es de mi dupla" / "de cuál dupla es" lo hacían con **igualdad exacta
+de string** sobre el nombre normalizado (tokens en minúscula, sin
+acentos, ordenados alfabéticamente):
+
+- `umbral-0/casos.html` → `cargarKoboPendientes()` (Set `misNombres` +
+  `.has()`) — la lista "📥 KoBo pendientes" de Casos.
+- `umbral-0/casos.html` → `abrirModalAsociarKobo()` (mismo patrón,
+  Set separado) — "🔗 Asociar un envío de KoBo" desde una ficha.
+- `shared/js/dashboard-engine.js` → `cargarRosterUmbral0()` +
+  `cargarUmbral0()` (objeto `roster` indexado por string exacto) — el
+  mapa/resumen en vivo del Dashboard.
+- `umbral-0/admin-duplas.html` → `calcularOutcomesKobo()` (objeto
+  `duplaPorNombreKobo` indexado por string exacto) — el reporte semanal
+  y el mapa de puntos (admin + `reporte-publico.html`).
+
+Con igualdad exacta, "yesica cuenca" (2 tokens) nunca es igual a
+"cuenca soledad yesica" (3 tokens) — el envío se descartaba ENTERO en
+las cuatro pantallas, sin ningún rastro visible (no aparece en "KoBo
+pendientes", no cuenta en el mapa, no suma al reporte semanal). No es
+un caso aislado: `select nombre, apellido from integrantes where activo
+and nombre ~ ' '` da **8 integrantes activos con nombre compuesto**
+(Alan Damián Artaza, Brisa Micaela Cortado, Dylan Leonel Ojeda,
+Gabriela Roxana Pedernera, Nestor Atilio Maldonado, Pablo Daniel
+Carrizo, Sergio Jose Ferreyra, Yesica soledad Cuenca) — cualquiera de
+ellos pierde envíos enteros cada vez que tipea su nombre corto en KoBo,
+que es lo más natural.
+
+Arreglado con una función `nombresCoincidenKobo(a, b)` (duplicada en
+las tres pantallas, mismo patrón que ya usan para no compartir un
+módulo JS entre ellas) que compara por **subconjunto de tokens en
+cualquier dirección** en vez de igualdad exacta — "yesica cuenca" ⊆
+"cuenca soledad yesica" ⇒ matchean. Las estructuras que antes eran
+`Set`/objeto indexado por string exacto pasaron a array + `.find()`/
+`.some()` con esta función, porque el subconjunto no se puede resolver
+con una key de mapa.
+
+Validado con un script de Node standalone (7 casos: el caso real de
+Yesica con y sin segundo nombre, apellido antes que nombre, otro
+integrante compuesto — Dylan Leonel Ojeda —, dos personas distintas que
+NO deben matchear, operador vacío, y una variante sin acento) — los 7
+pasan. `node --check` sobre los `<script>` de `casos.html`,
+`admin-duplas.html` y `dashboard-engine.js` completo, sin errores.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
