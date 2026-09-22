@@ -31,8 +31,21 @@
 
   .wrap { max-width:860px; margin:0 auto; padding:22px 18px 60px; }
 
+  /* HOME: turno (angosto) a la izquierda, pendientes/jornada/KoBo a la
+     derecha (§10.1.56). mi-turno/jornada/kobo-pend/acciones-pend ya NO
+     centran ni acotan su propio ancho — eso lo maneja este contenedor;
+     antes cada uno era un bloque full-width apilado, ahora son hijos de
+     una columna. En mobile se reordena para que "Para revisar" (la
+     columna derecha) quede arriba del todo, turno abajo. */
+  .home-top { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; max-width:860px; margin:16px auto 0; padding:0 18px; }
+  .home-top-left { flex:1 1 240px; }
+  .home-top-right { flex:2 1 380px; display:flex; flex-direction:column; gap:12px; }
+  @media(max-width:680px){
+    .home-top-left { order:2; }
+    .home-top-right { order:1; }
+  }
+
   /* MI TURNO DE HOY */
-  .mi-turno { max-width:860px; margin:16px auto 0; padding:0 18px; }
   .mi-turno-card { background:linear-gradient(135deg,#eef2ff,#f0f6ff); border:1.5px solid var(--border); border-radius:14px; padding:16px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
   .mi-turno-badge { font-family:'Sora',sans-serif; font-weight:800; font-size:1.3rem; color:var(--navy); background:white; border:1.5px solid var(--border); border-radius:10px; padding:6px 14px; flex-shrink:0; }
   .mi-turno-info { flex:1; min-width:220px; }
@@ -41,7 +54,6 @@
   .mi-turno-ref { display:inline-block; margin-left:8px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.5px; background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:20px; }
 
   /* JORNADA DE HOY — inicio/fin */
-  .jornada { max-width:860px; margin:12px auto 0; padding:0 18px; }
   .jornada-card { border-radius:14px; padding:14px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; border:1.5px solid var(--border); }
   .jornada-card.pendiente { background:linear-gradient(135deg,#fffbeb,#fff8ec); }
   .jornada-card.en-curso { background:linear-gradient(135deg,#eff6ff,#f0f9ff); }
@@ -50,7 +62,6 @@
   .jornada-txt strong { font-family:'Sora',sans-serif; color:var(--navy); }
 
   /* KOBO PENDIENTES — envíos de KoBo del equipo sin caso todavía */
-  .kobo-pend { max-width:860px; margin:12px auto 0; padding:0 18px; }
   .kobo-pend-head { font-size:0.82rem; color:#92400e; font-weight:700; font-family:'Sora',sans-serif; margin-bottom:6px; }
   .kobo-pend-card { border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; border:1.5px solid var(--border); background:linear-gradient(135deg,#fffbeb,#fff8ec); margin-bottom:8px; }
   .kobo-pend-card.kobo-pend-continuacion { background:linear-gradient(135deg,#eff6ff,#f5f9ff); }
@@ -61,7 +72,6 @@
   /* ACCIONES PENDIENTES — guía rápida de "qué hacer ahora" en el home de
      la dupla (§10.1.55): trámites de DNI y casos sin identificar, que
      antes solo se notaban leyendo el numerito en un botón del nav. */
-  .acciones-pend { max-width:860px; margin:12px auto 0; padding:0 18px; }
   .acciones-pend-head { font-size:0.72rem; color:#64748b; font-weight:700; font-family:'Sora',sans-serif; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.6px; }
   .acciones-pend-chips { display:flex; gap:8px; flex-wrap:wrap; }
   .acciones-chip { background:white; border:1.5px solid var(--border); border-radius:20px; padding:8px 14px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; color:var(--navy); cursor:pointer; }
@@ -354,21 +364,34 @@
     </div>
   </div>
 
-  <!-- MI TURNO DE HOY — solo para cuentas de dupla (admin/coordinación ven
-       todas las duplas desde "👥 Duplas", no tiene sentido acá). -->
-  <div id="mi-turno-box" style="display:none;"></div>
+  <!-- HOME: turno a la izquierda (angosto, secundario), pendientes +
+       jornada + KoBo a la derecha (§10.1.56, pedido de Agustina: "poner
+       la franja del turno al costado izquierdo... dejar espacio para
+       poner arriba los pendientes"). En mobile se reordena por CSS para
+       que "Para revisar" quede arriba de todo (ver .home-top-*). -->
+  <div class="home-top">
+    <div class="home-top-left">
+      <!-- MI TURNO DE HOY — solo para cuentas de dupla (admin/coordinación
+           ven todas las duplas desde "👥 Duplas", no tiene sentido acá). -->
+      <div id="mi-turno-box" style="display:none;"></div>
+    </div>
+    <div class="home-top-right">
+      <!-- ACCIONES PENDIENTES (§10.1.55) — trámites de DNI y casos sin
+           identificar, como chips de acceso directo — ver
+           renderAccionesPendientes(). Primero en el orden a propósito:
+           "para revisar más arriba, más a mano". -->
+      <div id="acciones-box" style="display:none;"></div>
 
-  <!-- JORNADA DE HOY — inicio/fin, una marca por dupla por día (alcanza con
-       que lo toque cualquiera de los dos integrantes, es la misma cuenta). -->
-  <div id="jornada-box" style="display:none;"></div>
+      <!-- JORNADA DE HOY — inicio/fin, una marca por dupla por día (alcanza
+           con que lo toque cualquiera de los dos integrantes, es la misma
+           cuenta). -->
+      <div id="jornada-box" style="display:none;"></div>
 
-  <!-- KOBO PENDIENTES — envíos de KoBo del equipo (propio) con DNI que
-       todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
-  <div id="kobo-pend-box" style="display:none;"></div>
-
-  <!-- ACCIONES PENDIENTES (§10.1.55) — trámites de DNI y casos sin
-       identificar, como chips de acceso directo — ver renderAccionesPendientes(). -->
-  <div id="acciones-box" style="display:none;"></div>
+      <!-- KOBO PENDIENTES — envíos de KoBo del equipo (propio) con DNI que
+           todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
+      <div id="kobo-pend-box" style="display:none;"></div>
+    </div>
+  </div>
 
   <div class="wrap">
 
