@@ -3161,6 +3161,43 @@ sintaxis de los 5 bloques `<script>` de cada uno, y grep cruzado de que
 puntos donde hacía falta. No se pudo probar contra KoBo real ni ver el
 reporte publicado (sin acceso de red desde este entorno).
 
+### 10.1.44 Cache-busting faltante en `mapa-puntos.js` (22/9/2026)
+
+Bug real: Agustina reportó "en el reporte no veo el mapa" apenas después
+de §10.1.43. Causa encontrada: `admin-duplas.html` y `reporte-publico.html`
+cargaban `shared/js/mapa-puntos.js` **sin** el `?v=` de cache-busting que
+`dashboard.html` sí tiene desde antes (agregado ahí mismo por este motivo
+exacto — ver el comentario en `dashboard.html`: "sin esto, el navegador
+[...] puede seguir sirviendo una copia vieja de este archivo después de
+un deploy [...] pasó hoy con el fix del filtro de fechas"). Sin ese
+parámetro, el navegador de quien ya tenía la página abierta (o la visitó
+recientemente) puede seguir sirviendo una copia cacheada de
+`mapa-puntos.js` de ANTES de §10.1.39-§10.1.43 — sin `_dibujarZonas`, sin
+colorear por dupla, e incluso versiones más viejas podrían no tener el
+mapa en absoluto si la copia cacheada es previa a §10.1.24.
+
+De paso se encontró que `dashboard.html` mismo había quedado con la
+versión vieja (`?v=2026-09-22b`) después de §10.1.42 (el cambio de
+"iglesias" en la leyenda tocó `mapa-puntos.js` pero no se bump'eó la
+versión en ese commit) — mismo bug, en el propio Dashboard.
+
+Fix: subido `?v=2026-09-22c` en los 3 lugares que cargan `mapa-puntos.js`
+(`dashboard.html`, `admin-duplas.html`, `reporte-publico.html`), sincronizados
+al mismo número.
+
+Para quien ya tenía la página abierta cuando se reportó el problema, el
+fix de código no alcanza por sí solo — necesita además un refresh forzado
+(Ctrl+Shift+R / Cmd+Shift+R) una vez desplegado, para descartar cualquier
+copia ya cacheada del HTML de la página en sí (no solo del JS).
+
+Lección para la próxima vez que se edite `mapa-puntos.js`: subir el `?v=`
+en los 3 archivos que lo cargan, no solo en el que se esté mirando en ese
+momento.
+
+Validado: grep confirmando que los 3 `<script src="...mapa-puntos.js?v=...">`
+quedaron con el mismo valor, y balance de `<div>` de los 3 archivos HTML
+tocados (sin cambios de estructura, solo el query string).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
