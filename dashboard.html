@@ -548,12 +548,12 @@
 <!-- Mapa de puntos visitados (§10.1.24) — carga Leaflet solo cuando hace
      falta (ver renderMapaPuntos() en mapa-puntos.js), así que este script
      en sí es liviano aunque nadie mire la sección de Umbral 0. -->
-<script src="./shared/js/mapa-puntos.js?v=2026-09-22"></script>
+<script src="./shared/js/mapa-puntos.js?v=2026-09-22b"></script>
 <!-- ?v= es cache-busting manual: sin esto, el navegador (o el CDN) puede
      seguir sirviendo una copia vieja de este archivo después de un deploy,
      aunque el HTML sí se actualice — pasó hoy con el fix del filtro de
      fechas, que quedaba "sin aplicar" del lado de quien ya tenía el sitio
      abierto. Subir este número cada vez que se edite dashboard-engine.js. -->
-<script src="./shared/js/dashboard-engine.js?v=2026-09-22"></script>
+<script src="./shared/js/dashboard-engine.js?v=2026-09-22b"></script>
 </body>
 </html>
