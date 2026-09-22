@@ -54,6 +54,33 @@ function _colorDupla(dupla, zonas){
   return null;
 }
 
+// Punto-en-polígono (ray casting) — poly: [[lat,lng], ...]. Mismo
+// algoritmo usado para el análisis a mano del Excel de KoBo (22/9/2026,
+// antes de que existiera este cálculo en la plataforma).
+function _puntoDentroPoligono(lat, lng, poly){
+  let dentro = false;
+  for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+    const [latI, lngI] = poly[i];
+    const [latJ, lngJ] = poly[j];
+    if(((lngI > lng) !== (lngJ > lng)) &&
+       (lat < (latJ - latI) * (lng - lngI) / (lngJ - lngI + 1e-15) + latI)){
+      dentro = !dentro;
+    }
+  }
+  return dentro;
+}
+
+// true/false si la dupla tiene zona de patrullaje propia (porDupla) y el
+// punto cae fuera de ese polígono; null si no hay forma de saberlo (sin
+// zonas, sin dupla reconocida, o dupla "iglesias" sin zona fija — ahí no
+// hay un polígono real contra el que comparar, ver §10.1.39).
+function _fueraDeZona(dupla, lat, lng, zonas){
+  if(!zonas || !dupla || !zonas.porDupla || !zonas.porDupla[dupla]) return null;
+  const poly = zonas.porDupla[dupla].poly;
+  if(!poly || poly.length < 3) return null;
+  return !_puntoDentroPoligono(lat, lng, poly);
+}
+
 function _dibujarZonas(capa, zonas){
   if(!zonas) return;
   if(zonas.zonaFrontera && zonas.zonaFrontera.length){
@@ -133,6 +160,7 @@ async function renderMapaPuntos(containerId, puntos, zonas){
   const validos = (puntos||[]).filter(p => p.lat != null && p.lng != null);
   const bounds = [];
   const duplasVistas = new Map(); // codigo -> { color, esIglesia }, para la leyenda
+  let conZonaCount = 0, fueraDeZonaCount = 0; // §10.1.46, para el resumen debajo del mapa
   validos.forEach(p => {
     const fechaTxt = p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '';
     const tipoTxt = p.tipo ? _escMapa(p.tipo) : '';
@@ -145,11 +173,23 @@ async function renderMapaPuntos(containerId, puntos, zonas){
     // no se confundan con una dupla de zona fija sin más info.
     const esIglesia = !!(colorDupla && zonas && p.dupla && !(zonas.porDupla && zonas.porDupla[p.dupla]));
     if(colorDupla && p.dupla) duplasVistas.set(p.dupla, { color: colorDupla, esIglesia });
+    // "Fuera de zona" (§10.1.46, pedido de Agustina: "necesito calcular
+    // los puntos que se registraron fuera del territorio que tienen
+    // marcadas las duplas") — punto-en-polígono contra la zona de SU
+    // propia dupla. null para duplas "iglesias" (sin polígono real) — no
+    // se cuentan ni a favor ni en contra, se aclara aparte en el resumen.
+    const fuera = _fueraDeZona(p.dupla, p.lat, p.lng, zonas);
+    if(fuera !== null){ conZonaCount++; if(fuera) fueraDeZonaCount++; }
     const marker = L.circleMarker([p.lat, p.lng], {
-      radius: 7, color, weight: 2, fillColor: color, fillOpacity: 0.5,
+      radius: 7,
+      color: fuera === true ? '#111827' : color,
+      weight: fuera === true ? 3 : 2,
+      fillColor: color,
+      fillOpacity: fuera === true ? 0.85 : 0.5,
     });
     const duplaTxt = p.dupla ? `<b>Dupla ${_escMapa(p.dupla)}</b>${esIglesia ? ' (iglesias)' : ''}<br>` : '';
-    if(duplaTxt || fechaTxt || tipoTxt) marker.bindPopup(`${duplaTxt}${tipoTxt ? tipoTxt + '<br>' : ''}${fechaTxt}`);
+    const fueraTxt = fuera === true ? '<b style="color:#b91c1c;">⚠️ Fuera de la zona asignada</b><br>' : '';
+    if(duplaTxt || fueraTxt || fechaTxt || tipoTxt) marker.bindPopup(`${fueraTxt}${duplaTxt}${tipoTxt ? tipoTxt + '<br>' : ''}${fechaTxt}`);
     marker.addTo(inst.capa);
     bounds.push([p.lat, p.lng]);
   });
@@ -174,6 +214,28 @@ async function renderMapaPuntos(containerId, puntos, zonas){
     ).join('');
   } else if(leyenda){
     leyenda.remove();
+  }
+
+  // Resumen "fuera de zona" — insertado DESPUÉS de la leyenda a propósito
+  // (insertAdjacentElement('afterend', ...) sobre `cont` deja el último
+  // insertado más cerca del mapa) para que quede arriba de la leyenda de
+  // colores, como el dato más importante de esta comparación.
+  const resumenId = containerId + '-resumen-zona';
+  let resumen = document.getElementById(resumenId);
+  if(conZonaCount > 0){
+    if(!resumen){
+      resumen = document.createElement('div');
+      resumen.id = resumenId;
+      resumen.style.cssText = 'margin-top:10px;font-size:0.8rem;';
+      cont.insertAdjacentElement('afterend', resumen);
+    }
+    const sinZona = duplasVistas.size - [...duplasVistas.values()].filter(v => !v.esIglesia).length > 0
+      ? ' (no incluye a las duplas "iglesias", sin zona de patrullaje fija contra la que comparar)' : '';
+    resumen.innerHTML = fueraDeZonaCount > 0
+      ? `⚠️ <b style="color:#b91c1c;">${fueraDeZonaCount} de ${conZonaCount}</b> puntos con zona definida quedaron <b>fuera</b> de la zona asignada a su dupla${sinZona}.`
+      : `✅ Los ${conZonaCount} puntos con zona definida están dentro de la zona asignada a su dupla${sinZona}.`;
+  } else if(resumen){
+    resumen.remove();
   }
 
   // Aviso de "sin puntos" al pie — no reemplaza el mapa (se ve igual la

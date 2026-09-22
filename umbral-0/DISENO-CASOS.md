@@ -3237,6 +3237,50 @@ Leaflet real — 5 checks, todos pasaron, incluyendo el caso de
 en los 3 lugares que cargan `mapa-puntos.js` (mismo archivo tocado otra
 vez, mismo cuidado de §10.1.44).
 
+### 10.1.46 Cálculo de "puntos fuera de zona" en el mapa (22/9/2026)
+
+Pedido de Agustina: "necesito calcular los puntos que se registraron
+fuera del territorio que tienen marcadas las duplas" — en vez de
+mandarle un número calculado a mano una sola vez (como se hizo antes,
+sobre el Excel de KoBo que compartió), se agrega el cálculo a la
+plataforma, reusando `zonasOperativas` (§10.1.39): así queda
+recalculándose solo cada vez que se mira el mapa, en los tres lugares
+donde ya vive (Dashboard, Reporte interno, Reporte público).
+
+En `shared/js/mapa-puntos.js`:
+
+- `_puntoDentroPoligono(lat, lng, poly)`: punto-en-polígono por ray
+  casting — mismo algoritmo que se usó a mano (en Python) para el
+  análisis del Excel de KoBo esta misma tarde, ahora parte de la
+  plataforma.
+- `_fueraDeZona(dupla, lat, lng, zonas)`: `true`/`false` si la dupla
+  tiene zona de patrullaje propia (`zonasOperativas.porDupla`) y el punto
+  cae fuera de ese polígono; `null` si no hay forma de saberlo (sin
+  zonas, sin dupla reconocida, o dupla "iglesias" sin zona fija — ahí no
+  hay polígono real contra el que comparar, ver §10.1.39/§10.1.42).
+- Cada punto fuera de zona se dibuja con borde negro más grueso (en vez
+  del color de su dupla) y más opaco, y el popup suma
+  "⚠️ Fuera de la zona asignada" como primera línea.
+- Nuevo resumen debajo del mapa (mismo patrón que el aviso de "sin
+  puntos" y la leyenda ya existentes): "⚠️ N de M puntos con zona
+  definida quedaron fuera de la zona asignada a su dupla" (o "✅ los M
+  están dentro" si no hay ninguno fuera) — aclara aparte que no incluye a
+  las duplas "iglesias", sin zona de patrullaje fija.
+
+No hizo falta tocar `dashboard-engine.js` ni `admin-duplas.html` — el
+cálculo vive entero adentro de `renderMapaPuntos()`, que ya recibía
+`zonas` y cada punto con su `dupla` desde §10.1.39-§10.1.43.
+
+Validado con un script de Node aparte que carga `zonasOperativas` real
+desde `config/umbral-0.js` y los 215 puntos reales del análisis anterior
+(§10.1.37, filtrados desde el 14/9): el resultado da exactamente 39 de 97
+puntos fuera de zona, dupla por dupla — A 14/15, B 14/23, D 6/11, E 3/5,
+G 1/1, H 5/5, K 15/37 — **idéntico** al cálculo hecho a mano en Python
+esta misma tarde, y confirma que las duplas "iglesias" (C/F/I/L/M) quedan
+afuera del conteo como corresponde — 14 checks, todos pasaron. También
+`node --check` sobre el archivo. Cache-busting subido a `?v=2026-09-22e`
+en los 3 lugares que cargan `mapa-puntos.js`.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
