@@ -3626,6 +3626,59 @@ script de Node del §10.1.53 extendido a los tres widgets (visibles al
 entrar → los tres ocultos en "Mis derivaciones" → los tres visibles de
 nuevo al volver a buscar) — pasa.
 
+### 10.1.55 Home de la dupla: jornada minimizable + guía de "para revisar" (22/9/2026)
+
+Agustina: "el inicio de las duplas debe poder minimizar su jornada una
+vez enviada. ¿Podés armar un inicio más intuitivo con un dashboard que
+resuma su actividad y lo guíe?".
+
+**Jornada minimizable.** Con la jornada "completa", el bloque de
+detalle (`resumen-dia-box` — casos nuevos, recontactados,
+intervenciones, derivaciones, seguimientos, botón de WhatsApp) se
+armaba siempre desplegado, ocupando bastante lugar en el home apenas se
+cerraba la jornada. Ahora arranca colapsado (`display:none` desde el
+propio template) detrás de un botón "🔽 Ver detalle del día" /
+"🔼 Ocultar detalle del día" (`Casos.toggleResumenDia()`). Al lado del
+título ("✅ Jornada de hoy completa — HH:MM a HH:MM") se agrega un
+resumen mini de una línea (`#jornada-resumen-mini`, ej. "· 4 nuevos, 2
+derivaciones") que se completa solo cuando `_renderResumenDia()`
+termina de calcular — así, aun colapsado, la dupla ve de un vistazo si
+hubo actividad, sin tener que desplegar todo. Interpretación de "una
+vez enviada": colapsado apenas la jornada queda "completa"/cerrada, no
+recién después de tocar el botón de compartir por WhatsApp — no hay
+ningún campo en `jornadas` que registre "ya se mandó el mensaje", y
+agregarlo era más de lo que se pidió; si esto no es lo que Agustina
+quiso decir, es un ajuste chico.
+
+**Guía "📌 Para revisar" (nuevo `acciones-box`).** Home con web de 3
+widgets desconectados (turno, jornada, KoBo pendientes) más ~9 botones
+en el nav — fácil perder de vista que hay trámites de DNI o casos sin
+identificar esperando, con la única señal siendo el numerito en un
+botón del nav. Se agrega una franja de chips clickeables debajo de
+`kobo-pend-box`, mostrando SOLO lo que tiene algo pendiente ("🪪 N
+trámites de DNI pendientes →", "🙈 N casos sin identificar →"), cada
+uno lleva directo a esa vista (`Casos.mostrarDniPendientes()` /
+`Casos.mostrarSinIdentificar()`). KoBo pendientes queda afuera a
+propósito — ya tiene su propio panel bien visible en el home, no hacía
+falta duplicarlo. `renderAccionesPendientes()` reusa los mismos arrays
+que ya calculan `cargarDniPendientesCount()`/`cargarSinIdentificarCount()`
+(no repite ningún fetch) y se llama al final de esas dos funciones, más
+al volver a buscar — mismo patrón de "widget de home" que jornada/turno/
+KoBo pendientes (oculto en las otras 5 vistas, visible solo acá).
+
+Se mantuvieron los botones del nav tal cual — esto es aditivo, no un
+reemplazo; reduce el riesgo de romper algo que ya funciona y no
+depende de que Agustina confirme sacar accesos que la dupla ya
+conoce.
+
+Validado: balance de `<div>`/`<button>` de `casos.html` (288/288,
+75/75), `node --check` sobre sus 2 bloques `<script>` no vacíos, y un
+script de Node aparte con dos partes — (1) `toggleResumenDia()`:
+arranca colapsado → se expande → vuelve a colapsar, con el texto del
+botón cambiando en cada paso; (2) `renderAccionesPendientes()`: sin
+pendientes la caja queda oculta, con 2 trámites de DNI pendientes se
+muestra — las 7 verificaciones pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 

@@ -58,6 +58,15 @@
   .kobo-pend-txt strong { font-family:'Sora',sans-serif; color:var(--navy); }
   .kobo-pend-txt .meta { font-size:0.74rem; color:#64748b; }
 
+  /* ACCIONES PENDIENTES — guía rápida de "qué hacer ahora" en el home de
+     la dupla (§10.1.55): trámites de DNI y casos sin identificar, que
+     antes solo se notaban leyendo el numerito en un botón del nav. */
+  .acciones-pend { max-width:860px; margin:12px auto 0; padding:0 18px; }
+  .acciones-pend-head { font-size:0.72rem; color:#64748b; font-weight:700; font-family:'Sora',sans-serif; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.6px; }
+  .acciones-pend-chips { display:flex; gap:8px; flex-wrap:wrap; }
+  .acciones-chip { background:white; border:1.5px solid var(--border); border-radius:20px; padding:8px 14px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; color:var(--navy); cursor:pointer; }
+  .acciones-chip:hover { border-color:var(--blue); color:var(--blue); }
+
   /* LOGIN (igual patrón que admin-duplas.html) */
   #login-screen { max-width:380px; margin:60px auto; padding:0 18px; }
   .login-card { background:white; border-radius:16px; padding:28px 24px; border:1px solid var(--border); box-shadow:0 4px 18px rgba(15,31,61,0.08); }
@@ -356,6 +365,10 @@
   <!-- KOBO PENDIENTES — envíos de KoBo del equipo (propio) con DNI que
        todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
   <div id="kobo-pend-box" style="display:none;"></div>
+
+  <!-- ACCIONES PENDIENTES (§10.1.55) — trámites de DNI y casos sin
+       identificar, como chips de acceso directo — ver renderAccionesPendientes(). -->
+  <div id="acciones-box" style="display:none;"></div>
 
   <div class="wrap">
 
@@ -1476,9 +1489,16 @@ function mostrarJornada(){
   let estado, html;
   if(jornadaHoy && jornadaHoy.fin){
     estado = 'completa';
-    html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}</div>
+    // Minimizado por default (§10.1.55, pedido de Agustina: "debe poder
+    // minimizar su jornada una vez enviada") — el detalle completo
+    // (casos, intervenciones, derivaciones, botón de WhatsApp) ocupaba
+    // mucho lugar en el home apenas se cerraba la jornada. Ahora arranca
+    // colapsado detrás de un toggle; el resumen mini de al lado del
+    // título se llena solo cuando termina de calcularse (ver _renderResumenDia()).
+    html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}<span id="jornada-resumen-mini" style="color:#64748b;"></span></div>
       ${jornadaHoy.observaciones ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>💬 Observaciones del día:</b><br>${esc(jornadaHoy.observaciones)}</div>` : ''}
-      <div id="resumen-dia-box"></div>
+      <button class="btn btn-outline btn-sm" id="btn-toggle-resumen-dia" style="margin-top:8px;" onclick="Casos.toggleResumenDia()">🔽 Ver detalle del día</button>
+      <div id="resumen-dia-box" style="display:none;"></div>
       <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="reabrirJornada()">↩️ Reabrir jornada</button>`;
   } else if(jornadaHoy && jornadaHoy.inicio){
     estado = 'en-curso';
@@ -2124,6 +2144,7 @@ async function cargarDniPendientesCount(){
     const link = document.getElementById('link-dni-pendientes');
     if(link) link.textContent = `🪪 Trámites de DNI pendientes${dniPendientesActuales.length ? ' (' + dniPendientesActuales.length + ')' : ''}`;
     if(document.getElementById('view-dni-pendientes').style.display !== 'none') Casos._renderDniPendientes();
+    renderAccionesPendientes();
   }catch(e){
     console.error('No se pudieron traer los trámites de DNI pendientes', e);
   }
@@ -2152,9 +2173,47 @@ async function cargarSinIdentificarCount(){
     const link = document.getElementById('link-sin-identificar');
     if(link) link.textContent = `🙈 Casos sin identificar${sinIdentificarActuales.length ? ' (' + sinIdentificarActuales.length + ')' : ''}`;
     if(document.getElementById('view-sin-identificar').style.display !== 'none') Casos._renderSinIdentificar();
+    renderAccionesPendientes();
   }catch(e){
     console.error('No se pudieron traer los casos sin identificar', e);
   }
+}
+
+// "Para revisar" (§10.1.55, pedido de Agustina: "un inicio más intuitivo
+// con un dashboard que resuma su actividad y la guíe") — chips de acceso
+// directo a lo que necesita atención, en vez de que la dupla tenga que
+// notar el numerito en un botón del nav (fácil de pasar por alto con
+// tantos botones ahí arriba). Reusa los mismos arrays que ya calculan
+// cargarDniPendientesCount()/cargarSinIdentificarCount() — no repite
+// ningún fetch, solo repinta. KoBo pendientes queda afuera a propósito:
+// ese ya tiene su propio panel bien visible en el home (kobo-pend-box),
+// no hace falta duplicarlo acá.
+function renderAccionesPendientes(){
+  const box = document.getElementById('acciones-box');
+  if(!box || !miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
+  const items = [];
+  if(dniPendientesActuales.length) items.push({
+    n: dniPendientesActuales.length,
+    label: dniPendientesActuales.length === 1 ? 'trámite de DNI pendiente' : 'trámites de DNI pendientes',
+    emoji: '🪪',
+    onclick: "Casos.mostrarDniPendientes()",
+  });
+  if(sinIdentificarActuales.length) items.push({
+    n: sinIdentificarActuales.length,
+    label: sinIdentificarActuales.length === 1 ? 'caso sin identificar' : 'casos sin identificar',
+    emoji: '🙈',
+    onclick: "Casos.mostrarSinIdentificar()",
+  });
+  if(!items.length){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="acciones-pend">
+      <div class="acciones-pend-head">📌 Para revisar</div>
+      <div class="acciones-pend-chips">
+        ${items.map(it => `<button class="acciones-chip" onclick="${it.onclick}">${it.emoji} ${it.n} ${esc(it.label)} →</button>`).join('')}
+      </div>
+    </div>
+  `;
 }
 
 // ── UTILIDADES ──────────────────────────────────────────────────────────
@@ -2397,13 +2456,14 @@ const Casos = {
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-cierres-jornada').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
-    // Los tres widgets de "home" (turno, jornada, KoBo pendientes) se
-    // ocultan al entrar a cualquier otra vista — mismo bug, mismo patrón
-    // de arreglo, ver §10.1.53/§10.1.54 en DISENO-CASOS.md. Solo aparecen
-    // acá, al volver a la búsqueda.
+    // Los widgets de "home" (turno, jornada, KoBo pendientes, acciones
+    // pendientes) se ocultan al entrar a cualquier otra vista — mismo
+    // patrón de arreglo, ver §10.1.53/§10.1.54/§10.1.55 en DISENO-CASOS.md.
+    // Solo aparecen acá, al volver a la búsqueda.
     mostrarMiTurno();
     mostrarJornada();
     mostrarKoboPendientes();
+    renderAccionesPendientes();
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
   },
@@ -2412,6 +2472,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
@@ -2430,6 +2491,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -2457,6 +2519,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -2535,6 +2598,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -2635,6 +2699,20 @@ const Casos = {
       </div>
       <button class="btn btn-green btn-sm" style="margin-top:8px;" onclick="Casos.abrirModalMensajeCierre()">📱 Armar mensaje de WhatsApp</button>
     `;
+    // El span solo existe dentro del template de jornada-box (§10.1.55) —
+    // getElementById devuelve null si por lo que sea no está montado
+    // todavía, de ahí el guard.
+    const mini = document.getElementById('jornada-resumen-mini');
+    if(mini) mini.textContent = ` · ${r.casosNuevos.length} nuevo${r.casosNuevos.length===1?'':'s'}, ${r.totalDerivaciones} derivaci${r.totalDerivaciones===1?'ón':'ones'}`;
+  },
+
+  toggleResumenDia(){
+    const box = document.getElementById('resumen-dia-box');
+    const btn = document.getElementById('btn-toggle-resumen-dia');
+    if(!box) return;
+    const abierto = box.style.display !== 'none';
+    box.style.display = abierto ? 'none' : 'block';
+    if(btn) btn.textContent = abierto ? '🔽 Ver detalle del día' : '🔼 Ocultar detalle del día';
   },
 
   abrirModalMensajeCierre(){
@@ -3201,6 +3279,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
