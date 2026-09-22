@@ -447,15 +447,25 @@
       <div id="sin-identificar-list"></div>
     </div>
 
-    <!-- VISTA: MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) -->
+    <!-- VISTA: MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) — dos pestañas,
+         una sola visible a la vez (§10.1.53: "si quiero ver mis
+         derivaciones que me muestre eso, no [también] los seguimientos"). -->
     <div id="view-mi-actividad" style="display:none;">
       <button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="Casos.volverABuscar()">← Volver a la búsqueda</button>
-      <div class="section-label">📨 Mis derivaciones</div>
-      <div class="section-hint">Todas las derivaciones pedidas por mi dupla, cualquier tipo o estado — tocá una para ir al caso.</div>
-      <div id="mis-derivaciones-list"></div>
-      <div class="section-label" style="margin-top:22px;">📝 Mis seguimientos</div>
-      <div class="section-hint">Todos los seguimientos que cargó mi dupla — tocá uno para ir al caso.</div>
-      <div id="mis-seguimientos-list"></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="btn btn-sm" id="tab-mia-derivaciones" onclick="Casos.mostrarTabMiActividad('derivaciones')">📨 Derivaciones</button>
+        <button class="btn btn-outline btn-sm" id="tab-mia-seguimientos" onclick="Casos.mostrarTabMiActividad('seguimientos')">📝 Seguimientos</button>
+      </div>
+      <div id="mia-tab-derivaciones">
+        <div class="section-label">📨 Mis derivaciones</div>
+        <div class="section-hint">Todas las derivaciones pedidas por mi dupla, cualquier tipo o estado — tocá una para ir al caso.</div>
+        <div id="mis-derivaciones-list"></div>
+      </div>
+      <div id="mia-tab-seguimientos" style="display:none;">
+        <div class="section-label">📝 Mis seguimientos</div>
+        <div class="section-hint">Todos los seguimientos que cargó mi dupla — tocá uno para ir al caso.</div>
+        <div id="mis-seguimientos-list"></div>
+      </div>
     </div>
 
     <!-- VISTA: CIERRES DE JORNADA (§10.1.35) -->
@@ -2130,8 +2140,12 @@ async function cargarDniPendientesCount(){
 async function cargarSinIdentificarCount(){
   try{
     const client = await SupabaseClient.getClient();
+    // `personas_actividad` ya filtra oculto=false server-side (ver
+    // schema-ajustes.sql) y no expone esa columna — filtrarla acá de
+    // nuevo tiraba un 400 de PostgREST ("column oculto does not exist")
+    // y esto nunca cargaba (bug real, 22/9/2026).
     const { data, error } = await client.from('personas_actividad').select('*')
-      .eq('sin_identificar', true).eq('oculto', false)
+      .eq('sin_identificar', true)
       .order('ultima_actividad', { ascending: true });
     if(error) throw error;
     sinIdentificarActuales = data || [];
@@ -2383,11 +2397,13 @@ const Casos = {
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-cierres-jornada').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
+    mostrarJornada(); // se ocultó al entrar a alguna de las otras vistas — solo aparece en la búsqueda/home
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
   },
 
   mostrarDniPendientes(){
+    document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
@@ -2403,6 +2419,7 @@ const Casos = {
   // scopea `personas_actividad` a la propia dupla para cuentas dupla,
   // igual que el resto de la búsqueda.
   mostrarSinIdentificar(){
+    document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -2427,12 +2444,14 @@ const Casos = {
   // criterio que §10.1.22/§10.1.23) — no hace falta filtrar por dupla_id
   // a mano acá.
   async mostrarMiActividad(){
+    document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
     document.getElementById('view-cierres-jornada').style.display = 'none';
     document.getElementById('view-mi-actividad').style.display = 'block';
+    Casos.mostrarTabMiActividad('derivaciones');
     const boxDeriv = document.getElementById('mis-derivaciones-list');
     const boxSegu = document.getElementById('mis-seguimientos-list');
     boxDeriv.innerHTML = '<div class="empty-msg">Cargando…</div>';
@@ -2485,6 +2504,14 @@ const Casos = {
     }
   },
 
+  mostrarTabMiActividad(tab){
+    const esDeriv = tab === 'derivaciones';
+    document.getElementById('mia-tab-derivaciones').style.display = esDeriv ? 'block' : 'none';
+    document.getElementById('mia-tab-seguimientos').style.display = esDeriv ? 'none' : 'block';
+    document.getElementById('tab-mia-derivaciones').className = 'btn btn-sm' + (esDeriv ? '' : ' btn-outline');
+    document.getElementById('tab-mia-seguimientos').className = 'btn btn-sm' + (esDeriv ? ' btn-outline' : '');
+  },
+
   // ── CIERRES DE JORNADA (§10.1.35) ───────────────────────────────────────
   // Pedido de Agustina: "marcan el fin de la jornada pero si se olvidan
   // después no lo pueden mandar" — el mensaje de WhatsApp del cierre solo
@@ -2493,6 +2520,7 @@ const Casos = {
   // Acá se lista cualquier jornada ya cerrada (fin cargado) de mi dupla,
   // para armar/copiar/compartir ese mensaje en cualquier momento.
   async mostrarCierresJornada(){
+    document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -3156,6 +3184,7 @@ const Casos = {
     seguimientosActuales = segu.data || [];
     koboEventosActuales = []; // se completa aparte, no bloquea abrir la ficha (ver abajo)
 
+    document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';

@@ -3545,6 +3545,62 @@ NO deben matchear, operador vacío, y una variante sin acento) — los 7
 pasan. `node --check` sobre los `<script>` de `casos.html`,
 `admin-duplas.html` y `dashboard-engine.js` completo, sin errores.
 
+### 10.1.53 Bug: "Jornada de hoy" quedaba visible detrás de cualquier otra vista de Casos (22/9/2026)
+
+Agustina, con captura de "Dupla D" en `casos.html`: al tocar "🪪 Trámites
+de DNI pendientes" o "📋 Mis derivaciones y seguimientos", seguía viendo
+"Jornada de hoy completa" + "Observaciones del día" + "Casos nuevos"
+debajo — "solamente de cada dupla pero solo lo que se le pide al menú,
+si quiero ver mis derivaciones que me muestre eso, no la jornada de hoy
++ los sin identificar".
+
+Causa: el panel `<div id="jornada-box">` vive FUERA de las vistas que sí
+se alternan entre sí (`view-buscar`, `view-ficha`, `view-dni-pendientes`,
+`view-sin-identificar`, `view-mi-actividad`, `view-cierres-jornada` —
+esas sí se ocultan unas a otras en cada función `mostrar*()`). `jornada-
+box` se pinta una sola vez en `entrarAlApp()` (vía `mostrarJornada()`) y
+después ninguna de las funciones que cambian de vista lo tocaba —
+quedaba con `display:block` fijo sin importar qué vista estuviera activa.
+
+Arreglado agregando `jornada-box.style.display = 'none'` a las 5
+funciones que abren una vista que no es la búsqueda/home
+(`mostrarDniPendientes`, `mostrarSinIdentificar`, `mostrarMiActividad`,
+`mostrarCierresJornada`, `abrirFicha`), y volviendo a llamar
+`mostrarJornada()` (que ya trae su propio guard de rol) en
+`volverABuscar()` para que reaparezca solo ahí.
+
+De paso, en el mismo pedido ("si quiero ver mis derivaciones que me
+muestre eso"): "📋 Mis derivaciones y seguimientos" mostraba las dos
+listas (derivaciones + seguimientos) apiladas siempre juntas en la misma
+pantalla. Se separó en dos pestañas dentro de la misma vista
+(`mia-tab-derivaciones` / `mia-tab-seguimientos`, toggleadas con
+`Casos.mostrarTabMiActividad()`), arrancando siempre en "Derivaciones" —
+un solo botón de menú (sin agregar más al nav, ya bastante cargado),
+pero cada pestaña muestra solo lo suyo.
+
+Sobre el scoping por dupla que también menciona el pedido ("solamente
+de cada dupla"): confirmado en Supabase (`pg_policies`) que ya está bien
+— el RLS de `derivaciones`/`seguimientos`/`personas` para rol `dupla`
+filtra por `solicitado_por`/`dupla_id` = la dupla logueada. No hacía
+falta tocar nada ahí; el problema era 100% el panel de jornada
+filtrándose visualmente entre vistas, no una fuga de datos entre duplas.
+
+Bug aparte, encontrado en la misma captura (consola con "Failed to load
+resource: 400" + "No se pudieron traer los casos sin identificar"):
+`cargarSinIdentificarCount()` filtraba `.eq('oculto', false)` sobre la
+vista `personas_actividad`, pero esa vista (desde la migración
+"personas_actividad: filtra oculto", 17/9/2026, `schema-ajustes.sql`)
+ya filtra `oculto` DENTRO de su propio `WHERE` y no expone esa columna
+en el resultado — filtrarla de nuevo desde el cliente le pedía a
+PostgREST una columna que no existe, 400 en cada carga, "Casos sin
+identificar" nunca mostraba nada real. Sacado el `.eq('oculto', false)`
+redundante e inválido.
+
+Validado: balance de `<div>`/`<button>` de `casos.html` (284/284, 73/73),
+`node --check` sobre sus 2 bloques `<script>` no vacíos, y un script de
+Node aparte simulando el DOM mínimo (jornada visible al entrar → oculta
+al abrir "DNI pendientes" → visible de nuevo al volver a buscar) — pasa.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
