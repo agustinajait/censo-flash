@@ -3344,6 +3344,45 @@ duplas de comedores confirma que `coberturaCount > 0` aunque
 escenario — 6 checks, todos pasaron. También `node --check` sobre el
 archivo. Cache-busting subido a `?v=2026-09-22g`.
 
+### 10.1.49 El texto de §10.1.48 era ilegible — vuelta a una frase corta (22/9/2026)
+
+Agustina, con captura del resumen de §10.1.48 ("Los 227 puntos con dupla
+reconocida cuentan como cobertura propia. De esos, 48 de 125 [...] Los
+puntos de las duplas de comedores [...] no hay un polígono de manzanas
+para chequearlos geométricamente"): "no se entiende esto y no es
+necesario, solo digo que las iglesias son zona nuestra tb". Explicar la
+lógica interna del cálculo (cobertura propia vs. polígono de patrullaje
+vs. chequeo geométrico) en la pantalla fue sobre-ingeniería de la
+redacción — el pedido real, de nuevo, era mucho más chico: una sola
+aclaración de que las iglesias también son zona del equipo, no una
+justificación completa de por qué el cálculo las trata distinto.
+
+Vuelta a un texto de una sola frase corta con el número que importa, más
+una aclaración de una línea (sin explicar el motivo) si hay duplas de
+iglesias en el rango:
+
+- Con puntos fuera de zona: "⚠️ **N de M** puntos quedaron fuera de la
+  zona asignada a su dupla."
+- Sin ninguno fuera: "✅ Los M puntos están dentro de la zona asignada a
+  su dupla."
+- Si no hay ningún punto con polígono (solo iglesias): "✅ Los N puntos
+  están dentro de zona." (usa `coberturaCount` en vez de `conZonaCount`,
+  que ahí sería 0).
+- Y al final, solo si hay alguna dupla de iglesias en el rango: "Las
+  iglesias también son zona nuestra."
+
+La explicación de por qué el cálculo funciona así (polígono vs. comedor
+puntual, qué es `coberturaCount` vs. `conZonaCount`) se queda en los
+comentarios del código, para quien lo edite — no en la pantalla, que es
+para operar, no para entender la implementación.
+
+Validado con un script de Node aparte probando `armarTexto()` extraída en
+4 escenarios (con puntos fuera + iglesias, todos dentro, solo iglesias,
+sin iglesias en el rango) — 5 checks, todos pasaron, incluyendo que la
+frase de iglesias NO aparece cuando no hay ninguna dupla de iglesias en
+el rango filtrado. También `node --check` sobre el archivo. Cache-busting
+subido a `?v=2026-09-22h`.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
