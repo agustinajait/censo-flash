@@ -43,10 +43,11 @@ const _mapaPuntosInstancias = {}; // containerId -> { map, capa, capaZonas, zona
 // delimitado, así podemos comparar si estamos en zona o no" — zonas viene
 // de config/umbral-0.js (PROJECT_CONFIG_UMBRAL_0.zonasOperativas),
 // extraídas del KML del My Maps real del equipo.
-// Color real de la dupla según zonasOperativas — el de su propia zona de
-// patrullaje, o si es una dupla "iglesias" (sin zona fija), el de su
-// comedor de referencia. null si no hay zonas cargadas o la dupla no
-// matchea ninguna (queda el celeste genérico de siempre).
+// Color real de la dupla según zonasOperativas — el de su propio polígono
+// de patrullaje, o si es una dupla "iglesias" (su zona asignada es un
+// comedor puntual, no un polígono), el de ese comedor de referencia. null
+// si no hay zonas cargadas o la dupla no matchea ninguna (queda el
+// celeste genérico de siempre).
 function _colorDupla(dupla, zonas){
   if(!zonas || !dupla) return null;
   if(zonas.porDupla && zonas.porDupla[dupla]) return zonas.porDupla[dupla].color || null;
@@ -70,10 +71,12 @@ function _puntoDentroPoligono(lat, lng, poly){
   return dentro;
 }
 
-// true/false si la dupla tiene zona de patrullaje propia (porDupla) y el
-// punto cae fuera de ese polígono; null si no hay forma de saberlo (sin
-// zonas, sin dupla reconocida, o dupla "iglesias" sin zona fija — ahí no
-// hay un polígono real contra el que comparar, ver §10.1.39).
+// true/false si la dupla tiene un POLÍGONO de patrullaje propio
+// (porDupla) y el punto cae fuera de ese polígono; null si no hay forma
+// de saberlo (sin zonas, sin dupla reconocida, o dupla "iglesias" — esas
+// sí tienen zona asignada, pero es una dirección puntual, no un polígono
+// de manzanas contra el que tenga sentido comparar un punto GPS, ver
+// §10.1.39/§10.1.46).
 function _fueraDeZona(dupla, lat, lng, zonas){
   if(!zonas || !dupla || !zonas.porDupla || !zonas.porDupla[dupla]) return null;
   const poly = zonas.porDupla[dupla].poly;
@@ -229,11 +232,19 @@ async function renderMapaPuntos(containerId, puntos, zonas){
       resumen.style.cssText = 'margin-top:10px;font-size:0.8rem;';
       cont.insertAdjacentElement('afterend', resumen);
     }
-    const sinZona = duplasVistas.size - [...duplasVistas.values()].filter(v => !v.esIglesia).length > 0
-      ? ' (no incluye a las duplas "iglesias", sin zona de patrullaje fija contra la que comparar)' : '';
+    // Ojo con la redacción acá (corregido 22/9/2026, Agustina: "las
+    // iglesias marcadas en el mapa son zonas nuestras eh") — las duplas
+    // "iglesias" SÍ tienen zona asignada (el comedor puntual), lo que NO
+    // tienen es un polígono de manzanas contra el que comparar un punto
+    // GPS con sentido (comparar "¿cayó adentro del edificio?" no dice
+    // nada de si el operador estaba haciendo bien su recorrido). "Sin
+    // zona" acá se refiere estrictamente a "sin polígono de patrullaje",
+    // nunca a "sin zona asignada" a secas.
+    const conComedor = duplasVistas.size - [...duplasVistas.values()].filter(v => !v.esIglesia).length > 0
+      ? ' (no incluye a las duplas de comedores — C, F, I, L, M —, que sí tienen zona asignada, pero es una dirección puntual, no un polígono de manzanas comparable de la misma forma)' : '';
     resumen.innerHTML = fueraDeZonaCount > 0
-      ? `⚠️ <b style="color:#b91c1c;">${fueraDeZonaCount} de ${conZonaCount}</b> puntos con zona definida quedaron <b>fuera</b> de la zona asignada a su dupla${sinZona}.`
-      : `✅ Los ${conZonaCount} puntos con zona definida están dentro de la zona asignada a su dupla${sinZona}.`;
+      ? `⚠️ <b style="color:#b91c1c;">${fueraDeZonaCount} de ${conZonaCount}</b> puntos con polígono de patrullaje quedaron <b>fuera</b> de la zona asignada a su dupla${conComedor}.`
+      : `✅ Los ${conZonaCount} puntos con polígono de patrullaje están dentro de la zona asignada a su dupla${conComedor}.`;
   } else if(resumen){
     resumen.remove();
   }

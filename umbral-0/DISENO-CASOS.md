@@ -3281,6 +3281,32 @@ afuera del conteo como corresponde — 14 checks, todos pasaron. También
 `node --check` sobre el archivo. Cache-busting subido a `?v=2026-09-22e`
 en los 3 lugares que cargan `mapa-puntos.js`.
 
+### 10.1.47 Corrección de redacción: "sin zona" no es "sin zona asignada" (22/9/2026)
+
+Agustina, sobre §10.1.46: "cuando decís 'fuera de zona' a qué te referís?
+las iglesias marcadas en el mapa son zonas nuestras eh" — la redacción
+del resumen y de los comentarios del código decía "duplas 'iglesias', sin
+zona de patrullaje fija" o "sin zona fija", lo cual se puede leer como
+"esas duplas no tienen zona asignada", y ESO ES FALSO — las duplas de
+comedores (C/F/I/L/M) sí tienen zona asignada, es una dirección puntual
+(el comedor), no un polígono de manzanas. Lo que no existe es un polígono
+contra el que comparar un punto GPS con sentido — comparar "¿cayó exacto
+adentro del edificio del comedor?" no dice nada sobre si el operador hizo
+bien su recorrido alrededor.
+
+Corregido en `shared/js/mapa-puntos.js`: el resumen debajo del mapa ahora
+dice "puntos con **polígono de patrullaje**" (en vez de "con zona
+definida" a secas) y la aclaración entre paréntesis pasa a "no incluye a
+las duplas de comedores — C, F, I, L, M —, que sí tienen zona asignada,
+pero es una dirección puntual, no un polígono de manzanas comparable de
+la misma forma". Mismo ajuste en los comentarios internos de
+`_colorDupla()` y `_fueraDeZona()`, para que quien lea el código no
+repita la misma confusión.
+
+Cache-busting subido a `?v=2026-09-22f` en los 3 lugares que cargan
+`mapa-puntos.js`. Validado: `node --check` sobre el archivo — solo cambió
+texto/comentarios, ningún cálculo.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
