@@ -3307,6 +3307,43 @@ Cache-busting subido a `?v=2026-09-22f` en los 3 lugares que cargan
 `mapa-puntos.js`. Validado: `node --check` sobre el archivo — solo cambió
 texto/comentarios, ningún cálculo.
 
+### 10.1.48 Puntos de comedores contados explícitamente como cobertura propia (22/9/2026)
+
+Continuación directa de §10.1.47: Agustina, ya aclarado que las duplas de
+comedores sí tienen zona asignada, preguntó "pero contabiliza los casos
+esos como dentro de nuestra zona de cobertura, sí?" — antes, esos puntos
+quedaban simplemente AFUERA de `conZonaCount`/`fueraDeZonaCount` (ni a
+favor ni en contra, solo excluidos del chequeo geométrico) — correcto en
+el cálculo, pero mudo en el resumen: nunca decía explícitamente "estos
+también cuentan". Si una vista tenía SOLO puntos de duplas de comedores
+(sin ningún punto de zona-polígono en el rango), el resumen ni siquiera
+aparecía (`conZonaCount` daba 0).
+
+Cambios en `shared/js/mapa-puntos.js`:
+
+- Nuevo contador `coberturaCount`: cuenta TODOS los puntos con dupla
+  reconocida (con polígono de patrullaje O con comedor de referencia) —
+  a diferencia de `conZonaCount`, que sigue siendo solo los puntos
+  chequeables geométricamente contra un polígono.
+- El resumen ahora arranca siempre con una frase incondicional: "✅ Los N
+  puntos con dupla reconocida cuentan como cobertura propia." — sin
+  ninguna excepción silenciosa. Recién después, si hay puntos con
+  polígono, se suma el detalle de cuántos de esos quedaron fuera; y si
+  hay duplas de comedores, se aclara que esos se cuentan siempre dentro
+  de su zona de cobertura (el comedor asignado).
+- La condición para mostrar el resumen pasó de `conZonaCount > 0` a
+  `coberturaCount > 0` — así aparece también cuando en el rango filtrado
+  solo hay puntos de duplas de comedores.
+
+Validado con un script de Node aparte (misma base que §10.1.46, los 215
+puntos reales + `zonasOperativas` real): `coberturaCount` da 215 (el
+total), `conZonaCount` sigue dando 97 y `fueraDeZonaCount` sigue dando 39
+(la geometría no cambió) — y un caso aparte filtrando solo los puntos de
+duplas de comedores confirma que `coberturaCount > 0` aunque
+`conZonaCount` sea 0, es decir, el resumen ya no queda oculto en ese
+escenario — 6 checks, todos pasaron. También `node --check` sobre el
+archivo. Cache-busting subido a `?v=2026-09-22g`.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

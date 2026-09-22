@@ -163,7 +163,14 @@ async function renderMapaPuntos(containerId, puntos, zonas){
   const validos = (puntos||[]).filter(p => p.lat != null && p.lng != null);
   const bounds = [];
   const duplasVistas = new Map(); // codigo -> { color, esIglesia }, para la leyenda
-  let conZonaCount = 0, fueraDeZonaCount = 0; // §10.1.46, para el resumen debajo del mapa
+  // §10.1.48, pedido de Agustina: "pero contabiliza los casos esos como
+  // dentro de nuestra zona de cobertura, sí?" — sobre los puntos de las
+  // duplas de comedores (C/F/I/L/M). Antes quedaban afuera de
+  // conZonaCount/fueraDeZonaCount en silencio (ni a favor ni en contra);
+  // ahora se cuentan EXPLÍCITAMENTE como cobertura propia en
+  // coberturaCount — es su zona asignada (el comedor), solo que no hay un
+  // polígono de manzanas para chequearlos geométricamente como al resto.
+  let conZonaCount = 0, fueraDeZonaCount = 0, coberturaCount = 0; // para el resumen debajo del mapa
   validos.forEach(p => {
     const fechaTxt = p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '';
     const tipoTxt = p.tipo ? _escMapa(p.tipo) : '';
@@ -176,11 +183,13 @@ async function renderMapaPuntos(containerId, puntos, zonas){
     // no se confundan con una dupla de zona fija sin más info.
     const esIglesia = !!(colorDupla && zonas && p.dupla && !(zonas.porDupla && zonas.porDupla[p.dupla]));
     if(colorDupla && p.dupla) duplasVistas.set(p.dupla, { color: colorDupla, esIglesia });
+    if(colorDupla && p.dupla) coberturaCount++; // cualquier dupla reconocida (con polígono o con comedor) cuenta como cobertura propia
     // "Fuera de zona" (§10.1.46, pedido de Agustina: "necesito calcular
     // los puntos que se registraron fuera del territorio que tienen
     // marcadas las duplas") — punto-en-polígono contra la zona de SU
-    // propia dupla. null para duplas "iglesias" (sin polígono real) — no
-    // se cuentan ni a favor ni en contra, se aclara aparte en el resumen.
+    // propia dupla. null para duplas "iglesias" (sin polígono real de
+    // manzanas) — no participan de este chequeo geométrico puntual, pero
+    // SÍ están contadas en coberturaCount de arriba.
     const fuera = _fueraDeZona(p.dupla, p.lat, p.lng, zonas);
     if(fuera !== null){ conZonaCount++; if(fuera) fueraDeZonaCount++; }
     const marker = L.circleMarker([p.lat, p.lng], {
@@ -225,7 +234,7 @@ async function renderMapaPuntos(containerId, puntos, zonas){
   // colores, como el dato más importante de esta comparación.
   const resumenId = containerId + '-resumen-zona';
   let resumen = document.getElementById(resumenId);
-  if(conZonaCount > 0){
+  if(coberturaCount > 0){
     if(!resumen){
       resumen = document.createElement('div');
       resumen.id = resumenId;
@@ -233,18 +242,28 @@ async function renderMapaPuntos(containerId, puntos, zonas){
       cont.insertAdjacentElement('afterend', resumen);
     }
     // Ojo con la redacción acá (corregido 22/9/2026, Agustina: "las
-    // iglesias marcadas en el mapa son zonas nuestras eh") — las duplas
-    // "iglesias" SÍ tienen zona asignada (el comedor puntual), lo que NO
+    // iglesias marcadas en el mapa son zonas nuestras eh" / "pero
+    // contabiliza los casos esos como dentro de nuestra zona de
+    // cobertura, sí?") — las duplas "iglesias" SÍ tienen zona asignada
+    // (el comedor puntual) y SÍ cuentan como cobertura propia; lo que NO
     // tienen es un polígono de manzanas contra el que comparar un punto
-    // GPS con sentido (comparar "¿cayó adentro del edificio?" no dice
-    // nada de si el operador estaba haciendo bien su recorrido). "Sin
-    // zona" acá se refiere estrictamente a "sin polígono de patrullaje",
-    // nunca a "sin zona asignada" a secas.
-    const conComedor = duplasVistas.size - [...duplasVistas.values()].filter(v => !v.esIglesia).length > 0
-      ? ' (no incluye a las duplas de comedores — C, F, I, L, M —, que sí tienen zona asignada, pero es una dirección puntual, no un polígono de manzanas comparable de la misma forma)' : '';
-    resumen.innerHTML = fueraDeZonaCount > 0
-      ? `⚠️ <b style="color:#b91c1c;">${fueraDeZonaCount} de ${conZonaCount}</b> puntos con polígono de patrullaje quedaron <b>fuera</b> de la zona asignada a su dupla${conComedor}.`
-      : `✅ Los ${conZonaCount} puntos con polígono de patrullaje están dentro de la zona asignada a su dupla${conComedor}.`;
+    // GPS con sentido geométrico (comparar "¿cayó adentro del edificio?"
+    // no dice nada de si el operador hizo bien su recorrido alrededor).
+    // Primera frase, siempre: confirma que TODOS los puntos con dupla
+    // reconocida cuentan como cobertura — sin ninguna condición ni
+    // exclusión silenciosa. Recién después se aclara el detalle geométrico
+    // de la subzona con polígono.
+    let texto = `✅ Los <b>${coberturaCount}</b> puntos con dupla reconocida cuentan como cobertura propia.`;
+    if(conZonaCount > 0){
+      texto += fueraDeZonaCount > 0
+        ? ` De esos, <b style="color:#b91c1c;">${fueraDeZonaCount} de ${conZonaCount}</b> (los que tienen un polígono de patrullaje asignado) quedaron ⚠️ fuera de ese polígono.`
+        : ` Los ${conZonaCount} que tienen un polígono de patrullaje asignado están dentro de esa zona.`;
+    }
+    const hayComedores = duplasVistas.size > [...duplasVistas.values()].filter(v => !v.esIglesia).length;
+    if(hayComedores){
+      texto += ' Los puntos de las duplas de comedores (C, F, I, L, M) se cuentan siempre dentro de su zona de cobertura — es la dirección del comedor asignado, no hay un polígono de manzanas para chequearlos geométricamente.';
+    }
+    resumen.innerHTML = texto;
   } else if(resumen){
     resumen.remove();
   }
