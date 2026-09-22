@@ -3079,6 +3079,88 @@ entradas para una dupla con varios puntos — 7 checks, todos pasaron.
 También `node --check` sobre los 2 archivos tocados. No se pudo probar
 visualmente en un navegador real (sin acceso de red desde este entorno).
 
+### 10.1.41 Colores amarillos de Chacarita, más oscuros (22/9/2026)
+
+Pedido de Agustina, viendo el mapa con los colores de §10.1.40: "y la
+zona de contorno amarillo no se ve bien, oscurecela un poco". Las dos
+duplas de Chacarita (D y H) tenían colores amarillo claro en el My Maps
+original (`#F0C52E` y `#F0D56E`), poco visibles como línea fina sobre el
+fondo claro de OpenStreetMap. Se oscurecieron manteniendo el mismo tono
+(HSL, luminosidad al 62% de la original): D → `#A5830C`, H → `#C5A014`
+(dorado/mostaza oscuro en vez de amarillo pálido).
+
+Como el color de `zonasOperativas.porDupla` se reusa para el polígono, los
+puntos de esa dupla y la leyenda (§10.1.40), el cambio se ve reflejado en
+los tres lugares con una sola edición.
+
+Validado: `node --check` sobre `config/umbral-0.js`, y confirmación de que
+los dos colores nuevos quedaron cargados leyendo `ZONAS_OPERATIVAS_UMBRAL_0`
+desde el archivo.
+
+### 10.1.42 Marcar las duplas "iglesias" en el popup y la leyenda del mapa (22/9/2026)
+
+Pedido de Agustina, mismo hilo: "y aclara que está la zona de las
+iglesias". Las duplas C/F/I/L/M no patrullan un polígono fijo — visitan
+un comedor/institución en un horario fijo (ver `zonasOperativas.comedores`
+en config/umbral-0.js, §10.1.39) — y hasta ahora, en el popup de un punto
+o en la leyenda, se veían igual que cualquier otra dupla ("Dupla C"),
+sin ninguna marca de que su lógica de zona es distinta.
+
+En `shared/js/mapa-puntos.js`: al armar cada punto, se calcula si la
+dupla es "iglesia" (tiene color por `zonasOperativas.comedores`, no por
+`zonasOperativas.porDupla`) — si lo es, el popup del punto y la entrada
+de la leyenda suman "(iglesias)" al lado del código de dupla. El tooltip
+de los polígonos de comedor (§10.1.39) ya decía "(comedor de referencia)"
+al pasar el mouse — esto suma la misma aclaración en los dos lugares que
+son visibles sin necesidad de pasar el mouse por un polígono puntual.
+
+Validado con un script de Node aparte: dupla con zona propia (A) no se
+marca como iglesia, dupla con comedor de referencia (C) sí se marca,
+dupla sin color asignado no se marca (evita falsos positivos) — 3 checks,
+todos pasaron. `node --check` sobre el archivo tocado.
+
+### 10.1.43 El mismo mapa (zonas + colores por dupla) en el Reporte (22/9/2026)
+
+Pedido de Agustina: "y quiero que en reporte se vea el mismo mapa" — que
+el mapa con las zonas operativas y los puntos coloreados por dupla
+(§10.1.39-§10.1.42, hasta ahora solo en el Dashboard) aparezca también en
+el Reporte — tanto el interno (`admin-duplas.html#reporte`) como el
+público (`reporte-publico.html`, el link que se comparte con gobierno,
+que es justamente el destino natural de esta comparación).
+
+`calcularOutcomesKobo()` en `admin-duplas.html` armaba antes un simple
+`Set` de nombres normalizados ("¿es de las 13 duplas?", sin saber de
+cuál) para filtrar los envíos de KoBo. Para poder colorear cada punto por
+dupla hacía falta saber el código, no solo la pertenencia — se cambió por
+un mapa nombre→código de dupla (`duplaPorNombreKobo`, arma `duplas` +
+`integrantes` con un fetch extra en paralelo, mismo patrón que
+`cargarRosterUmbral0()` en `dashboard-engine.js`), y cada punto en
+`puntos` ahora suma `dupla: codigoDupla`. Ese array es el que ya viaja
+tal cual al snapshot de `reportes_semanales` que lee `reporte-publico.html`
+— no hizo falta tocar cómo se genera o publica el reporte, solo lo que
+ya traía cada punto.
+
+Las dos llamadas a `renderMapaPuntos()` (`admin-duplas.html` y
+`reporte-publico.html`) ahora pasan `window.PROJECT_CONFIG.zonasOperativas`
+como tercer parámetro, igual que en `dashboard-engine.js` (§10.1.39) —
+mismo mapa, mismas zonas, mismos colores, mismas leyendas con "(iglesias)"
+en los tres lugares.
+
+Importante: esto significa que un reporte publicado DESPUÉS de este
+cambio va a traer el campo `dupla` en sus puntos y se va a ver coloreado;
+un reporte que ya estaba publicado ANTES (con el `koboOutcomes.puntos`
+viejo, sin `dupla`) va a seguir viéndose con el celeste genérico hasta
+que se vuelva a publicar — no hay migración retroactiva de reportes ya
+guardados en `reportes_semanales`.
+
+Validado: `node --check` sobre los 2 archivos HTML no aplica (son
+páginas, no módulos JS) — se usó en cambio balance de `<div>`
+(`admin-duplas.html` 249/249, `reporte-publico.html` 91/91) y chequeo de
+sintaxis de los 5 bloques `<script>` de cada uno, y grep cruzado de que
+`codigoPorDuplaId`/`duplaPorNombreKobo` están conectados en todos los
+puntos donde hacía falta. No se pudo probar contra KoBo real ni ver el
+reporte publicado (sin acceso de red desde este entorno).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

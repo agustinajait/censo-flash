@@ -272,7 +272,7 @@ function render(r){
     </div>
   `;
   if(window.renderMapaPuntos){
-    renderMapaPuntos('reporte-publico-map', (koboOutcomes && koboOutcomes.puntos) || []);
+    renderMapaPuntos('reporte-publico-map', (koboOutcomes && koboOutcomes.puntos) || [], window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas);
   }
 }
 

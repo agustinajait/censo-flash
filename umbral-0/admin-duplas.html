@@ -1489,12 +1489,25 @@ async function calcularOutcomesKobo(desde, hasta){
   const form = project && project.kobo && (project.kobo.forms||[])[0];
   if(!form) return null;
   const client = await SupabaseClient.getClient();
-  const [{ data: integrantes, error: errI }, koboRowsRaw] = await Promise.all([
-    client.from('integrantes').select('nombre, apellido').neq('rol', 'chofer'),
+  const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, koboRowsRaw] = await Promise.all([
+    client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+    client.from('duplas').select('id, codigo'),
     fetchKoboProxyAll(project, form.id),
   ]);
   if(errI) throw errI;
-  const misNombres = new Set((integrantes||[]).map(i => normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`)).filter(Boolean));
+  if(errD) throw errD;
+  const codigoPorDuplaId = {};
+  (duplasRows||[]).forEach(d => { codigoPorDuplaId[d.id] = d.codigo; });
+  // nombre normalizado -> código de dupla (letra) — antes era un Set
+  // (solo "¿es de las 13 duplas?"); ahora hace falta saber DE CUÁL, para
+  // poder colorear el punto en el mapa por dupla (§10.1.43, pedido de
+  // Agustina: "quiero que en reporte se vea el mismo mapa" que ya tiene
+  // el Dashboard con las zonas y los colores).
+  const duplaPorNombreKobo = {};
+  (integrantes||[]).forEach(i => {
+    const nombre = normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`);
+    if(nombre && i.dupla_id) duplaPorNombreKobo[nombre] = codigoPorDuplaId[i.dupla_id] || null;
+  });
 
   const conteo = {}; // código de termino_intervencion_diaria -> cantidad
   // Puntos para el mapa de cobertura (§10.1.24, pedido de Agustina: "un
@@ -1506,14 +1519,15 @@ async function calcularOutcomesKobo(desde, hasta){
   const puntos = [];
   let totalEnvios = 0;
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
-    if(!misNombres.has(normalizarNombreKobo(p.operador))) return; // no es de las 13 duplas
+    const codigoDupla = duplaPorNombreKobo[normalizarNombreKobo(p.operador)];
+    if(!codigoDupla) return; // no es de las 13 duplas
     const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
     if(!fechaSolo || fechaSolo < desde || fechaSolo > hasta) return;
     totalEnvios++;
     (p.terminoIntervencionDiaria || []).forEach(codigo => {
       conteo[codigo] = (conteo[codigo] || 0) + 1;
     });
-    if(p.lat != null && p.lng != null) puntos.push({ lat: p.lat, lng: p.lng, fecha: p.fecha, tipo: p.tipo || null });
+    if(p.lat != null && p.lng != null) puntos.push({ lat: p.lat, lng: p.lng, fecha: p.fecha, tipo: p.tipo || null, dupla: codigoDupla });
   });
   return { totalEnvios, conteo, puntos };
 }
@@ -1888,7 +1902,7 @@ function renderReporte(cont, r){
 
   window._ultimoReporte = r;
   if(window.renderMapaPuntos){
-    renderMapaPuntos('reporte-map', (r.koboOutcomes && r.koboOutcomes.puntos) || []);
+    renderMapaPuntos('reporte-map', (r.koboOutcomes && r.koboOutcomes.puntos) || [], window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas);
   }
 }
 
