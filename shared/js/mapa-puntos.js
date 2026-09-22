@@ -118,17 +118,23 @@ async function renderMapaPuntos(containerId, puntos, zonas){
   inst.capa.clearLayers();
   const validos = (puntos||[]).filter(p => p.lat != null && p.lng != null);
   const bounds = [];
-  const duplasVistas = new Map(); // codigo -> color, para la leyenda
+  const duplasVistas = new Map(); // codigo -> { color, esIglesia }, para la leyenda
   validos.forEach(p => {
     const fechaTxt = p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '';
     const tipoTxt = p.tipo ? _escMapa(p.tipo) : '';
     const colorDupla = _colorDupla(p.dupla, zonas);
     const color = colorDupla || '#1a56db';
-    if(colorDupla && p.dupla) duplasVistas.set(p.dupla, colorDupla);
+    // "Iglesias" (§10.1.42, pedido de Agustina: "aclara que esta la zona
+    // de las iglesias") — duplas C/F/I/L/M no tienen zona de patrullaje
+    // propia, solo un comedor de referencia (ver zonasOperativas.comedores
+    // en config/umbral-0.js) — se marca en el popup y la leyenda para que
+    // no se confundan con una dupla de zona fija sin más info.
+    const esIglesia = !!(colorDupla && zonas && p.dupla && !(zonas.porDupla && zonas.porDupla[p.dupla]));
+    if(colorDupla && p.dupla) duplasVistas.set(p.dupla, { color: colorDupla, esIglesia });
     const marker = L.circleMarker([p.lat, p.lng], {
       radius: 7, color, weight: 2, fillColor: color, fillOpacity: 0.5,
     });
-    const duplaTxt = p.dupla ? `<b>Dupla ${_escMapa(p.dupla)}</b><br>` : '';
+    const duplaTxt = p.dupla ? `<b>Dupla ${_escMapa(p.dupla)}</b>${esIglesia ? ' (iglesias)' : ''}<br>` : '';
     if(duplaTxt || fechaTxt || tipoTxt) marker.bindPopup(`${duplaTxt}${tipoTxt ? tipoTxt + '<br>' : ''}${fechaTxt}`);
     marker.addTo(inst.capa);
     bounds.push([p.lat, p.lng]);
@@ -138,7 +144,8 @@ async function renderMapaPuntos(containerId, puntos, zonas){
 
   // Leyenda de colores por dupla — solo si hay al menos un punto coloreado
   // por zona real (si no hay zonas o ningún punto trae dupla reconocida,
-  // no tiene sentido mostrarla).
+  // no tiene sentido mostrarla). Las duplas "iglesias" (sin zona de
+  // patrullaje fija, solo un comedor de referencia) se marcan aparte.
   const leyendaId = containerId + '-leyenda';
   let leyenda = document.getElementById(leyendaId);
   if(duplasVistas.size){
@@ -148,8 +155,8 @@ async function renderMapaPuntos(containerId, puntos, zonas){
       leyenda.style.cssText = 'margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:0.76rem;color:#64748b;';
       cont.insertAdjacentElement('afterend', leyenda);
     }
-    leyenda.innerHTML = [...duplasVistas.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([codigo, color]) =>
-      `<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:${_escMapa(color)};display:inline-block;"></span>Dupla ${_escMapa(codigo)}</span>`
+    leyenda.innerHTML = [...duplasVistas.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([codigo, info]) =>
+      `<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:${_escMapa(info.color)};display:inline-block;"></span>Dupla ${_escMapa(codigo)}${info.esIglesia ? ' <i>(iglesias)</i>' : ''}</span>`
     ).join('');
   } else if(leyenda){
     leyenda.remove();
