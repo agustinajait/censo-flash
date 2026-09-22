@@ -2809,6 +2809,68 @@ que todos los ids/funciones nuevos están referenciados en los lugares
 que hacían falta (mostrar/ocultar la vista junto con el resto, refrescar
 el contador después de guardar una persona).
 
+### 10.1.35 Vista "📅 Cierres de jornada" — armar el mensaje de un día pasado (22/9/2026)
+
+Agustina pidió: "hace foco en el reporte diario para que lo manden las
+duplas. tienen que armar mensaje y copiar tb así lo mandan a grupo" — al
+preguntar qué faltaba exactamente (el flujo de armar/copiar/compartir el
+mensaje de cierre ya existía desde §10.1.25/§10.1.27/§10.1.31), aclaró el
+problema real: "que marcan el fin de la jornada pero si se olvidan
+después no lo pueden mandar". El botón "📱 Armar mensaje de WhatsApp"
+solo aparecía dentro del resumen del día de **hoy** (`resumen-dia-box`,
+visible cuando `jornadaHoy.fin` está cargado) — si la dupla cerraba la
+jornada y no mandaba el mensaje en el momento, al otro día `jornadaHoy`
+ya es la de ese nuevo día y no había forma de volver a generarlo.
+
+Cambios en `casos.html`:
+
+- **Refactor** de `cargarYRenderResumenDia()`: la lógica de cálculo
+  (casos nuevos/recontactados, intervenciones, derivaciones,
+  seguimientos de un día) se extrajo a `calcularResumenDiaParaFecha(fecha)`,
+  que ya no depende de "hoy" — recibe la fecha como parámetro y devuelve
+  el objeto resumen sin tocar `resumenDiaHoy` (esa variable global sigue
+  existiendo, pero ahora es solo la "foto" del día de hoy que usa el
+  resumen que se ve al cerrar jornada).
+- **Refactor** de `Casos.abrirModalMensajeCierre()`: el armado del texto
+  del mensaje se extrajo a `construirTextoCierre(jornada, resumen, fecha)`,
+  función de módulo que no depende de las globales `jornadaHoy`/
+  `resumenDiaHoy`. De paso corrige un bug latente: antes la fecha del
+  encabezado del mensaje se armaba con `new Date().toLocaleDateString()`
+  (siempre HOY, sin importar de qué jornada fuera el resumen) — inofensivo
+  mientras solo se usaba el mismo día, pero rompía apenas se reutilizara
+  para un día pasado. Ahora usa `fmtFechaSolo(fecha)` sobre la fecha real
+  de la jornada.
+- Nuevo botón en la topbar "📅 Cierres de jornada" (mismo patrón que
+  "📋 Mis derivaciones y seguimientos" — solo para cuentas dupla) y vista
+  `Casos.mostrarCierresJornada()` que lista, desde `jornadas`, las últimas
+  30 jornadas de mi dupla con `fin` cargado (más reciente primero), cada
+  una con fecha, horario, un extracto de las observaciones del día y un
+  botón "📱 Armar mensaje" por fila.
+- `Casos.abrirModalMensajeCierreFecha(fecha, btnEl)`: al tocar "Armar
+  mensaje" de una fila, busca la fila de `jornadas` de esa fecha, calcula
+  el resumen con `calcularResumenDiaParaFecha(fecha)`, arma el texto con
+  `construirTextoCierre()` y abre el mismo modal de siempre (mismo textarea
+  `#ta-mensaje-cierre`, mismos botones "📱 Compartir por WhatsApp" /
+  "📋 Copiar" — `Casos.compartirWhatsappCierre()`/`Casos.copiarMensajeCierre()`
+  no cambiaron, ya eran genéricos porque leen del textarea, no de una
+  variable global).
+- El flujo de HOY (`Casos.abrirModalMensajeCierre()`, disparado desde el
+  botón dentro de `resumen-dia-box` al cerrar la jornada) sigue funcionando
+  igual que antes, ahora como un caso particular de las mismas funciones
+  compartidas.
+
+Validado con un script de Node aparte (`construirTextoCierre` extraída y
+probada standalone): el mensaje de un cierre de hace 3 días muestra la
+fecha de ESE día (no la de hoy), incluye sus propias observaciones,
+casos e intervenciones, y no rompe cuando no hay fila de `jornadas` para
+la fecha pedida (usa "—" en los horarios y "(sin cargar)" en
+observaciones) — 8 checks, todos pasaron. También balance de `<div>`
+(281/281), chequeo de sintaxis de los 4 bloques `<script>`, y grep
+cruzado de que `link-cierres-jornada`/`view-cierres-jornada`/
+`cierres-jornada-list` y las funciones nuevas están conectados en todos
+los puntos donde hacía falta (mostrar/ocultar vista, mostrar el link solo
+para cuentas dupla).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
