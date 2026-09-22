@@ -363,6 +363,15 @@
         <input type="date" id="buscar-fecha" title="Filtrar por fecha de actividad (alta, intervención, seguimiento o derivación)" onchange="Casos.buscarPersonas(document.getElementById('buscar-input').value.trim())" style="max-width:150px;">
         <button type="button" class="btn btn-outline btn-sm" id="btn-limpiar-fecha" onclick="document.getElementById('buscar-fecha').value=''; Casos.buscarPersonas(document.getElementById('buscar-input').value.trim());" style="display:none;">✕ Fecha</button>
         <button class="btn btn-green" onclick="Casos.abrirModalNuevoIngreso()">➕ Ingresar nuevo caso</button>
+        <!-- Observación con ubicación (22/9/2026, pedido de Agustina:
+             "que puedan cargar un caso nuevo con ubicación cuando no es
+             para subir al KoBo. Una observación, una dirección y
+             descripción nada más") — versión liviana de "Ingresar nuevo
+             caso": 3 campos de texto + geolocalización del celular, en vez
+             del formulario completo (datos básicos/salud/informe social).
+             Pensado para notas de campo que no ameritan un caso completo
+             en KoBo. Ver Casos.abrirModalObservacionUbicacion(). -->
+        <button class="btn btn-outline" onclick="Casos.abrirModalObservacionUbicacion()">📍 Observación con ubicación</button>
       </div>
       <!-- Posibles duplicados (sept/2026, pedido de Agustina: poder verlos
            y sacarlos desde esta misma pantalla, no solo desde
@@ -471,6 +480,7 @@ let koboPosiblesContinuacionesActuales = []; // envíos sin DNI que podrían ser
 const koboContinuacionesDescartadas = new Set(); // subIds que el operador ya dijo "no es ella" esta sesión
 let koboSinIdentificarActuales = []; // envíos sin DNI NI nombre matcheable — ver cargarKoboPendientes() y confirmarKoboSinIdentificar()
 let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
+let _obsGeoActual = null; // {lat,lng} capturada para "Observación con ubicación" (§10.1.33), null si no se pudo obtener
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
 
@@ -2846,6 +2856,100 @@ Umbral Cero — Huehaci`;
     }finally{
       btn.disabled = false; btn.textContent = personaExistente ? '💾 Guardar cambios' : '💾 Dar de alta';
       _guardandoPersona = false;
+    }
+  },
+
+  // ── OBSERVACIÓN CON UBICACIÓN (22/9/2026, §10.1.33) ──────────────────────
+  // Versión liviana del alta — pedido de Agustina: "que puedan cargar un
+  // caso nuevo con ubicación cuando no es para subir al KoBo. Una
+  // observación, una dirección y descripción nada más". Solo 3 campos de
+  // texto + la geolocalización del celular (no la de KoBo, que acá
+  // justamente no se usa) — nada del formulario completo de "Ingresar
+  // nuevo caso" (salud, informe social, etc.), esto es para notas de
+  // campo que no ameritan un caso completo. Crea un caso "sin
+  // identificar" igual que el resto del flujo — mismo campo obligatorio
+  // (punto_contacto) que ya exige guardarPersona() ahí, mismo patrón de
+  // "alta = primera intervención del timeline" (ver más arriba).
+  abrirModalObservacionUbicacion(){
+    const body = `
+      <form id="form-obs-ubicacion" onsubmit="return false;">
+        <div class="form-field">
+          <label>Dirección / punto de referencia *</label>
+          <input type="text" id="f-obs-direccion" placeholder="Ej.: Av. Rivadavia y Callao, frente a la estación">
+        </div>
+        <div class="form-field">
+          <label>Descripción *</label>
+          <textarea id="f-obs-descripcion" rows="3" placeholder="Qué se vio, situación de la persona o del lugar..."></textarea>
+        </div>
+        <div class="form-field">
+          <label>Observación</label>
+          <textarea id="f-obs-observacion" rows="2" placeholder="Algo más a tener en cuenta (opcional)"></textarea>
+        </div>
+        <div class="hint" id="obs-geo-estado">📍 Buscando tu ubicación…</div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-blue" id="btn-guardar-obs">💾 Guardar</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        </div>
+      </form>
+    `;
+    openModal('📍 Observación con ubicación', body);
+    document.getElementById('btn-guardar-obs').onclick = Casos.guardarObservacionUbicacion;
+
+    // La geolocalización tarda unos segundos y puede fallar (sin permiso,
+    // sin GPS) — no bloquea abrir el modal ni completar los otros campos
+    // mientras tanto, solo avisa el estado y se guarda igual si falla.
+    _obsGeoActual = null;
+    const estadoEl = document.getElementById('obs-geo-estado');
+    if(!navigator.geolocation){
+      estadoEl.textContent = '⚠️ Este navegador no puede obtener ubicación — se guarda igual, sin ella.';
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _obsGeoActual = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        estadoEl.textContent = '✅ Ubicación capturada.';
+      },
+      () => { estadoEl.textContent = '⚠️ No se pudo obtener la ubicación (¿diste el permiso?) — se guarda igual, sin ella.'; },
+      { timeout: 10000 }
+    );
+  },
+
+  async guardarObservacionUbicacion(){
+    const direccion = document.getElementById('f-obs-direccion').value.trim();
+    const descripcion = document.getElementById('f-obs-descripcion').value.trim();
+    const observacion = document.getElementById('f-obs-observacion').value.trim();
+    if(!direccion){ modalError('La dirección / punto de referencia es obligatoria.'); return; }
+    if(!descripcion){ modalError('La descripción es obligatoria.'); return; }
+
+    const btn = document.getElementById('btn-guardar-obs');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try{
+      const client = await SupabaseClient.getClient();
+      const linkMapa = _obsGeoActual ? `https://www.google.com/maps?q=${_obsGeoActual.lat},${_obsGeoActual.lng}` : '';
+      const punto_contacto = linkMapa ? `${direccion} · ${linkMapa}` : direccion;
+      const historia_breve = parrafosKobo([
+        `Observación de campo (sin KoBo) — ${new Date().toLocaleDateString('es-AR')}, cargado por ${miPerfil.nombre || 'la dupla'}.`,
+        descripcion,
+        observacion ? 'Observación: ' + observacion : null,
+        !linkMapa ? 'Sin ubicación capturada (el celular no la dio o no se aceptó el permiso).' : null,
+      ]);
+      const { data: persona, error } = await client.from('personas')
+        .insert({ sin_identificar: true, estado: 'activo', dupla_id: miPerfil.dupla_id || null, punto_contacto, historia_breve })
+        .select().single();
+      if(error) throw error;
+      // Alta = primer evento del timeline (mismo patrón que guardarPersona()).
+      const { error: errInt } = await client.from('intervenciones').insert({
+        persona_id: persona.id,
+        dupla_id: miPerfil.dupla_id || null,
+        tipo: 'contacto_espontaneo',
+        resumen: descripcion,
+      });
+      if(errInt) throw errInt;
+      closeModal();
+      await Casos.abrirFicha(persona.id);
+    }catch(e){
+      modalError('No se pudo guardar: ' + e.message);
+      btn.disabled = false; btn.textContent = '💾 Guardar';
     }
   },
 
