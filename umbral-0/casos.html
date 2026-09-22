@@ -576,6 +576,16 @@ const CAMPOS_PERSONA_INFORME = [
 // semanal (calcularAccionesPlataforma()), sin duplicar el diccionario.
 const ACCIONES_INTERVENCION = window.PROJECT_CONFIG.accionesIntervencion;
 const ACCIONES_INTERVENCION_LABELS = window.PROJECT_CONFIG.accionesIntervencionLabels;
+// Bug real (22/9/2026): §10.1.32 agregó 3 usos de TIPO_INTERVENCION_LABELS
+// como identificador suelto (esperando que config/umbral-0.js lo expusiera
+// igual que ACCIONES_INTERVENCION_LABELS arriba), pero nunca se declaró acá
+// el alias local — config/umbral-0.js envuelve todo en un IIFE, así que su
+// `const TIPO_INTERVENCION_LABELS` interno NO es visible desde afuera. El
+// chequeo de sintaxis (`new Function`) no lo detecta porque es un
+// ReferenceError en tiempo de ejecución, no un error de sintaxis — rompía
+// el resumen del día, el mensaje de cierre y el timeline de la ficha.
+// Encontrado armando capturas reales del producto para el instructivo.
+const TIPO_INTERVENCION_LABELS = window.PROJECT_CONFIG.tipoIntervencionLabels;
 
 // "Informe social" — mismo formato para Casa Vincular y ASA (documento
 // UMBRAL_0_1.docx: "el equipo territorial deberá realizar un informe

@@ -2871,6 +2871,77 @@ cruzado de que `link-cierres-jornada`/`view-cierres-jornada`/
 los puntos donde hacía falta (mostrar/ocultar vista, mostrar el link solo
 para cuentas dupla).
 
+### 10.1.36 Bug: `TIPO_INTERVENCION_LABELS is not defined` rompía el resumen del día (22/9/2026)
+
+Encontrado armando capturas reales de `casos.html` para un instructivo de
+WhatsApp (Agustina pidió "un instructivo con una imagen real del
+producto"), no reportado por el equipo — el sandbox de esta sesión no
+tiene acceso a Supabase/CDNs, así que se armó una página local con datos
+de ejemplo para sacar las capturas, y ahí saltó un `ReferenceError:
+TIPO_INTERVENCION_LABELS is not defined` al intentar renderizar el
+resumen del día.
+
+Causa: §10.1.32 agregó 3 usos del identificador suelto
+`TIPO_INTERVENCION_LABELS` en `casos.html` (en `_renderResumenDia()`,
+`construirTextoCierre()` y el timeline de la ficha), asumiendo el mismo
+patrón que `ACCIONES_INTERVENCION_LABELS` — pero nunca se agregó el alias
+local `const TIPO_INTERVENCION_LABELS = window.PROJECT_CONFIG.tipoIntervencionLabels;`
+que ese patrón necesita. `config/umbral-0.js` envuelve **todo** el
+archivo en un IIFE (`(function(){ ... })()`), así que su propio `const
+TIPO_INTERVENCION_LABELS` interno no es una variable global — solo queda
+expuesto a través de `window.PROJECT_CONFIG_UMBRAL_0.tipoIntervencionLabels`,
+que hay que leer explícitamente del lado de `casos.html` (`admin-duplas.html`
+ya lo hacía bien, vía `window.PROJECT_CONFIG.tipoIntervencionLabels`
+directo en el sitio de uso — ahí nunca hubo bug).
+
+Por qué no lo agarró la validación de siempre: el chequeo de sintaxis
+(`new Function(codigoDelScript)`) solo confirma que el código PARSEA —
+un identificador libre que no existe todavía es sintácticamente válido
+(podría ser una global de otro script), el error recién aparece en
+**tiempo de ejecución**, la primera vez que ese código corre de verdad.
+Como nunca se había podido probar en un navegador real contra datos
+reales (sin acceso de red desde este entorno, ver notas en PRs
+anteriores), este bug viajó sin detectar desde §10.1.32 hasta ahora —
+rompía silenciosamente el resumen del día, el mensaje de cierre de
+jornada y el timeline de intervenciones de la ficha, siempre que hubiera
+al menos una intervención para mostrar.
+
+Fix: agregado `const TIPO_INTERVENCION_LABELS = window.PROJECT_CONFIG.tipoIntervencionLabels;`
+en `casos.html`, mismo lugar y mismo patrón que `ACCIONES_INTERVENCION_LABELS`
+un renglón arriba.
+
+Validado con capturas reales del producto (ver más abajo) mostrando el
+resumen del día, el mensaje de cierre y el timeline funcionando con las
+etiquetas de tipo de intervención resueltas correctamente ("Primer
+contacto" / "Seguimiento en territorio" en vez de reventar) — además del
+balance de `<div>` y chequeo de sintaxis de siempre.
+
+### 10.1.37 Capturas reales del producto para instructivos (22/9/2026)
+
+Pedido de Agustina: "dame un instructivo con una imagen real del producto
+así les comparto al grupo de WhatsApp de cómo tiene que hacer el cierre
+la dupla". El sandbox de esta sesión no tiene acceso de red a
+Supabase/CDNs/el sitio deployado (confirmado varias veces en sesiones
+anteriores), así que no se puede ni loguear en la app real ni sacarle una
+captura al sitio en producción.
+
+Se armó un mecanismo aparte (fuera del repo, en el scratchpad de la
+sesión, no versionado) para generar capturas **reales** igual: sirve
+`casos.html` con sus mismos `config/umbral-0.js` y CSS por HTTP local, e
+intercepta únicamente `shared/js/supabase-client.js` para reemplazarlo
+por un mock que responde con datos de ejemplo usando la misma forma de
+API (`client.from(tabla).select().eq()... → {data, error}`) en vez de
+conectarse a Supabase — todo el resto (HTML, CSS, la lógica de
+`casos.html`) es el código real, sin tocar. Con Playwright (Chromium
+local) se recorrió el flujo real: entrar a la app → ver el resumen del
+día con "Armar mensaje de WhatsApp" → abrir ese modal → ir a "📅 Cierres
+de jornada" → armar el mensaje de un día pasado. Este proceso fue el que
+encontró el bug de §10.1.36 (nunca se había podido ejecutar este código
+contra datos reales hasta ahora).
+
+No se agrega este script al repo — es una herramienta puntual para este
+pedido, no parte del producto ni de su test suite.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
