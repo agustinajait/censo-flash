@@ -3679,6 +3679,44 @@ botón cambiando en cada paso; (2) `renderAccionesPendientes()`: sin
 pendientes la caja queda oculta, con 2 trámites de DNI pendientes se
 muestra — las 7 verificaciones pasan.
 
+### 10.1.56 Home de la dupla: turno a la izquierda, pendientes arriba (22/9/2026)
+
+Agustina, sobre el §10.1.55: "estaría bien que en el inicio les
+aparezca 'para revisar' [...] más arriba, más a mano. Por eso podés
+poner [...] al costado izquierdo la franja que dice turno 2, el
+horario, Chacarita, abrir mapa, WhatsApp del referente [...] y dejar
+espacio para poner arriba los pendientes".
+
+`mi-turno-box`, `jornada-box`, `kobo-pend-box` y `acciones-box`
+("📌 Para revisar", del §10.1.55) eran cuatro bloques full-width
+apilados uno debajo del otro, cada uno con su propio
+`max-width:860px; margin:... auto 0;` — "para revisar" quedaba
+tercero en ese orden (debajo de turno y de jornada), lejos del
+primer vistazo.
+
+Se envuelven los cuatro en un contenedor `.home-top` (flex, con
+`.home-top-left` angosto para `mi-turno-box` y `.home-top-right` más
+ancho para `acciones-box` → `jornada-box` → `kobo-pend-box`, en ese
+orden). Las clases `.mi-turno`/`.jornada`/`.kobo-pend`/`.acciones-pend`
+ya no centran ni acotan su propio ancho — eso ahora lo maneja
+`.home-top`, ellas eran los bloques full-width que ya no hacen falta
+con un padre flex.
+
+En pantallas angostas (`max-width:680px`, la mayoría de las duplas
+usa el celular en el recorrido) `.home-top-left`/`.home-top-right` se
+reordenan por CSS (`order`) para que la columna derecha (pendientes)
+quede arriba del todo y turno abajo — no alcanza con el orden en el
+DOM porque en desktop van lado a lado, no uno arriba del otro.
+
+Validado: balance de `<div>`/`<button>` de `casos.html` (291/291,
+75/75 — 3 divs nuevos de wrapper, ningún botón), `node --check` sobre
+sus 2 bloques `<script>` no vacíos, y una captura con Playwright de
+una página de prueba standalone (mismo CSS extraído del archivo real +
+contenido de ejemplo) en dos anchos — 900px: turno a la izquierda,
+"Para revisar" → jornada → KoBo arriba a la derecha; 390px (mobile):
+"Para revisar" primero, después jornada, después KoBo, turno al
+final, todo en una sola columna — ambos coinciden con lo pedido.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
