@@ -2727,62 +2727,6 @@ etiquetas (mapea los dos valores conocidos, cae al valor crudo para uno
 desconocido en vez de romper, no rompe con vacío/`undefined`) — los 4
 checks pasan.
 
-### 10.1.33 "Observación con ubicación" — alta liviana sin pasar por KoBo (22/9/2026)
-
-Pedido: "vamos a agregar un feature en la plataforma para que puedan
-cargar un caso nuevo con ubicación cuando no es para subir al KoBo. Una
-observación, una dirección y descripción nada más." Caso de uso: una
-nota de campo (algo que se vio, una situación puntual) que no amerita
-pasar por el circuito completo de KoBo ni por el formulario largo de
-"Ingresar nuevo caso" (datos básicos, salud, informe social — pensado
-para un caso real con seguimiento).
-
-Nuevo botón "📍 Observación con ubicación" al lado de "➕ Ingresar nuevo
-caso", con un modal de 3 campos nada más:
-
-- **Dirección / punto de referencia** (obligatorio)
-- **Descripción** (obligatorio) — qué se vio
-- **Observación** (opcional) — algo más a tener en cuenta
-
-Más la **geolocalización del celular**, capturada automáticamente al
-abrir el modal con `navigator.geolocation.getCurrentPosition()` — a
-diferencia del resto de la plataforma, que saca la ubicación de KoBo
-(`_geolocation`, ver §10.1.16), acá no hay ningún envío de KoBo de
-donde sacarla, así que se pide directo al navegador. No bloquea nada si
-falla o no se da el permiso — se avisa en pantalla (`#obs-geo-estado`) y
-se guarda igual, sin ubicación.
-
-Al guardar (`Casos.guardarObservacionUbicacion()`):
-
-- Crea un caso `sin_identificar: true` — mismo mecanismo que el resto
-  de la plataforma para casos sin nombre/DNI, mismo campo obligatorio
-  (`punto_contacto`) que ya exige `guardarPersona()` para ese caso.
-  `punto_contacto` = dirección + (si hay geo) el link de Google Maps
-  (`https://www.google.com/maps?q=lat,lng`, mismo patrón que
-  §10.1.16), separados por " · ".
-  `historia_breve` arma un párrafo con `parrafosKobo()` (reusada tal
-  cual, es un helper genérico de "unir textos no vacíos con salto de
-  línea doble" pese al nombre) con la descripción, la observación si la
-  hay, y un aviso explícito si no se pudo capturar la ubicación.
-- Crea la primera `intervención` del timeline (`tipo:
-  'contacto_espontaneo'` → "Primer contacto", `resumen`: la
-  descripción) — mismo patrón "alta = primer evento del timeline" que
-  ya usa `guardarPersona()` para un alta normal.
-- Abre la ficha del caso recién creado, igual que cualquier alta.
-
-No se agregó ninguna columna nueva (`lat`/`lng` no existen en
-`personas`) — se reusa el mismo patrón de embeber el link de mapa en
-texto que ya está probado desde §10.1.16, en vez de sumar columnas para
-un dato que en la práctica ya se guarda así en toda la plataforma.
-
-Validado: balance de `<div>` y chequeo de sintaxis de los bloques
-`<script>` de `casos.html` sobre el archivo completo, grep cruzado de
-que todos los ids/funciones nuevos están referenciados, y script de
-Node que reproduce el armado de `punto_contacto`/`historia_breve` — con
-geolocalización y observación completas, sin geolocalización (avisa en
-el texto), y sin observación opcional (no deja una línea vacía) — los 6
-checks pasan.
-
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
