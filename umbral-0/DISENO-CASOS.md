@@ -3198,6 +3198,45 @@ Validado: grep confirmando que los 3 `<script src="...mapa-puntos.js?v=...">`
 quedaron con el mismo valor, y balance de `<div>` de los 3 archivos HTML
 tocados (sin cambios de estructura, solo el query string).
 
+### 10.1.45 El mapa se veía y después desaparecía en el Reporte (22/9/2026)
+
+Segundo bug real, mismo hilo: después del fix de caché (§10.1.44) Agustina
+reportó "lo vi pero desapareció" — con una captura del reporte generado
+(KPIs con datos reales: 12 zonas, 123 puntos, 230 intervenciones) pero sin
+mapa debajo.
+
+Causa: `generarReporte()` en `admin-duplas.html` llama
+`cont.innerHTML = <template completo, incluye `<div id="reporte-map">`>`
+cada vez que se toca "📊 Generar reporte" — mismo id, pero un nodo del
+DOM **nuevo** cada vez (el viejo se destruye junto con todo lo demás
+adentro de `cont`). `renderMapaPuntos()` guarda la instancia de Leaflet
+en `_mapaPuntosInstancias[containerId]` y, si ya existe, la reusa sin
+volver a crearla — pero seguía apuntando al `<div>` VIEJO, ya huérfano y
+fuera del documento. El `<div id="reporte-map">` nuevo (el que sí se ve
+en pantalla) nunca tenía un mapa de Leaflet inicializado encima: quedaba
+vacío. Primera vez que se genera el reporte, el mapa se ve bien (recién
+ahí se crea la instancia); la segunda vez que se toca "Generar reporte"
+(otro rango de fechas, o el mismo de nuevo), desaparece — exactamente lo
+que describió Agustina. `dashboard.html` nunca tuvo este problema porque
+ahí el `<div id="u0-map">` es parte del HTML estático de la página, no se
+reemplaza en cada actualización.
+
+Fix en `shared/js/mapa-puntos.js`: antes de reusar una instancia
+guardada, se chequea `document.body.contains(inst.map.getContainer())`
+— si el contenedor de esa instancia ya no está en el documento, se la
+descarta prolijo (`map.remove()`, la forma correcta de Leaflet de tirar
+abajo un mapa) y se crea una instancia nueva sobre el `<div>` actual.
+
+Validado con un script de Node aparte que simula el ciclo completo (nodo
+A → se reemplaza por nodo B con el mismo id → nodo B se reusa sin
+reemplazo) contra una clase `FakeMap`/`FakeBody` que imita
+`getContainer()`/`remove()`/`document.body.contains()` sin necesitar
+Leaflet real — 5 checks, todos pasaron, incluyendo el caso de
+`dashboard.html` (mismo nodo entre llamadas → no recrea nada). También
+`node --check` sobre el archivo. Cache-busting subido a `?v=2026-09-22d`
+en los 3 lugares que cargan `mapa-puntos.js` (mismo archivo tocado otra
+vez, mismo cuidado de §10.1.44).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

@@ -97,6 +97,20 @@ async function renderMapaPuntos(containerId, puntos, zonas){
   }
 
   let inst = _mapaPuntosInstancias[containerId];
+  // §10.1.45, bug real reportado por Agustina: "lo vi pero desapareció".
+  // admin-duplas.html re-arma TODO el HTML del reporte (incluido este
+  // <div>) cada vez que se toca "Generar reporte" — mismo id, pero un
+  // nodo del DOM nuevo. La instancia de Leaflet vieja seguía apuntando al
+  // nodo huérfano (ya no visible), mientras el <div> nuevo quedaba vacío.
+  // Si el contenedor de la instancia guardada ya no está en el documento,
+  // se descarta prolijo (map.remove()) y se crea de nuevo sobre el nodo
+  // actual — dashboard.html no pisa su <div>, así que ahí nunca hace
+  // falta recrear nada.
+  if(inst && !document.body.contains(inst.map.getContainer())){
+    inst.map.remove();
+    delete _mapaPuntosInstancias[containerId];
+    inst = null;
+  }
   if(!inst){
     const map = L.map(containerId, { scrollWheelZoom: false }).setView([-34.61, -58.44], 11); // CABA
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
