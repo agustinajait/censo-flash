@@ -3786,6 +3786,47 @@ prueba standalone con los 3 casos reales de la captura de Agustina
 de 2 badges salía roto; con `flex-basis:100%` los 3 casos quedan
 prolijos, badges siempre en su propia línea, nada se corta.
 
+### 10.1.59 Se revierte el layout de dos columnas del §10.1.56 (22/9/2026)
+
+Agustina, con captura del celular: "Chacarita Sector 1, que es la
+etiqueta de la dupla... no puede estar abajo de los casos. Te pido un
+poco de criterio. Y además, en la web no mobile, está todo
+desalineado."
+
+El §10.1.56 había armado `.home-top` con dos columnas (turno angosto a
+la izquierda, "para revisar"+jornada+KoBo a la derecha) y, en mobile,
+reordenaba por CSS para que la columna derecha quedara arriba y turno
+abajo del todo. En la práctica esto tenía dos problemas reales que no
+se habían notado en la vista previa con datos de ejemplo (sin los
+recordatorios de KoBo sin identificar, que suman varias tarjetas más):
+
+- En mobile, con jornada + KoBo pendientes + KoBo sin identificar
+  ocupando varias tarjetas, el turno terminaba varias pantallas más
+  abajo, después de toda esa lista — perdiendo su lugar de primera
+  orientación ("¿dónde/con quién estoy hoy?").
+- En desktop, las tarjetas (`.jornada-card`, `.kobo-pend-card`,
+  `.mi-turno-card`) están pensadas para un ancho de hasta 860px —
+  comprimidas en una columna de ~380-500px (`.home-top-right`) se
+  veían apretadas/desalineadas.
+
+Se saca `.home-top`/`.home-top-left`/`.home-top-right` y el `@media`
+que reordenaba, y los 4 widgets vuelven a ser bloques full-width
+apilados (mismo `max-width:860px; margin:...auto 0; padding:0 18px;`
+del diseño original) — pero en un orden fijo distinto al de antes del
+§10.1.55: **turno primero siempre**, después "para revisar", jornada,
+KoBo pendientes. Es el balance entre los dos pedidos: turno no queda
+enterrado (criterio de Agustina), y "para revisar" sigue siendo lo
+segundo que se ve, mucho más arriba que en el diseño original donde
+era lo último (pedido original del §10.1.55).
+
+Validado: balance de `<div>`/`<button>` de `casos.html` (288/288,
+75/75 — 3 divs de wrapper menos, ningún botón), `node --check` sobre
+sus 2 bloques `<script>` no vacíos, y capturas de Playwright de una
+página de prueba standalone con los 4 widgets con contenido de ejemplo
+en 900px y 390px — en ambos anchos: turno arriba, para revisar
+segundo, jornada tercero, KoBo pendientes cuarto, todo full-width y
+alineado, sin columnas.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
