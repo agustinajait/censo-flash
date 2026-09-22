@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capacitación — Sé prestador/a de Umbral 0</title>
+<link rel="icon" type="image/png" href="../assets/huehaci-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#7c3aed; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; --gray:#6b7280; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; line-height:1.55; }
+  a { color:inherit; }
+
+  .nav { background:var(--navy); padding:12px 18px; position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .back-btn { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); color:white; padding:7px 14px; border-radius:20px; font-size:0.8rem; font-weight:600; font-family:'Sora',sans-serif; text-decoration:none; }
+  .nav-links { display:flex; gap:8px; flex-wrap:wrap; }
+
+  .cover { background:linear-gradient(135deg,var(--navy) 0%,#3b2a6e 60%,var(--blue) 100%); color:white; padding:36px 24px 30px; text-align:center; }
+  .curso-badge { display:inline-block; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); padding:4px 14px; border-radius:20px; font-size:0.72rem; font-weight:700; font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:10px; }
+  .cover h1 { font-family:'Sora',sans-serif; font-size:1.5rem; font-weight:800; margin-bottom:8px; }
+  .cover p { font-size:0.9rem; opacity:0.88; max-width:560px; margin:0 auto; }
+
+  .content { max-width:760px; margin:0 auto; padding:22px 18px 60px; }
+
+  .progreso-wrap { background:white; border:1.5px solid var(--border); border-radius:14px; padding:14px 18px; margin-bottom:18px; position:sticky; top:60px; z-index:40; box-shadow:0 2px 8px rgba(15,31,61,0.08); }
+  .progreso-txt { font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; color:var(--navy); margin-bottom:8px; }
+  .progreso-bar-bg { background:#eef2ff; border-radius:20px; height:9px; overflow:hidden; }
+  .progreso-bar { background:linear-gradient(90deg,var(--blue),var(--green)); height:100%; width:0%; transition:width 0.3s; border-radius:20px; }
+
+  .toc { background:white; border:1.5px solid var(--border); border-radius:14px; padding:16px 18px; margin-bottom:22px; font-size:0.84rem; }
+  .toc h2 { font-family:'Sora',sans-serif; font-size:0.85rem; color:var(--navy); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; }
+  .toc ul { list-style:none; display:flex; flex-direction:column; gap:4px; }
+  .toc a { color:var(--blue); text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+
+  .modulo { margin:34px 0 6px; scroll-margin-top:130px; }
+  .modulo-header { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .modulo-num { flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--blue); color:white; display:flex; align-items:center; justify-content:center; font-family:'Sora',sans-serif; font-weight:800; font-size:0.9rem; }
+  .modulo.completo .modulo-num { background:var(--green); }
+  .modulo-titulo { font-family:'Sora',sans-serif; font-size:1.05rem; font-weight:800; color:var(--navy); }
+  .modulo-sub { font-size:0.85rem; color:var(--gray); margin:-4px 0 14px 46px; }
+
+  .card { background:white; border-radius:14px; padding:18px 20px; margin-bottom:14px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  .card h3 { font-family:'Sora',sans-serif; font-size:0.95rem; color:var(--navy); margin-bottom:6px; }
+  .card p { font-size:0.87rem; color:#334155; margin-bottom:6px; }
+  .card p:last-child { margin-bottom:0; }
+
+  .pasos-timeline { display:flex; flex-direction:column; gap:0; }
+  .paso-item { display:flex; gap:14px; position:relative; padding-bottom:22px; }
+  .paso-item:last-child { padding-bottom:0; }
+  .paso-item::before { content:''; position:absolute; left:22px; top:44px; bottom:0; width:2px; background:var(--border); }
+  .paso-item:last-child::before { display:none; }
+  .paso-circulo { flex-shrink:0; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; z-index:1; background:#dbeafe; }
+  .paso-item:nth-child(2) .paso-circulo { background:#e0e7ff; }
+  .paso-item:nth-child(3) .paso-circulo { background:#ede9fe; }
+  .paso-item:nth-child(4) .paso-circulo { background:#fce7f3; }
+  .paso-item:nth-child(5) .paso-circulo { background:#fef3c7; }
+  .paso-item:nth-child(6) .paso-circulo { background:#d1fae5; }
+  .paso-txt { flex:1; padding-top:4px; }
+  .paso-txt .titulo { font-family:'Sora',sans-serif; font-weight:800; font-size:0.92rem; color:var(--navy); }
+  .paso-txt .desc { font-size:0.85rem; color:#475569; margin-top:2px; }
+
+  .niveles-timeline { display:flex; flex-direction:column; gap:0; }
+  .nivel-item { display:flex; gap:14px; position:relative; padding-bottom:22px; }
+  .nivel-item:last-child { padding-bottom:0; }
+  .nivel-item::before { content:''; position:absolute; left:22px; top:44px; bottom:0; width:2px; background:var(--border); }
+  .nivel-item:last-child::before { display:none; }
+  .nivel-circulo { flex-shrink:0; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; z-index:1; }
+  .nivel-1 .nivel-circulo { background:#dbeafe; }
+  .nivel-2 .nivel-circulo { background:#e0e7ff; }
+  .nivel-3 .nivel-circulo { background:#ede9fe; }
+  .nivel-4 .nivel-circulo { background:#fce7f3; }
+  .nivel-5 .nivel-circulo { background:#fef3c7; }
+  .nivel-txt { flex:1; padding-top:4px; }
+  .nivel-txt .titulo { font-family:'Sora',sans-serif; font-weight:800; font-size:0.92rem; color:var(--navy); }
+  .nivel-txt .desc { font-size:0.85rem; color:#475569; margin-top:2px; }
+  .nivel-txt .desc ul { margin:4px 0 0 18px; padding:0; }
+  .nivel-txt .desc li { margin-bottom:2px; }
+
+  .principios-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+  .principio-card { display:flex; gap:12px; align-items:flex-start; background:#f8faff; border:1px solid #e2eaf8; border-radius:12px; padding:14px 16px; }
+  .principio-emoji { font-size:1.5rem; flex-shrink:0; }
+  .principio-txt strong { font-family:'Sora',sans-serif; color:var(--navy); font-size:0.88rem; display:block; margin-bottom:2px; }
+  .principio-txt span { font-size:0.84rem; color:#475569; }
+
+  .alert { display:flex; gap:10px; align-items:flex-start; padding:13px 16px; border-radius:12px; font-size:0.85rem; margin:14px 0; }
+  .alert-info { background:#eff6ff; border:1.5px solid #93c5fd; color:#1e40af; }
+  .alert-warn { background:#fffbeb; border:1.5px solid #fcd34d; color:#92400e; }
+  .alert strong { display:block; margin-bottom:2px; font-family:'Sora',sans-serif; }
+
+  .glosario-grid { display:flex; flex-direction:column; gap:10px; }
+  details.gcard { background:white; border-radius:14px; border:1.5px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); overflow:hidden; transition:border-color 0.2s; }
+  details.gcard[open] { border-color:var(--blue); }
+  details.gcard summary { list-style:none; cursor:pointer; padding:14px 16px; display:flex; align-items:center; gap:12px; }
+  details.gcard summary::-webkit-details-marker { display:none; }
+  .gcard-icono { flex-shrink:0; width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.35rem; }
+  .ic-formulario { background:#ede9fe; }
+  .ic-simple { background:#f1f5f9; }
+  .ic-urgente { background:#fee2e2; }
+  .gcard-titulo { flex:1; min-width:0; }
+  .gcard-titulo .nombre { font-family:'Sora',sans-serif; font-weight:700; font-size:0.92rem; color:var(--navy); }
+  .gcard summary .chevron { margin-left:auto; font-size:0.8rem; color:#94a3b8; transition:transform 0.2s; flex-shrink:0; }
+  details.gcard[open] summary .chevron { transform:rotate(90deg); }
+  .tag { display:inline-block; font-size:0.65rem; font-weight:700; font-family:'Sora',sans-serif; letter-spacing:0.4px; text-transform:uppercase; padding:2px 8px; border-radius:20px; margin-top:2px; }
+  .tag-formulario { background:#ede9fe; color:#5b21b6; }
+  .tag-simple { background:#f1f5f9; color:#475569; }
+  .tag-urgente { background:#fee2e2; color:#991b1b; }
+  .gcard-body { padding:0 18px 16px 70px; }
+  .gcard-body p { font-size:0.87rem; color:#334155; margin-bottom:6px; }
+  .gcard-body p:last-child { margin-bottom:0; }
+
+  .check-modulo { display:flex; align-items:center; gap:8px; background:white; border:1.5px solid var(--border); border-radius:12px; padding:12px 16px; font-size:0.86rem; font-weight:600; color:var(--navy); cursor:pointer; margin-top:6px; }
+  .check-modulo input { width:18px; height:18px; accent-color:var(--green); cursor:pointer; }
+  .modulo.completo .check-modulo { border-color:var(--green); background:#f0fdf4; }
+
+  .cta-final { background:linear-gradient(135deg,var(--navy),var(--blue)); color:white; border-radius:16px; padding:26px 22px; text-align:center; margin:40px 0 30px; }
+  .cta-final h2 { font-family:'Sora',sans-serif; font-size:1.15rem; margin-bottom:8px; }
+  .cta-final p { font-size:0.87rem; opacity:0.9; max-width:480px; margin:0 auto 16px; }
+  .cta-btn { display:inline-flex; align-items:center; gap:8px; background:var(--green); color:white; padding:12px 22px; border-radius:24px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.9rem; text-decoration:none; }
+
+  .section-title { font-family:'Sora',sans-serif; font-size:1.05rem; font-weight:800; color:var(--navy); margin:34px 0 6px; scroll-margin-top:130px; }
+
+  .wa-btn-curso { display:inline-flex; align-items:center; gap:8px; background:#25d366; color:white; padding:11px 20px; border-radius:24px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.87rem; text-decoration:none; margin-top:8px; }
+  .wa-num-curso { font-size:0.78rem; color:var(--gray); margin-top:6px; }
+
+  footer { text-align:center; font-size:0.78rem; color:var(--gray); padding:20px; }
+  .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; margin-top:8px; }
+  .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="back-btn" href="./index.html">← Volver al portal</a>
+  <div class="nav-links">
+    <a class="back-btn" href="./instructivo.html">📖 Glosario del equipo</a>
+  </div>
+</nav>
+
+<div class="cover">
+  <div class="curso-badge">🎓 Curso de certificación</div>
+  <h1>Capacitación — Sé prestador/a de Umbral 0</h1>
+  <p>Este curso recorre los mismos contenidos que usa el equipo territorial: qué es Umbral 0, cómo se interviene y el glosario completo de derivaciones. Al terminar los módulos, nos escribís para coordinar tu habilitación como prestador/a.</p>
+</div>
+
+<div class="content">
+
+  <div class="progreso-wrap">
+    <div class="progreso-txt"><span id="progreso-num">0</span> de 6 módulos completados</div>
+    <div class="progreso-bar-bg"><div class="progreso-bar" id="progreso-bar"></div></div>
+  </div>
+
+  <div class="toc">
+    <h2>Módulos del curso</h2>
+    <ul>
+      <li><a href="#modulo-1">Módulo 1 · ¿Qué es Umbral 0?</a></li>
+      <li><a href="#modulo-2">Módulo 2 · Los 5 principios de intervención</a></li>
+      <li><a href="#modulo-3">Módulo 3 · Niveles de éxito (1 a 5)</a></li>
+      <li><a href="#modulo-4">Módulo 4 · Glosario de derivaciones y articulaciones</a></li>
+      <li><a href="#modulo-5">Módulo 5 · Cómo se usa la plataforma Casos</a></li>
+      <li><a href="#modulo-6">Módulo 6 · Cierre de jornada y herramientas</a></li>
+      <li><a href="#contacto">📩 Quiero ser prestador/a →</a></li>
+    </ul>
+  </div>
+
+  <!-- MÓDULO 1 -->
+  <div class="modulo" id="modulo-1" data-mod="1">
+    <div class="modulo-header"><div class="modulo-num">1</div><h2 class="modulo-titulo">¿Qué es Umbral 0?</h2></div>
+    <div class="card">
+      <p>Umbral Cero busca llegar a las personas en situación de calle con mayor desvinculación de los
+      dispositivos tradicionales — quienes no confían en el sistema, no sostienen los espacios formales,
+      o llegan a ellos de manera intermitente. El eje del equipo <strong>no es "captar demanda"</strong>,
+      sino construir, con presencia reiterada y trato digno, las condiciones para que esa demanda pueda
+      existir con el tiempo.</p>
+      <p><em>Sin vínculo no hay política pública efectiva.</em> El equipo de Umbral 0 se integra a la Red
+      como un eslabón inicial: no reemplaza a los dispositivos existentes, trabaja la etapa previa —
+      reduciendo la distancia entre el Estado y quienes quedaron afuera.</p>
+    </div>
+    <div class="alert alert-info">
+      <span>💡</span>
+      <div><strong>Importante:</strong> el <strong>referente territorial (GOPA)</strong> es el nexo institucional con el resto de la Red. Casi todo lo que se deriva o reporta se manda a esa referencia, no directo a otras áreas.</div>
+    </div>
+    <label class="check-modulo"><input type="checkbox" onchange="marcarModulo(1,this.checked)"> Marqué este módulo como completado</label>
+  </div>
+
+  <!-- MÓDULO 2 -->
+  <div class="modulo" id="modulo-2" data-mod="2">
+    <div class="modulo-header"><div class="modulo-num">2</div><h2 class="modulo-titulo">Los 5 principios de intervención</h2></div>
+    <div class="principios-grid">
+      <div class="principio-card"><span class="principio-emoji">🕐</span><div class="principio-txt"><strong>La persona marca el ritmo</strong><span>No se espera una aceptación inmediata de recursos institucionales.</span></div></div>
+      <div class="principio-card"><span class="principio-emoji">🧭</span><div class="principio-txt"><strong>Cada trayectoria es única</strong><span>No hay intervenciones estandarizadas — cada persona tiene un plan de acompañamiento propio.</span></div></div>
+      <div class="principio-card"><span class="principio-emoji">🤝</span><div class="principio-txt"><strong>El vínculo antecede a la derivación</strong><span>Sin vínculo no existe derivación sostenible.</span></div></div>
+      <div class="principio-card"><span class="principio-emoji">🏘️</span><div class="principio-txt"><strong>Lo comunitario antecede a lo institucional</strong><span>Antes de pensar en un CIS, se buscan espacios cotidianos que generen hábitos.</span></div></div>
+      <div class="principio-card"><span class="principio-emoji">🌱</span><div class="principio-txt"><strong>La permanencia requiere tiempo</strong><span>Modificar hábitos sostenidos en una larga trayectoria de calle es un proceso, no un evento.</span></div></div>
+    </div>
+    <label class="check-modulo"><input type="checkbox" onchange="marcarModulo(2,this.checked)"> Marqué este módulo como completado</label>
+  </div>
+
+  <!-- MÓDULO 3 -->
+  <div class="modulo" id="modulo-3" data-mod="3">
+    <div class="modulo-header"><div class="modulo-num">3</div><h2 class="modulo-titulo">Niveles de éxito (1 a 5)</h2></div>
+    <p class="modulo-sub">El éxito no es "ingresó a un dispositivo" o no — es el avance del vínculo. Los procesos no son lineales; el objetivo es el monitoreo continuo, no saltar directo al nivel 5.</p>
+    <div class="card">
+      <div class="niveles-timeline">
+        <div class="nivel-item nivel-1"><div class="nivel-circulo">🖐️</div><div class="nivel-txt"><div class="titulo">1 · Primer acercamiento / identificación</div><div class="desc">La persona: <ul><li>Brinda su nombre y DNI</li><li>Acepta ser registrada</li><li>Permite georreferenciar su lugar de permanencia</li></ul></div></div></div>
+        <div class="nivel-item nivel-2"><div class="nivel-circulo">🤝</div><div class="nivel-txt"><div class="titulo">2 · Construcción del vínculo</div><div class="desc">La persona: <ul><li>Reconoce a los operadores</li><li>Acepta conversar nuevamente</li><li>Acepta una entrevista</li><li>Comienza a compartir información personal</li></ul></div></div></div>
+        <div class="nivel-item nivel-3"><div class="nivel-circulo">📋</div><div class="nivel-txt"><div class="titulo">3 · Monitoreo territorial</div><div class="desc">El equipo logra: <ul><li>Registrar cambios e identificar necesidades</li><li>Conocer consumos</li><li>Conocer redes familiares, vinculares y comunitarias</li><li>Identificar problemáticas de salud</li></ul></div></div></div>
+        <div class="nivel-item nivel-4"><div class="nivel-circulo">🏘️</div><div class="nivel-txt"><div class="titulo">4 · Anclaje territorial</div><div class="desc">El éxito consiste en que la persona incorpore una rutina estable aunque todavía no ingrese a un CIS — anclaje comunitario: DIPA, comedor, micro, olla, parroquia, centro barrial, tratamiento de consumo.</div></div></div>
+        <div class="nivel-item nivel-5"><div class="nivel-circulo">🌟</div><div class="nivel-txt"><div class="titulo">5 · Proyecto de inclusión</div><div class="desc">Consolidada la rutina, se evalúan dispositivos de mayor encuadre. Por ejemplo: ingreso a CIS, comunidad terapéutica, salud mental, hogar convivencial, revinculación familiar, pensión, alquiler asistido, inclusión laboral.</div></div></div>
+      </div>
+    </div>
+    <label class="check-modulo"><input type="checkbox" onchange="marcarModulo(3,this.checked)"> Marqué este módulo como completado</label>
+  </div>
+
+  <!-- MÓDULO 4 -->
+  <div class="modulo" id="modulo-4" data-mod="4">
+    <div class="modulo-header"><div class="modulo-num">4</div><h2 class="modulo-titulo">Glosario de derivaciones y articulaciones</h2></div>
+    <p class="modulo-sub">Tocá cada una para abrirla. <span class="tag tag-formulario" style="margin:0 3px;">Formulario</span> = tiene campos propios y arma un mensaje/PDF listo para copiar. <span class="tag tag-simple" style="margin:0 3px;">Simple</span> = solo observaciones libres. <span class="tag tag-urgente" style="margin:0 3px;">Urgencia</span> = llamado inmediato.</p>
+
+    <div class="glosario-grid">
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-formulario">🏠</div><div class="gcard-titulo"><div class="nombre">CIS — Centro de Inclusión Social</div><span class="tag tag-formulario">Formulario</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> demanda espontánea (alguien que pide ingresar sin estar en seguimiento) o para personas ya en seguimiento del equipo.</p>
+          <p><strong>Requisito clave:</strong> foto del DNI o de la denuncia de extravío — <strong>obligatoria</strong>, no se hacen ingresos sin eso. También sirve si la persona tiene un <strong>trámite de DNI en curso</strong> (no hace falta esperar a tenerlo en mano).</p>
+          <p><strong>A quién avisar:</strong> al referente territorial, que lo eleva a la supervisión de la RED (demanda espontánea) o completa el Forms de vacante y lo envía al grupo "Derivaciones DIPA" (seguimientos).</p>
+          <p><strong>Demanda espontánea — canal correcto:</strong> las vacantes para demanda espontánea se piden a la Red por <strong>Handy Rojo</strong>. <strong>El 108 no es un canal para esto</strong> (el 108 es para familias con niños/niñas/adolescentes). El traslado a CIS lo hace la camioneta de la RED móvil, estacionada en <strong>Perón y Agüero</strong> de 7 a 11:30/12 hs y de 14:30 a 19/19:30 hs.</p>
+          <p><strong>Si se junta gente pidiendo vacante en un punto del territorio:</strong> es población muy crónica y con baja adherencia. Mejor invitarlos a acercarse a Perón y Agüero para pedir la vacante ahí, y usar el contacto para trabajar el vínculo.</p>
+          <p><strong>Cursos de oficios / inserción laboral:</strong> para acceder hay que estar ingresado en un CIS.</p>
+          <p><strong>Algunas direcciones:</strong> Costanera (Av. España 2265), La Boca (Av. Don Pedro de Mendoza 1357), Once (Perón 2869), Garay (Juan de Garay 1450), Bepo Ghezzi (Herminio Masantonio 2970), Castañares (Castañares 1653) — hay muchas más en el documento institucional completo.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">📻</div><div class="gcard-titulo"><div class="nombre">Handy Rojo</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para qué:</strong> es el canal para pedirle vacantes de CIS a la Red cuando es demanda espontánea. También sirve para pedir acceso puntual a <strong>ducha y comida</strong> (sin alojarse) para alguien que <strong>ya tiene la denuncia de extravío hecha</strong> pero no quiere ir a un parador.</p>
+          <p><strong>Ojo:</strong> el <strong>108 no reemplaza al Handy Rojo</strong> — el 108 es específicamente para familias con niños, niñas y/o adolescentes, no para vacantes de CIS ni gestiones de DNI de personas adultas.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">🚐</div><div class="gcard-titulo"><div class="nombre">Camioneta de la RED</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p>El equipo de la RED móvil cuenta con una camioneta grande estacionada en <strong>Perón y Agüero</strong> de <strong>7 a 11:30/12 hs</strong>, a la espera de los usuarios que solicitan vacante y que ya tengan una asignada. Replican el mismo esquema por la tarde, de <strong>14:30 a 19/19:30 hs</strong>.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-formulario">💜</div><div class="gcard-titulo"><div class="nombre">Casa Vincular</div><span class="tag tag-formulario">Formulario</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> solo personas <strong>en seguimiento</strong>. Para quienes no quieren ir a un CIS, tuvieron egresos negativos, o son perfiles de "alta criticidad" (consumo, larga permanencia en calle).</p>
+          <p><strong>Cómo:</strong> se arma un informe social completo. Siempre aclarar a la persona que el <strong>pernocte no está garantizado</strong> — primero se accede al espacio diurno.</p>
+          <p><strong>Qué casa según el perfil:</strong> Dorrego (hombres +18), Panambí (mujeres y disidencias +18 en procesos de consumo problemático), Fray Cayetano (hombres +40 que no sostengan estadías en CIS), Sin Barreras (hombres +18 con discapacidad).</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-formulario">🌱</div><div class="gcard-titulo"><div class="nombre">ASA — ex Centro de Admisión, Evaluación y Derivación</div><span class="tag tag-formulario">Formulario</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> personas en seguimiento que atraviesan consumo problemático y ya dialogaron con el equipo sobre esa problemática, de cara a evaluar una comunidad terapéutica.</p>
+          <p><strong>Cómo:</strong> mismo informe social que Casa Vincular. <strong>A quién avisar:</strong> al referente territorial, que lo viabiliza con la coordinación de Umbral Cero.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-formulario">🚌</div><div class="gcard-titulo"><div class="nombre">Micro</div><span class="tag tag-formulario">Formulario</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> equipos de turno vespertino, para que la persona empiece a sostener el espacio y genere rutina.</p>
+          <p><strong>Requisito clave:</strong> la persona <strong>no</strong> puede tener signos de consumo activo al momento del ingreso. Siempre requiere DNI o denuncia de extravío.</p>
+          <p><strong>Dirección y horario:</strong> Perón y Agüero, 22hs. Vuelta de Obligado y Cabildo, entre 22:30 y 23hs, después sigue a Chacarita.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-formulario">🧠</div><div class="gcard-titulo"><div class="nombre">Salud Mental</div><span class="tag tag-formulario">Formulario</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> personas con indicadores de alguna problemática de salud mental.</p>
+          <p><strong>Cómo:</strong> se evalúa orientación en tiempo/espacio (¿qué día es? ¿en qué año estamos? ¿se acuerda bien su nombre? ¿vestimenta acorde al clima? ¿conductas de riesgo?).</p>
+          <p><strong>Cuándo llamar al SAME:</strong> si la persona <strong>no está ubicada en tiempo/espacio</strong> y además <strong>presenta malestar físico</strong>, se llama al <strong>SAME</strong> de inmediato. <strong>No se la aborda ni se la sube a un móvil</strong> sin esa evaluación previa. También se llama si hay riesgo para sí o terceros. El equipo permanece en el lugar hasta que llegue el SAME.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-urgente">🚑</div><div class="gcard-titulo"><div class="nombre">SAME</div><span class="tag tag-urgente">Urgencia</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> cualquier persona que necesite atención médica urgente.</p>
+          <p><strong>Cómo:</strong> llamar al <strong>107</strong>. Pedir el número de operador que recepciona. Si la persona rechaza la atención verbalmente, <strong>igual se llama</strong>.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-formulario">🩺</div><div class="gcard-titulo"><div class="nombre">Brigada CER</div><span class="tag tag-formulario">Formulario</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> asistencia sanitaria o evaluación física de campo — para decidir si hace falta llamar al SAME, o como apoyo cuando el SAME ya fue solicitado y demora.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-urgente">👨‍👩‍👧</div><div class="gcard-titulo"><div class="nombre">Mapa de Familias en Riesgo</div><span class="tag tag-urgente">Urgencia</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> grupos familiares en calle con niños, niñas y/o adolescentes.</p>
+          <p><strong>Menores solos/as</strong> (sin adultos): llamar de inmediato al <strong>SAME</strong> (107) y a la <strong>Policía</strong>, y contactar la <strong>Línea 102</strong> — minoridad.</p>
+          <p><strong>Familia con menores:</strong> contactar la <strong>Línea 108</strong>.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-urgente">🚔</div><div class="gcard-titulo"><div class="nombre">Policía de la Ciudad</div><span class="tag tag-urgente">Urgencia</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> situaciones violentas, amenazas o comportamientos que requieran intervención policial.</p>
+          <p><strong>Cómo:</strong> llamar al <strong>911</strong>. Si el equipo aguarda al móvil, registrar nombre, LP (legajo personal), comisaría y N° de móvil.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-formulario">🪪</div><div class="gcard-titulo"><div class="nombre">Programa Ciudadanía Porteña</div><span class="tag tag-formulario">Formulario</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Requisitos:</strong> DNI con domicilio en CABA + negativa de ANSES. Si el DNI tiene menos de 2 años de emisión, hace falta además un informe social de otra institución.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">🏛️</div><div class="gcard-titulo"><div class="nombre">Sedes de Atención Social</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> abordaje integral por comuna — consumo problemático, derecho a la identidad, derecho de la mujer, discapacidad, asistencia social a NNyA/familias/personas mayores. Incluye gestión de DNI con eximición de pago y asesoramiento sobre el Certificado Único de Discapacidad.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">📋</div><div class="gcard-titulo"><div class="nombre">Derecho a la Identidad</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Para quién:</strong> personas sin inscripción registral (NN) o extranjeras con dificultades de documentación. Sito en <strong>Rodríguez Peña 780</strong>.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">☕</div><div class="gcard-titulo"><div class="nombre">DIPA — Dispositivo de Primer Acercamiento</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Qué es:</strong> espacio de 06:00 a 22:00 hs con asistencia alimentaria (desayuno y merienda), gestión de Ciudadanía Porteña y del Programa de Apoyo para Familias en Situación de Vulnerabilidad Habitacional.</p>
+          <p><strong>Dónde:</strong> Combate de los Pozos 1280 (solo tiene duchas) y Zabala 4070.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">⚕️</div><div class="gcard-titulo"><div class="nombre">Médico</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Cómo:</strong> turnos por la línea <strong>147</strong> para acompañar a la persona al sistema de salud.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">🫁</div><div class="gcard-titulo"><div class="nombre">Tuberculosis</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Sin constancia de tratamiento:</strong> indicarle que se acerque a la institución de salud más cercana. Si no puede, se llama al <strong>SAME</strong>. Se recomienda el <strong>Hospital Muñiz</strong>.</p>
+          <p><strong>Con constancia:</strong> tiene que dejar en claro que no está en período de contagio, con el alta correspondiente.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">🆔</div><div class="gcard-titulo"><div class="nombre">Hacer DNI</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p><strong>Cómo:</strong> derivación con eximición de pago + acompañamiento a hacer el trámite, o la denuncia de extravío en la comisaría más cercana si corresponde.</p>
+        </div>
+      </details>
+
+      <details class="gcard">
+        <summary><div class="gcard-icono ic-simple">🌤️</div><div class="gcard-titulo"><div class="nombre">Centro de día</div><span class="tag tag-simple">Simple</span></div><span class="chevron">›</span></summary>
+        <div class="gcard-body">
+          <p>Sin detalle adicional todavía en el documento institucional — formulario simple hasta que se defina más.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="alert alert-warn">
+      <span>💬</span>
+      <div><strong>Contención no es una derivación.</strong> Los espacios de diálogo y contención con personas
+      en seguimiento se registran como <strong>seguimiento</strong> en la ficha de la persona (no como
+      derivación) — son parte de sostener el vínculo, no un recurso externo.</div>
+    </div>
+
+    <label class="check-modulo"><input type="checkbox" onchange="marcarModulo(4,this.checked)"> Marqué este módulo como completado</label>
+  </div>
+
+  <!-- MÓDULO 5 -->
+  <div class="modulo" id="modulo-5" data-mod="5">
+    <div class="modulo-header"><div class="modulo-num">5</div><h2 class="modulo-titulo">Cómo se usa la plataforma Casos</h2></div>
+    <p class="modulo-sub">El KoBo es obligatorio en cada contacto — pero eso NO significa que después haya que volver a escribir todo de nuevo en la plataforma. La idea es: cargás el KoBo en el momento, y en Casos confirmás/completás lo que haga falta.</p>
+
+    <div class="card">
+      <p style="font-family:'Sora',sans-serif; font-weight:800; color:var(--navy); font-size:0.95rem; margin-bottom:6px;">Los tres momentos del KoBo</p>
+      <p style="font-size:0.85rem; color:#475569; margin-bottom:14px;">No son necesariamente lineales: una persona puede pasar de Seguimiento a Recontacto y después volver a Seguimiento.</p>
+      <div class="principios-grid">
+        <div class="principio-card"><span class="principio-emoji">👋</span><div class="principio-txt"><strong>Primer Acercamiento</strong><span>Conocer y generar una primera oportunidad de vínculo con la persona.</span></div></div>
+        <div class="principio-card"><span class="principio-emoji">📈</span><div class="principio-txt"><strong>Seguimiento</strong><span>Construir referencia e intervención sostenida en el tiempo.</span></div></div>
+        <div class="principio-card"><span class="principio-emoji">🔄</span><div class="principio-txt"><strong>Recontacto</strong><span>Retomar el vínculo cuando se perdió la continuidad.</span></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="pasos-timeline">
+        <div class="paso-item"><div class="paso-circulo">🔍</div><div class="paso-txt"><div class="titulo">1 · Buscá antes de cargar</div><div class="desc">Buscá por nombre, apellido o DNI antes de dar de alta a alguien — así no se duplica a una persona que el equipo ya conoce.</div></div></div>
+        <div class="paso-item"><div class="paso-circulo">📥</div><div class="paso-txt"><div class="titulo">2 · Si ya cargaste el KoBo, confirmá el alta desde ahí</div><div class="desc">Va a aparecer en "📥 KoBo pendientes" con los datos ya precargados. Tocá "✅ Confirmar y cargar caso" y revisá antes de guardar.</div></div></div>
+        <div class="paso-item"><div class="paso-circulo">➕</div><div class="paso-txt"><div class="titulo">3 · Si no aparece, date de alta a mano</div><div class="desc">Botón "➕ Ingresar nuevo caso". Si la persona no quiere identificarse, tildá "Sin identificar" y completá al menos el punto de contacto.</div></div></div>
+        <div class="paso-item"><div class="paso-circulo">📋</div><div class="paso-txt"><div class="titulo">4 · Validá lo que ya trajo KoBo</div><div class="desc">Cada envío nuevo de alguien que ya tiene caso cargado aparece en su Historial. Tocá "✅ Validar / agregar nota" para confirmar el checklist "¿Qué hiciste con este caso?" (viene pre-tildado con lo ya contestado en KoBo).</div></div></div>
+        <div class="paso-item"><div class="paso-circulo">🔗</div><div class="paso-txt"><div class="titulo">5 · ¿No pudiste tomar el DNI ese día?</div><div class="desc">Si el KoBo quedó sin DNI pero el nombre coincide con un caso ya cargado, la plataforma pregunta "¿es la misma persona?" en KoBo pendientes.</div></div></div>
+        <div class="paso-item"><div class="paso-circulo">📝</div><div class="paso-txt"><div class="titulo">6 · Seguimiento: intervención, comentario o derivación</div><div class="desc">Al validar, la plataforma ofrece "➕ Registrar tu intervención" o "💬 Agregar un comentario". Si el checklist incluyó una derivación formal (CIS, Casa Vincular, Ciudadanía Porteña, SAME, Salud Mental, Policía), aparece un botón para completarla ya. Para una urgencia, "🚨 Avisar a coordinación" manda un WhatsApp con el mensaje ya armado.</div></div></div>
+      </div>
+    </div>
+
+    <div class="alert alert-info">
+      <span>💡</span>
+      <div><strong>La idea de fondo:</strong> lo que ya contestaste en el KoBo aparece solo en la ficha de la persona. El trabajo en la plataforma pasa a ser <strong>confirmar</strong> que está bien y sumar lo que falte — no volver a tipear de cero.</div>
+    </div>
+
+    <label class="check-modulo"><input type="checkbox" onchange="marcarModulo(5,this.checked)"> Marqué este módulo como completado</label>
+  </div>
+
+  <!-- MÓDULO 6 -->
+  <div class="modulo" id="modulo-6" data-mod="6">
+    <div class="modulo-header"><div class="modulo-num">6</div><h2 class="modulo-titulo">Cierre de jornada y herramientas</h2></div>
+    <p class="modulo-sub">Todos los días, cuando termina el recorrido, hay que cerrar la jornada — y ahí mismo la plataforma arma un resumen listo para compartir con el grupo.</p>
+
+    <div class="card">
+      <div class="pasos-timeline">
+        <div class="paso-item"><div class="paso-circulo">⏹️</div><div class="paso-txt"><div class="titulo">1 · Marcá el fin de la jornada con tus observaciones</div><div class="desc">Botón "⏹️ Marcar fin de jornada" — pide contar brevemente cómo estuvo el día. Es obligatorio para poder cerrar. Apenas se guarda, aparece el resumen completo del día y el botón "📱 Armar mensaje de WhatsApp".</div></div></div>
+        <div class="paso-item"><div class="paso-circulo">📱</div><div class="paso-txt"><div class="titulo">2 · Armá el mensaje y mandalo al grupo</div><div class="desc">"📱 Compartir por WhatsApp" abre WhatsApp con el mensaje ya cargado; "📋 Copiar" lo copia para pegarlo donde haga falta.</div></div></div>
+        <div class="paso-item"><div class="paso-circulo">📅</div><div class="paso-txt"><div class="titulo">3 · ¿Te olvidaste de mandarlo ese mismo día? No pasa nada</div><div class="desc">El botón "📅 Cierres de jornada" muestra todas las jornadas ya cerradas — se puede armar el mensaje de cualquier día pasado cuando haga falta.</div></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p><strong>Esta plataforma (Casos)</strong> es donde se registra cada intervención, derivación y
+      seguimiento — reemplaza la planilla manual para el día a día del equipo.</p>
+      <p><strong>Grupo de WhatsApp del equipo territorial</strong> — para despejar dudas y gestionar
+      estrategias de abordaje con la referencia de GOPA.</p>
+      <p><strong>Referente territorial</strong> — nexo institucional con el resto de la Red. No
+      coordina al equipo puertas adentro, pero es a quien se avisa y quien deriva la mayoría de las
+      articulaciones de este glosario.</p>
+    </div>
+
+    <label class="check-modulo"><input type="checkbox" onchange="marcarModulo(6,this.checked)"> Marqué este módulo como completado</label>
+  </div>
+
+  <div class="cta-final">
+    <h2>🎉 ¿Completaste los 6 módulos?</h2>
+    <p>Este curso es el primer paso para sumarte como <strong>prestador/a</strong> de Umbral 0. Por ahora no hay un botón que dé el acceso automático a la plataforma — nuestro equipo revisa cada solicitud a mano y coordina con vos el pago del curso y la habilitación.</p>
+    <a href="#contacto" class="cta-btn">📩 Quiero ser prestador/a — Contactar</a>
+  </div>
+
+  <h2 class="section-title" id="contacto">Contacto</h2>
+  <div class="card">
+    <p>Escribinos por WhatsApp contándonos que terminaste la capacitación y que querés sumarte como prestador/a. Te vamos a responder para coordinar el pago del curso y los próximos pasos de la habilitación.</p>
+    <a href="#" id="wa-btn-curso" data-cfg-href="whatsappLink" target="_blank" class="wa-btn-curso">💬 Escribir por WhatsApp</a>
+    <div class="wa-num-curso" data-cfg="whatsappNumero"></div>
+  </div>
+
+</div>
+
+<footer>
+  Umbral 0 — Capacitación para prestadores. Basado en el documento institucional del 27/07/2026.
+  <div class="huehaci-credit">
+    <img src="../assets/huehaci-logo.png" alt="Huehaci">
+    <span>Huehaci — Consultora de innovación cívica y tecnológica</span>
+  </div>
+</footer>
+
+<script src="../config/umbral-0.js"></script>
+<script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script src="../shared/js/ui-theme.js"></script>
+<script>
+UITheme.init();
+
+// Progreso del curso — solo una conveniencia por navegador (localStorage),
+// no certifica nada por sí sola: la habilitación real como prestador/a pasa
+// siempre por el contacto humano en #contacto, tal cual se le aclara arriba.
+const TOTAL_MODULOS = 6;
+const STORAGE_KEY = 'u0_curso_modulos';
+
+function leerProgreso(){
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  } catch(e) { return {}; }
+}
+
+function guardarProgreso(estado){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(estado)); } catch(e) {}
+}
+
+function actualizarBarra(){
+  const estado = leerProgreso();
+  const completados = Object.values(estado).filter(Boolean).length;
+  document.getElementById('progreso-num').textContent = completados;
+  document.getElementById('progreso-bar').style.width = (completados / TOTAL_MODULOS * 100) + '%';
+}
+
+function marcarModulo(n, checked){
+  const estado = leerProgreso();
+  estado[n] = checked;
+  guardarProgreso(estado);
+  document.getElementById('modulo-' + n).classList.toggle('completo', checked);
+  actualizarBarra();
+}
+
+(function initProgreso(){
+  const estado = leerProgreso();
+  for(let n = 1; n <= TOTAL_MODULOS; n++){
+    if(estado[n]){
+      const mod = document.getElementById('modulo-' + n);
+      mod.classList.add('completo');
+      const cb = mod.querySelector('.check-modulo input');
+      if(cb) cb.checked = true;
+    }
+  }
+  actualizarBarra();
+})();
+</script>
+</body>
+</html>

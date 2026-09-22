@@ -3430,7 +3430,61 @@ bloques `<script>`, grep confirmando las letras a-f sin salto ni
 duplicado, y confirmación de que `admin-duplas.html` quedó sin ningún
 cambio (`git diff` vacío en ese archivo).
 
-## 11. Lo que queda abierto
+### 10.1.51 Nueva página: curso de capacitación para prestadores (22/9/2026)
+
+Agustina: "a partir de todo lo que tenemos en el glosario se transforme
+en una capacitación, un mocs en otra pestaña y ese mocs va a servir para
+nuevos prestadores que paguen para hacer el curso y poder ser
+prestador". Le pregunté (AskUserQuestion) cómo manejar el pago, cuánto
+contenido incluir y qué pasa al terminar el curso — descartó las tres
+preguntas sin responderlas por la UI, y en su lugar contestó directo por
+texto: "que te lleve a contacto sino" (si el curso no da de alta
+automática, que termine llevando a un contacto).
+
+Nueva página `umbral-0/capacitacion.html`, hermana de `instructivo.html`
+(el Glosario interno del equipo) pero para un público distinto: gente de
+afuera del equipo que quiere convertirse en prestador/a pago/a. Enlazada
+desde `index.html` con `target="_blank"` ("🎓 Curso para nuevos
+prestadores", en `home-footer-links`) — la "otra pestaña" pedida.
+
+Reusa el contenido íntegro del Glosario (no un resumen): qué es Umbral
+0, los 5 principios, los 5 niveles de éxito, y el glosario completo de
+~18 derivaciones (CIS con sus direcciones, Handy Rojo, Casa Vincular,
+ASA, Micro, Salud Mental, SAME, Brigada CER, Mapa de Familias en Riesgo,
+Policía, Ciudadanía Porteña, Sedes de Atención Social, Derecho a la
+Identidad, DIPA, Médico, Tuberculosis, Hacer DNI, Centro de día), más
+cómo se usa Casos (carga/validación/seguimiento) y el cierre de jornada
+— reorganizado en 6 "módulos" con numeración y checkbox propio en vez de
+la navegación libre por anchors del Glosario.
+
+Cómo quedó resuelta la ambigüedad, con defaults conservadores dado que
+las 3 preguntas no se respondieron:
+
+- **Pago:** no hay integración de pago real (no existe infraestructura
+  de cobro en el repo). El curso es de acceso libre; el pago se coordina
+  a mano después del contacto — así lo dice el propio texto de la
+  sección Contacto ("te vamos a responder para coordinar el pago del
+  curso").
+- **"Que te lleve a contacto":** el checklist de progreso (6 checkboxes,
+  uno por módulo, persistido en `localStorage` — solo una conveniencia
+  visual por navegador, no una certificación) termina siempre en una
+  sección `#contacto` con un botón de WhatsApp (mismo patrón `data-cfg`/
+  `data-cfg-href` + `UITheme.init()` que ya usa `index.html` para el
+  botón "Contactar a la operadora", leyendo `whatsappLink`/
+  `whatsappNumero` de `PROJECT_CONFIG_UMBRAL_0` — hoy vacíos, TODO
+  pendiente igual que en el resto del portal). No se otorga ningún alta
+  automática de rol ni acceso a la plataforma real al completar el
+  curso — completar los módulos no habilita nada por sí solo, coincide
+  con lo que pidió.
+- **Profundidad del contenido:** se copió el detalle completo de cada
+  derivación tal cual está en `instructivo.html` (direcciones, teléfonos,
+  protocolos de urgencia), sin resumir — "todo lo que tenemos en el
+  glosario" se tomó literal.
+
+Validado: balance de `<div>`/`<details>`/`<summary>` de
+`capacitacion.html` (211/211, 19/19, 19/19) y chequeo de sintaxis del
+bloque `<script>` principal (progreso + `UITheme.init()`) con
+`node --check`.
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
