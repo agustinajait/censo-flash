@@ -2968,6 +2968,69 @@ sintaxis del único bloque `<script>` del archivo, y grep cruzado de que
 el `id="cierre-jornada"` nuevo tiene su entrada en el índice y las 4
 imágenes referenciadas existen en `umbral-0/capturas/`.
 
+### 10.1.39 Zonas operativas dibujadas en el mapa en vivo del Dashboard (22/9/2026)
+
+Contexto: analizando los puntos reales de KoBo (§10.1.37) para la reunión
+con gobierno, Agustina compartió el My Maps real del equipo (KML/KMZ,
+`mid=17rIU9xQLt-di5U-caHpcdEQhMQO1rMA`) con el polígono asignado a cada
+dupla, los comedores/instituciones de referencia de las duplas "iglesias"
+(que no patrullan una zona fija — visitan un lugar en un horario fijo:
+C/F/I/L/M) y el contorno general "Zona Frontera" del reporte DGREA. Pidió:
+"quiero que en el mapa en vivo de mi plataforma esté el mapa que debemos
+recorrer nosotros delimitado, así podemos comparar si estamos en zona o
+no".
+
+Cambios:
+
+- **`config/umbral-0.js`**: nuevo `ZONAS_OPERATIVAS_UMBRAL_0` — polígonos
+  de las 8 duplas con zona de patrullaje (A/B/D/E/G/H/J/K), los comedores
+  de referencia de las 5 duplas "iglesias" (C/F/I/L/M, cada una con 1-2
+  polígonos), y el contorno "Zona Frontera". Extraído del KML exportado
+  del My Maps, coordenadas redondeadas a 5 decimales (~1m de precisión).
+  Expuesto como `window.PROJECT_CONFIG_UMBRAL_0.zonasOperativas`. Sin
+  sincronización automática con el My Maps — si cambian los polígonos ahí,
+  hay que re-exportar el KML y regenerar este bloque a mano.
+- **`shared/js/mapa-puntos.js`**: `renderMapaPuntos(containerId, puntos, zonas)`
+  ahora acepta un tercer parámetro opcional. Si se pasa, dibuja los
+  polígonos en una capa aparte (`capaZonas`, agregada al mapa ANTES que la
+  capa de puntos, así los puntos siempre quedan por encima visualmente) —
+  cada zona con su color real del My Maps (mismo hex, extraído del
+  `styleUrl` del KML) y un tooltip con el código de dupla; el contorno
+  "Zona Frontera" en gris punteado, sin relleno. Se dibuja una sola vez
+  por instancia de mapa (no depende del filtro de fecha, así que no hace
+  falta recalcularlo en cada re-render de puntos). Los otros dos usos de
+  `renderMapaPuntos()` (`admin-duplas.html` reporte, `reporte-publico.html`)
+  siguen llamándolo sin el tercer parámetro — no rompen, simplemente no
+  muestran las zonas (a propósito: "mi plataforma" / "mapa en vivo" es el
+  Dashboard, no el reporte público).
+- **`dashboard-engine.js`**: la llamada a `renderMapaPuntos('u0-map', ...)`
+  ahora pasa `window.PROJECT_CONFIG_UMBRAL_0.zonasOperativas` como tercer
+  argumento.
+- Cache-busting (`?v=`) de `mapa-puntos.js` y `dashboard-engine.js` en
+  `dashboard.html` subido a `2026-09-22`.
+
+**Hallazgo del cruce contra las zonas** (informativo, no requirió cambios
+de código): de los 215 envíos confirmados del equipo desde el 14/9
+(§10.1.37), el contorno general "Zona Frontera" del reporte DGREA — que
+el propio KML marca como "solo referencia; el trabajo operativo se
+organiza por los polígonos de cada turno" — no es el que hay que usar
+para validar cumplimiento; contra los polígonos reales asignados a cada
+dupla, Once-Balvanera (A) y Chacarita·2 (H) están muy alineadas (93-100%
+dentro de su polígono), mientras que Retiro-San Telmo·3 (K, 41%),
+Chacarita·1 (D, 55%) y Almagro-Boedo (E, 60%) muestran más dispersión —
+esperable en trabajo de calle real (siguiendo personas, no una grilla
+fija), pero es el tipo de comparación que este mapa ahora permite hacer
+de un vistazo, en vez de a mano con un Excel.
+
+Validado: `node --check` sobre los 3 archivos JS tocados, balance de
+`<div>` de `dashboard.html` (191/191) y chequeo de sintaxis de sus 9
+bloques `<script>` inline, y un script aparte que parsea
+`ZONAS_OPERATIVAS_UMBRAL_0` desde el archivo y confirma que las 8 zonas
+de dupla, los 6 polígonos de comedor y el contorno de Zona Frontera están
+todos cerrados (primer punto = último punto) y con colores hex válidos.
+No se pudo probar visualmente en un navegador real (sin acceso de red
+desde este entorno) — a confirmar por el equipo.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

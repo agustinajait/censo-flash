@@ -1354,7 +1354,8 @@ function renderUmbral0(rows, sinDupla){
   // respeta el filtro de fecha de arriba (aplicarFiltroUmbral0() le pasa
   // el subconjunto filtrado, no todo umbral0Crudo).
   if(window.renderMapaPuntos){
-    renderMapaPuntos('u0-map', rows.map(r => ({ lat: r.lat, lng: r.lng, fecha: r.fecha, tipo: r.tipo })));
+    const zonas = window.PROJECT_CONFIG_UMBRAL_0 && window.PROJECT_CONFIG_UMBRAL_0.zonasOperativas;
+    renderMapaPuntos('u0-map', rows.map(r => ({ lat: r.lat, lng: r.lng, fecha: r.fecha, tipo: r.tipo })), zonas);
   }
 }
 
