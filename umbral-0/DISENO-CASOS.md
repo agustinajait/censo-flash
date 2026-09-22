@@ -3383,6 +3383,53 @@ frase de iglesias NO aparece cuando no hay ninguna dupla de iglesias en
 el rango filtrado. También `node --check` sobre el archivo. Cache-busting
 subido a `?v=2026-09-22h`.
 
+### 10.1.50 Reporte público sin la comparación derivaciones-vs-KoBo (22/9/2026)
+
+Agustina, antes de entregarle el reporte a gobierno: "hay datos del
+reporte que nos complican y deberíamos ocultarlos. la diferencia entro
+[entre] la derivacion en nuestra plataforma y lo que se sube a kobo nos
+complica, debería verlo yo en el admin pero no hace falta que gobierno
+lo vea".
+
+`reporte-publico.html` y `admin-duplas.html#reporte` renderizan el mismo
+reporte con dos plantillas separadas (no comparten código) — esto se
+tocó **solo** en `reporte-publico.html`; `admin-duplas.html` sigue
+mostrando todo, sin cambios, para uso interno.
+
+Sacado del reporte público:
+
+- La sección completa **"e. Derivaciones y contactos según KoBo
+  (terreno)"** — una tabla aparte con los conteos crudos de KoBo, que
+  puestos al lado de "d. Intervenciones y derivaciones" (los datos
+  cargados en la plataforma) hacían evidente cualquier diferencia entre
+  ambas fuentes.
+- El aviso `⚠️` de "d." que decía explícitamente "No hubo 'Pedir
+  derivación' cargado en la plataforma... la tabla de arriba muestra en
+  su lugar lo que KoBo registró en terreno" — nombraba la diferencia
+  directamente.
+
+Lo que **no** se tocó: el fallback silencioso de la tabla de "d." (si no
+hay derivaciones cargadas en la plataforma, mostrar en su lugar los
+conteos de KoBo) sigue funcionando igual — sin eso, el reporte mostraría
+"Sin derivaciones en el período" en vez del trabajo real hecho en
+terreno, que sería peor. Solo se sacó el aviso que señalaba la diferencia
+en voz alta, no el dato en sí. Tampoco se tocó la nota de denuncia de
+extravío de DNI vs. trámite formalizado (§10.1.21) — es una comparación
+distinta a la que Agustina nombró, no se asumió que también había que
+sacarla.
+
+Secciones renumeradas para no dejar un salto (antes a-g, ahora a-f):
+"f. Qué hicieron las duplas" pasó a "e.", "g. Observaciones diarias"
+pasó a "f.". El mapa de puntos (dentro de "a.") sigue usando
+`koboOutcomes.puntos` igual que antes — solo se sacó la TABLA que
+mostraba esos datos aparte, no la fuente de datos del mapa.
+
+Validado: balance de `<div>` de `reporte-publico.html` (87/87, bajó de
+91 por las 4 divs de la sección eliminada), chequeo de sintaxis de sus 5
+bloques `<script>`, grep confirmando las letras a-f sin salto ni
+duplicado, y confirmación de que `admin-duplas.html` quedó sin ningún
+cambio (`git diff` vacío en ese archivo).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
