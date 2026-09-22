@@ -2492,7 +2492,29 @@ Umbral Cero — Huehaci`;
       return;
     }
     cont.innerHTML = '';
-    data.forEach(p => cont.appendChild(Casos.renderPersonaCard(p)));
+    // Separar identificados de "sin identificar" (22/9/2026, pedido de
+    // Agustina: "en la vista de la dupla los casos sin identificar no
+    // tienen que estar mezclados con los que sí" — mezclados en la misma
+    // lista, ordenados solo por actividad, costaba distinguir de un
+    // vistazo cuáles ya tienen nombre y cuáles no). Cada grupo mantiene
+    // el mismo orden que ya traía la consulta (más viejo sin tocar primero).
+    const identificados = data.filter(p => !p.sin_identificar);
+    const sinIdentificar = data.filter(p => p.sin_identificar);
+    if(identificados.length){
+      const h = document.createElement('div');
+      h.className = 'section-label';
+      h.textContent = `Casos identificados (${identificados.length})`;
+      cont.appendChild(h);
+      identificados.forEach(p => cont.appendChild(Casos.renderPersonaCard(p)));
+    }
+    if(sinIdentificar.length){
+      const h = document.createElement('div');
+      h.className = 'section-label';
+      h.style.marginTop = identificados.length ? '20px' : '0';
+      h.textContent = `Casos sin identificar (${sinIdentificar.length})`;
+      cont.appendChild(h);
+      sinIdentificar.forEach(p => cont.appendChild(Casos.renderPersonaCard(p)));
+    }
   },
 
   renderPersonaCard(p){
@@ -2519,11 +2541,31 @@ Umbral Cero — Huehaci`;
         badges.push(`<span class="badge badge-red">⏰ ${dias === 1 ? 'hace 1 día' : `hace ${dias} días`} sin seguimiento</span>`);
       }
     }
+    // Identificación visual para "sin identificar" (22/9/2026, pedido de
+    // Agustina: "como dice 'caso sin identificar' siempre, parecen
+    // repetidos") — nombreDisplay() da siempre el mismo texto genérico
+    // para estos casos; acá se agrega fecha/hora de alta (lo único que
+    // sí es distinto entre uno y otro) y, si hay, zona/comuna en vez de
+    // repetir el bloque de DNI que para estos casos no aplica.
+    let tituloTxt, subTxt;
+    if(p.sin_identificar){
+      const horaAlta = p.created_at ? new Date(p.created_at).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+      tituloTxt = `Sin identificar${horaAlta ? ' · ' + horaAlta : ''}`;
+      const zonaComuna = [p.zona, p.comuna].filter(Boolean).join(' · ');
+      // punto_contacto para estos casos suele ser un link de Google Maps
+      // crudo (ver §10.1.16) — no sirve como subtítulo legible, mejor un
+      // aviso corto que decir la URL entera.
+      const esUrl = p.punto_contacto && /^https?:\/\//.test(p.punto_contacto);
+      subTxt = zonaComuna || (esUrl ? '📍 Con ubicación cargada' : (p.punto_contacto ? p.punto_contacto : 'Sin punto de contacto cargado'));
+    } else {
+      tituloTxt = nombreDisplay(p);
+      subTxt = `${p.dni ? 'DNI ' + p.dni : (p.dni_denuncia_extravio ? 'Denuncia de extravío' : 'Sin DNI registrado')}${p.zona ? ' · ' + p.zona : ''}${p.comuna ? ' · ' + p.comuna : ''}`;
+    }
     card.innerHTML = `
       <div class="persona-avatar">${esc(iniciales(p))}</div>
       <div class="persona-info">
-        <div class="persona-nombre">${esc(nombreDisplay(p))}</div>
-        <div class="persona-sub">${p.dni ? 'DNI ' + esc(p.dni) : (p.dni_denuncia_extravio ? 'Denuncia de extravío' : 'Sin DNI registrado')} ${p.zona ? '· ' + esc(p.zona) : ''} ${p.comuna ? '· ' + esc(p.comuna) : ''}</div>
+        <div class="persona-nombre">${esc(tituloTxt)}</div>
+        <div class="persona-sub">${esc(subTxt)}</div>
       </div>
       <div class="persona-badges">${badges.join('')}</div>
     `;
