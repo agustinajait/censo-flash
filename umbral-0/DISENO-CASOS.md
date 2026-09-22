@@ -2727,6 +2727,54 @@ etiquetas (mapea los dos valores conocidos, cae al valor crudo para uno
 desconocido en vez de romper, no rompe con vacío/`undefined`) — los 4
 checks pasan.
 
+### 10.1.33 "Sin identificar" ya no se ve todo igual en la lista de búsqueda (22/9/2026)
+
+Contexto real: las duplas están cargando muchos casos "sin identificar"
+(en vez de completar KoBo correctamente), y Agustina reporta confusión:
+"como dice 'caso sin identificar' siempre, parecen repetidos" — más
+"en la vista de la dupla los casos sin identificar no tienen que estar
+mezclados con los que sí [están identificados]". Dos pedidos, un mismo
+`renderPersonaCard()`/`buscarPersonas()` en `casos.html`.
+
+**1. Separar en dos grupos** (`buscarPersonas()`): la lista de resultados
+ya no es un solo bloque ordenado por actividad — se parte en "Casos
+identificados (N)" y "Casos sin identificar (N)", cada uno con su propio
+`section-label`, manteniendo el orden que ya traía la consulta (más
+viejo sin tocar primero) dentro de cada grupo. No se tocó la consulta en
+sí (sigue trayendo hasta 40, ordenados por `ultima_actividad`) — el
+split es solo al renderizar.
+
+**2. Alguna forma de distinguirlos** (`renderPersonaCard()`):
+`nombreDisplay()` da siempre el mismo texto genérico ("Persona sin
+identificar") para estos casos — no cambia, sigue siendo lo correcto en
+el resto de la plataforma (timeline, mensajes de WhatsApp, etc., donde
+se ve UN caso a la vez, no una lista). Acá, específicamente en la
+tarjeta de la lista, se agrega lo único que sí varía de un caso "sin
+identificar" a otro:
+
+- Título: "Sin identificar · {fecha y hora del alta}" en vez del genérico
+  a secas.
+- Subtítulo: zona/comuna si las tiene cargadas: si no, y si
+  `punto_contacto` es un link de Google Maps crudo (patrón de §10.1.16,
+  el caso más común para estos altas), "📍 Con ubicación cargada" en vez
+  de mostrar la URL entera (ilegible en una tarjeta chica); si no hay
+  nada de eso, "Sin punto de contacto cargado".
+
+No se tocó `nombreDisplay()` en sí ni ningún otro lugar que lo use —
+cambio acotado a la tarjeta de la lista, que es donde se reportó la
+confusión.
+
+Validado: balance de `<div>` y chequeo de sintaxis de los bloques
+`<script>` de `casos.html`, confirmación directa de que
+`personas_actividad` (la vista de la que sale la lista) trae las
+columnas que hacían falta (`created_at`, `punto_contacto`, `zona`,
+`comuna`, `sin_identificar`), y script de Node que reproduce el armado
+de título/subtítulo y la agrupación — dos casos "sin identificar" con
+datos distintos ya no dan el mismo título, un link de mapa crudo no se
+muestra como URL, un caso identificado no cambia de comportamiento, y la
+agrupación separa y preserva el orden correctamente — los 7 checks
+pasan.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
