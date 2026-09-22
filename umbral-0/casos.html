@@ -2397,13 +2397,21 @@ const Casos = {
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-cierres-jornada').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
-    mostrarJornada(); // se ocultó al entrar a alguna de las otras vistas — solo aparece en la búsqueda/home
+    // Los tres widgets de "home" (turno, jornada, KoBo pendientes) se
+    // ocultan al entrar a cualquier otra vista — mismo bug, mismo patrón
+    // de arreglo, ver §10.1.53/§10.1.54 en DISENO-CASOS.md. Solo aparecen
+    // acá, al volver a la búsqueda.
+    mostrarMiTurno();
+    mostrarJornada();
+    mostrarKoboPendientes();
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
   },
 
   mostrarDniPendientes(){
     document.getElementById('jornada-box').style.display = 'none';
+    document.getElementById('mi-turno-box').style.display = 'none';
+    document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
@@ -2420,6 +2428,8 @@ const Casos = {
   // igual que el resto de la búsqueda.
   mostrarSinIdentificar(){
     document.getElementById('jornada-box').style.display = 'none';
+    document.getElementById('mi-turno-box').style.display = 'none';
+    document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -2445,6 +2455,8 @@ const Casos = {
   // a mano acá.
   async mostrarMiActividad(){
     document.getElementById('jornada-box').style.display = 'none';
+    document.getElementById('mi-turno-box').style.display = 'none';
+    document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -2521,6 +2533,8 @@ const Casos = {
   // para armar/copiar/compartir ese mensaje en cualquier momento.
   async mostrarCierresJornada(){
     document.getElementById('jornada-box').style.display = 'none';
+    document.getElementById('mi-turno-box').style.display = 'none';
+    document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -3185,6 +3199,8 @@ const Casos = {
     koboEventosActuales = []; // se completa aparte, no bloquea abrir la ficha (ver abajo)
 
     document.getElementById('jornada-box').style.display = 'none';
+    document.getElementById('mi-turno-box').style.display = 'none';
+    document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';

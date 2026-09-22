@@ -3601,6 +3601,31 @@ Validado: balance de `<div>`/`<button>` de `casos.html` (284/284, 73/73),
 Node aparte simulando el DOM mínimo (jornada visible al entrar → oculta
 al abrir "DNI pendientes" → visible de nuevo al volver a buscar) — pasa.
 
+### 10.1.54 Mismo bug del §10.1.53, en los otros dos widgets de "home" (22/9/2026)
+
+Agustina, después del fix de arriba: "mis derivaciones sigue mostrando
+envíos de KoBo pendientes". El §10.1.53 solo tocó `jornada-box` —
+`kobo-pend-box` ("📥 envíos de KoBo... sin caso cargado") y
+`mi-turno-box` (zona/turno/referente) son los otros dos widgets que
+viven en el mismo lugar, fuera del sistema de vistas, con el mismo
+patrón: se pintan una vez en `entrarAlApp()` y ninguna función que
+cambia de vista los tocaba.
+
+Mismo arreglo, extendido a los tres: las 5 funciones que abren una
+vista que no es la búsqueda/home ahora ocultan los tres
+(`jornada-box`, `mi-turno-box`, `kobo-pend-box`), y `volverABuscar()`
+los vuelve a mostrar los tres (`mostrarMiTurno()`, `mostrarJornada()`,
+`mostrarKoboPendientes()` — las tres funciones ya existían y son
+baratas de re-llamar, no repiten ningún fetch a Supabase/KoBo, solo
+repintan con los datos ya cargados en memoria).
+
+Validado: balance de `<div>`/`<button>` de `casos.html` sin cambios
+(284/284, 73/73 — no se agregó ni sacó ningún tag, solo llamadas JS),
+`node --check` sobre sus 2 bloques `<script>` no vacíos, y el mismo
+script de Node del §10.1.53 extendido a los tres widgets (visibles al
+entrar → los tres ocultos en "Mis derivaciones" → los tres visibles de
+nuevo al volver a buscar) — pasa.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
