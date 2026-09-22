@@ -2942,6 +2942,32 @@ contra datos reales hasta ahora).
 No se agrega este script al repo — es una herramienta puntual para este
 pedido, no parte del producto ni de su test suite.
 
+### 10.1.38 Nueva sección en el Glosario: "Cierre de jornada y mensaje de WhatsApp" (22/9/2026)
+
+Pedido de Agustina: "agregalo al glosario" — el instructivo que se le
+mandó por WhatsApp para explicar el flujo de cierre de jornada (§10.1.37)
+también queda como sección permanente en `instructivo.html`
+("📖 Glosario", accesible desde el topbar de `casos.html`), con el mismo
+criterio que ya usa la sección "Cómo usar Casos" (`pasos-timeline`, un
+paso por tarjeta con emoji + título + descripción + captura).
+
+Las 4 capturas del mensaje de WhatsApp (§10.1.37) se movieron de
+scratchpad al repo, en `umbral-0/capturas/` junto a las que ya existían
+de la sección "Cómo usar Casos" (numeradas 6 a 9, siguiendo la misma
+convención): `6-resumen-dia-armar-mensaje.png`, `7-modal-mensaje-cierre.png`,
+`8-cierres-de-jornada.png`, `9-modal-mensaje-dia-pasado.png`.
+
+Nueva sección `id="cierre-jornada"` (con su entrada correspondiente en el
+índice `.toc` de arriba de la página), insertada entre "Cómo usar Casos"
+y "Herramientas de registro", con los mismos 3 pasos del instructivo de
+WhatsApp: marcar fin de jornada → armar/compartir el mensaje del día →
+"📅 Cierres de jornada" para un día pasado.
+
+Validado: balance de `<div>` (225/225) y `<figure>` (9/9), chequeo de
+sintaxis del único bloque `<script>` del archivo, y grep cruzado de que
+el `id="cierre-jornada"` nuevo tiene su entrada en el índice y las 4
+imágenes referenciadas existen en `umbral-0/capturas/`.
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
