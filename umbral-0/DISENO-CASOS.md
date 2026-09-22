@@ -3031,6 +3031,54 @@ todos cerrados (primer punto = último punto) y con colores hex válidos.
 No se pudo probar visualmente en un navegador real (sin acceso de red
 desde este entorno) — a confirmar por el equipo.
 
+### 10.1.40 Puntos del mapa coloreados por dupla (22/9/2026)
+
+Pedido de Agustina, inmediatamente después de §10.1.39: "y quiero que se
+vea tb con los colores para cada dupla" — que los PUNTOS del mapa (no
+solo los polígonos de zona) también se coloreen por dupla, para poder ver
+de un vistazo si un punto de un color cae dentro de la zona de ESE mismo
+color.
+
+§10.1.24 había elegido a propósito un solo color de marcador para todos
+los puntos, citando la skill de dataviz (con ~13 duplas, muy por encima
+de las 2-3 categorías sostenibles con colores distinguibles para
+daltonismo). Acá se anula esa decisión a propósito: no son colores
+categóricos elegidos por la plataforma, son los MISMOS colores reales que
+ya usa el equipo en su My Maps operativo — la referencia visual ya existe
+y ya la conoce el equipo, entonces reusarla (en vez de inventar una
+paleta nueva) pesa más que la regla general de la skill.
+
+Cambios en `shared/js/mapa-puntos.js`:
+
+- Nueva función `_colorDupla(dupla, zonas)`: devuelve el color real de la
+  zona de esa dupla (`zonasOperativas.porDupla[dupla].color`), o si es
+  una dupla "iglesias" sin zona propia, el color de su comedor de
+  referencia (`zonasOperativas.comedores[dupla][0].color`) — `null` si no
+  hay zonas cargadas o la dupla no matchea, y ahí el punto cae al celeste
+  genérico de siempre (no rompe nada en `admin-duplas.html`/
+  `reporte-publico.html`, que llaman `renderMapaPuntos()` sin el
+  parámetro `zonas`).
+- Cada punto ahora puede traer `dupla` (código) además de `lat/lng/fecha/tipo`
+  — si la trae y hay zonas cargadas, el círculo se pinta con
+  `_colorDupla()`; el popup también suma "Dupla X" como primera línea.
+- Nueva leyenda debajo del mapa (`#u0-map-leyenda`, mismo patrón que el
+  aviso de "sin puntos" ya existente) con un punto de color + código por
+  cada dupla que aparece en el rango filtrado — solo se muestra si hay al
+  menos un punto coloreado por zona real.
+- `dashboard-engine.js`: la llamada a `renderMapaPuntos('u0-map', ...)`
+  ahora incluye `dupla: r.dupla` en cada punto mapeado (ya estaba
+  disponible en `rows`, atribuido por `cargarRosterUmbral0()` — no hizo
+  falta traer ningún dato nuevo, solo dejar de descartarlo al armar el
+  array de puntos).
+
+Validado con un script de Node aparte probando `_colorDupla()` extraída:
+dupla con zona propia devuelve su color, dupla "iglesias" devuelve el
+color de su comedor, dupla desconocida o sin zonas cargadas devuelve
+`null` (cae al celeste genérico), y la lógica de la leyenda no duplica
+entradas para una dupla con varios puntos — 7 checks, todos pasaron.
+También `node --check` sobre los 2 archivos tocados. No se pudo probar
+visualmente en un navegador real (sin acceso de red desde este entorno).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo

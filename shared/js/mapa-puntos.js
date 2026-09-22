@@ -5,10 +5,16 @@
 // §10.1.24, pedido de Agustina: "un mapa con los puntos que visitaron los
 // operadores".
 //
-// Un solo color de marcador para todos los puntos, sin distinguir por
-// dupla: son ~13 duplas, muy por encima de las 2-3 categorías que un mapa
+// §10.1.24 usaba un solo color de marcador para todos los puntos — con
+// ~13 duplas eso está muy por encima de las 2-3 categorías que un mapa
 // puede sostener con colores distinguibles para daltonismo (ver skill de
-// dataviz — más de eso, la identidad va en el popup, no en el color).
+// dataviz). §10.1.40 lo cambia a propósito, pedido explícito de Agustina
+// ("quiero que se vea tb con los colores para cada dupla"): no son
+// colores categóricos elegidos acá, son LOS MISMOS colores reales que ya
+// usa el equipo en su My Maps operativo (uno por zona, ver
+// zonasOperativas en config/umbral-0.js) — la referencia visual ya
+// existe y la conoce el equipo, así que reusarla pesa más que la regla
+// general de la skill.
 
 let _leafletPromise = null;
 function _cargarLeaflet(){
@@ -37,6 +43,17 @@ const _mapaPuntosInstancias = {}; // containerId -> { map, capa, capaZonas, zona
 // delimitado, así podemos comparar si estamos en zona o no" — zonas viene
 // de config/umbral-0.js (PROJECT_CONFIG_UMBRAL_0.zonasOperativas),
 // extraídas del KML del My Maps real del equipo.
+// Color real de la dupla según zonasOperativas — el de su propia zona de
+// patrullaje, o si es una dupla "iglesias" (sin zona fija), el de su
+// comedor de referencia. null si no hay zonas cargadas o la dupla no
+// matchea ninguna (queda el celeste genérico de siempre).
+function _colorDupla(dupla, zonas){
+  if(!zonas || !dupla) return null;
+  if(zonas.porDupla && zonas.porDupla[dupla]) return zonas.porDupla[dupla].color || null;
+  if(zonas.comedores && zonas.comedores[dupla] && zonas.comedores[dupla][0]) return zonas.comedores[dupla][0].color || null;
+  return null;
+}
+
 function _dibujarZonas(capa, zonas){
   if(!zonas) return;
   if(zonas.zonaFrontera && zonas.zonaFrontera.length){
@@ -60,11 +77,14 @@ function _dibujarZonas(capa, zonas){
   });
 }
 
-// puntos: [{lat, lng, fecha, tipo}] — fecha (ISO) y tipo son opcionales,
-// se muestran en el popup si están. Sin puntos con geolocalización: el
-// mapa igual se muestra (centrado en CABA), con un aviso al pie.
+// puntos: [{lat, lng, fecha, tipo, dupla}] — fecha (ISO), tipo y dupla son
+// opcionales. fecha/tipo se muestran en el popup si están. Sin puntos con
+// geolocalización: el mapa igual se muestra (centrado en CABA), con un
+// aviso al pie.
 // zonas (opcional): PROJECT_CONFIG_UMBRAL_0.zonasOperativas — si se pasa,
-// dibuja los polígonos de zona por debajo de los puntos (una sola vez).
+// dibuja los polígonos de zona por debajo de los puntos (una sola vez), y
+// además colorea cada punto con el color real de SU dupla (si el punto
+// trae `dupla` y zonas la reconoce) en vez del celeste genérico.
 async function renderMapaPuntos(containerId, puntos, zonas){
   const cont = document.getElementById(containerId);
   if(!cont) return;
@@ -98,18 +118,42 @@ async function renderMapaPuntos(containerId, puntos, zonas){
   inst.capa.clearLayers();
   const validos = (puntos||[]).filter(p => p.lat != null && p.lng != null);
   const bounds = [];
+  const duplasVistas = new Map(); // codigo -> color, para la leyenda
   validos.forEach(p => {
     const fechaTxt = p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '';
     const tipoTxt = p.tipo ? _escMapa(p.tipo) : '';
+    const colorDupla = _colorDupla(p.dupla, zonas);
+    const color = colorDupla || '#1a56db';
+    if(colorDupla && p.dupla) duplasVistas.set(p.dupla, colorDupla);
     const marker = L.circleMarker([p.lat, p.lng], {
-      radius: 7, color: '#1a56db', weight: 2, fillColor: '#1a56db', fillOpacity: 0.5,
+      radius: 7, color, weight: 2, fillColor: color, fillOpacity: 0.5,
     });
-    if(fechaTxt || tipoTxt) marker.bindPopup(`${tipoTxt ? '<b>' + tipoTxt + '</b><br>' : ''}${fechaTxt}`);
+    const duplaTxt = p.dupla ? `<b>Dupla ${_escMapa(p.dupla)}</b><br>` : '';
+    if(duplaTxt || fechaTxt || tipoTxt) marker.bindPopup(`${duplaTxt}${tipoTxt ? tipoTxt + '<br>' : ''}${fechaTxt}`);
     marker.addTo(inst.capa);
     bounds.push([p.lat, p.lng]);
   });
 
   if(bounds.length) inst.map.fitBounds(bounds, { padding: [24,24], maxZoom: 15 });
+
+  // Leyenda de colores por dupla — solo si hay al menos un punto coloreado
+  // por zona real (si no hay zonas o ningún punto trae dupla reconocida,
+  // no tiene sentido mostrarla).
+  const leyendaId = containerId + '-leyenda';
+  let leyenda = document.getElementById(leyendaId);
+  if(duplasVistas.size){
+    if(!leyenda){
+      leyenda = document.createElement('div');
+      leyenda.id = leyendaId;
+      leyenda.style.cssText = 'margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:0.76rem;color:#64748b;';
+      cont.insertAdjacentElement('afterend', leyenda);
+    }
+    leyenda.innerHTML = [...duplasVistas.entries()].sort((a,b) => a[0].localeCompare(b[0])).map(([codigo, color]) =>
+      `<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:${_escMapa(color)};display:inline-block;"></span>Dupla ${_escMapa(codigo)}</span>`
+    ).join('');
+  } else if(leyenda){
+    leyenda.remove();
+  }
 
   // Aviso de "sin puntos" al pie — no reemplaza el mapa (se ve igual la
   // ciudad de fondo, sirve de referencia visual aunque esté vacío).
