@@ -308,6 +308,14 @@
            diferencia de "👥 Duplas") — es el propio operador quien tiene
            que hacer el seguimiento. -->
       <a href="#" id="link-dni-pendientes" class="btn btn-ghost" style="display:none;background:#fef3c7;color:#92400e;border-color:#fcd34d;" onclick="event.preventDefault(); Casos.mostrarDniPendientes();">🪪 Trámites de DNI pendientes</a>
+      <!-- Casos sin identificar (22/9/2026, pedido de Agustina: "una vez
+           que los acepta [los envíos de KoBo pendientes], quiero que haya
+           una pestaña o botón donde ver los sin identificar" — separado
+           de la vista de búsqueda normal, que ya los agrupa aparte pero
+           mezclados con el resto de resultados de esa búsqueda puntual
+           (§10.1.33). Acá es una lista dedicada, siempre disponible, sin
+           tener que buscar nada. Ver §10.1.34 en DISENO-CASOS.md. -->
+      <a href="#" id="link-sin-identificar" class="btn btn-ghost" style="display:none;background:#f1f5f9;color:#334155;border-color:#cbd5e1;" onclick="event.preventDefault(); Casos.mostrarSinIdentificar();">🙈 Casos sin identificar</a>
       <!-- Mis derivaciones y seguimientos (21/9/2026, pedido de Agustina:
            "en duplas habría que poder ver mis derivaciones, mis
            seguimientos, etc") — vista propia con TODAS las derivaciones y
@@ -421,6 +429,14 @@
       <div class="section-label">🪪 Trámites de DNI pendientes</div>
       <div class="section-hint">Personas con la derivación "Hacer DNI" todavía sin resolver — entrá al caso para hacer el seguimiento y marcarla como efectivizada o rechazada cuando corresponda (eso además la saca de esta lista).</div>
       <div id="dni-pendientes-list"></div>
+    </div>
+
+    <!-- VISTA: CASOS SIN IDENTIFICAR (§10.1.34) -->
+    <div id="view-sin-identificar" style="display:none;">
+      <button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="Casos.volverABuscar()">← Volver a la búsqueda</button>
+      <div class="section-label">🙈 Casos sin identificar</div>
+      <div class="section-hint">Casos ya cargados sin nombre ni DNI — entrá para completar lo que se pueda (características, punto de contacto) o para hacerles seguimiento.</div>
+      <div id="sin-identificar-list"></div>
     </div>
 
     <!-- VISTA: MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) -->
@@ -959,6 +975,7 @@ async function entrarAlApp(){
   document.getElementById('link-dashboard').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-dni-pendientes').style.display = 'inline-flex';
+  document.getElementById('link-sin-identificar').style.display = 'inline-flex';
   document.getElementById('link-mi-actividad').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
   const koboFormLink = window.PROJECT_CONFIG.koboFormLink;
   if(koboFormLink){
@@ -975,6 +992,7 @@ async function entrarAlApp(){
   cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
   revisarDuplicadosCasos(); // no se espera, mismo motivo
   cargarDniPendientesCount(); // no se espera, mismo motivo — solo actualiza el contador del botón
+  cargarSinIdentificarCount(); // no se espera, mismo motivo
   Casos.volverABuscar();
 }
 
@@ -1973,6 +1991,7 @@ function mostrarKoboPendientes(){
 // solo un número agregado. RLS ya scopea `derivaciones`/`personas` a la
 // propia dupla para cuentas rol=dupla, así que no hace falta filtrar acá.
 let dniPendientesActuales = [];
+let sinIdentificarActuales = []; // ver cargarSinIdentificarCount() / Casos.mostrarSinIdentificar() (§10.1.34)
 
 async function cargarDniPendientesCount(){
   try{
@@ -1995,6 +2014,30 @@ async function cargarDniPendientesCount(){
     if(document.getElementById('view-dni-pendientes').style.display !== 'none') Casos._renderDniPendientes();
   }catch(e){
     console.error('No se pudieron traer los trámites de DNI pendientes', e);
+  }
+}
+
+// Lista dedicada de casos "sin identificar" (§10.1.34, pedido de
+// Agustina: "una vez que los acepta [los pendientes de KoBo], quiero que
+// haya una pestaña o botón donde ver los sin identificar") — a
+// diferencia de §10.1.33 (que solo agrupa dentro de una búsqueda
+// puntual), esto es una vista siempre disponible con TODOS. Usa
+// personas_actividad (no personas directo) para tener ultima_actividad,
+// que renderPersonaCard() necesita para el badge de "hace N días sin
+// seguimiento" — mismo criterio que buscarPersonas().
+async function cargarSinIdentificarCount(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('personas_actividad').select('*')
+      .eq('sin_identificar', true).eq('oculto', false)
+      .order('ultima_actividad', { ascending: true });
+    if(error) throw error;
+    sinIdentificarActuales = data || [];
+    const link = document.getElementById('link-sin-identificar');
+    if(link) link.textContent = `🙈 Casos sin identificar${sinIdentificarActuales.length ? ' (' + sinIdentificarActuales.length + ')' : ''}`;
+    if(document.getElementById('view-sin-identificar').style.display !== 'none') Casos._renderSinIdentificar();
+  }catch(e){
+    console.error('No se pudieron traer los casos sin identificar', e);
   }
 }
 
@@ -2234,6 +2277,7 @@ const Casos = {
     personaActual = null;
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-sin-identificar').style.display = 'none';
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
     document.getElementById('buscar-input').value = '';
@@ -2243,9 +2287,34 @@ const Casos = {
   mostrarDniPendientes(){
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-sin-identificar').style.display = 'none';
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'block';
     Casos._renderDniPendientes();
+  },
+
+  // ── CASOS SIN IDENTIFICAR (§10.1.34) ────────────────────────────────────
+  // Mismo dato que ya trae buscarPersonas() (§10.1.33) pero como vista
+  // dedicada, siempre disponible sin tener que buscar nada — RLS ya
+  // scopea `personas_actividad` a la propia dupla para cuentas dupla,
+  // igual que el resto de la búsqueda.
+  mostrarSinIdentificar(){
+    document.getElementById('view-buscar').style.display = 'none';
+    document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-mi-actividad').style.display = 'none';
+    document.getElementById('view-sin-identificar').style.display = 'block';
+    Casos._renderSinIdentificar();
+  },
+
+  _renderSinIdentificar(){
+    const box = document.getElementById('sin-identificar-list');
+    if(!sinIdentificarActuales.length){
+      box.innerHTML = '<div class="empty-msg">No hay casos sin identificar cargados. 🎉</div>';
+      return;
+    }
+    box.innerHTML = '';
+    sinIdentificarActuales.forEach(p => box.appendChild(Casos.renderPersonaCard(p)));
   },
 
   // ── MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) ──────────────────────────
@@ -2256,6 +2325,7 @@ const Casos = {
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-sin-identificar').style.display = 'none';
     document.getElementById('view-mi-actividad').style.display = 'block';
     const boxDeriv = document.getElementById('mis-derivaciones-list');
     const boxSegu = document.getElementById('mis-seguimientos-list');
@@ -2883,6 +2953,7 @@ Umbral Cero — Huehaci`;
       }
       closeModal();
       await Casos.abrirFicha(persona.id);
+      cargarSinIdentificarCount(); // no se espera — por si esta edición identificó o "des-identificó" a alguien (§10.1.34)
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
@@ -2946,6 +3017,7 @@ Umbral Cero — Huehaci`;
 
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-sin-identificar').style.display = 'none';
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'block';
     Casos._renderFichaHeader();

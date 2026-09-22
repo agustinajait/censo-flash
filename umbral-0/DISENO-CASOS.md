@@ -2775,6 +2775,40 @@ muestra como URL, un caso identificado no cambia de comportamiento, y la
 agrupación separa y preserva el orden correctamente — los 7 checks
 pasan.
 
+### 10.1.34 Botón dedicado "🙈 Casos sin identificar" (22/9/2026)
+
+Viendo el flujo de "KoBo pendientes" (envíos sin nombre ni DNI que
+todavía no tienen caso, con su botón "➕ Cargar como 'Sin
+identificar'"), Agustina pidió: "una vez que los acepta, quiero que haya
+una pestaña o botón donde ver los sin identificar" — §10.1.33 ya los
+agrupaba aparte, pero solo dentro de los resultados de una búsqueda
+puntual en curso. Esto es una vista dedicada, siempre disponible en la
+topbar, sin tener que tocar el buscador.
+
+Nuevo botón "🙈 Casos sin identificar" (con contador, mismo patrón que
+"🪪 Trámites de DNI pendientes" — §10.1.23), visible para todas las
+cuentas. `cargarSinIdentificarCount()` trae de `personas_actividad`
+(no `personas` directo — hace falta `ultima_actividad`, que
+`renderPersonaCard()` usa para el badge de "hace N días sin
+seguimiento") todos los casos con `sin_identificar=true` y
+`oculto=false`, ordenados igual que el resto de la búsqueda (más viejo
+sin tocar primero). La vista (`Casos.mostrarSinIdentificar()` /
+`_renderSinIdentificar()`) **reusa `renderPersonaCard()` tal cual** — ya
+tiene desde §10.1.33 el título/subtítulo pensados para estos casos
+(fecha de alta, zona/comuna o aviso de ubicación en vez de la URL
+cruda), no hizo falta escribir nada nuevo para las tarjetas.
+
+El contador se refresca solo después de guardar cualquier alta o
+edición de persona (`guardarPersona()`) — cubre tanto crear un caso sin
+identificar nuevo como "identificarlo" después (completar nombre y
+apellido) o al revés, en un solo punto.
+
+Validado: balance de `<div>` y chequeo de sintaxis de los bloques
+`<script>` de `casos.html` sobre el archivo completo, y grep cruzado de
+que todos los ids/funciones nuevos están referenciados en los lugares
+que hacían falta (mostrar/ocultar la vista junto con el resto, refrescar
+el contador después de guardar una persona).
+
 ## 11. Lo que queda abierto
 
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
