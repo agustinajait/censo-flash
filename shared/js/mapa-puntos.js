@@ -28,12 +28,44 @@ function _cargarLeaflet(){
   return _leafletPromise;
 }
 
-const _mapaPuntosInstancias = {}; // containerId -> { map, capa }
+const _mapaPuntosInstancias = {}; // containerId -> { map, capa, capaZonas, zonasDibujadas }
+
+// Dibuja las zonas operativas (una vez por instancia de mapa — no cambian
+// con el filtro de fecha, así que no hace falta recalcularlas en cada
+// render de puntos). §10.1.39, pedido de Agustina: "quiero que en el mapa
+// en vivo de mi plataforma esté el mapa que debemos recorrer nosotros
+// delimitado, así podemos comparar si estamos en zona o no" — zonas viene
+// de config/umbral-0.js (PROJECT_CONFIG_UMBRAL_0.zonasOperativas),
+// extraídas del KML del My Maps real del equipo.
+function _dibujarZonas(capa, zonas){
+  if(!zonas) return;
+  if(zonas.zonaFrontera && zonas.zonaFrontera.length){
+    L.polygon(zonas.zonaFrontera, {
+      color:'#94a3b8', weight:2, dashArray:'6 6', fill:false, interactive:false,
+    }).addTo(capa);
+  }
+  Object.entries(zonas.porDupla||{}).forEach(([codigo, z]) => {
+    if(!z.poly || !z.poly.length) return;
+    L.polygon(z.poly, {
+      color: z.color || '#1e50a2', weight:2, fillOpacity:0.06, fillColor: z.color || '#1e50a2',
+    }).bindTooltip(`Dupla ${_escMapa(codigo)}${z.nombre ? ' — ' + _escMapa(z.nombre) : ''}`, { sticky:true }).addTo(capa);
+  });
+  Object.entries(zonas.comedores||{}).forEach(([codigo, lista]) => {
+    (lista||[]).forEach(c => {
+      if(!c.poly || !c.poly.length) return;
+      L.polygon(c.poly, {
+        color: c.color || '#a21caf', weight:1.5, fillOpacity:0.12, fillColor: c.color || '#a21caf',
+      }).bindTooltip(`Dupla ${_escMapa(codigo)} — ${_escMapa(c.nombre||'')} (comedor de referencia)`, { sticky:true }).addTo(capa);
+    });
+  });
+}
 
 // puntos: [{lat, lng, fecha, tipo}] — fecha (ISO) y tipo son opcionales,
 // se muestran en el popup si están. Sin puntos con geolocalización: el
 // mapa igual se muestra (centrado en CABA), con un aviso al pie.
-async function renderMapaPuntos(containerId, puntos){
+// zonas (opcional): PROJECT_CONFIG_UMBRAL_0.zonasOperativas — si se pasa,
+// dibuja los polígonos de zona por debajo de los puntos (una sola vez).
+async function renderMapaPuntos(containerId, puntos, zonas){
   const cont = document.getElementById(containerId);
   if(!cont) return;
   try{
@@ -51,8 +83,16 @@ async function renderMapaPuntos(containerId, puntos){
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
     }).addTo(map);
+    // capaZonas se agrega ANTES que capa — así los polígonos de zona
+    // quedan siempre por debajo de los puntos en el dibujo de Leaflet.
+    const capaZonas = L.layerGroup().addTo(map);
     const capa = L.layerGroup().addTo(map);
-    inst = _mapaPuntosInstancias[containerId] = { map, capa };
+    inst = _mapaPuntosInstancias[containerId] = { map, capa, capaZonas, zonasDibujadas:false };
+  }
+
+  if(zonas && !inst.zonasDibujadas){
+    _dibujarZonas(inst.capaZonas, zonas);
+    inst.zonasDibujadas = true;
   }
 
   inst.capa.clearLayers();
