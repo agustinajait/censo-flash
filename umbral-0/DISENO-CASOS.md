@@ -3746,6 +3746,46 @@ CSS real + los 9 botones de una cuenta dupla) a 412px de ancho — los 9
 quedan visibles, acomodados en varias líneas, incluido "📋 Mis
 derivaciones y seguimientos" que antes quedaba cortado.
 
+### 10.1.58 Bug: los badges de las tarjetas de caso se salían del borde en celular (22/9/2026)
+
+Agustina, con captura desde el celular: los badges ("activo", "Baja",
+"⏰ hace N días sin seguimiento") de la lista de casos se veían
+cortados, saliéndose del borde derecho de la tarjeta blanca.
+
+Causa: `.persona-badges` (el contenedor de esos badges, dentro de cada
+`.persona-card`) era `display:flex; gap:6px; flex-shrink:0;` sin
+`flex-wrap` — con 2-3 badges (cada uno con `white-space:nowrap`,
+pueden sumar bastante ancho, ej. "⏰ hace 6 días sin seguimiento") y
+`flex-shrink:0` impidiéndoles achicarse, en una tarjeta angosta de
+celular no entraban en la fila junto al avatar y el nombre/DNI, y sin
+wrap se salían del borde en vez de acomodarse en otra línea.
+
+Primer intento — agregar `flex-wrap:wrap` a `.persona-card` y a
+`.persona-badges` — mejoraba los casos con 3 badges (bajaban enteros a
+su propia línea) pero rompía los de 2 badges cortos: al "casi entrar"
+en la misma línea que nombre/DNI, apretaban `.persona-info` a un
+ancho mínimo y el texto del nombre/DNI quedaba partido palabra por
+palabra — peor que el bug original, y dependía impredeciblemente de
+cuántos badges había y cuán largo era cada uno.
+
+Arreglo final: `.persona-badges` con `flex-basis:100%` — así SIEMPRE
+ocupa su propia línea completa, debajo de avatar+nombre/DNI, sin
+importar cuántos badges haya ni cuán largos sean (un ítem flex con
+`flex-basis:100%` nunca cabe junto a otro contenido en la misma línea,
+así que fuerza el salto de línea de forma predecible en cualquier
+ancho — no depende de un cálculo de "casi entra"). `flex-wrap:wrap` se
+mantiene en `.persona-badges` para el caso de 4+ badges (cuentas
+admin/coordinación, que además ven el badge "Dupla X").
+
+Validado: balance de `<div>`/`<button>` de `casos.html` sin cambios
+(291/291, 75/75 — solo CSS), `node --check` sobre sus 2 bloques
+`<script>` no vacíos, y capturas de Playwright de una página de
+prueba standalone con los 3 casos reales de la captura de Agustina
+(David Riquelme con 2 badges, Patricia Almiron y Gaston Corrales con
+3) a 393px de ancho — con el primer intento (solo flex-wrap) el caso
+de 2 badges salía roto; con `flex-basis:100%` los 3 casos quedan
+prolijos, badges siempre en su propia línea, nada se corta.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
