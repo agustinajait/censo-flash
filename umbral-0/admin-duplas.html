@@ -662,13 +662,23 @@ async function cargarKoboPendientesAdmin(){
     const codigoPorDupla = {};
     (duplas||[]).forEach(d => { codigoPorDupla[d.id] = d.codigo; });
 
-    // nombre normalizado -> dupla_id (asume nombres únicos entre duplas
-    // distintas, como el resto del roster de KoBo — ver DISENO-CASOS.md §10.1)
-    const duplaPorNombre = {};
-    (integrantes||[]).forEach(i => {
-      const nombre = normalizarNombreKobo(`${i.nombre||''} ${i.apellido||''}`);
-      if(nombre) duplaPorNombre[nombre] = i.dupla_id;
-    });
+    // Lista (no objeto por clave exacta) + nombresCoincidenKobo() para
+    // matchear por SUBCONJUNTO de tokens, no por igualdad exacta de
+    // string — mismo criterio que ya usa generarReporte() más abajo en
+    // este archivo y cargarKoboPendientes() de casos.html (23/9/2026,
+    // bug real: un operador con nombre compuesto quedaba invisible en
+    // "KoBo pendientes"/"KoBo sin identificar" del admin si KoBo no
+    // tenía el nombre completo carácter por carácter, aunque SÍ
+    // apareciera correctamente en el propio "Casos" de la dupla y en el
+    // Reporte semanal — antes de este fix, la única función que hacía
+    // el matching estricto por igualdad exacta era justo esta).
+    const duplaPorNombreArr = (integrantes||[])
+      .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`.trim(), dupla_id: i.dupla_id }))
+      .filter(r => r.nombre);
+    const duplaIdPorOperador = operador => {
+      const match = duplaPorNombreArr.find(r => nombresCoincidenKobo(r.nombre, operador));
+      return match ? match.dupla_id : null;
+    };
 
     // dupla_id -> Set de DNI ya cargados como caso en esa dupla
     const dnisPorDupla = {};
@@ -690,7 +700,7 @@ async function cargarKoboPendientesAdmin(){
     // solo importa detectar los completamente anónimos).
     const sinIdentificarPorDupla = new Map(); // subId -> { duplaId, p }
     koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
-      const duplaId = duplaPorNombre[normalizarNombreKobo(p.operador)];
+      const duplaId = duplaIdPorOperador(p.operador);
       if(!duplaId) return; // no matchea con ningún integrante activo — revisar el roster en "👥 Duplas territoriales"
       const dni = String((p.persona && p.persona.dni) || '').trim();
       if(dni){
