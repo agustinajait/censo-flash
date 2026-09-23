@@ -4098,6 +4098,56 @@ auto-cerrado (23 aperturas, 0 cierres, esperado). Confirmado contra
 todas las tablas relevantes y que `perfiles_admin_insert` permite el
 alta desde una cuenta admin o coordinacion.
 
+### 10.1.65 "Duplas y equipo": colapsar listas largas detrás de un número (23/9/2026)
+
+Agustina: "en dupla y equipos no necesito ver el listado completo de
+kobos sin identificar. que me marque un número y si quiero que se abra
+un desplegable. quiero que se vea bien los operadores por turnos, con
+la posibilidad de editar y que ahí se abra un desplegable de duplas
+territoriales donde se carga o se editan. ⚠️ Posibles duplicados, 🩺
+Completar datos faltantes desde KoBo y 📥 KoBo pendientes que me
+muestren número y se abra un desplegable también, sino es mucha
+información."
+
+Se agrega un patrón colapsable genérico (`toggleResumen(bodyId,
+toggleEl)`, CSS `.resumen-toggle`/`.resumen-toggle-body`) y se aplica a:
+
+- **📥 KoBo pendientes** y **🙈 KoBo sin identificar**: arrancan
+  mostrando solo "📊 N envíos pendientes"/"✅ Sin pendientes" — la tabla
+  completa (ya existía, sin cambios) queda oculta hasta tocar esa línea.
+  El conteo se actualiza en `cargarKoboPendientesAdmin()`, mismo momento
+  en que ya se armaban las dos tablas.
+- **🩺 Completar datos faltantes desde KoBo** y **⚠️ Posibles
+  duplicados**: mismo patrón, contador actualizado en
+  `mostrarCompletitudKobo()`/`mostrarDuplicadosAdmin()` (que ya corrían
+  al terminar "🔍 Revisar" — no hizo falta tocar cuándo se calculan,
+  solo qué se muestra por default).
+- **👥 Duplas territoriales**: cada tarjeta de dupla (antes: SIEMPRE
+  todas expandidas con el formulario completo — 13+ tarjetas de edición
+  abiertas a la vez, la cantidad de información que motivó todo este
+  pedido) ahora arranca colapsada mostrando solo código, zona, turno y
+  cantidad de integrantes; tocarla abre el formulario de edición
+  completo (mismo formulario de siempre, sin cambios funcionales). "+
+  Nueva dupla" crea la fila y abre esa tarjeta puntual (si no, quedaría
+  perdida colapsada entre las demás).
+- **👥 Operadores por turno**: se mantiene visible tal cual estaba (no
+  pedido para colapsar), pero cada código de dupla suma un botón
+  "✏️ Editar" (`abrirEdicionDupla(duplaId)`) que abre y hace scroll a la
+  tarjeta correspondiente en "Duplas territoriales" de abajo — así se
+  puede corregir el roster sin tener que bajar a buscar la dupla a mano
+  entre todas las demás. Mismo patrón de "abrir y saltar" que
+  `Casos_verDetalleDiario()`/`Casos_toggleDetalleDiario()` del §10.1.60-61,
+  pero apuntando a una sección distinta en vez de una fila hermana.
+
+Validado: `node --check` sobre los 2 bloques `<script>`, balance de
+`<div>`/`<button>`/`<form>`/`<select>`/`<textarea>` del archivo completo
+(284/284, 46/46, 2/2, 2/2, 5/5). Script de Node standalone con un DOM
+simulado a mano validando `toggleResumen()` (abre/cierra alternando,
+pinta y saca la clase `open`), el formato de contador
+singular/plural/cero, y `abrirEdicionDupla()` (deja el body visible y
+`open` marcado, y no rompe si se llama dos veces seguidas — idempotente)
+— 10 casos, todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 

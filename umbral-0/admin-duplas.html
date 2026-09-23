@@ -48,6 +48,14 @@
   .card-actions { display:flex; gap:8px; align-items:center; margin-top:6px; }
   .card-actions .grow { flex:1; }
   .empty-msg { font-size:0.84rem; color:#94a3b8; padding:14px; text-align:center; }
+  /* Resumen colapsable (23/9/2026): "mostrame un número, si quiero que se
+     abra un desplegable" — usado en KoBo pendientes/sin identificar,
+     Completar datos faltantes, Posibles duplicados y cada tarjeta de
+     "Duplas territoriales". */
+  .resumen-toggle { cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:0.86rem; color:var(--navy); padding:2px; user-select:none; }
+  .resumen-toggle .chev { color:#94a3b8; transition:transform 0.15s; flex:none; }
+  .resumen-toggle.open .chev { transform:rotate(180deg); }
+  .resumen-toggle-body { margin-top:12px; }
   .btn-sm { padding:5px 11px; font-size:0.74rem; }
   .tbl-wrap { overflow-x:auto; }
   .badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; white-space:nowrap; }
@@ -234,18 +242,31 @@
       </div>
     </div>
 
+    <!-- Las 4 secciones de abajo (KoBo pendientes/sin identificar,
+         Completar datos, Posibles duplicados) arrancan colapsadas —
+         pedido de Agustina (23/9/2026): "que me marque un número y si
+         quiero que se abra un desplegable... sino es mucha información".
+         Cada una muestra un contador en `toggleResumen(bodyId, this)` y
+         el detalle completo (la tabla/lista de siempre) queda oculto
+         hasta que se toca esa línea. -->
     <div class="section-label">
       <span>📥 KoBo pendientes <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(con DNI, sin caso cargado todavía)</span></span>
       <button class="btn btn-outline btn-sm" onclick="cargarKoboPendientesAdmin()">🔄 Actualizar</button>
     </div>
     <div class="card">
-      <div class="tbl-wrap">
-        <table class="reporte-tabla">
-          <thead><tr><th>Dupla</th><th>Nombre</th><th>DNI</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th></tr></thead>
-          <tbody id="kobo-pend-admin-tbody"><tr><td colspan="6" class="empty-msg">Cargando…</td></tr></tbody>
-        </table>
+      <div class="resumen-toggle" onclick="toggleResumen('kobo-pend-admin-body', this)">
+        <span id="kobo-pend-admin-count">Cargando…</span>
+        <span class="chev">▾</span>
       </div>
-      <div class="section-hint" style="padding:8px 4px 2px;">Solo lectura — cada dupla confirma sus propios pendientes desde su cuenta en Casos.</div>
+      <div class="resumen-toggle-body" id="kobo-pend-admin-body" style="display:none;">
+        <div class="tbl-wrap">
+          <table class="reporte-tabla">
+            <thead><tr><th>Dupla</th><th>Nombre</th><th>DNI</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th></tr></thead>
+            <tbody id="kobo-pend-admin-tbody"><tr><td colspan="6" class="empty-msg">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="section-hint" style="padding:8px 4px 2px;">Solo lectura — cada dupla confirma sus propios pendientes desde su cuenta en Casos.</div>
+      </div>
     </div>
 
     <div class="section-label">
@@ -253,13 +274,19 @@
       <button class="btn btn-outline btn-sm" onclick="cargarKoboPendientesAdmin()">🔄 Actualizar</button>
     </div>
     <div class="card">
-      <div class="tbl-wrap">
-        <table class="reporte-tabla">
-          <thead><tr><th>Dupla</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th><th>Detalle</th><th>Ubicación</th></tr></thead>
-          <tbody id="kobo-sin-id-admin-tbody"><tr><td colspan="6" class="empty-msg">Cargando…</td></tr></tbody>
-        </table>
+      <div class="resumen-toggle" onclick="toggleResumen('kobo-sin-id-admin-body', this)">
+        <span id="kobo-sin-id-admin-count">Cargando…</span>
+        <span class="chev">▾</span>
       </div>
-      <div class="section-hint" style="padding:8px 4px 2px;">Que la persona no haya dado su nombre no es un error de carga — igual hay que dejar el contacto registrado. Solo lectura: cada dupla carga estos casos como "Sin identificar" desde su cuenta en Casos.</div>
+      <div class="resumen-toggle-body" id="kobo-sin-id-admin-body" style="display:none;">
+        <div class="tbl-wrap">
+          <table class="reporte-tabla">
+            <thead><tr><th>Dupla</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th><th>Detalle</th><th>Ubicación</th></tr></thead>
+            <tbody id="kobo-sin-id-admin-tbody"><tr><td colspan="6" class="empty-msg">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="section-hint" style="padding:8px 4px 2px;">Que la persona no haya dado su nombre no es un error de carga — igual hay que dejar el contacto registrado. Solo lectura: cada dupla carga estos casos como "Sin identificar" desde su cuenta en Casos.</div>
+      </div>
     </div>
 
     <div class="section-label">
@@ -273,7 +300,7 @@
           <tbody id="operadores-turno-tbody"><tr><td colspan="5" class="empty-msg">Cargando…</td></tr></tbody>
         </table>
       </div>
-      <div class="section-hint" style="padding:8px 4px 2px;">Quién está cargado hoy como integrante de cada dupla activa, ordenado por turno. Para corregir un nombre o dar de baja a alguien, editalo en "👥 Duplas territoriales" más abajo.</div>
+      <div class="section-hint" style="padding:8px 4px 2px;">Quién está cargado hoy como integrante de cada dupla activa, ordenado por turno. Tocá "✏️ Editar" junto al código para abrir esa dupla en "👥 Duplas territoriales" más abajo.</div>
     </div>
 
     <div class="section-label">
@@ -282,7 +309,13 @@
     </div>
     <div class="card">
       <div class="section-hint">Para cada caso sin situación habitacional/económica/educativa o redes de contención, busca en el historial de KoBo de esa persona (por DNI) si esa info se contestó en algún envío — no completa nada solo, muestra el texto propuesto para que lo confirmes.</div>
-      <div id="completitud-kobo-cont"><div class="empty-msg" style="padding:16px 10px;">Tocá "Revisar" para calcularlo — cruza contra todo el historial de KoBo, no se carga solo al entrar.</div></div>
+      <div class="resumen-toggle" onclick="toggleResumen('completitud-kobo-body', this)">
+        <span id="completitud-kobo-count">Tocá "Revisar" para calcularlo</span>
+        <span class="chev">▾</span>
+      </div>
+      <div class="resumen-toggle-body" id="completitud-kobo-body" style="display:none;">
+        <div id="completitud-kobo-cont"><div class="empty-msg" style="padding:16px 10px;">Tocá "Revisar" para calcularlo — cruza contra todo el historial de KoBo, no se carga solo al entrar.</div></div>
+      </div>
     </div>
 
     <div class="section-label">
@@ -291,7 +324,13 @@
     </div>
     <div class="card">
       <div class="section-hint">Casos con el mismo DNI (o el mismo nombre cuando ninguno tiene DNI cargado) — pasa cuando dos duplas ven a la misma persona en días distintos, o al probar la carga. "🙈 Ocultar" no borra el caso: lo saca de los listados y reportes, pero se puede volver a mostrar cuando quieras.</div>
-      <div id="duplicados-cont"><div class="empty-msg" style="padding:16px 10px;">Tocá "Revisar" para buscarlos.</div></div>
+      <div class="resumen-toggle" onclick="toggleResumen('duplicados-body', this)">
+        <span id="duplicados-count">Tocá "Revisar" para buscarlos</span>
+        <span class="chev">▾</span>
+      </div>
+      <div class="resumen-toggle-body" id="duplicados-body" style="display:none;">
+        <div id="duplicados-cont"><div class="empty-msg" style="padding:16px 10px;">Tocá "Revisar" para buscarlos.</div></div>
+      </div>
     </div>
 
     <div class="section-label">
@@ -301,6 +340,7 @@
         <button class="btn btn-green" onclick="crearDupla()">+ Nueva dupla</button>
       </div>
     </div>
+    <div class="section-hint">Cada dupla arranca colapsada — tocá su nombre para ver/editar zona, turno, integrantes y acceso.</div>
     <div id="duplas-list"></div>
 
     <div class="section-label">
@@ -592,10 +632,14 @@ async function cargarKoboPendientesAdmin(){
   if(!form){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
     tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
+    document.getElementById('kobo-pend-admin-count').textContent = '— sin KoBo conectado';
+    document.getElementById('kobo-sin-id-admin-count').textContent = '— sin KoBo conectado';
     return;
   }
   tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Cargando…</td></tr>';
   tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Cargando…</td></tr>';
+  document.getElementById('kobo-pend-admin-count').textContent = 'Cargando…';
+  document.getElementById('kobo-sin-id-admin-count').textContent = 'Cargando…';
 
   try{
     const client = await SupabaseClient.getClient();
@@ -679,9 +723,16 @@ async function cargarKoboPendientesAdmin(){
       <td>${esc(p.persona.caracteristicas||'—')}</td>
       <td>${(p.lat!=null && p.lng!=null) ? `<a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺️ Ver mapa</a>` : '—'}</td>
     </tr>`).join('') : '<tr><td colspan="6" class="empty-msg">Sin pendientes — no hay envíos sin identificar del equipo esperando caso.</td></tr>';
+
+    document.getElementById('kobo-pend-admin-count').textContent =
+      pendientes.length ? `📊 ${pendientes.length} envío${pendientes.length===1?'':'s'} pendiente${pendientes.length===1?'':'s'}` : '✅ Sin pendientes';
+    document.getElementById('kobo-sin-id-admin-count').textContent =
+      sinIdentificar.length ? `📊 ${sinIdentificar.length} envío${sinIdentificar.length===1?'':'s'} sin identificar` : '✅ Sin pendientes';
   }catch(e){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
     tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
+    document.getElementById('kobo-pend-admin-count').textContent = '⚠️ Error';
+    document.getElementById('kobo-sin-id-admin-count').textContent = '⚠️ Error';
   }
 }
 
@@ -717,9 +768,14 @@ async function cargarOperadoresPorTurno(){
     duplasOrdenadas.forEach(d => {
       const suyos = (integrantesPorDupla[d.id]||[]).sort((a,b) => (a.apellido||'').localeCompare(b.apellido||''));
       const turnoZona = `${d.turno||'—'} · ${d.zona||'—'}`;
+      // Celda "código + ✏️ Editar" — abre esa dupla en "👥 Duplas
+      // territoriales" más abajo (ver abrirEdicionDupla(), 23/9/2026:
+      // "que se ve bien los operadores por turnos, con la posibilidad de
+      // editar y que ahí se abra un desplegable de dupla territoriales").
+      const celdaCodigo = `<b>${esc(d.codigo)}</b> <button class="mini-btn btn-outline" style="margin-left:4px;" onclick="abrirEdicionDupla('${d.id}')">✏️ Editar</button>`;
       if(!suyos.length){
         filas.push(`<tr>
-          <td><b>${esc(d.codigo)}</b></td>
+          <td style="white-space:nowrap;">${celdaCodigo}</td>
           <td>${esc(turnoZona)}</td>
           <td colspan="3" class="empty-msg">— sin integrantes cargados —</td>
         </tr>`);
@@ -727,7 +783,7 @@ async function cargarOperadoresPorTurno(){
       }
       suyos.forEach((i, idx) => {
         filas.push(`<tr>
-          <td>${idx===0 ? `<b>${esc(d.codigo)}</b>` : ''}</td>
+          <td style="white-space:nowrap;">${idx===0 ? celdaCodigo : ''}</td>
           <td>${idx===0 ? esc(turnoZona) : ''}</td>
           <td>${esc(`${i.nombre||''} ${i.apellido||''}`.trim())}</td>
           <td>${esc(i.dni||'—')}</td>
@@ -787,8 +843,13 @@ async function revisarCompletitudKobo(){
   const cont = document.getElementById('completitud-kobo-cont');
   const project = window.PROJECT_CONFIG;
   const form = project && project.kobo && (project.kobo.forms||[])[0];
-  if(!form){ cont.innerHTML = '<div class="empty-msg">Este proyecto no tiene KoBo conectado.</div>'; return; }
+  if(!form){
+    cont.innerHTML = '<div class="empty-msg">Este proyecto no tiene KoBo conectado.</div>';
+    document.getElementById('completitud-kobo-count').textContent = '— sin KoBo conectado';
+    return;
+  }
   cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">Cruzando cada caso contra el historial de KoBo…</div>';
+  document.getElementById('completitud-kobo-count').textContent = 'Calculando…';
 
   try{
     const client = await SupabaseClient.getClient();
@@ -830,6 +891,7 @@ async function revisarCompletitudKobo(){
     mostrarCompletitudKobo();
   }catch(e){
     cont.innerHTML = '<div class="empty-msg">Error: '+esc(e.message)+'</div>';
+    document.getElementById('completitud-kobo-count').textContent = '⚠️ Error';
   }
 }
 
@@ -837,6 +899,10 @@ function mostrarCompletitudKobo(){
   const cont = document.getElementById('completitud-kobo-cont');
   const conPropuesta = completitudKoboActual.filter(r => r.propuestas.length);
   const sinNadaEnKobo = completitudKoboActual.filter(r => !r.propuestas.length && r.sinDatoEnKobo.length);
+
+  document.getElementById('completitud-kobo-count').textContent = conPropuesta.length
+    ? `📊 ${conPropuesta.length} caso${conPropuesta.length===1?'':'s'} se puede${conPropuesta.length===1?'':'n'} completar`
+    : '✅ Nada para completar';
 
   if(!completitudKoboActual.length){
     cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">Todos los casos con DNI ya tienen esta info completa.</div>';
@@ -922,6 +988,7 @@ function esDniPlaceholderDup(dni){
 async function revisarDuplicadosAdmin(){
   const cont = document.getElementById('duplicados-cont');
   cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">Buscando…</div>';
+  document.getElementById('duplicados-count').textContent = 'Buscando…';
   try{
     const client = await SupabaseClient.getClient();
     const [{ data: personas, error: errP }, { data: duplas, error: errD }] = await Promise.all([
@@ -967,11 +1034,15 @@ async function revisarDuplicadosAdmin(){
     mostrarDuplicadosAdmin();
   }catch(e){
     cont.innerHTML = '<div class="empty-msg">Error: '+esc(e.message)+'</div>';
+    document.getElementById('duplicados-count').textContent = '⚠️ Error';
   }
 }
 
 function mostrarDuplicadosAdmin(){
   const cont = document.getElementById('duplicados-cont');
+  document.getElementById('duplicados-count').textContent = duplicadosAdminActuales.length
+    ? `📊 ${duplicadosAdminActuales.length} grupo${duplicadosAdminActuales.length===1?'':'s'} de posibles duplicados`
+    : '✅ Sin duplicados';
   const ocultosHtml = ocultosAdminActuales.length ? `<details style="margin-top:12px;">
     <summary style="cursor:pointer;font-size:0.82rem;color:#64748b;">Ver los ${ocultosAdminActuales.length} caso${ocultosAdminActuales.length===1?'':'s'} ya oculto${ocultosAdminActuales.length===1?'':'s'}</summary>
     <div style="margin-top:8px;">
@@ -1092,9 +1163,16 @@ async function cargarDuplas(){
   data.forEach(d => cont.appendChild(renderDuplaCard(d)));
 }
 
+// Cada tarjeta arranca colapsada (23/9/2026, pedido de Agustina: "no
+// necesito ver el listado completo... si quiero que se abra un
+// desplegable") — el resumen de arriba (`data-role="resumen"`) muestra
+// código/zona/turno/cantidad de integrantes; el formulario completo de
+// abajo (`data-role="body"`) se abre al tocarlo, o desde "✏️ Editar" en
+// "👥 Operadores por turno" (ver abrirEdicionDupla()).
 function renderDuplaCard(d){
   const card = document.createElement('div');
   card.className = 'card';
+  card.id = 'dupla-card-' + d.id;
   // activo !== false (no .eq('activo',true) en la query: el embed de
   // Supabase no lo permite fácil) — un integrante dado de baja (ver
   // "🗑️ Eliminar" en renderIntegranteRow) sigue existiendo en la base
@@ -1104,7 +1182,13 @@ function renderDuplaCard(d){
   const turnoOpts = ['', 'T1', 'T2', 'T3', 'T4'].map(t =>
     `<option value="${t}" ${t===(d.turno||'')?'selected':''}>${t ? t + ' · ' + TURNO_HORARIO[t] : '—'}</option>`
   ).join('');
+  const turnoResumen = d.turno ? d.turno + ' · ' + (TURNO_HORARIO[d.turno]||'') : 'sin turno';
   card.innerHTML = `
+    <div class="resumen-toggle" data-role="resumen">
+      <span><b>${esc(d.codigo || '(sin código)')}</b> · ${esc(d.zona || 'sin zona')} · ${esc(turnoResumen)} · ${operadores.length} integrante${operadores.length===1?'':'s'}</span>
+      <span class="chev">▾</span>
+    </div>
+    <div data-role="body" style="display:none;margin-top:12px;">
     <div class="card-row">
       <div class="form-field"><label>Código</label><input data-f="codigo" value="${escAttr(d.codigo)}" placeholder="U01"></div>
       <div class="form-field"><label>Zona</label><input data-f="zona" value="${escAttr(d.zona)}"></div>
@@ -1140,11 +1224,22 @@ function renderDuplaCard(d){
       <button class="mini-btn btn-outline" data-act="add-integrante">+ Agregar integrante</button>
     </div>
     <div class="acceso-box" data-role="acceso"></div>
+    </div>
   `;
   const integrantesBox = card.querySelector('[data-role="integrantes"]');
   operadores.forEach(i => integrantesBox.appendChild(renderIntegranteRow(i)));
 
   renderAccesoBox(card.querySelector('[data-role="acceso"]'), d);
+
+  // No usa toggleResumen() (esa espera un id global de body) porque cada
+  // tarjeta de dupla es un nodo aparte sin id propio en su body — se
+  // resuelve directo por data-role dentro de esta misma tarjeta.
+  card.querySelector('[data-role="resumen"]').onclick = () => {
+    const body = card.querySelector('[data-role="body"]');
+    const abierto = body.style.display !== 'none';
+    body.style.display = abierto ? 'none' : '';
+    card.querySelector('[data-role="resumen"]').classList.toggle('open', !abierto);
+  };
 
   card.querySelector('[data-act="guardar"]').onclick = async () => {
     const fields = {};
@@ -1173,6 +1268,19 @@ function renderDuplaCard(d){
     integrantesBox.appendChild(renderIntegranteRow(nuevo));
   };
   return card;
+}
+
+// Abre (si estaba cerrada) la tarjeta de una dupla en "👥 Duplas
+// territoriales" y hace scroll hasta ella — usado desde "✏️ Editar" en
+// "👥 Operadores por turno" (23/9/2026).
+function abrirEdicionDupla(duplaId){
+  const card = document.getElementById('dupla-card-' + duplaId);
+  if(!card) return;
+  const body = card.querySelector('[data-role="body"]');
+  const resumen = card.querySelector('[data-role="resumen"]');
+  if(body) body.style.display = '';
+  if(resumen) resumen.classList.add('open');
+  card.scrollIntoView({ behavior:'smooth', block:'center' });
 }
 
 // ── ACCESO (crear el login de la dupla) ───────────────────────────────────
@@ -1463,10 +1571,13 @@ function renderIntegranteRow(i){
 }
 
 async function crearDupla(){
-  const { error } = await (await SupabaseClient.getClient())
-    .from('duplas').insert({ codigo: '', zona: '', poligono: '', comuna: '' });
+  const { data: nueva, error } = await (await SupabaseClient.getClient())
+    .from('duplas').insert({ codigo: '', zona: '', poligono: '', comuna: '' }).select().single();
   if(error){ alert('No se pudo crear la dupla: ' + error.message); return; }
-  cargarDuplas();
+  await cargarDuplas();
+  // Las tarjetas arrancan colapsadas — sin esto, la dupla recién creada
+  // quedaría oculta como todas las demás y habría que buscarla a mano.
+  if(nueva) abrirEdicionDupla(nueva.id);
 }
 
 // ── CHOFERES ────────────────────────────────────────────────────────────
@@ -1492,6 +1603,19 @@ async function crearChofer(){
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escAttr(s){ return esc(s); }
 function flashOk(el){ el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1500); }
+
+// Toggle genérico para las secciones "resumen colapsable" (23/9/2026,
+// pedido de Agustina: mostrar un número y que el detalle se abra solo si
+// hace falta, en vez de listas largas siempre visibles). `toggleEl` es el
+// elemento clickeado (para pintarle la flecha) — puede ser distinto del
+// que dispara el toggle, por eso se pasa aparte en vez de leer `this`.
+function toggleResumen(bodyId, toggleEl){
+  const body = document.getElementById(bodyId);
+  if(!body) return;
+  const abierto = body.style.display !== 'none';
+  body.style.display = abierto ? 'none' : '';
+  if(toggleEl) toggleEl.classList.toggle('open', !abierto);
+}
 // OJO: NO usar toISOString() acá — es UTC, y Buenos Aires es UTC-3. Desde
 // las 21hs locales toISOString() ya muestra la fecha de MAÑANA (bug real
 // detectado en producción, sept/2026, ver mismo comentario en
