@@ -4599,6 +4599,50 @@ fix lo resuelve sin romper el caso de nombre exacto ni el de un
 operador que genuinamente no pertenece a ninguna dupla — 8 casos,
 todos pasan.
 
+### 10.1.76 Admin: desambiguar operadores multi-turno en KoBo pendientes y reporte (23/9/2026)
+
+Agustina: "acabo de cambiar un integrante de la dupla G, Mayra Quito va
+a cubrir también la dupla G. quiero chequear que levantes los kobos de
+Mayra en la dupla G del próximo turno."
+
+Confirmé en la base: Mayra Quito ya venía activa en Dupla E (turno T2,
+10-14hs) y ahora Agustina la sumó también a Dupla G (turno T3,
+14-18hs) — mismo escenario real que Marcelo Gissi en el §10.1.62
+("marcelo gissi hace 2 turnos"), pero esa vez el fix (desambiguar por
+horario del envío contra la ventana del turno) solo se aplicó a
+`shared/js/dashboard-engine.js` (el Dashboard en vivo). Revisando el
+código de `admin-duplas.html` para confirmarle a Agustina que esto
+funcionaba, encontré que NO: dos funciones de este archivo matchean
+operador→dupla con `.find()`/tomando el primer match, sin ningún
+criterio de desambiguación por horario —
+`cargarKoboPendientesAdmin()` (recién arreglada en el §10.1.75, pero
+solo para el matching por nombre, no para el de multi-turno) y
+`calcularOutcomesKobo()` (usada por el Reporte semanal y el mapa de
+`reporte-publico.html`). Con Mayra ahora en dos duplas, sus envíos de
+la tarde en Dupla G se iban a seguir contando siempre para Dupla E (o
+al revés, según el orden en que Supabase devolviera las filas de
+`integrantes` — no determinístico).
+
+Se agregan `TURNO_RANGO_HORAS`/`horaEnTurno()` a `admin-duplas.html`
+(mismos rangos que `dashboard-engine.js`, duplicado a propósito — los
+archivos no comparten módulos) y se actualizan las dos funciones para
+juntar TODOS los matches por nombre (no solo el primero) y, si hay más
+de uno, desambiguar por si la hora del envío cae en la ventana del
+turno de cada dupla candidata — mismo criterio que
+`buscarDuplaPorNombre()` del §10.1.62. Requirió sumar `turno` a los
+`select()` de `duplas` en ambas funciones (antes solo traían
+`id, codigo`).
+
+Validado: `node --check` sobre los 2 bloques `<script>`. Script de
+Node standalone reimplementando ambas funciones con el roster real de
+Mayra Quito (Dupla E/T2, Dupla G/T3): un envío a las 11hs resuelve
+Dupla E, uno a las 15hs resuelve Dupla G — en las dos funciones
+(`duplaIdPorOperador` de KoBo pendientes y el matching de
+`calcularOutcomesKobo`) —, sin hora sigue devolviendo una dupla en vez
+de romper, y un operador sin ambigüedad (una sola dupla) sigue
+resolviendo exactamente igual que antes del cambio — 6 casos, todos
+pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
