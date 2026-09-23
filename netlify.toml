@@ -6,3 +6,12 @@
 
 [functions]
   directory = "netlify/functions"
+
+# Edge function que redirige la raíz de umbral0.huehaci.com a la home real
+# de Umbral 0 (23/9/2026, ver netlify/edge-functions/umbral0-domain.js) —
+# no toca nada del resto de los dominios (censoflash.huehaci.com, el
+# default de Netlify, etc.), que siguen sirviendo Censo Flash en la raíz
+# como siempre.
+[[edge_functions]]
+  path = "/"
+  function = "umbral0-domain"

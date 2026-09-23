@@ -4262,6 +4262,68 @@ Validado: `node --check` sobre los 2 bloques `<script>`, balance de
 `<div>`/`<button>`/`<table>` del archivo completo (282/282, 44/44,
 8/8).
 
+### 10.1.70 Subdominio propio: umbral0.huehaci.com (23/9/2026)
+
+Agustina: "quiero que el dominio de la plataforma sea de huehaci" →
+"huehaci.com compré el dominio y alojé https://soluciones.huehaci.com/plataforma
+acá" → "pero cuando entrás a cada una tendría que llevarte a
+umbral0.huehaci.com" → confirmado que Censo Flash también quiere su
+propio subdominio (censoflash.huehaci.com).
+
+Este es un cambio de infraestructura (dominios + DNS), no solo de
+código — documentando acá la parte que SÍ vive en el repo y quedó
+resuelta, y lo que queda en manos de Agustina (no tengo acceso a la
+cuenta de Netlify ni al DNS de huehaci.com desde este entorno):
+
+- **censoflash.huehaci.com**: no necesita ningún cambio de código — la
+  raíz del sitio (`index.html`) ya ES Censo Flash. Agustina solo tiene
+  que agregarlo como dominio personalizado en Netlify (Site settings →
+  Domain management) y apuntar el DNS (CNAME) a este sitio.
+- **umbral0.huehaci.com**: la raíz del sitio sirve Censo Flash para
+  todos los dominios — hacía falta que ESTE dominio puntual, al entrar
+  por la raíz, muestre Umbral 0 en cambio. Se agrega
+  `netlify/edge-functions/umbral0-domain.js` (registrado en
+  `netlify.toml` con `path = "/"`, así Netlify ni siquiera invoca la
+  función para rutas que no sean la raíz): si el `Host` de la request es
+  `umbral0.huehaci.com`, hace un `Response.redirect()` (HTTP real, no un
+  rewrite transparente) a `/umbral-0/index.html`. Elegido redirect en
+  vez de rewrite a propósito: así el navegador queda parado en la URL
+  real donde vive el archivo, y todos los links relativos de adentro de
+  Umbral 0 (`./casos.html`, `../dashboard.html` para volver a Censo
+  Flash, etc.) siguen resolviendo exactamente igual que siempre — un
+  rewrite transparente a `/` hubiera requerido mantener una lista de
+  excepciones para no romper esos links "de vuelta a Censo Flash", que
+  con el redirect no hace falta. Trade-off aceptado: la URL después de
+  entrar queda en `umbral0.huehaci.com/umbral-0/index.html` (no
+  `umbral0.huehaci.com/` pelado) — Agustina lo priorizó así frente a la
+  alternativa de reestructurar el repo para que Umbral 0 pudiera vivir
+  como sitio standalone (sus páginas dependen de rutas relativas
+  `../shared/`, `../config/`, `../assets/` apuntando a la raíz del
+  mismo repo, así que separarlo del todo es un cambio mucho más grande).
+  Falta: Agustina tiene que agregar `umbral0.huehaci.com` como dominio
+  personalizado en Netlify (activa Edge Functions automáticamente, no
+  hace falta nada extra ahí) y apuntar su DNS.
+- **soluciones.huehaci.com/plataforma**: confirmado que ese dominio es
+  compartido con otros productos de Huehaci (no exclusivo de esta
+  plataforma) — el `/plataforma` tiene que resolverse con una
+  redirección o proxy configurado donde sea que viva soluciones.huehaci.com
+  HOY (no en este repo, no en Netlify de este sitio). Si ese sitio
+  también está en Netlify y en un repo al que Agustina me da acceso,
+  puedo escribir ahí una redirección tipo `/plataforma/* → (este sitio)
+  200` (Netlify sirve eso como proxy transparente, la URL no cambia en
+  el navegador) — pendiente de que confirme dónde vive ese dominio.
+
+Validado: `node --check` sobre `netlify/edge-functions/umbral0-domain.js`
+(Node 22 detecta automáticamente sintaxis ESM en `.js` sin
+`package.json`, mismo runtime que usa Netlify Edge Functions). TOML de
+`netlify.toml` parseado con `tomllib` de Python, sin errores. Script de
+Node standalone reimplementando la lógica de decisión del edge function
+(mismo chequeo de `hostname`): confirma que redirige solo para
+`umbral0.huehaci.com` y no para `censoflash.huehaci.com`, el dominio
+default de Netlify, ni `soluciones.huehaci.com` — 5 casos, todos pasan.
+No se pudo probar contra el runtime real de Netlify Edge Functions
+desde este entorno (hace falta un deploy real).
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
