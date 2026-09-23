@@ -4020,6 +4020,46 @@ una dupla, nombre en orden invertido ("Gissi, Marcelo") sigue
 matcheando, y el caso de una sola dupla (Natalia Soto) sigue
 resolviendo igual que antes del cambio — 12 casos, todos pasan.
 
+### 10.1.63 "KoBo pendientes" fallaba en silencio (23/9/2026)
+
+Siguiendo el hilo del §10.1.62: Agustina confirmó que ya había revisado
+"KoBo pendientes" en `casos.html` para dupla M y los envíos de Natalia
+Soto (una sola dupla, sin la ambigüedad de turnos del §10.1.62) no
+aparecían ahí tampoco — ni como alta nueva, ni como posible
+continuación, ni como sin identificar.
+
+Revisé la base (perfil de dupla M, su fila en `integrantes`, políticas
+RLS de `integrantes`/`personas`) y todo el lado de Supabase está bien
+conectado — `m@umbral0.app` apunta a la dupla M correcta, Natalia Soto
+está cargada como integrante activa de esa misma dupla, RLS deja leerla.
+No pude ir más allá porque el acceso a la API en vivo de KoBo
+(`kf.kobotoolbox.org`) está bloqueado desde este entorno (mismo límite
+que el §10.1.62) — no hay forma de confirmar desde acá con qué texto
+exacto quedó guardado el campo "operador" en sus envíos reales.
+
+Lo que SÍ encontré revisando el código: `cargarKoboPendientes()`
+fallaba **en silencio**. Si el pedido a KoBo (o cualquier paso de la
+función) tira una excepción, el `catch` solo hacía
+`box.style.display = 'none'` — el panel entero desaparece, exactamente
+igual que cuando genuinamente no hay nada pendiente. Para la dupla (o
+para Agustina revisando) un error de red y "no hay pendientes" se ven
+IDÉNTICOS, sin ninguna pista de cuál de las dos pasó. Si el chequeo de
+Natalia falló por esto (en vez de encontrar cero envíos suyos), no
+había forma de notarlo desde la pantalla.
+
+Fix: el `catch` ahora deja el panel visible con un aviso
+("⚠️ No se pudo revisar si hay envíos de KoBo pendientes...") en vez de
+esconderse — sigue sin ser bloqueante (la dupla puede seguir usando el
+resto de la página), pero ahora un error real se distingue de "no hay
+nada pendiente". Esto no explica por sí solo el caso de Natalia Soto —
+puede ser esto, o puede ser que el nombre que quedó guardado en el
+envío de KoBo no matchee contra "Natalia Soto" (apodo, error de tipeo,
+etc.) — pero al menos la próxima vez que pase, va a quedar visible cuál
+de las dos cosas es.
+
+Validado: `node --check` sobre los 2 bloques `<script>` de `casos.html`,
+balance de `<div>`/`<button>` del archivo completo (291/291, 75/75).
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
