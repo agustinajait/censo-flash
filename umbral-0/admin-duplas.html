@@ -299,13 +299,16 @@
         <span class="chev">▾</span>
       </div>
       <div class="resumen-toggle-body" id="kobo-sin-id-admin-body" style="display:none;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+          <button class="btn btn-green btn-sm" id="btn-confirmar-todos-sin-id" onclick="confirmarTodosKoboSinIdentificarAdmin()">✅ Confirmar todos</button>
+        </div>
         <div class="tbl-wrap">
           <table class="reporte-tabla">
             <thead><tr><th>Dupla</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th><th>Detalle</th><th>Ubicación</th><th></th></tr></thead>
             <tbody id="kobo-sin-id-admin-tbody"><tr><td colspan="7" class="empty-msg">Cargando…</td></tr></tbody>
           </table>
         </div>
-        <div class="section-hint" style="padding:8px 4px 2px;">Que la persona no haya dado su nombre no es un error de carga — igual hay que dejar el contacto registrado. "✅ Confirmar" carga el caso vos misma, sin tener que entrar a la cuenta de esa dupla en Casos.</div>
+        <div class="section-hint" style="padding:8px 4px 2px;">Que la persona no haya dado su nombre no es un error de carga — igual hay que dejar el contacto registrado. "✅ Confirmar" carga un caso a la vez; "✅ Confirmar todos" carga en lote los que ya tienen ubicación de KoBo (revisá "⚠️ Posibles duplicados" antes de usarlo, para no duplicar casos ya cargados a mano).</div>
       </div>
     </div>
 
@@ -754,10 +757,55 @@ let koboSinIdentificarAdminActuales = [];
 // _prefillDesdeKobo(p, true) en casos.html (duplicado acá a propósito,
 // mismo patrón que normalizarNombreKobo/nombresCoincidenKobo: los dos
 // archivos no comparten módulos JS).
+// Parte pura (sin prompt, sin refrescar la tabla) — la comparten
+// confirmarKoboSinIdentificarAdmin() (uno por uno, pide dirección a mano
+// si hace falta) y confirmarTodosKoboSinIdentificarAdmin() (en lote, ver
+// más abajo, 23/9/2026: "dame la opción para confirmar todos" — con 118
+// envíos acumulados, confirmar de a uno ya no alcanza).
+async function _crearCasoSinIdentificarAdmin(item, puntoContacto){
+  const { duplaId, p } = item;
+  const linkMapa = (p.lat != null && p.lng != null) ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '';
+  const historiaBreve = parrafosKobo([
+    `KoBo sin identificar — ${p.tipo||'intervención'} del ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}, cargado por ${p.operador||'—'}.${linkMapa ? ' Ubicación del envío: ' + linkMapa : ' Sin ubicación en el envío de KoBo.'}`,
+    !p.persona.caracteristicas && !p.persona.observacionPersona ? '⚠️ KoBo no trajo ninguna descripción de la persona — completar a mano si se recuerda algo.' : null,
+    p.persona.caracteristicas,
+    p.persona.observacionPersona,
+  ]);
+  const subId = koboSubmissionId(p);
+  const client = await SupabaseClient.getClient();
+  const { data: persona, error } = await client.from('personas').insert({
+    sin_identificar: true,
+    punto_contacto: puntoContacto,
+    historia_breve: historiaBreve,
+    estado: 'activo',
+    dupla_id: duplaId,
+  }).select().single();
+  if(error) throw error;
+  const { error: errInt } = await client.from('intervenciones').insert({
+    persona_id: persona.id,
+    dupla_id: duplaId,
+    tipo: 'contacto_espontaneo',
+    resumen: 'Ingreso inicial del caso.',
+  });
+  if(errInt) throw errInt;
+  // Mismo motivo que en casos.html (ver §10.1.72): sin esto, este envío
+  // puntual iba a seguir apareciendo como pendiente para siempre.
+  if(subId){
+    const { error: errKv } = await client.from('kobo_validaciones').upsert({
+      kobo_submission_id: subId,
+      persona_id: persona.id,
+      dupla_id: duplaId,
+      creado_por: miPerfil.id,
+    }, { onConflict: 'kobo_submission_id,persona_id' });
+    if(errKv) console.error('No se pudo marcar el envío de KoBo como usado', errKv);
+  }
+  return persona;
+}
+
 async function confirmarKoboSinIdentificarAdmin(idx){
   const item = koboSinIdentificarAdminActuales[idx];
   if(!item) return;
-  const { duplaId, p } = item;
+  const { p } = item;
   const linkMapa = (p.lat != null && p.lng != null) ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '';
   let puntoContacto = linkMapa;
   if(!puntoContacto){
@@ -768,45 +816,48 @@ async function confirmarKoboSinIdentificarAdmin(idx){
     if(!escrito || !escrito.trim()) return; // cancelado
     puntoContacto = escrito.trim();
   }
-  const historiaBreve = parrafosKobo([
-    `KoBo sin identificar — ${p.tipo||'intervención'} del ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}, cargado por ${p.operador||'—'}.${linkMapa ? ' Ubicación del envío: ' + linkMapa : ' Sin ubicación en el envío de KoBo.'}`,
-    !p.persona.caracteristicas && !p.persona.observacionPersona ? '⚠️ KoBo no trajo ninguna descripción de la persona — completar a mano si se recuerda algo.' : null,
-    p.persona.caracteristicas,
-    p.persona.observacionPersona,
-  ]);
-  const subId = koboSubmissionId(p);
   try{
-    const client = await SupabaseClient.getClient();
-    const { data: persona, error } = await client.from('personas').insert({
-      sin_identificar: true,
-      punto_contacto: puntoContacto,
-      historia_breve: historiaBreve,
-      estado: 'activo',
-      dupla_id: duplaId,
-    }).select().single();
-    if(error) throw error;
-    const { error: errInt } = await client.from('intervenciones').insert({
-      persona_id: persona.id,
-      dupla_id: duplaId,
-      tipo: 'contacto_espontaneo',
-      resumen: 'Ingreso inicial del caso.',
-    });
-    if(errInt) throw errInt;
-    // Mismo motivo que en casos.html (ver §10.1.72): sin esto, este envío
-    // puntual iba a seguir apareciendo como pendiente para siempre.
-    if(subId){
-      const { error: errKv } = await client.from('kobo_validaciones').upsert({
-        kobo_submission_id: subId,
-        persona_id: persona.id,
-        dupla_id: duplaId,
-        creado_por: miPerfil.id,
-      }, { onConflict: 'kobo_submission_id,persona_id' });
-      if(errKv) console.error('No se pudo marcar el envío de KoBo como usado', errKv);
-    }
+    await _crearCasoSinIdentificarAdmin(item, puntoContacto);
     cargarKoboPendientesAdmin();
   }catch(e){
     alert('No se pudo confirmar: ' + e.message);
   }
+}
+
+// Confirma en lote TODOS los envíos "sin identificar" que traen
+// geolocalización (la gran mayoría — KoBo la captura sola). Los que no
+// traen quedan afuera del lote a propósito: pedirle una dirección a mano
+// por cada uno con 100+ envíos sería inmanejable, se confirman de a uno
+// con el botón individual. Pide confirmación explícita antes de arrancar
+// — no hay forma de deshacer un lote de altas, y si algún envío ya se
+// había cargado a mano antes, esto le crea un duplicado (avisado en el
+// mensaje, remite a "⚠️ Posibles duplicados" para revisar antes).
+async function confirmarTodosKoboSinIdentificarAdmin(){
+  const items = koboSinIdentificarAdminActuales;
+  if(!items.length){ alert('No hay envíos pendientes para confirmar.'); return; }
+  const conGeo = items.filter(({p}) => p.lat != null && p.lng != null);
+  const sinGeo = items.length - conGeo.length;
+  const avisoSinGeo = sinGeo ? `\n\n${sinGeo} envío${sinGeo===1?'':'s'} sin ubicación ${sinGeo===1?'queda':'quedan'} afuera de este lote — confirm${sinGeo===1?'alo':'alos'} de a uno con "✅ Confirmar".` : '';
+  if(!confirm(`Se van a cargar ${conGeo.length} caso${conGeo.length===1?'':'s'} nuevo${conGeo.length===1?'':'s'} como "Sin identificar" (uno por cada envío con ubicación).${avisoSinGeo}\n\n⚠️ Si alguno de estos envíos ya se había cargado a mano antes, esto va a crear un caso duplicado — si no revisaste "⚠️ Posibles duplicados" todavía, cancelá y revisalo primero.\n\n¿Confirmás la carga en lote?`)) return;
+
+  const btn = document.getElementById('btn-confirmar-todos-sin-id');
+  if(btn) btn.disabled = true;
+  let ok = 0, conError = 0;
+  for(let i = 0; i < conGeo.length; i++){
+    if(btn) btn.textContent = `Confirmando… (${i+1}/${conGeo.length})`;
+    const item = conGeo[i];
+    const linkMapa = `https://www.google.com/maps?q=${item.p.lat},${item.p.lng}`;
+    try{
+      await _crearCasoSinIdentificarAdmin(item, linkMapa);
+      ok++;
+    }catch(e){
+      conError++;
+      console.error('No se pudo confirmar en lote', item, e);
+    }
+  }
+  if(btn){ btn.disabled = false; btn.textContent = '✅ Confirmar todos'; }
+  alert(`Listo: ${ok} caso${ok===1?'':'s'} cargado${ok===1?'':'s'}.${conError ? ` ${conError} fallaron (revisar la consola).` : ''}${sinGeo ? ` ${sinGeo} sin ubicación quedaron pendientes de confirmar a mano.` : ''}`);
+  cargarKoboPendientesAdmin();
 }
 
 // ── COMPLETAR DATOS FALTANTES DESDE KOBO (sept/2026) ─────────────────────
