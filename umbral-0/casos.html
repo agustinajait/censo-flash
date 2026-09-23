@@ -2006,7 +2006,23 @@ async function cargarKoboPendientes(){
     mostrarKoboPendientes();
   }catch(e){
     console.error('No se pudieron revisar los envíos de KoBo pendientes', e);
-    box.style.display = 'none'; // falla en silencio: no es un gate, es una ayuda opcional
+    // Antes esto se escondía en silencio ("no es un gate, es una ayuda
+    // opcional") — pero eso hacía que un error de red/KoBo se viera
+    // IDÉNTICO a "no hay nada pendiente", sin forma de distinguirlos
+    // desde la pantalla (23/9/2026, investigando un reporte de Agustina:
+    // "los casos de Natalia Soto están en KoBo pero no aparecen
+    // pendientes en la plataforma" — si el chequeo está fallando en vez
+    // de encontrar cero, antes no había ninguna pista visible de eso).
+    // Sigue sin ser un gate: la dupla puede seguir usando el resto de la
+    // página igual, solo que ahora el aviso queda a la vista.
+    box.style.display = 'block';
+    box.innerHTML = `
+      <div class="kobo-pend">
+        <div class="kobo-pend-card" style="background:#fef2f2;border-color:#fca5a5;">
+          <div class="kobo-pend-txt">⚠️ No se pudo revisar si hay envíos de KoBo pendientes (${esc(e.message||'error desconocido')}). Recargá la página; si sigue pasando, avisale a Agustina.</div>
+        </div>
+      </div>
+    `;
   }
 }
 
