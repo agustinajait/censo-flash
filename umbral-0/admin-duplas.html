@@ -140,9 +140,9 @@
   .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; flex:none; }
   .caso-card .caso-historia div { white-space:pre-wrap; color:#334155; }
   .btn-amber { background:var(--amber); color:white; }
-  textarea#reporte-texto, textarea#alertas-texto, textarea#diario-texto, .form-field textarea { width:100%; min-height:100px; font-family:monospace; font-size:0.8rem; border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; background:#f8faff; }
+  textarea#reporte-texto, textarea#alertas-texto, textarea.diario-texto-area, .form-field textarea { width:100%; min-height:100px; font-family:monospace; font-size:0.8rem; border:1.5px solid #cbd5e1; border-radius:9px; padding:10px 12px; background:#f8faff; }
   #reporte-texto { min-height:340px; }
-  #diario-texto { min-height:260px; }
+  .diario-texto-area { min-height:260px; }
 </style>
 </head>
 <body>
@@ -2136,7 +2136,10 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
         ${numCelda(interv)}
         ${numCelda(deriv)}
         ${numCelda(segu)}
-        <td><button class="btn btn-outline btn-sm" onclick="Casos_verDetalleDiario('${d.id}','${fecha}')">Ver detalle →</button></td>
+        <td><button class="btn btn-outline btn-sm" id="btn-detalle-${d.id}" onclick="Casos_toggleDetalleDiario('${d.id}','${fecha}')">Ver detalle →</button></td>
+      </tr>
+      <tr class="fila-detalle-diario" id="detalle-fila-${d.id}" style="display:none;">
+        <td colspan="7" style="background:#f8fafc;padding:12px;"><div id="detalle-cont-${d.id}"></div></td>
       </tr>
     `;
   }).join('');
@@ -2155,14 +2158,25 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
   `;
 }
 
-// Puente entre el resumen de todas las duplas y el resumen individual de
-// abajo — evita que quien ya está mirando "quién está en falta" tenga que
-// volver a elegir dupla y fecha a mano para ver el detalle.
-function Casos_verDetalleDiario(duplaId, fecha){
-  document.getElementById('diario-dupla').value = duplaId;
-  document.getElementById('diario-fecha').value = fecha;
-  calcularResumenDiarioAdmin();
-  document.getElementById('diario-dupla').scrollIntoView({ behavior:'smooth', block:'center' });
+// Despliega/oculta el detalle de una dupla como fila extra debajo de su
+// fila en la tabla de "todas las duplas" (23/9/2026, pedido de Agustina:
+// "al ver detalle quiero desplegable no que me lleve a bajo de todo" —
+// antes saltaba a la sección de una dupla al final de la pestaña).
+function Casos_toggleDetalleDiario(duplaId, fecha){
+  const fila = document.getElementById('detalle-fila-' + duplaId);
+  const btn = document.getElementById('btn-detalle-' + duplaId);
+  if(!fila) return;
+  const abierta = fila.style.display !== 'none';
+  if(abierta){
+    fila.style.display = 'none';
+    if(btn) btn.textContent = 'Ver detalle →';
+    return;
+  }
+  fila.style.display = '';
+  if(btn) btn.textContent = 'Ocultar detalle ↑';
+  const contId = 'detalle-cont-' + duplaId;
+  document.getElementById(contId).innerHTML = '<div style="padding:8px;color:#64748b;">Cargando…</div>';
+  _cargarResumenDiario(duplaId, fecha, contId).catch(()=>{});
 }
 
 // ── RESUMEN DIARIO POR DUPLA (§10.1.26) ─────────────────────────────────
@@ -2190,11 +2204,26 @@ async function calcularResumenDiarioAdmin(){
   const duplaId = document.getElementById('diario-dupla').value;
   const fecha = document.getElementById('diario-fecha').value;
   const estadoEl = document.getElementById('diario-estado');
-  const cont = document.getElementById('diario-cont');
   if(!duplaId || !fecha){ estadoEl.textContent = 'Elegí dupla y día.'; return; }
   const btn = document.getElementById('btn-diario-calcular');
   btn.disabled = true; estadoEl.textContent = 'Calculando…';
-  cont.innerHTML = '';
+  document.getElementById('diario-cont').innerHTML = '';
+  try{
+    await _cargarResumenDiario(duplaId, fecha, 'diario-cont');
+    estadoEl.textContent = 'Listo.';
+  }catch(e){
+    estadoEl.textContent = '';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+// Cálculo + render del resumen de un día para una dupla, factorizado para
+// poder usarse tanto desde el formulario de abajo (contId='diario-cont')
+// como desde el desplegable inline de la tabla de "todas las duplas"
+// (contId='detalle-cont-<id>', ver Casos_toggleDetalleDiario, 23/9/2026).
+async function _cargarResumenDiario(duplaId, fecha, contId){
+  const cont = document.getElementById(contId);
   try{
     const client = await SupabaseClient.getClient();
     // Mismo criterio de rango UTC del día LOCAL que el resto del archivo
@@ -2266,18 +2295,16 @@ async function calcularResumenDiarioAdmin(){
       seguimientos: (seguRes.data||[]).length,
       jornada: jornadaRes.data || null,
     };
-    _renderResumenDiarioAdmin(r, duplaRes.data.codigo, fecha);
-    estadoEl.textContent = 'Listo.';
+    _renderResumenDiarioAdmin(r, duplaRes.data.codigo, fecha, contId);
   }catch(e){
     cont.innerHTML = `<div class="empty-msg">Error calculando el resumen: ${esc(e.message)}</div>`;
-    estadoEl.textContent = '';
-  }finally{
-    btn.disabled = false;
+    throw e;
   }
 }
 
-function _renderResumenDiarioAdmin(r, duplaCod, fecha){
-  const cont = document.getElementById('diario-cont');
+function _renderResumenDiarioAdmin(r, duplaCod, fecha, contId){
+  contId = contId || 'diario-cont';
+  const cont = document.getElementById(contId);
   const derivLinea = Object.keys(r.derivacionesPorTipo).length
     ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `${esc(tipo)}: ${n}`).join(' · ')
     : 'ninguna';
@@ -2326,19 +2353,24 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha){
         💬 <b>Observaciones del día (cargadas por la dupla):</b><br>
         ${r.jornada && r.jornada.observaciones ? esc(r.jornada.observaciones) : '<span style="color:#94a3b8;">(sin cargar)</span>'}
       </div>
-      <button class="btn btn-amber" style="margin-top:14px;margin-bottom:10px;" onclick="armarMensajeDiarioAdmin()">✍️ Armar mensaje</button>
-      <textarea id="diario-texto" readonly></textarea>
+      <button class="btn btn-amber" style="margin-top:14px;margin-bottom:10px;" onclick="armarMensajeDiarioAdmin('${contId}')">✍️ Armar mensaje</button>
+      <textarea id="texto-${contId}" class="diario-texto-area" readonly></textarea>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-blue" onclick="copiarMensajeDiarioAdmin()">📋 Copiar mensaje</button>
-        <button class="btn btn-green" onclick="compartirWhatsappDiarioAdmin()">📱 Compartir por WhatsApp</button>
+        <button class="btn btn-blue" onclick="copiarMensajeDiarioAdmin('${contId}')">📋 Copiar mensaje</button>
+        <button class="btn btn-green" onclick="compartirWhatsappDiarioAdmin('${contId}')">📱 Compartir por WhatsApp</button>
       </div>
     </div>
   `;
-  window._ultimoResumenDiario = { r, duplaCod, fecha };
+  window._resumenesDiarios = window._resumenesDiarios || {};
+  window._resumenesDiarios[contId] = { r, duplaCod, fecha };
 }
 
-function armarMensajeDiarioAdmin(){
-  const d = window._ultimoResumenDiario;
+// contId identifica qué instancia del resumen (la de abajo, 'diario-cont',
+// o la de algún desplegable inline 'detalle-cont-<id>') — antes había un
+// solo `window._ultimoResumenDiario` global que se pisaba entre secciones.
+function armarMensajeDiarioAdmin(contId){
+  contId = contId || 'diario-cont';
+  const d = (window._resumenesDiarios || {})[contId];
   if(!d) return;
   const { r, duplaCod, fecha } = d;
   const derivLinea = Object.keys(r.derivacionesPorTipo).length
@@ -2380,12 +2412,13 @@ ${derivLinea}
 ${r.jornada && r.jornada.observaciones ? r.jornada.observaciones : '(sin cargar)'}
 
 Umbral Cero — Huehaci`;
-  document.getElementById('diario-texto').value = texto;
+  document.getElementById('texto-' + contId).value = texto;
 }
 
-async function copiarMensajeDiarioAdmin(){
-  const ta = document.getElementById('diario-texto');
-  if(!ta.value) armarMensajeDiarioAdmin();
+async function copiarMensajeDiarioAdmin(contId){
+  contId = contId || 'diario-cont';
+  const ta = document.getElementById('texto-' + contId);
+  if(!ta.value) armarMensajeDiarioAdmin(contId);
   try{
     await navigator.clipboard.writeText(ta.value);
   }catch(e){
@@ -2394,9 +2427,10 @@ async function copiarMensajeDiarioAdmin(){
   }
 }
 
-function compartirWhatsappDiarioAdmin(){
-  const ta = document.getElementById('diario-texto');
-  if(!ta.value) armarMensajeDiarioAdmin();
+function compartirWhatsappDiarioAdmin(contId){
+  contId = contId || 'diario-cont';
+  const ta = document.getElementById('texto-' + contId);
+  if(!ta.value) armarMensajeDiarioAdmin(contId);
   window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank');
 }
 
