@@ -4455,6 +4455,57 @@ confirmación de KoBo) no deja basura en `kobo_validaciones`, y que
 confirmar dos envíos distintos los saca a los dos — 9 casos, todos
 pasan.
 
+### 10.1.73 Admin puede confirmar "sin identificar" sin entrar a la cuenta de la dupla (23/9/2026)
+
+Agustina, después del §10.1.72: "no los puedo confirmar yo desde el
+admin?" — la tabla "🙈 KoBo sin identificar" de `admin-duplas.html` era
+de solo lectura ("cada dupla confirma sus propios pendientes desde su
+cuenta en Casos"), justo el trabajo que hacía falta para limpiar el
+backlog que dejó el bug anterior.
+
+Revisé las políticas RLS antes de tocar nada: `personas_insert`/
+`intervenciones_insert`/`kobo_validaciones_insert` ya dejan insertar
+con cualquier `dupla_id` desde una cuenta admin/coordinación (sin
+restricción, a diferencia de una cuenta de dupla que solo puede
+insertar con su propio `dupla_id`) — no hacía falta ningún cambio de
+permisos, solo faltaba la función.
+
+Se agrega un botón "✅ Confirmar" por fila (`confirmarKoboSinIdentificarAdmin(idx)`),
+que arma el alta con el mismo criterio que `_prefillDesdeKobo(p, true)`
+de `casos.html` (duplicado acá a propósito — los dos archivos no
+comparten módulos JS, mismo patrón que `normalizarNombreKobo`/
+`nombresCoincidenKobo`, ya duplicadas entre ambos):
+- `punto_contacto`: el link al mapa si el envío trae geolocalización
+  (caso normal — KoBo geolocaliza automático). Si NO la trae (raro), un
+  `prompt()` pide una dirección/referencia a mano — sin punto de
+  contacto no hay forma de ubicar a la persona después, así que no se
+  guarda vacío; si se cancela el prompt, no se confirma nada.
+- `historia_breve`: mismo texto armado que en `casos.html` (tipo/fecha/
+  operador del envío + características si KoBo las trajo, o un aviso de
+  que no trajo ninguna).
+- Inserta `personas` (con el `dupla_id` de la fila, no el del admin, que
+  no tiene uno propio) + `intervenciones` (alta = primer evento del
+  timeline) + `kobo_validaciones` (mismo fix que el §10.1.72, para que
+  este envío puntual no vuelva a aparecer).
+
+`cargarKoboPendientesAdmin()` ahora guarda la lista completa en
+`koboSinIdentificarAdminActuales` (antes se descartaba después de
+pintar la tabla) para que el botón pueda ubicar el envío por índice sin
+recalcular todo de nuevo — mismo patrón que `duplicadosAdminActuales`/
+`completitudKoboActual` ya usado en este archivo.
+
+Validado: `node --check` sobre los 2 bloques `<script>`, balance de
+`<div>`/`<button>`/`<table>`/`<th>` del archivo completo (282/282,
+45/45, 8/8, 34/34) y de los `colspan` de la tabla (subió de 6 a 7
+columnas en las 5 apariciones — carga, sin KoBo conectado, sin
+pendientes, error, y el `<thead>`). Script de Node standalone
+reimplementando la parte pura de `confirmarKoboSinIdentificarAdmin()`
+(sin la parte de red): con geolocalización arma `punto_contacto` con el
+link de mapa sin pedir nada; sin geolocalización y el prompt cancelado
+no arma nada; sin geolocalización con una dirección escrita a mano la
+usa recortada; con descripción real de la persona no agrega el aviso
+de "sin descripción" — 11 casos, todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 

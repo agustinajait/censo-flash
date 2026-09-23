@@ -301,11 +301,11 @@
       <div class="resumen-toggle-body" id="kobo-sin-id-admin-body" style="display:none;">
         <div class="tbl-wrap">
           <table class="reporte-tabla">
-            <thead><tr><th>Dupla</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th><th>Detalle</th><th>Ubicación</th></tr></thead>
-            <tbody id="kobo-sin-id-admin-tbody"><tr><td colspan="6" class="empty-msg">Cargando…</td></tr></tbody>
+            <thead><tr><th>Dupla</th><th>Tipo</th><th>Fecha</th><th>Cargado por</th><th>Detalle</th><th>Ubicación</th><th></th></tr></thead>
+            <tbody id="kobo-sin-id-admin-tbody"><tr><td colspan="7" class="empty-msg">Cargando…</td></tr></tbody>
           </table>
         </div>
-        <div class="section-hint" style="padding:8px 4px 2px;">Que la persona no haya dado su nombre no es un error de carga — igual hay que dejar el contacto registrado. Solo lectura: cada dupla carga estos casos como "Sin identificar" desde su cuenta en Casos.</div>
+        <div class="section-hint" style="padding:8px 4px 2px;">Que la persona no haya dado su nombre no es un error de carga — igual hay que dejar el contacto registrado. "✅ Confirmar" carga el caso vos misma, sin tener que entrar a la cuenta de esa dupla en Casos.</div>
       </div>
     </div>
 
@@ -567,6 +567,12 @@ function lineasKobo(pares){
     .map(([label, v]) => `${label}: ${v}`)
     .join('\n');
 }
+// Como lineasKobo(), pero para textos libres que ya se leen bien como
+// prosa (sin "Label:") — se separan con línea en blanco entre cada uno.
+// Mismo helper que casos.html, usado acá por confirmarKoboSinIdentificarAdmin().
+function parrafosKobo(textos){
+  return textos.filter(Boolean).join('\n\n');
+}
 
 function normalizarNombreKobo(s){
   return String(s||'')
@@ -626,13 +632,13 @@ async function cargarKoboPendientesAdmin(){
   const form = project && project.kobo && (project.kobo.forms||[])[0];
   if(!form){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
-    tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
+    tbodySinId.innerHTML = '<tr><td colspan="7" class="empty-msg">Este proyecto no tiene KoBo conectado.</td></tr>';
     document.getElementById('kobo-pend-admin-count').textContent = '— sin KoBo conectado';
     document.getElementById('kobo-sin-id-admin-count').textContent = '— sin KoBo conectado';
     return;
   }
   tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Cargando…</td></tr>';
-  tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Cargando…</td></tr>';
+  tbodySinId.innerHTML = '<tr><td colspan="7" class="empty-msg">Cargando…</td></tr>';
   document.getElementById('kobo-pend-admin-count').textContent = 'Cargando…';
   document.getElementById('kobo-sin-id-admin-count').textContent = 'Cargando…';
 
@@ -710,14 +716,16 @@ async function cargarKoboPendientesAdmin(){
     </tr>`).join('') : '<tr><td colspan="6" class="empty-msg">Sin pendientes — todos los envíos de KoBo del equipo con DNI ya tienen caso cargado.</td></tr>';
 
     const sinIdentificar = [...sinIdentificarPorDupla.values()].sort((a,b) => (b.p.fecha||'').localeCompare(a.p.fecha||''));
-    tbodySinId.innerHTML = sinIdentificar.length ? sinIdentificar.map(({ duplaId, p }) => `<tr>
+    koboSinIdentificarAdminActuales = sinIdentificar;
+    tbodySinId.innerHTML = sinIdentificar.length ? sinIdentificar.map(({ duplaId, p }, idx) => `<tr>
       <td><b>${esc(codigoPorDupla[duplaId] || '—')}</b></td>
       <td>${esc(p.tipo||'—')}</td>
       <td>${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}</td>
       <td>${esc(p.operador||'—')}</td>
       <td>${esc(p.persona.caracteristicas||'—')}</td>
       <td>${(p.lat!=null && p.lng!=null) ? `<a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener">🗺️ Ver mapa</a>` : '—'}</td>
-    </tr>`).join('') : '<tr><td colspan="6" class="empty-msg">Sin pendientes — no hay envíos sin identificar del equipo esperando caso.</td></tr>';
+      <td style="white-space:nowrap;"><button class="btn btn-green btn-sm" onclick="confirmarKoboSinIdentificarAdmin(${idx})">✅ Confirmar</button></td>
+    </tr>`).join('') : '<tr><td colspan="7" class="empty-msg">Sin pendientes — no hay envíos sin identificar del equipo esperando caso.</td></tr>';
 
     document.getElementById('kobo-pend-admin-count').textContent =
       pendientes.length ? `📊 ${pendientes.length} envío${pendientes.length===1?'':'s'} pendiente${pendientes.length===1?'':'s'}` : '✅ Sin pendientes';
@@ -725,9 +733,79 @@ async function cargarKoboPendientesAdmin(){
       sinIdentificar.length ? `📊 ${sinIdentificar.length} envío${sinIdentificar.length===1?'':'s'} sin identificar` : '✅ Sin pendientes';
   }catch(e){
     tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
-    tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
+    tbodySinId.innerHTML = '<tr><td colspan="7" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
     document.getElementById('kobo-pend-admin-count').textContent = '⚠️ Error';
     document.getElementById('kobo-sin-id-admin-count').textContent = '⚠️ Error';
+  }
+}
+
+// [{ duplaId, p }] — mismo array que se usa para pintar la tabla de
+// "🙈 KoBo sin identificar", se guarda para que confirmarKoboSinIdentificarAdmin()
+// pueda ubicar el envío por índice sin tener que recalcular todo de nuevo.
+let koboSinIdentificarAdminActuales = [];
+
+// Confirma un envío "sin identificar" DIRECTO desde el admin (23/9/2026,
+// pedido de Agustina: "no los puedo confirmar yo desde el admin?" — hasta
+// ahora esta tabla era de solo lectura, cada dupla tenía que entrar a su
+// propia cuenta en Casos para confirmar). RLS ya dejaba insertar
+// personas/intervenciones/kobo_validaciones con cualquier dupla_id desde
+// una cuenta admin/coordinación (ver policies `*_insert`) — lo único que
+// faltaba era esta función, que arma el alta con el mismo criterio que
+// _prefillDesdeKobo(p, true) en casos.html (duplicado acá a propósito,
+// mismo patrón que normalizarNombreKobo/nombresCoincidenKobo: los dos
+// archivos no comparten módulos JS).
+async function confirmarKoboSinIdentificarAdmin(idx){
+  const item = koboSinIdentificarAdminActuales[idx];
+  if(!item) return;
+  const { duplaId, p } = item;
+  const linkMapa = (p.lat != null && p.lng != null) ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '';
+  let puntoContacto = linkMapa;
+  if(!puntoContacto){
+    // Sin geolocalización en el envío (raro, pero pasa) — sin punto de
+    // contacto no hay forma de volver a ubicar a la persona después, así
+    // que se lo pide a mano en vez de guardar algo vacío/inútil.
+    const escrito = prompt('Este envío de KoBo no trae ubicación. Escribí una dirección o referencia para poder ubicar a la persona después:');
+    if(!escrito || !escrito.trim()) return; // cancelado
+    puntoContacto = escrito.trim();
+  }
+  const historiaBreve = parrafosKobo([
+    `KoBo sin identificar — ${p.tipo||'intervención'} del ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : '—'}, cargado por ${p.operador||'—'}.${linkMapa ? ' Ubicación del envío: ' + linkMapa : ' Sin ubicación en el envío de KoBo.'}`,
+    !p.persona.caracteristicas && !p.persona.observacionPersona ? '⚠️ KoBo no trajo ninguna descripción de la persona — completar a mano si se recuerda algo.' : null,
+    p.persona.caracteristicas,
+    p.persona.observacionPersona,
+  ]);
+  const subId = koboSubmissionId(p);
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data: persona, error } = await client.from('personas').insert({
+      sin_identificar: true,
+      punto_contacto: puntoContacto,
+      historia_breve: historiaBreve,
+      estado: 'activo',
+      dupla_id: duplaId,
+    }).select().single();
+    if(error) throw error;
+    const { error: errInt } = await client.from('intervenciones').insert({
+      persona_id: persona.id,
+      dupla_id: duplaId,
+      tipo: 'contacto_espontaneo',
+      resumen: 'Ingreso inicial del caso.',
+    });
+    if(errInt) throw errInt;
+    // Mismo motivo que en casos.html (ver §10.1.72): sin esto, este envío
+    // puntual iba a seguir apareciendo como pendiente para siempre.
+    if(subId){
+      const { error: errKv } = await client.from('kobo_validaciones').upsert({
+        kobo_submission_id: subId,
+        persona_id: persona.id,
+        dupla_id: duplaId,
+        creado_por: miPerfil.id,
+      }, { onConflict: 'kobo_submission_id,persona_id' });
+      if(errKv) console.error('No se pudo marcar el envío de KoBo como usado', errKv);
+    }
+    cargarKoboPendientesAdmin();
+  }catch(e){
+    alert('No se pudo confirmar: ' + e.message);
   }
 }
 
