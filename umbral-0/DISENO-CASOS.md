@@ -4553,6 +4553,52 @@ procesamiento contando éxitos/errores por separado sin cortar ante un
 fallo puntual, incluyendo el caso trivial de lote vacío — 8 casos,
 todos pasan.
 
+### 10.1.75 Bug: matching de operador estricto en "KoBo pendientes"/"sin identificar" del admin (23/9/2026)
+
+Agustina reportó que después de usar "✅ Confirmar todos" seguían
+apareciendo 8 casos en la cuenta de Dupla A — al revisar la base, los
+últimos casos confirmados SÍ tenían su fila en `kobo_validaciones`
+(`kv_count: 1`), así que no era un problema de datos; ella misma se
+dio cuenta un minuto después: "ahh no, no pasa nada, hay que recargar
+fuerte para que actualice" — la lista de pendientes en `casos.html` no
+se refresca sola después de confirmar un caso (`guardarPersona()` llama
+a `cargarSinIdentificarCount()`, que solo actualiza un contador, no
+`cargarKoboPendientes()` entero) — quedaba en caché del navegador/
+sesión hasta recargar. No hizo falta ningún cambio para esto.
+
+Mientras investigaba esa consulta sí encontré un bug real y separado:
+`cargarKoboPendientesAdmin()` (las tablas "📥 KoBo pendientes" y "🙈 KoBo
+sin identificar" del admin) matcheaba el operador de cada envío contra
+el roster con **igualdad exacta de string** (`duplaPorNombre[normalizarNombreKobo(p.operador)]`,
+un objeto indexado por clave) — a diferencia de TODAS las demás
+funciones de matching de operador del proyecto (`cargarKoboPendientes()`
+en `casos.html`, `generarReporte()` más abajo en este mismo archivo),
+que ya usan `nombresCoincidenKobo()` (subconjunto de tokens, no
+igualdad exacta) desde el bug real de "Yesica Cuenca" del §10.1.52 (un
+nombre compuesto sin tipear completo en KoBo quedaba invisible). Esta
+era la única función que había quedado con el criterio estricto viejo
+— un operador cuyo nombre en KoBo no coincidiera carácter por carácter
+con `integrantes` (typo, nombre compuesto incompleto, apellido de más)
+podía aparecer correctamente en "Casos" de su propia dupla y en el
+Reporte semanal, pero quedar invisible en las dos tablas de KoBo del
+admin — ni siquiera aparecía la fila para poder confirmarlo ahí.
+
+Fix: mismo patrón que `generarReporte()` — un array
+`duplaPorNombreArr` (no un objeto por clave exacta) + una función
+`duplaIdPorOperador(operador)` que usa `.find(r =>
+nombresCoincidenKobo(r.nombre, operador))`.
+
+Validado: `node --check` sobre los 2 bloques `<script>`. Script de
+Node standalone comparando el comportamiento ANTES (igualdad exacta) y
+DESPUÉS (subconjunto de tokens) del fix con el roster real de "Tomas
+Villavicencio"/"Tomas Garcia" (dos personas distintas con el mismo
+nombre de pila, activas en duplas distintas) y el caso histórico de
+"Yesica Cuenca": confirma que el bug es real (antes fallaba con una
+variación del nombre y con un nombre compuesto incompleto) y que el
+fix lo resuelve sin romper el caso de nombre exacto ni el de un
+operador que genuinamente no pertenece a ninguna dupla — 8 casos,
+todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
