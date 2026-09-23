@@ -4199,6 +4199,28 @@ sin marcar, dupla inactiva (sin badge), sin turno asignado, dos
 integrantes, y una fila de integrante en blanco que no debe aparecer en
 el texto — 10 casos, todos pasan.
 
+### 10.1.67 Resumen de dupla: separar la presencia de hoy del resto del texto (23/9/2026)
+
+Agustina, sobre el §10.1.66: "podés mejorar la vista de las que marcan
+jornada, está todo en una misma caja y confunde."
+
+El resumen colapsado de cada tarjeta era una sola línea de texto
+corrida — código, turno+horario, zona, el badge de presencia de hoy y
+la lista de integrantes, todo mezclado uno atrás del otro sin
+jerarquía visual. Se reorganiza en 3 filas dentro de la misma tarjeta,
+sin tocar nada del formulario de edición de abajo:
+1. **Código + badge de presencia** (✅/🌤️/⚠️) — lo primero que hay que
+   ver, separado con más lugar para respirar en vez de ir pegado al
+   resto del texto.
+2. **Turno + horario · zona** — en gris, más chico.
+3. **👤 integrantes** — en gris más claro, al final.
+
+Validado: `node --check` sobre los 2 bloques `<script>`, balance de
+`<div>`/`<button>`/`<span>` del archivo completo (281/281, 44/44,
+63/63 — subió de 277 divs por las 3 filas nuevas, sin agregar ningún
+botón ni cambiar la lógica de click, que sigue atada al mismo
+`[data-role="resumen"]` de siempre).
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
