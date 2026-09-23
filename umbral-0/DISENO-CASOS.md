@@ -3940,6 +3940,86 @@ al `<th>` vacío de esa columna (truco estándar para que en una tabla
 contenido exacto del botón y las demás se repartan el resto). Validado
 con el mismo chequeo de balance de tags de arriba.
 
+### 10.1.62 Bug: envíos de KoBo mal atribuidos cuando el operador hace más de un turno (23/9/2026)
+
+Agustina reportó varios casos concretos de "X casos cargados en KoBo, casi
+nada en la plataforma": Natalia Soto (dupla M, 6 en KoBo/0 en plataforma),
+Marcelo Gissi (8 en KoBo/1 en plataforma), Mia Cubero (dupla C, 1 en
+KoBo/no aparece). Investigando el roster (`integrantes`) contra `duplas`
+encontré que **Marcelo Gissi está activo en dos duplas a la vez: F (turno
+T2) e I (turno T3)** — el primer diagnóstico fue "esto es un duplicado de
+carga masiva, hay que desactivar una fila" y armé una pregunta para
+confirmar cuál era la correcta. Agustina cortó por lo sano: **"marcelo
+gissi hace 2 turnos"** — las dos filas son legítimas, la persona
+efectivamente trabaja en ambas duplas en turnos distintos del día.
+
+Eso cambió el diagnóstico: el bug real no es un dato sucio, es
+`buscarDuplaPorNombre()` en `shared/js/dashboard-engine.js` — cuando el
+nombre de un operador matchea MÁS de una fila de `integrantes` (persona
+con más de un turno), la función usaba `.find()` y se quedaba con la
+primera fila en el orden en que Supabase la devolviera (no garantizado
+estable) — **todos** los envíos de esa persona, sin importar en qué turno
+los hizo, quedaban pegados a esa única dupla. Exactamente el patrón
+reportado: un operador de dos turnos con casi toda su carga real
+concentrada (mal) en una sola de sus duplas en el resumen.
+
+Fix: desambiguar por el horario del envío (`p.hora`, ya extraído de
+`_submission_time` en `parseUmbral0()`) contra la ventana horaria del
+turno de cada dupla candidata — mismo mapeo T1-T4 que ya usa
+`ZONAS_OPERATIVAS_UMBRAL_0` en `config/umbral-0.js` (T1 6-10hs, T2
+10-14hs, T3 14-18hs, T4 18-22hs), tomado ahora también de la columna real
+`duplas.turno`:
+- La vista `integrantes_publico` (pública, sin login, la que lee
+  `cargarRosterUmbral0()`) no exponía `turno` — se le agrega con
+  `CREATE OR REPLACE VIEW` (migración `integrantes_publico_add_turno`),
+  sumando la columna al final sin tocar las que ya existían.
+- `buscarDuplaPorNombre(roster, nombreOperador, hora)` ahora junta TODOS
+  los matches (antes se quedaba con el primero); si hay uno solo, se
+  resuelve como siempre; si hay más de uno, filtra por cuál turno
+  contiene la hora del envío — si exactamente uno matchea, esa es la
+  dupla; si el horario no ayuda (cae fuera de toda ventana, o entra en
+  más de una — no debería pasar con T1-T4 sin solaparse, pero por las
+  dudas), se devuelve la primera dupla como antes (no empeora el
+  comportamiento previo) pero marcada `ambiguo:true`.
+- Los envíos marcados `ambiguo` se ven con un ⚠️ al lado de la dupla en
+  "Últimas intervenciones", y se suman aparte en una caja nueva "🕓 Envíos
+  sin turno claro" (mismo patrón visual que "⚠️ Operadores sin dupla
+  reconocida", § ya existente) — así Agustina puede ver de un vistazo
+  cuántos envíos de gente multi-turno no se pudieron resolver solos, en
+  vez de que quede escondido dentro del número "correcto" de alguna
+  dupla.
+- De paso, `cargarRosterUmbral0()` ahora pide `.order('dupla_codigo')` —
+  antes el orden de la query no estaba especificado, así que el
+  desempate por defecto (cuando el horario tampoco alcanza) ahora es
+  determinístico en vez de depender del orden interno de Postgres.
+
+Nota aparte, sin tocar (no era el bug reportado, y no hay ambigüedad de
+turno en estos casos): en la misma revisión encontré **Lucas Ojeda** (DNI
+40495582) activo en dupla B y F a la vez, con el mismo patrón de "dos
+filas insertadas en el mismo instante" — puede ser otro caso de dos
+turnos reales (como Gissi) o un duplicado de carga, no lo sé; y **Mayra
+Quito** con una fila repetida dentro de la MISMA dupla E (sin ambigüedad
+de dupla, pura fila de más). Quedan para confirmar con Agustina, no se
+tocó ninguna de las dos.
+
+Para Natalia Soto y Mia Cubero (dupla única cada una, sin ambigüedad de
+turno) el fix de este ticket no aplica — si sus envíos de KoBo siguen sin
+verse en la plataforma hay que revisarlo por otro lado (lo más probable:
+están legítimamente pendientes de confirmar en "KoBo pendientes" de
+`casos.html`, y todavía no se cargó el caso). No se pudo verificar contra
+la API en vivo de KoBo desde este entorno: `kf.kobotoolbox.org` está
+bloqueado por la política de red del sandbox.
+
+Validado: `node --check` sobre `dashboard-engine.js`, balance de
+`<div>`/`<button>`/`<table>` en `dashboard.html`. Script de Node
+standalone reimplementando `buscarDuplaPorNombre()`/`horaEnTurno()` con
+el roster real de Gissi (F/T2, I/T3): envío a las 11hs resuelve F sin
+ambigüedad, a las 16hs resuelve I sin ambigüedad, a las 2hs (fuera de
+toda ventana) y sin hora quedan marcados ambiguos pero igual devuelven
+una dupla, nombre en orden invertido ("Gissi, Marcelo") sigue
+matcheando, y el caso de una sola dupla (Natalia Soto) sigue
+resolviendo igual que antes del cambio — 12 casos, todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 

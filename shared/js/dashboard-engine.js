@@ -1229,24 +1229,53 @@ function nombresCoincidenKobo(a, b){
   return ta.every(t => setB.has(t)) || tb.every(t => setA.has(t));
 }
 
+// Ventana horaria de cada turno (T1-T4), mismo criterio que
+// ZONAS_OPERATIVAS_UMBRAL_0 en config/umbral-0.js ("TURNO 1 · 6-10hs", etc.)
+// y que el campo `duplas.turno` — se usa para desambiguar operadores que
+// hacen más de un turno (ver buscarDuplaPorNombre, 23/9/2026).
+const TURNO_RANGO_HORAS = { T1:[6,10], T2:[10,14], T3:[14,18], T4:[18,22] };
+function horaEnTurno(hora, turno){
+  const rango = TURNO_RANGO_HORAS[turno];
+  if(!rango || hora === null || hora === undefined) return false;
+  return hora >= rango[0] && hora < rango[1];
+}
+
 async function cargarRosterUmbral0(){
   const client = await SupabaseClient.getClient(window.PROJECT_CONFIG_UMBRAL_0);
-  const { data, error } = await client.from('integrantes_publico').select('*');
+  const { data, error } = await client.from('integrantes_publico').select('*').order('dupla_codigo');
   if(error) throw error;
   return (data||[])
     .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`.trim(), dupla_codigo: i.dupla_codigo }))
     .filter(r => r.nombre);
 }
 
-function buscarDuplaPorNombre(roster, nombreOperador){
-  const match = (roster||[]).find(r => nombresCoincidenKobo(r.nombre, nombreOperador));
-  return match ? match.dupla_codigo : null;
+// Un mismo nombre puede matchear más de un integrante activo cuando la
+// persona hace más de un turno en duplas distintas (23/9/2026, caso real:
+// Marcelo Gissi cubre F y I — "marcelo gissi hace 2 turnos", confirmado por
+// Agustina). Antes esto se resolvía con `.find()` (primer match, en el
+// orden arbitrario en que Supabase devuelve la fila) y todos los envíos de
+// esa persona quedaban pegados a UNA sola de sus duplas, aunque hubiera
+// hecho el envío estando en la otra — la causa real de varios "X casos en
+// KoBo, casi nada en la plataforma" reportados. Se desambigua por el
+// horario del envío contra la ventana horaria del turno de cada dupla
+// candidata (T1 6-10, T2 10-14, T3 14-18, T4 18-22).
+function buscarDuplaPorNombre(roster, nombreOperador, hora){
+  const matches = (roster||[]).filter(r => nombresCoincidenKobo(r.nombre, nombreOperador));
+  if(!matches.length) return { dupla:null, ambiguo:false };
+  if(matches.length === 1) return { dupla: matches[0].dupla_codigo, ambiguo:false };
+  const porHorario = matches.filter(r => horaEnTurno(hora, r.turno));
+  if(porHorario.length === 1) return { dupla: porHorario[0].dupla_codigo, ambiguo:false };
+  // Sigue sin poder resolverse solo (el horario no cayó en ninguna ventana
+  // de turno, o cayó en más de una) — se toma la primera dupla del roster
+  // (mismo criterio de antes, ya no accidental porque cargarRosterUmbral0
+  // ordena por dupla_codigo) pero se marca ambiguo para poder revisarlo.
+  return { dupla: matches[0].dupla_codigo, ambiguo:true };
 }
 
 // Cache del último fetch a KoBo — el filtro por fecha (sept/2026, pedido
 // de Agustina) se aplica sobre esto en el navegador, sin volver a pedirle
 // nada a KoBo cada vez que se cambia el rango.
-let umbral0Crudo = null; // { parsed, delEquipo, sinDupla }
+let umbral0Crudo = null; // { parsed, delEquipo, sinDupla, multiTurno }
 
 async function cargarUmbral0(project){
   const warnBox = document.getElementById('u0-live-warning');
@@ -1262,10 +1291,13 @@ async function cargarUmbral0(project){
 
     const parsed = koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean);
     const sinDupla = new Map(); // nombre operador -> cantidad de envíos
+    const multiTurno = new Map(); // nombre operador -> cantidad de envíos ambiguos entre sus turnos
     parsed.forEach(p => {
-      const dupla = buscarDuplaPorNombre(roster, p.operador);
+      const { dupla, ambiguo } = buscarDuplaPorNombre(roster, p.operador, p.hora);
       p.dupla = dupla;
+      p.duplaAmbigua = ambiguo;
       if(!dupla && p.operador) sinDupla.set(p.operador, (sinDupla.get(p.operador)||0) + 1);
+      if(ambiguo && p.operador) multiTurno.set(p.operador, (multiTurno.get(p.operador)||0) + 1);
     });
 
     // Solo interesa el equipo real — los envíos de otros operadores de
@@ -1274,7 +1306,7 @@ async function cargarUmbral0(project){
     // equipo propio vs. gente que no es de acá).
     const delEquipo = parsed.filter(p => p.dupla);
 
-    umbral0Crudo = { parsed, delEquipo, sinDupla };
+    umbral0Crudo = { parsed, delEquipo, sinDupla, multiTurno };
     aplicarFiltroUmbral0(); // respeta el rango si ya había uno cargado
   }catch(e){
     console.error('Error cargando KoBo de Umbral 0', e);
@@ -1292,10 +1324,10 @@ function aplicarFiltroUmbral0(){
   if(!umbral0Crudo) return;
   const desde = document.getElementById('u0-filter-desde').value;
   const hasta = document.getElementById('u0-filter-hasta').value;
-  const { parsed, delEquipo, sinDupla } = umbral0Crudo;
+  const { parsed, delEquipo, sinDupla, multiTurno } = umbral0Crudo;
 
   if(!desde && !hasta){
-    renderUmbral0(delEquipo, sinDupla);
+    renderUmbral0(delEquipo, sinDupla, multiTurno);
     document.getElementById('u0-filter-info').textContent = '';
     document.getElementById('u0-last-update').textContent =
       'Actualizado: ' + new Date().toLocaleString('es-AR') + ' · ' + parsed.length + ' envíos de KoBo revisados, ' + delEquipo.length + ' del equipo';
@@ -1304,14 +1336,18 @@ function aplicarFiltroUmbral0(){
 
   const enRango = p => inRange(String(p.fecha||'').slice(0,10), desde, hasta);
   const delEquipoFiltrado = delEquipo.filter(enRango);
-  // "Sin dupla reconocida" también respeta el filtro — si no, mezclaría
-  // operadores de otras fechas con el resto de la vista filtrada.
+  // "Sin dupla reconocida" y "más de un turno" también respetan el filtro
+  // — si no, mezclarían envíos de otras fechas con el resto de la vista.
   const sinDuplaFiltrado = new Map();
   parsed.filter(p => !p.dupla && enRango(p)).forEach(p => {
     if(p.operador) sinDuplaFiltrado.set(p.operador, (sinDuplaFiltrado.get(p.operador)||0) + 1);
   });
+  const multiTurnoFiltrado = new Map();
+  parsed.filter(p => p.duplaAmbigua && enRango(p)).forEach(p => {
+    if(p.operador) multiTurnoFiltrado.set(p.operador, (multiTurnoFiltrado.get(p.operador)||0) + 1);
+  });
 
-  renderUmbral0(delEquipoFiltrado, sinDuplaFiltrado);
+  renderUmbral0(delEquipoFiltrado, sinDuplaFiltrado, multiTurnoFiltrado);
   document.getElementById('u0-filter-info').textContent =
     `${delEquipoFiltrado.length} de ${delEquipo.length} envíos en el rango elegido`;
   document.getElementById('u0-last-update').textContent =
@@ -1324,7 +1360,8 @@ function limpiarFiltroUmbral0(){
   aplicarFiltroUmbral0();
 }
 
-function renderUmbral0(rows, sinDupla){
+function renderUmbral0(rows, sinDupla, multiTurno){
+  multiTurno = multiTurno || new Map();
   const personas = new Set(rows.map(r => normalizarNombre(`${r.persona.nombre||''} ${r.persona.apellido||''}`)).filter(s => s));
   const duplas = new Set(rows.map(r => r.dupla));
   const dias = new Set(rows.map(r => r.fecha ? String(r.fecha).slice(0,10) : null).filter(Boolean));
@@ -1355,7 +1392,11 @@ function renderUmbral0(rows, sinDupla){
   tbodyDetalle.innerHTML = ultimas.map(r => {
     const nombrePersona = `${r.persona.nombre||''} ${r.persona.apellido||''}`.trim() || '(sin nombre)';
     const fecha = r.fecha ? new Date(r.fecha).toLocaleString('es-AR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
-    return `<tr><td>${fecha}</td><td>${esc(r.dupla||'')}</td><td>${esc(r.operador||'')}</td><td>${esc(r.tipo||'')}</td><td>${esc(nombrePersona)}</td></tr>`;
+    // ⚠️ junto a la dupla cuando no se pudo desambiguar con certeza entre
+    // los turnos del operador (ver buscarDuplaPorNombre) — la dupla que
+    // se muestra es una elección por defecto, no una certeza.
+    const duplaTxt = esc(r.dupla||'') + (r.duplaAmbigua ? ' ⚠️' : '');
+    return `<tr><td>${fecha}</td><td>${duplaTxt}</td><td>${esc(r.operador||'')}</td><td>${esc(r.tipo||'')}</td><td>${esc(nombrePersona)}</td></tr>`;
   }).join('') || '<tr><td colspan="5" class="no-data">Sin envíos del equipo todavía.</td></tr>';
 
   // Operadores sin dupla reconocida
@@ -1366,6 +1407,19 @@ function renderUmbral0(rows, sinDupla){
       [...sinDupla.entries()].sort((a,b)=>b[1]-a[1]).map(([nombre,n]) => `· ${esc(nombre)} (${n})`).join('<br>');
   } else {
     sinDuplaBox.style.display = 'none';
+  }
+
+  // Operadores con más de un turno (23/9/2026) — envíos que no se
+  // pudieron asignar con certeza a una de sus duplas por horario.
+  const multiTurnoBox = document.getElementById('u0-multi-turno');
+  if(multiTurnoBox){
+    if(multiTurno.size){
+      multiTurnoBox.style.display = 'block';
+      document.getElementById('u0-multi-turno-lista').innerHTML =
+        [...multiTurno.entries()].sort((a,b)=>b[1]-a[1]).map(([nombre,n]) => `· ${esc(nombre)} (${n})`).join('<br>');
+    } else {
+      multiTurnoBox.style.display = 'none';
+    }
   }
 
   // Mapa de puntos visitados (§10.1.24) — no se espera (carga Leaflet la

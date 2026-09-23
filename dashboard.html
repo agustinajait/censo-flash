@@ -479,6 +479,17 @@
         <div class="section-hint">Estos nombres aparecen en los envíos de KoBo del equipo pero no coinciden con ningún integrante cargado — revisar ortografía o si falta agregarlos en "Duplas y equipo".</div>
         <div id="u0-sin-dupla-lista" style="font-size:0.82rem;margin-top:8px;"></div>
       </div>
+
+      <!-- Personas que hacen más de un turno (ej. Marcelo Gissi en F e I) —
+           el sistema desambigua por horario del envío contra la ventana de
+           cada turno, pero cuando no puede (el horario no cae en ninguna
+           franja, o cae en más de una) se lista acá para revisar a mano
+           (23/9/2026, ver buscarDuplaPorNombre en dashboard-engine.js). -->
+      <div id="u0-multi-turno" class="card" style="display:none;">
+        <div class="card-title">🕓 Envíos sin turno claro</div>
+        <div class="section-hint">Estos operadores están cargados en más de una dupla (hacen más de un turno) y el horario del envío no alcanzó para decidir en cuál de sus duplas contarlo — se le asignó una por defecto, conviene revisarlo a mano.</div>
+        <div id="u0-multi-turno-lista" style="font-size:0.82rem;margin-top:8px;"></div>
+      </div>
     </div>
 
     <!-- ══════ VISTA GLOBAL (todos los proyectos) ══════ -->
