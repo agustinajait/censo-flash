@@ -2136,7 +2136,7 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
         ${numCelda(interv)}
         ${numCelda(deriv)}
         ${numCelda(segu)}
-        <td><button class="btn btn-outline btn-sm" id="btn-detalle-${d.id}" onclick="Casos_toggleDetalleDiario('${d.id}','${fecha}')">Ver detalle →</button></td>
+        <td style="white-space:nowrap;"><button class="btn btn-outline btn-sm" style="white-space:nowrap;" id="btn-detalle-${d.id}" onclick="Casos_toggleDetalleDiario('${d.id}','${fecha}')">Ver detalle →</button></td>
       </tr>
       <tr class="fila-detalle-diario" id="detalle-fila-${d.id}" style="display:none;">
         <td colspan="7" style="background:#f8fafc;padding:12px;"><div id="detalle-cont-${d.id}"></div></td>
@@ -2149,7 +2149,7 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
         <thead><tr>
           <th>Dupla</th><th>Jornada</th><th style="text-align:right;">Casos nuevos</th>
           <th style="text-align:right;">Intervenciones</th><th style="text-align:right;">Derivaciones</th>
-          <th style="text-align:right;">Seguimientos</th><th></th>
+          <th style="text-align:right;">Seguimientos</th><th style="width:1%;white-space:nowrap;"></th>
         </tr></thead>
         <tbody>${filas || '<tr><td colspan="7" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
       </table>

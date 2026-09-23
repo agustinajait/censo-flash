@@ -3930,6 +3930,16 @@ mensaje en cada una y confirma que no se pisan (ni el texto ni el
 otra, y confirma que la sección de abajo sigue usando `diario-cont`
 como default cuando no se pasa `contId` — 13 casos, todos pasan.
 
+**Fix chico el mismo día:** Agustina, con captura — "fijate que el ver
+detalle está fuera del cuadrante". El botón de la última columna
+envolvía el texto ("Ver detalle" / "→" en dos líneas) porque esa
+columna no tenía ancho reservado y competía por espacio con las demás.
+Se le agrega `white-space:nowrap` al botón y a su celda, y `width:1%`
+al `<th>` vacío de esa columna (truco estándar para que en una tabla
+`border-collapse` sin `table-layout:fixed` esa columna se achique al
+contenido exacto del botón y las demás se repartan el resto). Validado
+con el mismo chequeo de balance de tags de arriba.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
