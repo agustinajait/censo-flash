@@ -346,6 +346,27 @@
        "hoy, mi propia dupla". Ver calcularResumenDiarioAdmin(). -->
   <div class="wrap" id="tab-diario" style="display:none;">
 
+    <!-- RESUMEN DE TODAS LAS DUPLAS, UN DÍA (§10.1.60, pedido de Agustina:
+         "además de filtrar 1 por una quiero ver el resumen [de todas],
+         así veo quienes están en falta, quienes están haciendo pocos
+         casos... necesito poder controlar lo que pasa"). Mismas fuentes
+         que el resumen por dupla de abajo, pero agregadas de una: una
+         fila por dupla (las 13, aunque no hayan hecho nada ese día), con
+         la jornada resaltada en rojo si no la marcaron. "Ver detalle →"
+         lleva directo al resumen individual de abajo, sin tener que
+         volver a elegir dupla/fecha a mano. -->
+    <div class="section-title" style="margin-top:0;">Resumen de todas las duplas — un día</div>
+    <div class="rango-card">
+      <div class="form-field">
+        <label>Día</label>
+        <input type="date" id="diario-todas-fecha">
+      </div>
+      <button class="btn btn-blue" id="btn-diario-todas-calcular" onclick="calcularResumenTodasLasDuplas()">📊 Calcular</button>
+      <span id="diario-todas-estado" style="font-size:0.8rem;color:#64748b;"></span>
+    </div>
+    <div id="diario-todas-cont"></div>
+
+    <div class="section-title">Resumen de una dupla — un día, con detalle</div>
     <div class="rango-card">
       <div class="form-field">
         <label>Dupla</label>
@@ -469,6 +490,8 @@ function switchTab(nombre){
     _diarioCargado = true;
     cargarDuplasSelectDiario();
     document.getElementById('diario-fecha').value = hoyStr(0);
+    document.getElementById('diario-todas-fecha').value = hoyStr(0);
+    calcularResumenTodasLasDuplas();
   }
 }
 
@@ -1997,6 +2020,149 @@ async function copiarMensaje(){
     ta.select();
     document.execCommand('copy');
   }
+}
+
+// ── RESUMEN DE TODAS LAS DUPLAS, UN DÍA (§10.1.60) ──────────────────────
+// Agustina: "además de filtrar 1 por una quiero ver el resumen [de
+// todas], así veo quienes están en falta, quienes están haciendo pocos
+// casos... necesito poder controlar lo que pasa". Mismas fuentes que el
+// resumen por dupla de abajo (personas/intervenciones/derivaciones/
+// seguimientos/jornadas), pero AGREGADAS por dupla_id en vez de pedidas
+// una por una — 6 consultas en paralelo para las 13 duplas, no 13×6.
+// `derivaciones` no tiene dupla_id propio (§10.1.22) — se resuelve
+// cruzando por persona_id contra un mapa persona→dupla armado con TODAS
+// las personas (no solo las de ese día).
+function _rangoUtcDelDia(fecha){
+  const desdeUtc = fecha + 'T03:00:00.000Z';
+  const hastaUtc = new Date(new Date(desdeUtc).getTime() + 24*60*60*1000).toISOString();
+  return { desdeUtc, hastaUtc };
+}
+
+async function calcularResumenTodasLasDuplas(){
+  const fecha = document.getElementById('diario-todas-fecha').value;
+  const estadoEl = document.getElementById('diario-todas-estado');
+  const cont = document.getElementById('diario-todas-cont');
+  if(!fecha){ estadoEl.textContent = 'Elegí un día.'; return; }
+  const btn = document.getElementById('btn-diario-todas-calcular');
+  btn.disabled = true; estadoEl.textContent = 'Calculando…';
+  cont.innerHTML = '';
+  try{
+    const client = await SupabaseClient.getClient();
+    const { desdeUtc, hastaUtc } = _rangoUtcDelDia(fecha);
+
+    const [duplasRes, nuevasRes, personasTodasRes, intervRes, seguRes, jornadasRes] = await Promise.all([
+      client.from('duplas').select('id, codigo').order('codigo'),
+      client.from('personas').select('id, dupla_id').eq('oculto', false)
+        .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
+      client.from('personas').select('id, dupla_id').eq('oculto', false),
+      client.from('intervenciones').select('id, dupla_id').eq('fecha', fecha),
+      client.from('seguimientos').select('id, dupla_id').gte('fecha', desdeUtc).lt('fecha', hastaUtc),
+      client.from('jornadas').select('dupla_id, inicio, fin').eq('fecha', fecha),
+    ]);
+    if(duplasRes.error) throw duplasRes.error;
+    if(nuevasRes.error) throw nuevasRes.error;
+    if(personasTodasRes.error) throw personasTodasRes.error;
+    if(intervRes.error) throw intervRes.error;
+    if(seguRes.error) throw seguRes.error;
+    if(jornadasRes.error) throw jornadasRes.error;
+
+    const duplaIdPorPersonaId = {};
+    (personasTodasRes.data||[]).forEach(p => duplaIdPorPersonaId[p.id] = p.dupla_id);
+    const idsPersonas = Object.keys(duplaIdPorPersonaId);
+    let derivData = [];
+    if(idsPersonas.length){
+      const derivRes = await client.from('derivaciones').select('id, persona_id')
+        .in('persona_id', idsPersonas)
+        .gte('fecha_solicitud', desdeUtc).lt('fecha_solicitud', hastaUtc);
+      if(derivRes.error) throw derivRes.error;
+      derivData = derivRes.data || [];
+    }
+
+    const contarPor = (rows, key) => {
+      const m = {};
+      rows.forEach(r => { const k = r[key]; if(k) m[k] = (m[k]||0)+1; });
+      return m;
+    };
+    const nuevasPorDupla = contarPor(nuevasRes.data||[], 'dupla_id');
+    const intervPorDupla = contarPor(intervRes.data||[], 'dupla_id');
+    const seguPorDupla = contarPor(seguRes.data||[], 'dupla_id');
+    const derivPorDupla = {};
+    derivData.forEach(d => {
+      const duplaId = duplaIdPorPersonaId[d.persona_id];
+      if(duplaId) derivPorDupla[duplaId] = (derivPorDupla[duplaId]||0) + 1;
+    });
+    const jornadaPorDupla = {};
+    (jornadasRes.data||[]).forEach(j => jornadaPorDupla[j.dupla_id] = j);
+
+    _renderResumenTodasLasDuplas(duplasRes.data||[], {
+      nuevasPorDupla, intervPorDupla, seguPorDupla, derivPorDupla, jornadaPorDupla,
+    }, fecha);
+    estadoEl.textContent = 'Listo.';
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">Error calculando el resumen: ${esc(e.message)}</div>`;
+    estadoEl.textContent = '';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function _renderResumenTodasLasDuplas(duplas, datos, fecha){
+  const cont = document.getElementById('diario-todas-cont');
+  const fmtHoraCorta = iso => iso ? new Date(iso).toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}) : '';
+  const filas = duplas.map(d => {
+    const j = datos.jornadaPorDupla[d.id];
+    let jornadaHtml, sinMarcar;
+    if(j && j.fin){
+      jornadaHtml = `<span class="badge badge-green">✅ ${fmtHoraCorta(j.inicio)}–${fmtHoraCorta(j.fin)}</span>`;
+      sinMarcar = false;
+    } else if(j && j.inicio){
+      jornadaHtml = `<span class="badge badge-amber">🌤️ En curso</span>`;
+      sinMarcar = false;
+    } else {
+      jornadaHtml = `<span class="badge badge-gray" style="background:#fee2e2;color:#991b1b;">⚠️ Sin marcar</span>`;
+      sinMarcar = true;
+    }
+    const nuevas = datos.nuevasPorDupla[d.id] || 0;
+    const interv = datos.intervPorDupla[d.id] || 0;
+    const deriv = datos.derivPorDupla[d.id] || 0;
+    const segu = datos.seguPorDupla[d.id] || 0;
+    const sinActividad = nuevas===0 && interv===0 && deriv===0 && segu===0;
+    const numCelda = n => `<td class="num"${n===0 ? ' style="color:#dc2626;"' : ''}>${n}</td>`;
+    return `
+      <tr${sinMarcar ? ' style="background:#fef2f2;"' : (sinActividad ? ' style="background:#fffbeb;"' : '')}>
+        <td><b>Dupla ${esc(d.codigo)}</b></td>
+        <td>${jornadaHtml}</td>
+        ${numCelda(nuevas)}
+        ${numCelda(interv)}
+        ${numCelda(deriv)}
+        ${numCelda(segu)}
+        <td><button class="btn btn-outline btn-sm" onclick="Casos_verDetalleDiario('${d.id}','${fecha}')">Ver detalle →</button></td>
+      </tr>
+    `;
+  }).join('');
+  cont.innerHTML = `
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr>
+          <th>Dupla</th><th>Jornada</th><th style="text-align:right;">Casos nuevos</th>
+          <th style="text-align:right;">Intervenciones</th><th style="text-align:right;">Derivaciones</th>
+          <th style="text-align:right;">Seguimientos</th><th></th>
+        </tr></thead>
+        <tbody>${filas || '<tr><td colspan="7" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
+      </table>
+      <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero.</div>
+    </div>
+  `;
+}
+
+// Puente entre el resumen de todas las duplas y el resumen individual de
+// abajo — evita que quien ya está mirando "quién está en falta" tenga que
+// volver a elegir dupla y fecha a mano para ver el detalle.
+function Casos_verDetalleDiario(duplaId, fecha){
+  document.getElementById('diario-dupla').value = duplaId;
+  document.getElementById('diario-fecha').value = fecha;
+  calcularResumenDiarioAdmin();
+  document.getElementById('diario-dupla').scrollIntoView({ behavior:'smooth', block:'center' });
 }
 
 // ── RESUMEN DIARIO POR DUPLA (§10.1.26) ─────────────────────────────────
