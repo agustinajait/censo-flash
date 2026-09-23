@@ -229,18 +229,26 @@
   <!-- PESTAÑA: DUPLAS Y EQUIPO -->
   <div class="wrap" id="tab-duplas">
 
+    <!-- Vista única de duplas (23/9/2026, pedido de Agustina: "es
+         confuso... operadores por turnos y duplas territoriales es
+         redundante. el objetivo es poder ver las duplas con sus
+         integrantes por turno, zona y horario, y poder ver si están
+         marcando presencia hoy, y poder editar a los prestadores si es
+         necesario") — antes eran 3 secciones separadas ("🕒 Jornada de
+         hoy", "👥 Operadores por turno" de solo lectura, y "👥 Duplas
+         territoriales" editable) mostrando en parte la misma info tres
+         veces. Ahora es una sola: cada tarjeta colapsada ya muestra
+         turno+horario, zona, si marcó jornada hoy e integrantes; tocarla
+         abre el mismo formulario de edición de siempre. -->
     <div class="section-label">
-      <span>🕒 Jornada de hoy</span>
-      <button class="btn btn-outline btn-sm" onclick="cargarJornadaHoyAdmin()">🔄 Actualizar</button>
-    </div>
-    <div class="card">
-      <div class="tbl-wrap">
-        <table class="reporte-tabla">
-          <thead><tr><th>Dupla</th><th>Turno</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead>
-          <tbody id="jornada-hoy-tbody"><tr><td colspan="5" class="empty-msg">Cargando…</td></tr></tbody>
-        </table>
+      <span>👥 Duplas territoriales <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(turno, zona, presencia de hoy e integrantes — tocá una dupla para editarla)</span></span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="cargarDuplas()">🔄 Actualizar</button>
+        <button class="btn btn-outline" id="btn-accesos-faltantes" onclick="crearAccesosFaltantes()">⚡ Crear accesos faltantes</button>
+        <button class="btn btn-green" onclick="crearDupla()">+ Nueva dupla</button>
       </div>
     </div>
+    <div id="duplas-list"><div class="empty-msg">Cargando…</div></div>
 
     <!-- Las 4 secciones de abajo (KoBo pendientes/sin identificar,
          Completar datos, Posibles duplicados) arrancan colapsadas —
@@ -290,20 +298,6 @@
     </div>
 
     <div class="section-label">
-      <span>👥 Operadores por turno <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(roster actual, para revisar y corregir)</span></span>
-      <button class="btn btn-outline btn-sm" onclick="cargarOperadoresPorTurno()">🔄 Actualizar</button>
-    </div>
-    <div class="card">
-      <div class="tbl-wrap">
-        <table class="reporte-tabla">
-          <thead><tr><th>Dupla</th><th>Turno / zona</th><th>Integrante</th><th>DNI</th><th>Teléfono</th></tr></thead>
-          <tbody id="operadores-turno-tbody"><tr><td colspan="5" class="empty-msg">Cargando…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="section-hint" style="padding:8px 4px 2px;">Quién está cargado hoy como integrante de cada dupla activa, ordenado por turno. Tocá "✏️ Editar" junto al código para abrir esa dupla en "👥 Duplas territoriales" más abajo.</div>
-    </div>
-
-    <div class="section-label">
       <span>🩺 Completar datos faltantes desde KoBo</span>
       <button class="btn btn-outline btn-sm" onclick="revisarCompletitudKobo()">🔍 Revisar</button>
     </div>
@@ -332,16 +326,6 @@
         <div id="duplicados-cont"><div class="empty-msg" style="padding:16px 10px;">Tocá "Revisar" para buscarlos.</div></div>
       </div>
     </div>
-
-    <div class="section-label">
-      <span>👥 Duplas territoriales</span>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-outline" id="btn-accesos-faltantes" onclick="crearAccesosFaltantes()">⚡ Crear accesos faltantes</button>
-        <button class="btn btn-green" onclick="crearDupla()">+ Nueva dupla</button>
-      </div>
-    </div>
-    <div class="section-hint">Cada dupla arranca colapsada — tocá su nombre para ver/editar zona, turno, integrantes y acceso.</div>
-    <div id="duplas-list"></div>
 
     <div class="section-label">
       <span>🚐 Choferes <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(sin zona fija, rotan entre duplas)</span></span>
@@ -550,9 +534,8 @@ function switchTab(nombre){
 }
 
 async function cargarTodo(){
-  await Promise.all([cargarPerfilesPorDupla(), cargarDuplas(), cargarChoferes(), cargarJornadaHoyAdmin(), cargarAccesosCoordinacion()]);
+  await Promise.all([cargarPerfilesPorDupla(), cargarDuplas(), cargarChoferes(), cargarAccesosCoordinacion()]);
   cargarKoboPendientesAdmin(); // no se espera: si KoBo tarda o falla, no bloquea el resto de la pantalla
-  cargarOperadoresPorTurno();
 }
 
 // ── KOBO PENDIENTES (todas las duplas) — mismo criterio que casos.html:
@@ -687,7 +670,7 @@ async function cargarKoboPendientesAdmin(){
     const sinIdentificarPorDupla = new Map(); // subId -> { duplaId, p }
     koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
       const duplaId = duplaPorNombre[normalizarNombreKobo(p.operador)];
-      if(!duplaId) return; // no matchea con ningún integrante activo — ver "👥 Operadores por turno" para revisar el roster
+      if(!duplaId) return; // no matchea con ningún integrante activo — revisar el roster en "👥 Duplas territoriales"
       const dni = String((p.persona && p.persona.dni) || '').trim();
       if(dni){
         if(dnisPorDupla[duplaId] && dnisPorDupla[duplaId].has(dni)) return;
@@ -733,68 +716,6 @@ async function cargarKoboPendientesAdmin(){
     tbodySinId.innerHTML = '<tr><td colspan="6" class="empty-msg">Error cargando KoBo: '+esc(e.message)+'</td></tr>';
     document.getElementById('kobo-pend-admin-count').textContent = '⚠️ Error';
     document.getElementById('kobo-sin-id-admin-count').textContent = '⚠️ Error';
-  }
-}
-
-// ── OPERADORES POR TURNO (sept/2026) ─────────────────────────────────────
-// Pedido de Agustina, mismo día que el incidente de dupla C (reemplazo no
-// cargado que hizo que sus 3 altas por KoBo quedaran invisibles): en vez de
-// enterarse de un roster desactualizado cuando ya pasó (reactivo, vía el
-// "KoBo pendientes" de arriba), un listado de quién está cargado HOY en
-// cada dupla activa, para revisar y corregir turno por turno antes de que
-// pase de nuevo.
-async function cargarOperadoresPorTurno(){
-  const tbody = document.getElementById('operadores-turno-tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Cargando…</td></tr>';
-  try{
-    const client = await SupabaseClient.getClient();
-    const [{ data: duplas, error: errD }, { data: integrantes, error: errI }] = await Promise.all([
-      client.from('duplas').select('id, codigo, zona, turno').eq('activa', true),
-      client.from('integrantes').select('nombre, apellido, dni, telefono, dupla_id').neq('rol', 'chofer').eq('activo', true),
-    ]);
-    if(errD) throw errD;
-    if(errI) throw errI;
-
-    const integrantesPorDupla = {};
-    (integrantes||[]).forEach(i => {
-      (integrantesPorDupla[i.dupla_id] ||= []).push(i);
-    });
-
-    const duplasOrdenadas = [...(duplas||[])].sort((a,b) =>
-      (a.turno||'').localeCompare(b.turno||'') || String(a.codigo).localeCompare(String(b.codigo)));
-
-    const filas = [];
-    duplasOrdenadas.forEach(d => {
-      const suyos = (integrantesPorDupla[d.id]||[]).sort((a,b) => (a.apellido||'').localeCompare(b.apellido||''));
-      const turnoZona = `${d.turno||'—'} · ${d.zona||'—'}`;
-      // Celda "código + ✏️ Editar" — abre esa dupla en "👥 Duplas
-      // territoriales" más abajo (ver abrirEdicionDupla(), 23/9/2026:
-      // "que se ve bien los operadores por turnos, con la posibilidad de
-      // editar y que ahí se abra un desplegable de dupla territoriales").
-      const celdaCodigo = `<b>${esc(d.codigo)}</b> <button class="mini-btn btn-outline" style="margin-left:4px;" onclick="abrirEdicionDupla('${d.id}')">✏️ Editar</button>`;
-      if(!suyos.length){
-        filas.push(`<tr>
-          <td style="white-space:nowrap;">${celdaCodigo}</td>
-          <td>${esc(turnoZona)}</td>
-          <td colspan="3" class="empty-msg">— sin integrantes cargados —</td>
-        </tr>`);
-        return;
-      }
-      suyos.forEach((i, idx) => {
-        filas.push(`<tr>
-          <td style="white-space:nowrap;">${idx===0 ? celdaCodigo : ''}</td>
-          <td>${idx===0 ? esc(turnoZona) : ''}</td>
-          <td>${esc(`${i.nombre||''} ${i.apellido||''}`.trim())}</td>
-          <td>${esc(i.dni||'—')}</td>
-          <td>${esc(i.telefono||'—')}</td>
-        </tr>`);
-      });
-    });
-
-    tbody.innerHTML = filas.length ? filas.join('') : '<tr><td colspan="5" class="empty-msg">No hay duplas activas.</td></tr>';
-  }catch(e){
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Error cargando el roster: '+esc(e.message)+'</td></tr>';
   }
 }
 
@@ -1092,46 +1013,6 @@ async function mostrarCasoAdmin(id){
   }catch(e){ alert('No se pudo mostrar de nuevo: ' + e.message); }
 }
 
-// ── JORNADA DE HOY (inicio/fin que marca cada dupla desde casos.html) ────
-async function cargarJornadaHoyAdmin(){
-  const tbody = document.getElementById('jornada-hoy-tbody');
-  tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Cargando…</td></tr>';
-  try{
-    const client = await SupabaseClient.getClient();
-    const [{ data: duplas, error: errD }, { data: jornadas, error: errJ }] = await Promise.all([
-      client.from('duplas').select('id, codigo, turno').eq('activa', true)
-        .order('turno', { ascending:true, nullsFirst:false }).order('codigo', { ascending:true }),
-      client.from('jornadas').select('*').eq('fecha', hoyStr(0)),
-    ]);
-    if(errD) throw errD;
-    if(errJ) throw errJ;
-    const jornadaPorDupla = {};
-    (jornadas||[]).forEach(j => { jornadaPorDupla[j.dupla_id] = j; });
-
-    if(!duplas || !duplas.length){
-      tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Todavía no hay duplas activas.</td></tr>';
-      return;
-    }
-    const fmtHora = iso => iso ? new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }) : '—';
-    tbody.innerHTML = duplas.map(d => {
-      const j = jornadaPorDupla[d.id];
-      let badge;
-      if(j && j.fin) badge = '<span class="badge badge-green">✅ Completa</span>';
-      else if(j && j.inicio) badge = '<span class="badge badge-amber">🌤️ En curso</span>';
-      else badge = '<span class="badge badge-gray">— No marcó</span>';
-      return `<tr>
-        <td><b>${esc(d.codigo)}</b></td>
-        <td>${esc(d.turno || '—')}</td>
-        <td>${fmtHora(j && j.inicio)}</td>
-        <td>${fmtHora(j && j.fin)}</td>
-        <td>${badge}</td>
-      </tr>`;
-    }).join('');
-  }catch(e){
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Error cargando jornadas: '+esc(e.message)+'</td></tr>';
-  }
-}
-
 // ── ACCESOS (login de cada dupla) ─────────────────────────────────────────
 async function cargarPerfilesPorDupla(){
   perfilesPorDupla = {};
@@ -1149,27 +1030,40 @@ async function cargarPerfilesPorDupla(){
 }
 
 // ── DUPLAS ──────────────────────────────────────────────────────────────
+// Trae duplas + integrantes + jornada de HOY en un solo viaje — antes
+// jornada e integrantes vivían en dos secciones de solo lectura aparte
+// ("🕒 Jornada de hoy", "👥 Operadores por turno") que duplicaban lo que
+// ya se veía (y se podía editar) en cada tarjeta de acá abajo. Agustina
+// (23/9/2026): "es confuso la organización... operadores por turnos y
+// duplas territoriales es redundante. el objetivo es poder ver las
+// duplas con sus integrantes por turno, zona y horario, y poder ver si
+// están marcando presencia hoy, y poder editar a los prestadores" —
+// ahora es una sola vista.
 async function cargarDuplas(){
   const client = await SupabaseClient.getClient();
   const cont = document.getElementById('duplas-list');
-  const { data, error } = await client
-    .from('duplas')
-    .select('*, integrantes(*)')
-    .order('turno', { ascending: true, nullsFirst: false })
-    .order('codigo', { ascending: true });
+  const [{ data, error }, { data: jornadas, error: errJ }] = await Promise.all([
+    client.from('duplas').select('*, integrantes(*)')
+      .order('turno', { ascending: true, nullsFirst: false })
+      .order('codigo', { ascending: true }),
+    client.from('jornadas').select('dupla_id, inicio, fin').eq('fecha', hoyStr(0)),
+  ]);
   if(error){ cont.innerHTML = '<div class="empty-msg">Error cargando duplas: '+esc(error.message)+'</div>'; return; }
   if(!data || !data.length){ cont.innerHTML = '<div class="empty-msg">Todavía no hay duplas cargadas. Usá "+ Nueva dupla".</div>'; return; }
+  const jornadaPorDupla = {};
+  if(!errJ) (jornadas||[]).forEach(j => { jornadaPorDupla[j.dupla_id] = j; });
   cont.innerHTML = '';
-  data.forEach(d => cont.appendChild(renderDuplaCard(d)));
+  data.forEach(d => cont.appendChild(renderDuplaCard(d, jornadaPorDupla[d.id])));
 }
+
+const fmtHoraDupla = iso => iso ? new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }) : '—';
 
 // Cada tarjeta arranca colapsada (23/9/2026, pedido de Agustina: "no
 // necesito ver el listado completo... si quiero que se abra un
 // desplegable") — el resumen de arriba (`data-role="resumen"`) muestra
-// código/zona/turno/cantidad de integrantes; el formulario completo de
-// abajo (`data-role="body"`) se abre al tocarlo, o desde "✏️ Editar" en
-// "👥 Operadores por turno" (ver abrirEdicionDupla()).
-function renderDuplaCard(d){
+// turno/horario, zona, si marcó jornada hoy e integrantes; el formulario
+// completo de abajo (`data-role="body"`) se abre al tocarlo.
+function renderDuplaCard(d, jornada){
   const card = document.createElement('div');
   card.className = 'card';
   card.id = 'dupla-card-' + d.id;
@@ -1183,9 +1077,20 @@ function renderDuplaCard(d){
     `<option value="${t}" ${t===(d.turno||'')?'selected':''}>${t ? t + ' · ' + TURNO_HORARIO[t] : '—'}</option>`
   ).join('');
   const turnoResumen = d.turno ? d.turno + ' · ' + (TURNO_HORARIO[d.turno]||'') : 'sin turno';
+  const nombresIntegrantes = operadores.map(i => `${i.nombre||''} ${i.apellido||''}`.trim()).filter(Boolean);
+  const integrantesTxt = nombresIntegrantes.length ? nombresIntegrantes.join(', ') : 'sin integrantes cargados';
+  // Presencia de hoy — mismo criterio y colores que usaba "🕒 Jornada de
+  // hoy" (ahora fusionada acá). Solo tiene sentido para duplas activas;
+  // una inactiva no debería estar operando hoy.
+  let jornadaBadge = '';
+  if(d.activa !== false){
+    if(jornada && jornada.fin) jornadaBadge = `<span class="badge badge-green">✅ ${fmtHoraDupla(jornada.inicio)}–${fmtHoraDupla(jornada.fin)}</span>`;
+    else if(jornada && jornada.inicio) jornadaBadge = `<span class="badge badge-amber">🌤️ En curso desde ${fmtHoraDupla(jornada.inicio)}</span>`;
+    else jornadaBadge = `<span class="badge badge-gray" style="background:#fee2e2;color:#991b1b;">⚠️ No marcó hoy</span>`;
+  }
   card.innerHTML = `
     <div class="resumen-toggle" data-role="resumen">
-      <span><b>${esc(d.codigo || '(sin código)')}</b> · ${esc(d.zona || 'sin zona')} · ${esc(turnoResumen)} · ${operadores.length} integrante${operadores.length===1?'':'s'}</span>
+      <span><b>${esc(d.codigo || '(sin código)')}</b> · ${esc(turnoResumen)} · ${esc(d.zona || 'sin zona')} ${jornadaBadge} · <span style="color:#64748b;">${esc(integrantesTxt)}</span></span>
       <span class="chev">▾</span>
     </div>
     <div data-role="body" style="display:none;margin-top:12px;">
@@ -1270,9 +1175,9 @@ function renderDuplaCard(d){
   return card;
 }
 
-// Abre (si estaba cerrada) la tarjeta de una dupla en "👥 Duplas
-// territoriales" y hace scroll hasta ella — usado desde "✏️ Editar" en
-// "👥 Operadores por turno" (23/9/2026).
+// Abre (si estaba cerrada) la tarjeta de una dupla y hace scroll hasta
+// ella — usado por crearDupla() para dejar la dupla recién creada
+// visible en vez de perderla colapsada entre las demás (23/9/2026).
 function abrirEdicionDupla(duplaId){
   const card = document.getElementById('dupla-card-' + duplaId);
   if(!card) return;
