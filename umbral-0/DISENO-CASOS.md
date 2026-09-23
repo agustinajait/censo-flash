@@ -4060,6 +4060,44 @@ de las dos cosas es.
 Validado: `node --check` sobre los 2 bloques `<script>` de `casos.html`,
 balance de `<div>`/`<button>` del archivo completo (291/291, 75/75).
 
+### 10.1.64 Accesos de coordinación (23/9/2026)
+
+Agustina: "quiero poder darle un usuario a Anabella, coordinadora de la
+parte de personal de Umbral, para que pueda ver los datos de las duplas,
+de los turnos, del resumen diario, etc."
+
+`admin-duplas.html` ya dejaba entrar al rol "coordinacion" (`boot()`,
+mismo gate que "admin") y las políticas RLS de `duplas`/`personas`/
+`intervenciones`/`derivaciones`/`seguimientos`/`jornadas` ya le dan
+lectura completa a ese rol — no hacía falta tocar permisos, solo faltaba
+una forma de CREAR la cuenta. Hasta ahora el único flujo de alta
+(`abrirModalAcceso()`/`guardarAcceso()`) era específico de duplas: pedía
+un `dupla_id` y usaba el código de la dupla como nombre.
+
+Se agrega, en "👥 Duplas y equipo", una sección nueva "🧑‍💼 Accesos de
+coordinación" — mismo mecanismo (`SupabaseClient.crearCuenta()` +
+`perfiles.upsert()`, permitido por la policy `perfiles_admin_insert` para
+admin o coordinacion) pero pidiendo nombre a mano (no hay dupla de la
+que sacarlo) y sin `dupla_id`. Lista las cuentas admin/coordinacion ya
+creadas arriba del botón, para verlas de un vistazo. Una cuenta de
+coordinación entra a `admin-duplas.html` igual que Agustina (ve todo:
+duplas y equipo, reporte semanal, resumen diario) pero NO puede entrar a
+"Casos" a cargar altas/derivaciones — esa pantalla exige rol "dupla" con
+`dupla_id` propio.
+
+No creé la cuenta de Anabella yo mismo — el flujo la pide crear a mano
+desde la pantalla (nombre + email + contraseña elegida por quien la
+crea) para que Agustina defina y anote la contraseña, en vez de que yo
+la invente y quede en este chat.
+
+Validado: `node --check` sobre los 2 bloques `<script>` de
+`admin-duplas.html`, balance de `<div>`/`<button>`/`<form>` del archivo
+completo (273/273, 45/45, 2/2) — `<input>` no balancea por ser tag
+auto-cerrado (23 aperturas, 0 cierres, esperado). Confirmado contra
+`pg_policies` de Supabase que el rol "coordinacion" ya tenía SELECT en
+todas las tablas relevantes y que `perfiles_admin_insert` permite el
+alta desde una cuenta admin o coordinacion.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 

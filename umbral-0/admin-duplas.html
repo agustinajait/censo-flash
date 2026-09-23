@@ -311,6 +311,20 @@
       <div id="choferes-list"></div>
     </div>
 
+    <!-- Accesos de coordinación (23/9/2026, pedido de Agustina: darle
+         acceso a Anabella para que vea duplas/turnos/resumen diario sin
+         poder cargar casos) — mismo mecanismo que "🔑 Crear acceso" de
+         cada dupla más arriba, pero sin dupla_id: el rol "coordinacion"
+         ya tiene lectura de todo (RLS, ver duplas_select/personas_select/
+         etc.) y admin-duplas.html ya deja entrar a ese rol (boot()). -->
+    <div class="section-label">
+      <span>🧑‍💼 Accesos de coordinación <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(ven todo esto: duplas, turnos, resumen diario, reporte — no cargan casos en "Casos")</span></span>
+      <button class="btn btn-green" onclick="abrirModalAccesoCoordinacion()">+ Nuevo acceso</button>
+    </div>
+    <div class="card" id="accesos-coordinacion-card">
+      <div id="accesos-coordinacion-list"><div class="empty-msg" style="padding:16px 10px;">Cargando…</div></div>
+    </div>
+
   </div>
 
   <!-- PESTAÑA: REPORTE SEMANAL (ex reporte.html) -->
@@ -496,7 +510,7 @@ function switchTab(nombre){
 }
 
 async function cargarTodo(){
-  await Promise.all([cargarPerfilesPorDupla(), cargarDuplas(), cargarChoferes(), cargarJornadaHoyAdmin()]);
+  await Promise.all([cargarPerfilesPorDupla(), cargarDuplas(), cargarChoferes(), cargarJornadaHoyAdmin(), cargarAccesosCoordinacion()]);
   cargarKoboPendientesAdmin(); // no se espera: si KoBo tarda o falla, no bloquea el resto de la pantalla
   cargarOperadoresPorTurno();
 }
@@ -1241,6 +1255,100 @@ async function guardarAcceso(d){
     okBox.classList.add('show');
     await cargarPerfilesPorDupla();
     setTimeout(() => { closeModal(); cargarDuplas(); }, 3500);
+  }catch(e){
+    let msg = e.message || 'Error desconocido.';
+    if(/already registered|already exists/i.test(msg)) msg = 'Ese email ya tiene una cuenta creada en Supabase.';
+    errBox.textContent = 'No se pudo crear el acceso: ' + msg;
+    errBox.classList.add('show');
+  }finally{
+    btn.disabled = false; btn.textContent = '🔑 Crear acceso';
+  }
+}
+
+// ── ACCESOS DE COORDINACIÓN (23/9/2026) ─────────────────────────────────
+// Mismo mecanismo que el acceso de una dupla de arriba, pero sin dupla_id
+// — rol "coordinacion" ya tiene lectura de todo por RLS (duplas/personas/
+// intervenciones/derivaciones/seguimientos/jornadas) y admin-duplas.html
+// ya deja entrar a ese rol (boot(), línea ~461), así que no hace falta
+// nada más para que alguien como Anabella vea duplas, turnos, resumen
+// diario y reporte semanal — solo no puede cargar casos en "Casos" (esa
+// pantalla exige rol "dupla" con dupla_id).
+async function cargarAccesosCoordinacion(){
+  const cont = document.getElementById('accesos-coordinacion-list');
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('perfiles').select('id,nombre,email,rol')
+      .in('rol', ['admin','coordinacion']).order('nombre');
+    if(error) throw error;
+    if(!data || !data.length){
+      cont.innerHTML = '<div class="empty-msg" style="padding:16px 10px;">Todavía no hay accesos de coordinación/admin cargados.</div>';
+      return;
+    }
+    cont.innerHTML = data.map(p => `
+      <div class="acceso-info" style="margin-bottom:6px;">
+        <strong>${esc(p.nombre || '(sin nombre)')}</strong> · ${esc(p.email || '(sin email registrado)')} · rol: ${esc(p.rol)}
+      </div>
+    `).join('');
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg" style="padding:16px 10px;">Error cargando accesos: ${esc(e.message)}</div>`;
+  }
+}
+
+function abrirModalAccesoCoordinacion(){
+  const body = `
+    <div class="modal-sub">Se crea una cuenta de Supabase Auth con rol "coordinación": puede ver todo lo de esta pantalla (duplas, turnos, resumen diario, reporte semanal) pero no carga casos en "Casos" — eso queda solo para las cuentas de dupla. Es un email inventado, solo para loguearse — no recibe correo real.</div>
+    <div class="modal-err" id="acceso-coord-err"></div>
+    <div class="modal-ok" id="acceso-coord-ok"></div>
+    <form id="form-acceso-coord" onsubmit="return false;">
+      <div class="form-field">
+        <label>Nombre</label>
+        <input type="text" id="f_acceso_coord_nombre" placeholder="Ej: Anabella">
+      </div>
+      <div class="form-field">
+        <label>Email de acceso</label>
+        <input type="email" id="f_acceso_coord_email" placeholder="anabella@umbral0.app">
+      </div>
+      <div class="form-field">
+        <label>Contraseña</label>
+        <input type="text" id="f_acceso_coord_pass" placeholder="Elegí una contraseña (mínimo 6 caracteres)">
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-blue" id="btn-crear-acceso-coord">🔑 Crear acceso</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      </div>
+    </form>
+  `;
+  openModal('🧑‍💼 Nuevo acceso de coordinación', body);
+  document.getElementById('btn-crear-acceso-coord').onclick = guardarAccesoCoordinacion;
+}
+
+async function guardarAccesoCoordinacion(){
+  const nombre = document.getElementById('f_acceso_coord_nombre').value.trim();
+  const email = document.getElementById('f_acceso_coord_email').value.trim();
+  const pass = document.getElementById('f_acceso_coord_pass').value;
+  const btn = document.getElementById('btn-crear-acceso-coord');
+  const errBox = document.getElementById('acceso-coord-err');
+  const okBox = document.getElementById('acceso-coord-ok');
+  errBox.classList.remove('show');
+  okBox.classList.remove('show');
+  if(!nombre || !email || !pass){ errBox.textContent = 'Completá nombre, email y contraseña.'; errBox.classList.add('show'); return; }
+  if(pass.length < 6){ errBox.textContent = 'La contraseña tiene que tener al menos 6 caracteres.'; errBox.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = 'Creando…';
+  try{
+    const user = await SupabaseClient.crearCuenta(email, pass);
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('perfiles').upsert({
+      id: user.id,
+      rol: 'coordinacion',
+      dupla_id: null,
+      nombre,
+      email,
+    });
+    if(error) throw error;
+    okBox.textContent = `Cuenta creada. Pasale a ${nombre}: email "${email}" y la contraseña que elegiste — anotala ahora, no se vuelve a mostrar acá.`;
+    okBox.classList.add('show');
+    await cargarAccesosCoordinacion();
+    setTimeout(() => closeModal(), 3500);
   }catch(e){
     let msg = e.message || 'Error desconocido.';
     if(/already registered|already exists/i.test(msg)) msg = 'Ese email ya tiene una cuenta creada en Supabase.';
