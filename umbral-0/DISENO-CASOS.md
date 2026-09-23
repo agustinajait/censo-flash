@@ -4221,6 +4221,27 @@ Validado: `node --check` sobre los 2 bloques `<script>`, balance de
 botón ni cambiar la lógica de click, que sigue atada al mismo
 `[data-role="resumen"]` de siempre).
 
+### 10.1.68 Separador visual entre turnos en "Duplas territoriales" (23/9/2026)
+
+Agustina: "marca la división de turnos."
+
+La lista ya venía ordenada por turno (`order('turno')` en
+`cargarDuplas()`), pero sin ningún corte visual las 4 franjas horarias
+se veían como una lista corrida de tarjetas — había que leer el turno
+de cada tarjeta una por una para notar dónde terminaba T1 y empezaba
+T2. Se agrega un separador (`renderTurnoDivider()`) cada vez que el
+turno cambia respecto de la tarjeta anterior: un título chico en
+mayúsculas con línea inferior ("T1 · 6-10HS", etc.), y "SIN TURNO
+ASIGNADO" para las duplas sin turno cargado (quedan al final, mismo
+orden de siempre — `nullsFirst:false`).
+
+Validado: `node --check` sobre los 2 bloques `<script>`. Script de
+Node standalone reimplementando la lógica de armado de la secuencia
+(un divider cada vez que cambia `turno`, agrupando duplas sin turno
+bajo un único divider en vez de uno por dupla) contra un caso con 3
+turnos + 2 duplas sin turno, y el caso trivial de un solo turno — 8
+casos, todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 

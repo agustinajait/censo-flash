@@ -66,6 +66,8 @@
   .dupla-resumen-codigo { font-family:'Sora',sans-serif; font-weight:800; color:var(--navy); }
   .dupla-resumen-sub { font-size:0.78rem; color:#64748b; }
   .dupla-resumen-integrantes { font-size:0.78rem; color:#94a3b8; }
+  .turno-divider { font-family:'Sora',sans-serif; font-weight:800; font-size:0.72rem; letter-spacing:0.6px; text-transform:uppercase; color:#64748b; margin:20px 0 8px; padding-bottom:5px; border-bottom:2px solid #e2e8f0; }
+  .turno-divider:first-child { margin-top:0; }
   .btn-sm { padding:5px 11px; font-size:0.74rem; }
   .tbl-wrap { overflow-x:auto; }
   .badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; white-space:nowrap; }
@@ -1063,7 +1065,25 @@ async function cargarDuplas(){
   const jornadaPorDupla = {};
   if(!errJ) (jornadas||[]).forEach(j => { jornadaPorDupla[j.dupla_id] = j; });
   cont.innerHTML = '';
-  data.forEach(d => cont.appendChild(renderDuplaCard(d, jornadaPorDupla[d.id])));
+  // Marca dónde empieza cada turno (23/9/2026, pedido de Agustina: "marca
+  // la división de turnos") — la lista ya viene ordenada por turno, pero
+  // sin separador visual las 4 franjas se veían como una lista corrida.
+  let turnoActual = undefined;
+  data.forEach(d => {
+    const turnoKey = d.turno || '';
+    if(turnoKey !== turnoActual){
+      turnoActual = turnoKey;
+      cont.appendChild(renderTurnoDivider(turnoKey));
+    }
+    cont.appendChild(renderDuplaCard(d, jornadaPorDupla[d.id]));
+  });
+}
+
+function renderTurnoDivider(turno){
+  const div = document.createElement('div');
+  div.className = 'turno-divider';
+  div.textContent = turno ? `${turno} · ${TURNO_HORARIO[turno]||''}` : 'Sin turno asignado';
+  return div;
 }
 
 const fmtHoraDupla = iso => iso ? new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }) : '—';
