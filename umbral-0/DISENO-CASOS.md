@@ -3880,6 +3880,56 @@ persona huérfana sin dupla, dupla sin ninguna fila de jornada, dupla
 con jornada "en curso" sin `fin`, dupla con jornada completa pero cero
 actividad) — todos pasan.
 
+### 10.1.61 "Ver detalle" del §10.1.60 pasa a ser desplegable inline (23/9/2026)
+
+Agustina: "al ver detalle quiero verde desplegable no que me lleve a
+bajo de todo."
+
+El botón "Ver detalle →" del §10.1.60 hacía scroll a la sección de
+"una dupla — un día, con detalle" al final de la pestaña
+(`Casos_verDetalleDiario()`, reutilizando `calcularResumenDiarioAdmin()`
+con el dropdown/fecha seteados a mano) — obligaba a perder de vista la
+tabla de todas las duplas para ver el detalle de una. Se cambia a un
+desplegable: cada fila de la tabla de "todas las duplas" tiene ahora
+una segunda fila hermana (`<tr id="detalle-fila-<id>">`, oculta por
+`display:none`) con un contenedor propio (`detalle-cont-<id>`) que el
+botón (ahora `Casos_toggleDetalleDiario()`) muestra/oculta in situ, sin
+mover el scroll.
+
+Como puede haber más de un detalle abierto a la vez (dos duplas
+distintas), había que sacar la dependencia de ids fijos que tenía el
+cálculo/render existente:
+- `calcularResumenDiarioAdmin()` (el del formulario de abajo) se separó
+  en el wrapper que lee `#diario-dupla`/`#diario-fecha` y maneja
+  estado/botón, más una función nueva reutilizable
+  `_cargarResumenDiario(duplaId, fecha, contId)` con toda la lógica de
+  queries — la llaman tanto el formulario de abajo (`contId='diario-cont'`)
+  como el desplegable inline (`contId='detalle-cont-<id>'`).
+- `_renderResumenDiarioAdmin()` ahora recibe `contId` y lo usa para el
+  contenedor y para el id del textarea del mensaje (`texto-<contId>`,
+  antes `diario-texto` fijo) — con dos desplegables abiertos, un id fijo
+  habría hecho que "Copiar mensaje" de la segunda dupla tocara el
+  textarea de la primera.
+- El `window._ultimoResumenDiario` global (una sola variable, se pisaba
+  entre secciones) pasa a ser `window._resumenesDiarios[contId]`, un
+  mapa — así "Armar mensaje"/"Copiar"/"Compartir por WhatsApp" de cada
+  desplegable arman el texto de esa dupla, no el de la última calculada
+  en cualquier otro lado de la pantalla.
+- CSS: el estilo del textarea del mensaje (`#diario-texto { min-height:
+  260px }`) pasa a ser por clase (`.diario-texto-area`), porque el id ya
+  no es fijo.
+
+Validado: `node --check` sobre los 2 bloques `<script>` (sin cambios de
+cantidad), balance de `<div>`/`<button>`/`<table>`/`<td>`/`<select>`/
+`<textarea>` del archivo completo (259/259, 42/42, 10/10, 100/100,
+2/2, 5/5). Script de Node standalone con un DOM simulado a mano
+(sin `document` real) reproduciendo el patrón de namespacing por
+`contId`: abre el detalle de dos duplas distintas a la vez, arma
+mensaje en cada una y confirma que no se pisan (ni el texto ni el
+`<textarea>` que lo contiene), cierra una sin afectar el estado de la
+otra, y confirma que la sección de abajo sigue usando `diario-cont`
+como default cuando no se pasa `contId` — 13 casos, todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
