@@ -547,6 +547,14 @@ let koboValidacionesActuales = {}; // kobo_submission_id -> fila de kobo_validac
 let koboPosiblesContinuacionesActuales = []; // envíos sin DNI que podrían ser un caso ya cargado (ver cargarKoboPendientes())
 const koboContinuacionesDescartadas = new Set(); // subIds que el operador ya dijo "no es ella" esta sesión
 let koboSinIdentificarActuales = []; // envíos sin DNI NI nombre matcheable — ver cargarKoboPendientes() y confirmarKoboSinIdentificar()
+// subId del envío de KoBo que se está confirmando como "Sin identificar"
+// (23/9/2026, bug real reportado por varias duplas: "validé el caso y
+// sigue apareciendo" — confirmarKoboSinIdentificar()/guardarPersona()
+// creaban el caso pero nunca guardaban en `kobo_validaciones`, así que
+// cargarKoboPendientes() no tenía forma de saber que ese envío ya se
+// había usado y lo volvía a mostrar siempre). Se limpia en cada apertura
+// de _renderFormPersona() y se completa solo cuando el alta viene de acá.
+let koboSubIdSinIdentificarPendiente = null;
 let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
@@ -2984,6 +2992,10 @@ const Casos = {
       sin_identificar: true,
       ..._prefillDesdeKobo(p, true),
     });
+    // Después de _renderFormPersona(), que resetea esta variable — si no,
+    // quedaría en null y guardarPersona() nunca sabría qué envío marcar
+    // como ya usado en kobo_validaciones.
+    koboSubIdSinIdentificarPendiente = koboSubmissionId(p);
   },
 
   // Confirma que un envío de KoBo sin DNI es la misma persona que un caso
@@ -3104,6 +3116,11 @@ const Casos = {
   },
 
   _renderFormPersona(persona, prefill){
+    // Se resetea acá (no en guardarPersona) para que solo quede seteado
+    // cuando el alta se abrió específicamente desde confirmarKoboSinIdentificar()
+    // — evita que un valor viejo se cuele en una edición o en un alta
+    // manual sin relación con ningún envío de KoBo.
+    koboSubIdSinIdentificarPendiente = null;
     const esEdicion = !!persona;
     const v = persona || prefill || {};
     // Si viene precargado desde KoBo, esas secciones arrancan abiertas —
@@ -3243,6 +3260,28 @@ const Casos = {
           resumen: 'Ingreso inicial del caso.',
         });
         if(errInt) throw errInt;
+        // Si este alta vino de "➕ Cargar como Sin identificar" sobre un
+        // envío puntual de KoBo, hay que dejar registrado en
+        // kobo_validaciones que ESE envío ya se usó — si no,
+        // cargarKoboPendientes() lo va a seguir mostrando como pendiente
+        // para siempre (nunca tiene un DNI con el que dejar de matchear,
+        // a diferencia de confirmarKoboPendiente()). No bloquea el alta
+        // si esto falla: el caso ya está guardado, solo se pierde el
+        // "tildado" de ese envío puntual (se puede confirmar de nuevo).
+        if(koboSubIdSinIdentificarPendiente){
+          try{
+            const { error: errKv } = await client.from('kobo_validaciones').upsert({
+              kobo_submission_id: koboSubIdSinIdentificarPendiente,
+              persona_id: persona.id,
+              dupla_id: miPerfil.dupla_id || null,
+              creado_por: miPerfil.id,
+            }, { onConflict: 'kobo_submission_id,persona_id' });
+            if(errKv) throw errKv;
+          }catch(e){
+            console.error('No se pudo marcar el envío de KoBo como usado', e);
+          }
+          koboSubIdSinIdentificarPendiente = null;
+        }
       }
       const fotoFile = document.getElementById('f_foto').files[0];
       if(fotoFile){

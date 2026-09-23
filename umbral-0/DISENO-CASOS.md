@@ -4388,6 +4388,73 @@ los 3 casos y la observación actual, no el snapshot viejo de 0, que
 inmediata (sin cambios en el medio) sigue trayendo lo mismo — 5 casos,
 todos pasan.
 
+### 10.1.72 Bug: confirmar un caso "sin identificar" no lo sacaba de pendientes (23/9/2026)
+
+Agustina: "me reportan también varias duplas que la dupla A que valida
+los casos sin identificar y le siguen apareciendo, recién lo validé
+entrando a la dupla 14 y acepté el caso, tenía 14 envíos y acepté y
+siguen 14."
+
+Encontrado: `confirmarKoboSinIdentificar()` (el botón "➕ Cargar como
+'Sin identificar'" de `casos.html`) abre el formulario de alta
+precargado con los datos del envío, y `guardarPersona()` crea la
+persona y su intervención inicial — pero **nunca escribía en
+`kobo_validaciones`**. Para los envíos CON DNI
+(`confirmarKoboPendiente()`) no hace falta: `cargarKoboPendientes()`
+los excluye en cuanto existe una `personas.dni` que matchea. Pero un
+envío "sin identificar" no tiene DNI ni nombre con qué matchear —
+`kobo_validaciones` es la ÚNICA forma de marcar "este envío puntual ya
+se usó". Sin esa escritura, el mismo envío quedaba pendiente para
+siempre, sin importar cuántas veces se confirmara — exactamente "tenía
+14, acepté, siguen 14".
+
+Fix: nueva variable `koboSubIdSinIdentificarPendiente` que guarda el
+`kobo_submission_id` del envío que se está confirmando.
+`_renderFormPersona()` la resetea SIEMPRE al abrirse (para que un alta
+manual, o una edición, no hereden un valor viejo);
+`confirmarKoboSinIdentificar()` la setea recién DESPUÉS de llamar a
+`_renderFormPersona()` (si no, el reset de arriba la pisaría). En
+`guardarPersona()`, al crear una persona nueva, si esa variable está
+seteada se hace un `upsert` a `kobo_validaciones` con
+`kobo_submission_id`/`persona_id`/`dupla_id`/`creado_por` — en un
+`try/catch` propio que NO frena el alta si falla (el caso ya se guardó,
+lo único que se perdería es el tildado de ese envío puntual, que se
+puede volver a confirmar).
+
+Nota para Agustina: el fix evita que el bug siga pasando de acá en
+adelante, pero **no puede "limpiar" retroactivamente** los envíos que
+ya quedaron pendientes por este bug (dupla A con 14, y probablemente
+otras duplas con el mismo patrón — hay entre 1 y 19 casos "sin
+identificar" ya cargados por dupla en toda la plataforma, ver conteo
+abajo). No tengo acceso a la API en vivo de KoBo desde este entorno
+para poder cruzar cada envío viejo contra el caso que ya se creó y
+completar `kobo_validaciones` a mano. Lo más simple: cada dupla vuelve
+a tocar "✅ Confirmar" en los pendientes que reconozca como ya
+cargados — con el fix, esa segunda confirmación si o sí va a dejarlos
+marcados y van a dejar de aparecer (OJO: esto crea un caso NUEVO
+duplicado del que ya se había cargado a mano la primera vez — antes de
+re-confirmar en masa, más vale revisar si conviene primero ocultar/
+fusionar los duplicados que ya existan, ver "⚠️ Posibles duplicados" en
+el admin).
+
+Conteo real de "sin identificar" cargados por dupla (activa, sin
+ocultar) al momento de este fix: B 19, D 16, A 14, K 9, C 6, E 5, J 5,
+H 5, F 5, G 3, I 2, L 2, M 1 — da una idea de la escala del problema
+acumulado, no necesariamente todos son casos del bug (parte es carga
+legítima que efectivamente ya no tiene el envío pendiente si el
+operador nunca volvió a confirmar el mismo).
+
+Validado: `node --check` sobre los 2 bloques `<script>` de `casos.html`,
+balance de `<div>`/`<button>` del archivo completo (291/291, 75/75).
+Script de Node standalone reimplementando el flujo completo
+(`confirmarKoboSinIdentificar` → `_renderFormPersona` resetea →
+`guardarPersona` escribe `kobo_validaciones` → `cargarKoboPendientes`
+recalcula excluyendo lo ya validado): confirma que un envío confirmado
+deja de aparecer en pendientes, que un alta manual (sin pasar por la
+confirmación de KoBo) no deja basura en `kobo_validaciones`, y que
+confirmar dos envíos distintos los saca a los dos — 9 casos, todos
+pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
