@@ -121,6 +121,24 @@ function extractDupla(row){
   return isNaN(n) ? null : n;
 }
 
+// Techo de sensatez para "cantidad de personas" de UN punto de censo — bug
+// real en producción (22-23/9/2026, Agustina: "no podemos levantar los
+// datos de kobo reales", el dashboard mostraba "1.908.286.156 personas").
+// Confirmado contra una exportación real de Flash Centro (9395 filas): 10
+// de esas filas tenían un valor absurdo cargado en `cant_pers` (hasta
+// 95.944.098 en una sola) — error de carga o de dispositivo, no algo que
+// una dupla haya tipeado a propósito. Las otras 9385 filas son totalmente
+// razonables (mediana 1 persona, percentil 99 = 5). Sin este techo,
+// `parseInt()` confía ciegamente en el número crudo y una sola fila
+// corrupta vuela el total de todo el operativo. 50 es generoso (10x el
+// percentil 99 real) — si algún día un punto real junta más gente que
+// eso (un campamento grande, por ejemplo), conviene subir el número, no
+// sacarlo.
+const PERSONAS_MAX_PLAUSIBLE = 50;
+function personasValidas(n){
+  return (n > 0 && n <= PERSONAS_MAX_PLAUSIBLE) ? n : 0;
+}
+
 // Formulario "Flash Norte" (desde sept/2026) — es el mismo asset de KoBo
 // que antes se llamaba "Flash 2", solo cambió qué duplas lo usan.
 function parseNorte(row){
@@ -128,7 +146,7 @@ function parseNorte(row){
   for(const key of Object.keys(row)){
     const k = key.toLowerCase();
     if(k.includes('cantidad') || (k.includes('person') && !k.includes('_by'))){
-      const v = parseInt(row[key]||0)||0;
+      const v = personasValidas(parseInt(row[key]||0)||0);
       if(v>0){ personas=v; break; }
     }
   }
@@ -140,11 +158,11 @@ function parseNorte(row){
 // Formulario "Flash Centro" (desde sept/2026) — es el mismo asset de KoBo
 // que antes se llamaba "Flash 1", solo cambió qué duplas lo usan.
 function parseCentro(row){
-  let personas = parseInt(row['cant_pers']||0)||0;
+  let personas = personasValidas(parseInt(row['cant_pers']||0)||0);
   if(personas<=0){
     for(const key of Object.keys(row)){
       const k=key.toLowerCase();
-      if(k.includes('cant') && k.includes('pers')){ personas=parseInt(row[key]||0)||0; if(personas>0) break; }
+      if(k.includes('cant') && k.includes('pers')){ personas=personasValidas(parseInt(row[key]||0)||0); if(personas>0) break; }
     }
   }
   if(personas<=0) return null;
