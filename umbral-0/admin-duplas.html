@@ -2319,14 +2319,16 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
   }).join('');
   cont.innerHTML = `
     <div class="card">
-      <table class="reporte-tabla">
-        <thead><tr>
-          <th>Dupla</th><th>Jornada</th><th style="text-align:right;">Casos nuevos</th>
-          <th style="text-align:right;">Intervenciones</th><th style="text-align:right;">Derivaciones</th>
-          <th style="text-align:right;">Seguimientos</th><th style="width:1%;white-space:nowrap;"></th>
-        </tr></thead>
-        <tbody>${filas || '<tr><td colspan="7" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
-      </table>
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr>
+            <th>Dupla</th><th>Jornada</th><th style="text-align:right;">Casos nuevos</th>
+            <th style="text-align:right;">Intervenciones</th><th style="text-align:right;">Derivaciones</th>
+            <th style="text-align:right;">Seguimientos</th><th style="width:1%;white-space:nowrap;"></th>
+          </tr></thead>
+          <tbody>${filas || '<tr><td colspan="7" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
+        </table>
+      </div>
       <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero.</div>
     </div>
   `;

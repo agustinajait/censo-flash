@@ -4242,6 +4242,26 @@ bajo un único divider en vez de uno por dupla) contra un caso con 3
 turnos + 2 duplas sin turno, y el caso trivial de un solo turno — 8
 casos, todos pasan.
 
+### 10.1.69 Bug: "Ver detalle" del resumen diario se salía de la tarjeta (23/9/2026)
+
+Agustina, con captura: "el ver detalle me queda afuera de la caja."
+
+La tabla de `_renderResumenTodasLasDuplas()` (§10.1.60) es la única del
+archivo que NO estaba envuelta en `<div class="tbl-wrap">` (todas las
+demás tablas del archivo sí lo tienen — es lo que le da
+`overflow-x:auto` cuando la tabla no entra en el ancho de la tarjeta).
+Con 7 columnas y el botón "Ver detalle →" forzado a `white-space:nowrap`
+(fix del §10.1.61 sobre el mismo botón), en pantallas más angostas la
+tabla terminaba más ancha que la tarjeta y, sin el wrapper, el
+excedente se salía visualmente de la caja en vez de generar scroll
+horizontal contenido adentro. Se agrega el mismo `<div class="tbl-wrap">`
+que ya usan todas las otras tablas — cero cambios de lógica, solo el
+contenedor que faltaba.
+
+Validado: `node --check` sobre los 2 bloques `<script>`, balance de
+`<div>`/`<button>`/`<table>` del archivo completo (282/282, 44/44,
+8/8).
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
