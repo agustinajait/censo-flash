@@ -552,11 +552,22 @@ function switchTab(nombre){
     document.getElementById('f-hasta').value = hoyStr(0);
     generarReporte();
   }
-  if(nombre === 'diario' && !_diarioCargado){
-    _diarioCargado = true;
-    cargarDuplasSelectDiario();
-    document.getElementById('diario-fecha').value = hoyStr(0);
-    document.getElementById('diario-todas-fecha').value = hoyStr(0);
+  if(nombre === 'diario'){
+    if(!_diarioCargado){
+      _diarioCargado = true;
+      cargarDuplasSelectDiario();
+      document.getElementById('diario-fecha').value = hoyStr(0);
+      document.getElementById('diario-todas-fecha').value = hoyStr(0);
+    }
+    // "Resumen de todas las duplas" se recalcula CADA VEZ que se entra a
+    // esta pestaña, no solo la primera (23/9/2026, bug real: Agustina vio
+    // Dupla C con 0 casos acá mientras su propia cuenta ya mostraba 29 —
+    // los datos en la base estaban bien, lo que pasaba es que esta tabla
+    // solo se calculaba una vez al abrir la pestaña por primera vez y se
+    // quedaba con esa foto vieja aunque las duplas siguieran cargando
+    // casos el resto del día). El resto del setup de la pestaña (select
+    // de dupla, fecha por defecto) sigue siendo solo la primera vez, para
+    // no pisarle la fecha si la cambió a mano.
     calcularResumenTodasLasDuplas();
   }
 }

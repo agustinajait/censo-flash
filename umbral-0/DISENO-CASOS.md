@@ -4643,6 +4643,43 @@ de romper, y un operador sin ambigüedad (una sola dupla) sigue
 resolviendo exactamente igual que antes del cambio — 6 casos, todos
 pasan.
 
+### 10.1.77 Bug: "Resumen de todas las duplas" se quedaba con una foto vieja (23/9/2026)
+
+Agustina: "revisá que Dupla C aparece en el resumen diario del admin
+con 0 casos y en su cuenta figuran 29."
+
+Antes de cambiar nada, confirmé contra la base real: Dupla C tenía 30
+personas nuevas cargadas HOY (no 0) — los datos estaban perfectamente
+bien, y la lógica de `calcularResumenTodasLasDuplas()`/
+`_renderResumenTodasLasDuplas()` (revisada de nuevo) es correcta,
+agrupa por `dupla_id` sin ningún desfasaje. El problema real: esa
+tabla se calculaba UNA SOLA VEZ, la primera vez que se entraba a la
+pestaña "📅 Resumen diario" (`switchTab()`, guardado con la bandera
+`_diarioCargado`) — si Agustina la había abierto a la mañana y se
+quedó navegando por la SPA sin recargar la página entera, la tabla
+seguía mostrando esa foto de la mañana aunque las duplas cargaran
+casos el resto del día. Mismo patrón que ya apareció un par de veces
+en la sesión (el "sigo viendo 8 pendientes" del §10.1.72, que resultó
+ser el navegador con la lista vieja en memoria) — y coincide con lo
+que Agustina pidió hace un rato ("quiero que se actualice
+automáticamente").
+
+Fix: se separa el setup de la pestaña "diario" (elegir la dupla por
+default en el selector, poner la fecha de hoy en los dos date-pickers)
+— eso sigue siendo solo la primera vez, para no pisarle la fecha si la
+cambió a mano — de `calcularResumenTodasLasDuplas()`, que ahora se
+llama CADA VEZ que se entra a la pestaña, no solo la primera. Así,
+volver a "📅 Resumen diario" desde cualquier otra pestaña siempre trae
+los números actuales sin que haga falta acordarse de tocar "📊
+Calcular" a mano.
+
+Validado: `node --check` sobre los 2 bloques `<script>`. Script de
+Node standalone reimplementando `switchTab('diario')`: confirma que el
+setup (selector de dupla, fecha por defecto) corre una sola vez, que
+`calcularResumenTodasLasDuplas()` se repite en cada entrada a la
+pestaña, y que una fecha elegida a mano por el admin no se resetea en
+una segunda entrada — 7 casos, todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
