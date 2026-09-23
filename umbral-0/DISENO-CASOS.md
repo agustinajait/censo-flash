@@ -4506,6 +4506,53 @@ no arma nada; sin geolocalización con una dirección escrita a mano la
 usa recortada; con descripción real de la persona no agrega el aviso
 de "sin descripción" — 11 casos, todos pasan.
 
+### 10.1.74 Admin: confirmar todos los "sin identificar" en lote (23/9/2026)
+
+Agustina, apenas vio la tabla real: 118 envíos "sin identificar"
+acumulados (backlog del bug del §10.1.72) — "dame la opción para
+confirmar todos."
+
+Se extrae la parte de inserción (`personas`/`intervenciones`/
+`kobo_validaciones`) de `confirmarKoboSinIdentificarAdmin()` a una
+función pura `_crearCasoSinIdentificarAdmin(item, puntoContacto)`, sin
+`prompt()` ni refresco de tabla — la reutilizan tanto el botón
+individual como el nuevo botón en lote. `confirmarTodosKoboSinIdentificarAdmin()`:
+
+- Filtra solo los envíos que YA traen geolocalización completa
+  (`lat` y `lng` no nulos) — pedir una dirección a mano por cada uno de
+  118 envíos con un `prompt()` sería inmanejable, así que los que no
+  traen ubicación quedan afuera del lote a propósito, para confirmar
+  de a uno con el botón individual (que si sabe pedir la dirección a
+  mano).
+- Antes de arrancar, un `confirm()` explícito con el número exacto de
+  casos que se van a crear, cuántos quedan afuera por falta de
+  ubicación, y un aviso del riesgo de duplicados (remite a "⚠️ Posibles
+  duplicados") — no hay forma de deshacer un lote de altas.
+- Mientras corre, el botón muestra progreso ("Confirmando… (45/118)")
+  y queda deshabilitado — cada alta es secuencial (no en paralelo), a
+  propósito, para no saturar Supabase con 118×3 inserts simultáneos ni
+  perder la cuenta de cuál falló si algo sale mal.
+- Un envío que falla no corta el lote — seguimos con el resto y se
+  cuenta aparte (`conError`), con el detalle en la consola del navegador
+  para poder revisarlo después.
+- Al terminar, un resumen ("Listo: 116 casos cargados, 2 fallaron... 4
+  sin ubicación quedaron pendientes") y refresca la tabla una sola vez
+  al final (no en cada iteración, para no recalcular todo 118 veces).
+
+Validado: `node --check` sobre los 2 bloques `<script>`, balance de
+`<div>`/`<button>`/`<table>` del archivo completo (283/283, 46/46,
+8/8). Encontré y corregí un error de sintaxis real al escribir el
+primer borrador (un ternario de conjugación singular/plural mal armado,
+`${sinGeo===1?''}` sin rama `:`) — lo detectó `node --check`, no hizo
+falta ningún paso extra. Script de Node standalone validando: el texto
+de aviso singular/plural ("1 envío... queda... confirmalo" vs "3
+envíos... quedan... confirmalos"), el filtrado por geolocalización
+completa (un envío con `lat` pero sin `lng` NO cuenta como "con geo" —
+2 de 4 casos de prueba quedan afuera del lote), y el loop de
+procesamiento contando éxitos/errores por separado sin cortar ante un
+fallo puntual, incluyendo el caso trivial de lote vacío — 8 casos,
+todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
