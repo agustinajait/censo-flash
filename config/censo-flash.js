@@ -212,13 +212,37 @@ function duplaPorGeo(lat, lng){
 // de tipo geopoint, sea cual sea ese nombre (Centro usa "geo_punto",
 // Norte puede usar otro) — buscar por sufijo evita hardcodear el nombre
 // exacto de la pregunta de cada formulario.
+// Bug real en producción (23/9/2026): con datos en vivo (API de KoBo,
+// vía fetchKoboAll) esta función no encontraba NUNCA el punto — daba
+// "Pers. (KoBo)" en 0 en todas las duplas, aunque el total general sí
+// contaba bien (personas no depende de esto). Causa: solo probaba el
+// formato de columnas separadas `<pregunta>_latitude`/`_longitude`, que
+// es como KoBo arma el Excel EXPORTADO — pero la respuesta cruda de la
+// API (lo que trae fetchKoboAll en vivo) no lo separa así; el punto
+// viaja en `_geolocation` como array `[lat, lng]` (mismo campo que ya
+// usa parseUmbral0() en config/umbral-0.js) o, según el formulario,
+// como un string "lat lng alt precisión" en el campo de la propia
+// pregunta. Se prueban los tres formatos, en ese orden.
 function extractLatLng(row){
+  if(Array.isArray(row['_geolocation']) && row['_geolocation'].length >= 2){
+    const lat = parseFloat(row['_geolocation'][0]), lng = parseFloat(row['_geolocation'][1]);
+    if(!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
   for(const key of Object.keys(row)){
     if(!key.endsWith('_latitude')) continue;
     const lngKey = key.slice(0, -'_latitude'.length) + '_longitude';
     if(row[lngKey] === undefined) continue;
     const lat = parseFloat(row[key]), lng = parseFloat(row[lngKey]);
     if(!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+  }
+  for(const key of Object.keys(row)){
+    const v = row[key];
+    if(typeof v !== 'string') continue;
+    const m = v.trim().match(/^(-?\d+\.\d+)\s+(-?\d+\.\d+)/);
+    if(m){
+      const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+      if(!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
   }
   return null;
 }
