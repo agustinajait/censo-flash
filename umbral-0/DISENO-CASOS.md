@@ -3827,6 +3827,59 @@ en 900px y 390px — en ambos anchos: turno arriba, para revisar
 segundo, jornada tercero, KoBo pendientes cuarto, todo full-width y
 alineado, sin columnas.
 
+### 10.1.60 Admin: resumen diario de todas las duplas juntas (23/9/2026)
+
+Agustina: "en el resumen diario del admin quiero ver el resumen de
+todas las duplas, además de filtrar 1 por una quiero ver el resumen
+así veo quiénes están en falta, quiénes están haciendo pocos casos,
+etc. Necesito poder controlar lo que pasa."
+
+La pestaña "Resumen diario" de `admin-duplas.html` (§10.1.26) solo
+dejaba ver una dupla a la vez (dropdown + fecha + detalle). Para
+"controlar" hace falta poder barrer todas las duplas de un día de un
+vistazo y detectar sin hacer 30 clics cuáles no marcaron jornada o no
+cargaron nada. Se agrega arriba de la vista existente (que queda
+intacta, con su propio subtítulo "Resumen de una dupla — un día, con
+detalle") una tabla nueva "Resumen de todas las duplas — un día":
+una fila por dupla (roster completo de `duplas`, no solo las que
+tuvieron actividad ese día) con columnas Jornada / Casos nuevos /
+Intervenciones / Derivaciones / Seguimientos, y un botón "Ver detalle
+→" que carga esa dupla+fecha en la vista de detalle de abajo y hace
+scroll (`Casos_verDetalleDiario()`) — para no duplicar la lógica de
+detalle, solo la de listar.
+
+Query: 6 consultas en paralelo (`duplas`, `personas` creadas ese día,
+`personas` completas para poder resolver dupla desde `derivaciones`
+que no tiene `dupla_id` propio, `intervenciones`, `seguimientos`,
+`jornadas`), más una 7ª secuencial a `derivaciones` filtrada por los
+ids de persona ya resueltos (se salta si no hay ninguna persona
+cargada). Mismo recorte de rango UTC del día en horario de Buenos
+Aires que ya usaba `calcularResumenDiarioAdmin()` (§10.1.26), ahora
+factorizado en `_rangoUtcDelDia()` para no repetirlo.
+
+Código de colores de la fila (para que salte a la vista lo que hay
+que mirar, sin leer número por número):
+- 🔴 fondo rojo: la dupla no marcó inicio de jornada ese día
+  (`sinMarcar`, gana sobre todo lo demás).
+- 🟡 fondo amarillo: marcó jornada pero no cargó ningún caso nuevo,
+  intervención, derivación ni seguimiento (`sinActividad`).
+- Números en rojo dentro de cada celda: esa columna puntual está en
+  cero (aunque la fila no esté coloreada — ej. una dupla activa que
+  igual no cargó derivaciones ese día).
+
+Validado: balance de `<div>`/`<button>`/`<table>`/`<td>`/`<select>`
+de `admin-duplas.html` (todos calzan; el desbalance inicial de
+`<tr>` que marcó un chequeo con regex simple era un falso positivo
+del regex con el `<tr${...}>` dinámico, no del HTML real — confirmado
+leyendo el bloque generado). `node --check` sobre los 2 bloques
+`<script>` no vacíos del archivo. Script de Node standalone
+reimplementando `contarPor()`, la resolución `derivPorDupla` vía
+`persona_id → dupla_id`, y la decisión de color de fila
+(`sinMarcar`/`sinActividad`) con datos sintéticos — 17 casos (incluye
+persona huérfana sin dupla, dupla sin ninguna fila de jornada, dupla
+con jornada "en curso" sin `fin`, dupla con jornada completa pero cero
+actividad) — todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
