@@ -56,6 +56,16 @@
   .resumen-toggle .chev { color:#94a3b8; transition:transform 0.15s; flex:none; }
   .resumen-toggle.open .chev { transform:rotate(180deg); }
   .resumen-toggle-body { margin-top:12px; }
+  /* Resumen de dupla (23/9/2026): antes todo — código, turno, zona,
+     presencia de hoy e integrantes — iba en una sola línea de texto
+     corrida, y con la etiqueta de presencia mezclada ahí quedaba
+     confuso. Se separa en filas: código + presencia arriba (lo que hay
+     que ver primero), turno/zona abajo, integrantes al final. */
+  .dupla-resumen-info { display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .dupla-resumen-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.92rem; }
+  .dupla-resumen-codigo { font-family:'Sora',sans-serif; font-weight:800; color:var(--navy); }
+  .dupla-resumen-sub { font-size:0.78rem; color:#64748b; }
+  .dupla-resumen-integrantes { font-size:0.78rem; color:#94a3b8; }
   .btn-sm { padding:5px 11px; font-size:0.74rem; }
   .tbl-wrap { overflow-x:auto; }
   .badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; white-space:nowrap; }
@@ -1090,7 +1100,14 @@ function renderDuplaCard(d, jornada){
   }
   card.innerHTML = `
     <div class="resumen-toggle" data-role="resumen">
-      <span><b>${esc(d.codigo || '(sin código)')}</b> · ${esc(turnoResumen)} · ${esc(d.zona || 'sin zona')} ${jornadaBadge} · <span style="color:#64748b;">${esc(integrantesTxt)}</span></span>
+      <div class="dupla-resumen-info">
+        <div class="dupla-resumen-top">
+          <span class="dupla-resumen-codigo">${esc(d.codigo || '(sin código)')}</span>
+          ${jornadaBadge}
+        </div>
+        <div class="dupla-resumen-sub">${esc(turnoResumen)} · ${esc(d.zona || 'sin zona')}</div>
+        <div class="dupla-resumen-integrantes">👤 ${esc(integrantesTxt)}</div>
+      </div>
       <span class="chev">▾</span>
     </div>
     <div data-role="body" style="display:none;margin-top:12px;">
