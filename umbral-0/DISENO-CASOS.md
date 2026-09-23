@@ -4324,6 +4324,70 @@ default de Netlify, ni `soluciones.huehaci.com` — 5 casos, todos pasan.
 No se pudo probar contra el runtime real de Netlify Edge Functions
 desde este entorno (hace falta un deploy real).
 
+### 10.1.71 Bug: el mensaje de WhatsApp del resumen diario podía compartirse con datos viejos (23/9/2026)
+
+Agustina, con una captura de un mensaje real compartido: "Tomás
+Villavicencio compartió este resumen del día [...] pero no es lo que
+veo en la plataforma, revisá que los reportes estén funcionando bien."
+El mensaje decía "22/09/2026" con 0 en todo (casos nuevos,
+intervenciones, derivaciones, seguimientos) y una observación sobre un
+operativo policial; la plataforma mostraba, para Dupla A, 3 casos
+nuevos / 3 intervenciones / 1 seguimiento.
+
+Antes de tocar nada, verifiqué contra la base real qué había cargado
+Dupla A esos días: **22/9 tenía 7 casos nuevos** (con la observación
+genérica "Jornada activa") y **23/9 tenía 3 casos nuevos** con una
+observación sobre un operativo policial muy parecida (no idéntica,
+parafraseada) a la del mensaje compartido — ninguno de los dos días
+coincide con "0 en todo" del mensaje. También confirmé que
+`_cargarResumenDiario()` (la función que arma el resumen) es
+internamente consistente: todas sus sub-consultas (personas,
+intervenciones, derivaciones, seguimientos, jornada) usan el mismo
+`fecha`/`duplaId`, sin ningún desfasaje entre ellas — descartado un bug
+de cálculo cruzando datos de días distintos.
+
+La explicación que sí encaja con la evidencia: **"✍️ Armar mensaje" no
+volvía a consultar nada** — arma el texto a partir del `r` que quedó
+guardado en `window._resumenesDiarios[contId]` la última vez que se
+calculó ese resumen (al apretar "Calcular" o abrir el desplegable de
+"Ver detalle"). Si alguien mira el resumen temprano (0 casos todavía),
+y recién más tarde aprieta "Armar mensaje"/"Compartir" — sin volver a
+calcular — el mensaje sale con la foto vieja, aunque la dupla haya
+seguido cargando casos mientras tanto. Con el tiempo suficiente entre
+medio (y la dupla activa cargando), la diferencia puede ser tan grande
+como la de este caso.
+
+Fix: `armarMensajeDiarioAdmin(contId)` ahora es `async` y **siempre
+vuelve a pedir los datos** (`_cargarResumenDiario(duplaId, fecha,
+contId)`) antes de armar el texto, usando el `duplaId` que ahora
+también se guarda en `_resumenesDiarios[contId]` (antes solo se
+guardaba `duplaCod`, el código, no el id — hacía falta para poder
+re-consultar). Mientras recalcula, el botón se deshabilita
+("Actualizando…") — como `_cargarResumenDiario()` reconstruye todo el
+panel (KPIs, textarea, el propio botón) tanto si sale bien como si
+falla, no hace falta "restaurar" el botón a mano en ningún caso.
+`copiarMensajeDiarioAdmin()`/`compartirWhatsappDiarioAdmin()` (que
+llaman a `armarMensajeDiarioAdmin()` como fallback si el textarea está
+vacío) ahora esperan (`await`) esa llamada y vuelven a buscar el
+`<textarea>` por id después — la referencia de antes queda apuntando a
+un nodo desprendido una vez que el panel se reconstruye.
+
+Esto no explica el desfasaje de fecha (22 vs. 23) del caso puntual, que
+puede haber sido simplemente una fecha mal elegida en el selector al
+calcular por primera vez — pero sí cierra la clase de bug real y
+verificable: un resumen calculado hace rato ya no podía compartirse con
+números viejos sin que nadie lo notara.
+
+Validado: `node --check` sobre los 2 bloques `<script>`, balance de
+`<div>`/`<button>` del archivo completo (282/282, 44/44). Script de
+Node standalone simulando el escenario real (un resumen calculado con
+0 casos, la "base" cambia a 3 casos + observación real mientras tanto,
+se aprieta "Armar mensaje" después): confirma que el mensaje arma con
+los 3 casos y la observación actual, no el snapshot viejo de 0, que
+`_cargarResumenDiario` se vuelve a llamar, y que una segunda llamada
+inmediata (sin cambios en el medio) sigue trayendo lo mismo — 5 casos,
+todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 

@@ -2471,14 +2471,14 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
       seguimientos: (seguRes.data||[]).length,
       jornada: jornadaRes.data || null,
     };
-    _renderResumenDiarioAdmin(r, duplaRes.data.codigo, fecha, contId);
+    _renderResumenDiarioAdmin(r, duplaRes.data.codigo, fecha, contId, duplaId);
   }catch(e){
     cont.innerHTML = `<div class="empty-msg">Error calculando el resumen: ${esc(e.message)}</div>`;
     throw e;
   }
 }
 
-function _renderResumenDiarioAdmin(r, duplaCod, fecha, contId){
+function _renderResumenDiarioAdmin(r, duplaCod, fecha, contId, duplaId){
   contId = contId || 'diario-cont';
   const cont = document.getElementById(contId);
   const derivLinea = Object.keys(r.derivacionesPorTipo).length
@@ -2529,7 +2529,7 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha, contId){
         💬 <b>Observaciones del día (cargadas por la dupla):</b><br>
         ${r.jornada && r.jornada.observaciones ? esc(r.jornada.observaciones) : '<span style="color:#94a3b8;">(sin cargar)</span>'}
       </div>
-      <button class="btn btn-amber" style="margin-top:14px;margin-bottom:10px;" onclick="armarMensajeDiarioAdmin('${contId}')">✍️ Armar mensaje</button>
+      <button class="btn btn-amber" id="btn-armar-msg-${contId}" style="margin-top:14px;margin-bottom:10px;" onclick="armarMensajeDiarioAdmin('${contId}')">✍️ Armar mensaje</button>
       <textarea id="texto-${contId}" class="diario-texto-area" readonly></textarea>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-blue" onclick="copiarMensajeDiarioAdmin('${contId}')">📋 Copiar mensaje</button>
@@ -2538,16 +2538,40 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha, contId){
     </div>
   `;
   window._resumenesDiarios = window._resumenesDiarios || {};
-  window._resumenesDiarios[contId] = { r, duplaCod, fecha };
+  window._resumenesDiarios[contId] = { r, duplaCod, fecha, duplaId };
 }
 
 // contId identifica qué instancia del resumen (la de abajo, 'diario-cont',
 // o la de algún desplegable inline 'detalle-cont-<id>') — antes había un
 // solo `window._ultimoResumenDiario` global que se pisaba entre secciones.
-function armarMensajeDiarioAdmin(contId){
+//
+// Recalcula ANTES de armar el texto (23/9/2026, investigando un reporte de
+// Agustina: un mensaje de WhatsApp compartido de la Dupla A mostraba 0 en
+// todo, con una fecha y un contenido que ya no coincidían con lo que había
+// en la plataforma). La lógica de `_cargarResumenDiario()` es correcta y
+// consistente — el problema no era un cálculo mal hecho, sino que "Armar
+// mensaje" reusaba el `r` que había quedado en caché de la última vez que
+// se apretó "Calcular"/se abrió el desplegable, sin importar cuánto tiempo
+// hubiera pasado ni si la dupla siguió cargando casos mientras tanto. Un
+// mensaje armado hace horas (o el día anterior) podía terminar
+// compartiéndose con números viejos. Ahora se vuelve a pedir todo antes de
+// armar el texto, así el mensaje siempre refleja el estado actual.
+async function armarMensajeDiarioAdmin(contId){
   contId = contId || 'diario-cont';
-  const d = (window._resumenesDiarios || {})[contId];
-  if(!d) return;
+  const previo = (window._resumenesDiarios || {})[contId];
+  if(!previo) return;
+  // _cargarResumenDiario() reconstruye todo cont.innerHTML (KPIs, textarea,
+  // este mismo botón) tanto si sale bien como si tira error — no hace
+  // falta restaurar el botón "a mano" en ningún caso, el re-render ya deja
+  // todo en su estado correcto (o muestra el mensaje de error, sin botón).
+  const btn = document.getElementById('btn-armar-msg-' + contId);
+  if(btn){ btn.disabled = true; btn.textContent = 'Actualizando…'; }
+  try{
+    await _cargarResumenDiario(previo.duplaId, previo.fecha, contId);
+  }catch(e){
+    return; // _cargarResumenDiario ya mostró el error en pantalla
+  }
+  const d = window._resumenesDiarios[contId];
   const { r, duplaCod, fecha } = d;
   const derivLinea = Object.keys(r.derivacionesPorTipo).length
     ? Object.entries(r.derivacionesPorTipo).map(([tipo,n]) => `  · ${tipo}: ${n}`).join('\n')
@@ -2593,8 +2617,12 @@ Umbral Cero — Huehaci`;
 
 async function copiarMensajeDiarioAdmin(contId){
   contId = contId || 'diario-cont';
+  // armarMensajeDiarioAdmin() ahora reconstruye el panel entero (para
+  // traer datos frescos, ver su comentario) — el <textarea> de ANTES de
+  // ese await queda un nodo desprendido, así que hay que volver a
+  // buscarlo por id después, no reusar la referencia vieja.
+  if(!document.getElementById('texto-' + contId).value) await armarMensajeDiarioAdmin(contId);
   const ta = document.getElementById('texto-' + contId);
-  if(!ta.value) armarMensajeDiarioAdmin(contId);
   try{
     await navigator.clipboard.writeText(ta.value);
   }catch(e){
@@ -2603,10 +2631,10 @@ async function copiarMensajeDiarioAdmin(contId){
   }
 }
 
-function compartirWhatsappDiarioAdmin(contId){
+async function compartirWhatsappDiarioAdmin(contId){
   contId = contId || 'diario-cont';
+  if(!document.getElementById('texto-' + contId).value) await armarMensajeDiarioAdmin(contId);
   const ta = document.getElementById('texto-' + contId);
-  if(!ta.value) armarMensajeDiarioAdmin(contId);
   window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank');
 }
 
