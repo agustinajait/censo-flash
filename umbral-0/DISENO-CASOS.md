@@ -4148,6 +4148,57 @@ singular/plural/cero, y `abrirEdicionDupla()` (deja el body visible y
 `open` marcado, y no rompe si se llama dos veces seguidas — idempotente)
 — 10 casos, todos pasan.
 
+### 10.1.66 Se funden "Jornada de hoy" + "Operadores por turno" + "Duplas territoriales" en una sola vista (23/9/2026)
+
+Agustina, sobre el resultado del §10.1.65: "es confuso la organización,
+es como que operadores por turnos y duplas territoriales es redundante.
+el objetivo de la funcionalidad es poder ver las duplas con sus
+integrantes por turno, zona y horario y poder ver si están marcando
+presencia hoy y poder editar a los prestadores si es necesario."
+
+Tenía razón: eran 3 secciones separadas mostrando en parte lo mismo —
+"🕒 Jornada de hoy" (tabla de solo lectura: dupla/turno/inicio/fin/
+estado), "👥 Operadores por turno" (tabla de solo lectura: dupla/turno-
+zona/integrante/DNI/teléfono, agregada recién en este mismo día con un
+botón "✏️ Editar" que saltaba a la tercera sección) y "👥 Duplas
+territoriales" (la única editable, con el formulario completo). El
+§10.1.65 ya había colapsado esta última por tarjeta, pero las otras dos
+seguían aparte, duplicando información y obligando a mirar 3 lugares
+para lo que es una sola pregunta ("¿cómo está esta dupla ahora?").
+
+Se eliminan `cargarJornadaHoyAdmin()` y `cargarOperadoresPorTurno()`
+enteras (con sus tablas y botones "🔄 Actualizar" propios) y toda esa
+información se funde en el resumen colapsado de cada tarjeta de "👥
+Duplas territoriales" (única sección que queda, movida al principio de
+la pestaña): `cargarDuplas()` ahora trae también `jornadas` de hoy
+(`fecha = hoyStr(0)`) en el mismo viaje que duplas+integrantes, y
+`renderDuplaCard(d, jornada)` arma una sola línea con turno+horario,
+zona, el mismo badge de presencia que tenía "Jornada de hoy" (✅
+completa / 🌤️ en curso / ⚠️ no marcó — este último ahora en rojo, no
+gris, para que salte más al ver el listado) e integrantes por nombre
+(no solo la cantidad, como en el §10.1.65 anterior). El badge de
+jornada no se muestra para duplas inactivas (no tiene sentido preguntar
+si "marcaron presencia" en una dupla que no está operando). Tocar la
+tarjeta sigue abriendo el mismo formulario de edición de siempre —
+nada cambió ahí, solo se sacó la necesidad de las otras dos tablas.
+
+La sección ahora tiene su propio "🔄 Actualizar" (antes cada una de las
+3 tenía el suyo) y sigue con "+ Nueva dupla"/"⚡ Crear accesos
+faltantes" al lado, todo en un solo lugar.
+
+Validado: `node --check` sobre los 2 bloques `<script>`, balance de
+`<div>`/`<button>`/`<form>`/`<select>`/`<textarea>` del archivo completo
+(277/277, 44/44, 2/2, 2/2, 5/5 — bajó de 284/46 del §10.1.65 porque se
+sacaron 2 tablas enteras). Confirmado que no queda ningún `id` ni
+función duplicada (`duplas-list` aparece una sola vez, `cargarDuplas`
+se define una sola vez) ni llamadas colgando a las funciones borradas.
+Script de Node standalone reimplementando la lógica de la línea de
+resumen (turno+horario, texto de integrantes, badge de jornada según
+`activa`/`inicio`/`fin`) con 7 escenarios: jornada completa, en curso,
+sin marcar, dupla inactiva (sin badge), sin turno asignado, dos
+integrantes, y una fila de integrante en blanco que no debe aparecer en
+el texto — 10 casos, todos pasan.
+
 Estos puntos no bloquean construir lo de arriba, pero van a afectar el modelo
 más adelante — quedan pendientes de definir con Agustina:
 
