@@ -1411,6 +1411,12 @@ async function cargarDuplasMap(){
 }
 
 const TURNO_HORARIO = { T1:'6-10hs', T2:'10-14hs', T3:'14-18hs', T4:'18-22hs' };
+// Mismos rangos que TURNO_HORARIO, en horas numéricas — para avisar si se
+// marca el inicio de jornada fuera del turno configurado (§10.1.78: Lucas
+// Ojeda, con cuenta en Dupla B y Dupla F, marcó "inicio" en las dos casi
+// al mismo tiempo a las 6am, mucho antes de que arranque el T2 de Dupla F
+// a las 10am — quedaba "en curso" sin que nadie esté realmente afuera).
+const TURNO_RANGO_HORAS = { T1:[6,10], T2:[10,14], T3:[14,18], T4:[18,22] };
 
 // Panel "Mi turno de hoy" — solo para cuentas de dupla con dupla_id
 // asignado. Admin/coordinación ven todas las duplas desde "👥 Duplas", no
@@ -1687,6 +1693,15 @@ Umbral Cero — Huehaci`;
 }
 
 async function marcarInicioJornada(){
+  const d = duplasPorId[miPerfil.dupla_id];
+  if(d && d.turno && TURNO_RANGO_HORAS[d.turno]){
+    const [desde, hasta] = TURNO_RANGO_HORAS[d.turno];
+    const hora = new Date().getHours();
+    if(hora < desde || hora >= hasta){
+      const seguir = confirm(`Estás marcando el inicio de jornada fuera del horario de tu turno (${d.turno}, ${TURNO_HORARIO[d.turno]}).\n\n¿Confirmás que ya estás en la calle para este turno?`);
+      if(!seguir) return;
+    }
+  }
   try{
     const client = await SupabaseClient.getClient();
     const { error } = await client.from('jornadas')
