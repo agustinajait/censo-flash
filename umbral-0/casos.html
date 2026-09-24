@@ -3255,6 +3255,7 @@ const Casos = {
     // esto los dos terminan insertando el mismo caso duplicado.
     if(_guardandoPersona) return;
     _guardandoPersona = true;
+    let eraKoboSinIdentificar = false; // ver uso más abajo, tras guardar
     const form = document.getElementById('form-persona');
     const btn = document.getElementById('btn-guardar-persona');
     const campos = recolectarCampos(form);
@@ -3346,6 +3347,7 @@ const Casos = {
         // si esto falla: el caso ya está guardado, solo se pierde el
         // "tildado" de ese envío puntual (se puede confirmar de nuevo).
         if(koboSubIdSinIdentificarPendiente){
+          eraKoboSinIdentificar = true;
           try{
             const { error: errKv } = await client.from('kobo_validaciones').upsert({
               kobo_submission_id: koboSubIdSinIdentificarPendiente,
@@ -3369,6 +3371,15 @@ const Casos = {
       closeModal();
       await Casos.abrirFicha(persona.id);
       cargarSinIdentificarCount(); // no se espera — por si esta edición identificó o "des-identificó" a alguien (§10.1.34)
+      // Reportado 24/9/2026: decenas de casos duplicados — el panel de
+      // "envíos de KoBo pendientes" no se refrescaba después de confirmar
+      // uno como "Sin identificar", así que el botón seguía ahí; si la
+      // dupla lo volvía a tocar (pensando que no había andado, o sin
+      // darse cuenta de que ya estaba guardado), se creaba OTRO caso para
+      // el mismo envío — el upsert de kobo_validaciones no lo frenaba
+      // porque cada duplicado tiene un persona_id distinto. Refrescar acá
+      // saca el envío ya confirmado de la lista en memoria.
+      if(eraKoboSinIdentificar) cargarKoboPendientes(); // no se espera, mismo motivo
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
