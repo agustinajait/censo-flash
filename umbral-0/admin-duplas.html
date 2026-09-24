@@ -236,6 +236,7 @@
     <button class="admin-tab active" data-tab="duplas" onclick="switchTab('duplas')">👥 Duplas y equipo</button>
     <button class="admin-tab" data-tab="reporte" onclick="switchTab('reporte')">📊 Reporte semanal</button>
     <button class="admin-tab" data-tab="diario" onclick="switchTab('diario')">📅 Resumen diario</button>
+    <button class="admin-tab" data-tab="asistencia" onclick="switchTab('asistencia')">🗓️ Asistencia</button>
   </div>
 
   <!-- PESTAÑA: DUPLAS Y EQUIPO -->
@@ -437,6 +438,45 @@
 
   </div>
 
+  <!-- PESTAÑA: ASISTENCIA (pedido de Agustina: "un cuadro con las
+       jornadas hechas de cada dupla/prestador" para poder validar el pago
+       de las duplas — el resumen que se manda a E-Mood en cada cierre de
+       jornada es automático por webhook, esto es la vista humana de lo
+       mismo, para auditar/reconciliar). jornadas se marca por dupla (no
+       por persona individual), así que la columna "Integrantes" lista a
+       los dos integrantes activos de esa dupla para esa jornada — no hay
+       forma hoy de saber si faltó uno de los dos y el otro cubrió solo. -->
+  <div class="wrap" id="tab-asistencia" style="display:none;">
+
+    <div class="section-title" style="margin-top:0;">Asistencia — jornadas por dupla</div>
+    <div class="rango-card">
+      <div class="form-field">
+        <label>Desde</label>
+        <input type="date" id="asist-desde">
+      </div>
+      <div class="form-field">
+        <label>Hasta</label>
+        <input type="date" id="asist-hasta">
+      </div>
+      <div class="form-field">
+        <label>Dupla</label>
+        <select id="asist-dupla"><option value="">Todas</option></select>
+      </div>
+      <button class="btn btn-blue" id="btn-asist-calcular" onclick="calcularAsistencia()">📊 Calcular</button>
+      <button class="btn btn-outline" id="btn-asist-csv" onclick="descargarCsvAsistencia()" disabled>⬇️ Descargar CSV</button>
+      <span id="asist-estado" style="font-size:0.8rem;color:#64748b;"></span>
+      <div style="flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="setRangoAsistencia('semana')">Última semana</button>
+        <button class="btn btn-outline btn-sm" onclick="setRangoAsistencia('quincena')">Últimos 14 días</button>
+        <button class="btn btn-outline btn-sm" onclick="setRangoAsistencia('mes')">Este mes</button>
+        <button class="btn btn-outline btn-sm" onclick="setRangoAsistencia('mes_pasado')">Mes pasado</button>
+      </div>
+    </div>
+
+    <div id="asist-cont"></div>
+
+  </div>
+
   <div class="huehaci-credit">
     <img src="../assets/huehaci-logo.png" alt="Huehaci">
     <span>Huehaci — Desarrolladora de sistemas y contenidos digitales de innovación local sustentable</span>
@@ -540,11 +580,13 @@ async function boot(){
 // ── PESTAÑAS ────────────────────────────────────────────────────────────
 let _reporteCargado = false;
 let _diarioCargado = false;
+let _asistenciaCargada = false;
 function switchTab(nombre){
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === nombre));
   document.getElementById('tab-duplas').style.display = nombre === 'duplas' ? 'block' : 'none';
   document.getElementById('tab-reporte').style.display = nombre === 'reporte' ? 'block' : 'none';
   document.getElementById('tab-diario').style.display = nombre === 'diario' ? 'block' : 'none';
+  document.getElementById('tab-asistencia').style.display = nombre === 'asistencia' ? 'block' : 'none';
   history.replaceState(null, '', nombre === 'duplas' ? '#duplas' : '#' + nombre);
   if(nombre === 'reporte' && !_reporteCargado){
     _reporteCargado = true;
@@ -569,6 +611,11 @@ function switchTab(nombre){
     // de dupla, fecha por defecto) sigue siendo solo la primera vez, para
     // no pisarle la fecha si la cambió a mano.
     calcularResumenTodasLasDuplas();
+  }
+  if(nombre === 'asistencia' && !_asistenciaCargada){
+    _asistenciaCargada = true;
+    cargarDuplasSelectAsistencia();
+    setRangoAsistencia('mes');
   }
 }
 
@@ -1768,6 +1815,183 @@ function setRangoReporte(tipo){
   document.getElementById('f-desde').value = desde;
   document.getElementById('f-hasta').value = hasta;
   generarReporte();
+}
+
+// ── ASISTENCIA — jornadas por dupla/integrantes, para validar el pago
+// (pedido de Agustina, 24/9/2026: "un cuadro con las jornadas hechas de
+// cada dupla/prestador... tengo que integrarlo con E-mood"). El aviso a
+// E-Mood en sí ya es automático por webhook en cada cierre de jornada
+// (ver avisarCierreAEmood() en casos.html) — esto es la vista humana de
+// lo mismo, para auditar/reconciliar sin depender de E-Mood.
+//
+// jornadas se marca por DUPLA, no por persona individual, así que la
+// columna "Integrantes" lista a los integrantes activos de esa dupla —
+// no hay forma hoy de saber si uno de los dos faltó y el otro cubrió
+// solo (limitación conocida, ver DISENO-CASOS.md).
+async function cargarDuplasSelectAsistencia(){
+  const sel = document.getElementById('asist-dupla');
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('duplas').select('id, codigo').order('codigo');
+    if(error) throw error;
+    sel.innerHTML = '<option value="">Todas</option>' + (data||[]).map(d => `<option value="${d.id}">${esc(d.codigo)}</option>`).join('');
+  }catch(e){
+    console.error('No se pudieron traer las duplas para el filtro de asistencia', e);
+  }
+}
+
+function setRangoAsistencia(tipo){
+  const hoy = new Date();
+  let desde, hasta = hoyStr(0);
+  if(tipo === 'semana'){
+    desde = hoyStr(-6);
+  } else if(tipo === 'quincena'){
+    desde = hoyStr(-13);
+  } else if(tipo === 'mes'){
+    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0,10);
+  } else if(tipo === 'mes_pasado'){
+    desde = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1).toISOString().slice(0,10);
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 0).toISOString().slice(0,10); // día 0 = último día del mes anterior
+  } else {
+    return;
+  }
+  document.getElementById('asist-desde').value = desde;
+  document.getElementById('asist-hasta').value = hasta;
+  calcularAsistencia();
+}
+
+// Horas trabajadas entre inicio y fin (ambos ISO) — null si falta alguno
+// (jornada en curso o nunca cerrada).
+function horasJornada(inicio, fin){
+  if(!inicio || !fin) return null;
+  const ms = new Date(fin) - new Date(inicio);
+  return ms > 0 ? ms / 3600000 : null;
+}
+
+function fmtHoraAdmin(iso){
+  const d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+}
+
+let _asistFilas = []; // última tabla de detalle calculada, para el export a CSV
+
+async function calcularAsistencia(){
+  const desde = document.getElementById('asist-desde').value;
+  const hasta = document.getElementById('asist-hasta').value;
+  const duplaFiltro = document.getElementById('asist-dupla').value;
+  const estadoEl = document.getElementById('asist-estado');
+  const cont = document.getElementById('asist-cont');
+  const btnCsv = document.getElementById('btn-asist-csv');
+  if(!desde || !hasta){ estadoEl.textContent = 'Elegí desde/hasta.'; return; }
+  const btn = document.getElementById('btn-asist-calcular');
+  btn.disabled = true; estadoEl.textContent = 'Calculando…'; btnCsv.disabled = true;
+  cont.innerHTML = '';
+  try{
+    const client = await SupabaseClient.getClient();
+    let qJornadas = client.from('jornadas').select('dupla_id, fecha, inicio, fin, observaciones')
+      .gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: false });
+    if(duplaFiltro) qJornadas = qJornadas.eq('dupla_id', duplaFiltro);
+
+    const [{ data: duplas, error: errD }, { data: jornadas, error: errJ }] = await Promise.all([
+      client.from('duplas').select('id, codigo, zona, turno, integrantes(nombre, apellido, activo)')
+        .order('turno', { ascending: true, nullsFirst: false }).order('codigo', { ascending: true }),
+      qJornadas,
+    ]);
+    if(errD) throw errD;
+    if(errJ) throw errJ;
+
+    const duplasAMostrar = duplaFiltro ? (duplas||[]).filter(d => d.id === duplaFiltro) : (duplas||[]);
+    const jornadasPorDupla = {};
+    (jornadas||[]).forEach(j => { (jornadasPorDupla[j.dupla_id] = jornadasPorDupla[j.dupla_id] || []).push(j); });
+    const integrantesActivosDe = d => (d.integrantes||[]).filter(i => i.activo).map(i => `${i.nombre||''} ${i.apellido||''}`.trim()).filter(Boolean);
+
+    const resumen = duplasAMostrar.map(d => {
+      const propias = jornadasPorDupla[d.id] || [];
+      const cerradas = propias.filter(j => j.inicio && j.fin);
+      const abiertas = propias.filter(j => j.inicio && !j.fin);
+      const totalHoras = cerradas.reduce((acc, j) => acc + (horasJornada(j.inicio, j.fin) || 0), 0);
+      return { dupla: d, integrantesActivos: integrantesActivosDe(d), cerradas: cerradas.length, abiertas: abiertas.length, totalHoras };
+    });
+
+    const filas = [];
+    duplasAMostrar.forEach(d => {
+      const integrantesTxt = integrantesActivosDe(d).join(', ');
+      (jornadasPorDupla[d.id]||[]).forEach(j => {
+        filas.push({
+          duplaCodigo: d.codigo, integrantes: integrantesTxt, fecha: j.fecha,
+          inicio: j.inicio, fin: j.fin, horas: horasJornada(j.inicio, j.fin),
+          observaciones: j.observaciones || '',
+        });
+      });
+    });
+    filas.sort((a,b) => b.fecha.localeCompare(a.fecha) || a.duplaCodigo.localeCompare(b.duplaCodigo));
+    _asistFilas = filas;
+
+    cont.innerHTML = _renderAsistencia(resumen, filas);
+    estadoEl.textContent = `Listo — ${filas.length} jornada${filas.length===1?'':'s'} en el rango.`;
+    btnCsv.disabled = !filas.length;
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">Error calculando asistencia: ${esc(e.message)}</div>`;
+    estadoEl.textContent = '';
+    console.error('No se pudo calcular la asistencia', e);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function _renderAsistencia(resumen, filas){
+  const filaResumen = r => `
+    <tr>
+      <td>${esc(r.dupla.codigo)}</td>
+      <td>${esc(r.dupla.turno || '—')}</td>
+      <td>${esc(r.integrantesActivos.join(', ') || '—')}</td>
+      <td>${r.cerradas}</td>
+      <td>${r.abiertas ? `<span style="color:#d97706;font-weight:700;">${r.abiertas}</span>` : '0'}</td>
+      <td>${r.totalHoras.toFixed(1)} h</td>
+    </tr>`;
+  const filaDetalle = f => `
+    <tr>
+      <td>${esc(f.duplaCodigo)}</td>
+      <td>${esc(f.integrantes || '—')}</td>
+      <td>${fmtFechaCorta(f.fecha)}</td>
+      <td>${f.inicio ? fmtHoraAdmin(f.inicio) : '—'}</td>
+      <td>${f.fin ? fmtHoraAdmin(f.fin) : '<span style="color:#d97706;font-weight:700;">en curso</span>'}</td>
+      <td>${f.horas != null ? f.horas.toFixed(1) + ' h' : '—'}</td>
+      <td>${esc(f.observaciones || '—')}</td>
+    </tr>`;
+  return `
+    <div class="section-title" style="margin-top:0;">Resumen por dupla</div>
+    <div class="tbl-wrap">
+      <table class="reporte-tabla">
+        <thead><tr><th>Dupla</th><th>Turno</th><th>Integrantes</th><th>Jornadas cerradas</th><th>Sin cerrar</th><th>Horas totales</th></tr></thead>
+        <tbody>${resumen.length ? resumen.map(filaResumen).join('') : '<tr><td colspan="6">Sin datos en el rango.</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="section-title">Detalle por jornada</div>
+    <div class="tbl-wrap">
+      <table class="reporte-tabla">
+        <thead><tr><th>Dupla</th><th>Integrantes</th><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Observaciones</th></tr></thead>
+        <tbody>${filas.length ? filas.map(filaDetalle).join('') : '<tr><td colspan="7">Sin jornadas en el rango.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+function descargarCsvAsistencia(){
+  if(!_asistFilas.length) return;
+  const encabezado = ['Dupla','Integrantes','Fecha','Inicio','Fin','Horas','Observaciones'];
+  const filaCsv = f => [
+    f.duplaCodigo, f.integrantes, f.fecha,
+    f.inicio ? fmtHoraAdmin(f.inicio) : '', f.fin ? fmtHoraAdmin(f.fin) : 'en curso',
+    f.horas != null ? f.horas.toFixed(1) : '', f.observaciones,
+  ].map(v => `"${String(v||'').replace(/"/g, '""')}"`).join(',');
+  const csv = [encabezado.join(','), ..._asistFilas.map(filaCsv)].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `asistencia_${document.getElementById('asist-desde').value}_a_${document.getElementById('asist-hasta').value}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
