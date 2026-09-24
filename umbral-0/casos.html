@@ -2974,7 +2974,18 @@ const Casos = {
     if(p.estado === 'egresado') badges.push('<span class="badge badge-green">egresado</span>');
     else badges.push('<span class="badge badge-blue">activo</span>');
     if(p.criticidad) badges.push(`<span class="badge badge-amber">${esc(p.criticidad)}</span>`);
-    if(p.sin_identificar) badges.push('<span class="badge badge-gray">sin identificar</span>');
+    // 24/9/2026, pedido de Agustina: "debería haber otra instancia como
+    // que le faltan algunos datos" — sin_identificar sigue significando
+    // "sin DNI" (se usa para el aviso de duplicados y demás), pero si ya
+    // hay nombre/apellido cargado (KoBo trajo un nombre de pila sin DNI)
+    // el badge dice "datos incompletos" en vez de "sin identificar", que
+    // suena a que no se sabe nada de la persona cuando no es el caso.
+    const tieneNombreParcial = p.sin_identificar && (p.nombre || p.apellido || '').trim();
+    if(p.sin_identificar){
+      badges.push(tieneNombreParcial
+        ? '<span class="badge badge-amber">datos incompletos</span>'
+        : '<span class="badge badge-gray">sin identificar</span>');
+    }
     // Solo tiene sentido para casos activos (un egresado no necesita
     // seguimiento) — `ultima_actividad` viene de personas_actividad, ver
     // buscarPersonas().
@@ -3001,8 +3012,7 @@ const Casos = {
       // nombre cargado (ver el fix de confirmarKoboSinIdentificar()) —
       // ahí se veía "Sin identificar" en la lista pero al abrir la ficha
       // sí tenía nombre.
-      const tieneNombre = (p.nombre || p.apellido || '').trim();
-      tituloTxt = tieneNombre
+      tituloTxt = tieneNombreParcial
         ? `${nombreDisplay(p)}${horaAlta ? ' · ' + horaAlta : ''}`
         : `Sin identificar${horaAlta ? ' · ' + horaAlta : ''}`;
       const zonaComuna = [p.zona, p.comuna].filter(Boolean).join(' · ');
