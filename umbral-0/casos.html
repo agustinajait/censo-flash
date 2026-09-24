@@ -2993,7 +2993,18 @@ const Casos = {
     let tituloTxt, subTxt;
     if(p.sin_identificar){
       const horaAlta = p.created_at ? new Date(p.created_at).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
-      tituloTxt = `Sin identificar${horaAlta ? ' · ' + horaAlta : ''}`;
+      // 24/9/2026, pedido de Agustina: "si tiene nombre o apellido o
+      // algún dato no es sin identificar" — sin_identificar es sobre la
+      // falta de DNI, no sobre la falta de nombre (KoBo a veces trae un
+      // nombre de pila sin DNI). Antes esta tarjeta decía "Sin
+      // identificar" SIEMPRE que faltaba el DNI, aunque ya hubiera un
+      // nombre cargado (ver el fix de confirmarKoboSinIdentificar()) —
+      // ahí se veía "Sin identificar" en la lista pero al abrir la ficha
+      // sí tenía nombre.
+      const tieneNombre = (p.nombre || p.apellido || '').trim();
+      tituloTxt = tieneNombre
+        ? `${nombreDisplay(p)}${horaAlta ? ' · ' + horaAlta : ''}`
+        : `Sin identificar${horaAlta ? ' · ' + horaAlta : ''}`;
       const zonaComuna = [p.zona, p.comuna].filter(Boolean).join(' · ');
       // punto_contacto para estos casos suele ser un link de Google Maps
       // crudo (ver §10.1.16) — no sirve como subtítulo legible, mejor un
