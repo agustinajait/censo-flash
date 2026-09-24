@@ -272,6 +272,16 @@ function parseUmbral0(row){
   return {
     operador: campo(row, ['identificacion/operador_nombre']),
     tipo: campo(row, ['identificacion/tipo_intervencion']),
+    // "¿Es población objetivo?" — solo se pregunta en "Primer
+    // Acercamiento". 'no' (no es población objetivo) y 'no_es' ("No se
+    // encontró a nadie") dejan TODO el bloque de identidad vacío a
+    // propósito: no hay ninguna persona que identificar. Confirmado
+    // 24/9/2026 contra un export real: de los envíos de "Primer
+    // Acercamiento", ~40% son 'no'/'no_es' — sin este campo, la app los
+    // mostraba igual como "envíos sin nombre ni DNI, sin caso cargado",
+    // haciendo parecer que se perdían nombres que en realidad nunca
+    // existieron (no hubo persona con quien hablar).
+    poblacionObjetivo: campoSufijo(row, 'poblacion_objetivo'),
     fecha,
     hora: fecha ? new Date(fecha).getHours() : null,
     lat: geo ? geo[0] : null,

@@ -2037,6 +2037,11 @@ async function cargarKoboPendientes(){
     const sinIdentificar = new Map(); // subId -> envío (sin DNI Y sin nombre que matchee un caso propio — ver §10.1.14)
     koboParseadas.forEach(p => {
       if(!misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return; // no es de mi dupla
+      // "No es población objetivo" / "No se encontró a nadie" — no hay
+      // ninguna persona que identificar en este envío, no debería pedirle
+      // a la dupla que cargue un caso vacío (reportado 24/9/2026: "veo
+      // todos sin nombre y apellido", eran justo estos).
+      if(p.poblacionObjetivo === 'no' || p.poblacionObjetivo === 'no_es') return;
       const dni = String((p.persona && p.persona.dni) || '').trim();
       if(dni){
         if(dnisExistentes.has(dni)) return; // ya es un caso cargado — cargarKoboDePersona() ya lo muestra en esa ficha
@@ -3049,8 +3054,18 @@ const Casos = {
   confirmarKoboSinIdentificar(idx){
     const p = koboSinIdentificarActuales[idx];
     if(!p) return;
+    // Reportado 24/9/2026: "no se ven los nombres... antes los estábamos
+    // levantando bien" — confirmarKoboPendiente() (con DNI) sí precarga
+    // nombre/apellido, pero este flujo (sin DNI) nunca lo hacía, aunque
+    // KoBo tenga un nombre de pila cargado (falta DNI/apellido es lo que
+    // lo manda a "Sin identificar", no necesariamente falta de nombre).
+    // Se perdía un dato real que ya estaba en el envío. `personas` no
+    // tiene columna de alias propia, así que si no hay nombre de pila se
+    // usa el alias como nombre — mejor eso que dejarlo en blanco.
     Casos._renderFormPersona(null, {
       sin_identificar: true,
+      nombre: p.persona.nombre || p.persona.alias || '',
+      apellido: p.persona.apellido || '',
       ..._prefillDesdeKobo(p, true),
     });
     // Después de _renderFormPersona(), que resetea esta variable — si no,
@@ -3128,6 +3143,7 @@ const Casos = {
       asociarKoboCandidatosActuales = parsed
         .filter(p => {
           if(!misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return false; // no es de esta dupla
+          if(p.poblacionObjetivo === 'no' || p.poblacionObjetivo === 'no_es') return false; // no hay persona en este envío
           const subId = koboSubmissionId(p);
           // ya asociado a algún caso, o ya se ve automático en esta ficha
           if(!subId || idsAsociados.has(subId) || idsYaEnTimeline.has(subId)) return false;
