@@ -1745,18 +1745,64 @@ async function marcarFinJornada(){
   if(!observaciones){ modalError('Contá cómo estuvo la jornada — es obligatorio para cerrarla.'); return; }
   const btn = document.getElementById('btn-confirmar-cierre');
   btn.disabled = true; btn.textContent = 'Guardando…';
+  const finIso = new Date().toISOString();
   try{
     const client = await SupabaseClient.getClient();
     const { error } = await client.from('jornadas')
-      .update({ fin: new Date().toISOString(), observaciones })
+      .update({ fin: finIso, observaciones })
       .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr());
     if(error) throw error;
     closeModal();
     await cargarJornadaHoy();
     mostrarJornada();
+    await avisarCierreAEmood(observaciones, finIso);
   }catch(e){
     modalError('No se pudo marcar el fin: ' + e.message);
     btn.disabled = false; btn.textContent = '⏹️ Cerrar jornada';
+  }
+}
+
+// ── E-MOOD — integración de asistencia para validación de pago ──────────
+// Cada cierre de jornada avisa a E-Mood, la plataforma que usa Umbral 0
+// para validar el pago de las duplas: un llamado por día efectivamente
+// trabajado (la cantidad total del mes se configura una sola vez del
+// lado de E-Mood, no viaja en este llamado). Pasa por una función
+// serverless (netlify/functions/emood-cierre.js) porque el secreto de la
+// organización nunca puede viajar al navegador — mismo motivo que
+// corregir-texto.js con ANTHROPIC_API_KEY.
+//
+// No bloquea el cierre: la jornada ya quedó guardada en Umbral 0 pase lo
+// que pase acá — esto solo avisa a un sistema externo. Si falla, se le
+// avisa a la dupla para que avise a coordinación (el registro de pago de
+// ese día no se puede perder en silencio).
+async function avisarCierreAEmood(observaciones, finIso){
+  try{
+    const d = duplasPorId[miPerfil.dupla_id];
+    const r = await calcularResumenDiaParaFecha(hoyStr());
+    const cantidadRegistros = r.casosNuevos.length + r.casosRecontactados.length;
+    const inicioTxt = jornadaHoy && jornadaHoy.inicio ? fmtHora(jornadaHoy.inicio) : '—';
+    const resp = await fetch('/.netlify/functions/emood-cierre', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p_dupla: d ? d.codigo : '',
+        p_fecha: hoyStr(),
+        p_responsable: (miPerfil && miPerfil.nombre) || '',
+        p_horario: `${inicioTxt} a ${fmtHora(finIso)}`,
+        p_cantidad_registros: String(cantidadRegistros),
+        p_inconvenientes: '',
+        p_situaciones_urgentes: '',
+        p_observaciones: observaciones,
+      }),
+    });
+    if(!resp.ok){
+      const cuerpo = await resp.text().catch(()=>'');
+      console.error('E-Mood respondió con error al cerrar la jornada', resp.status, cuerpo);
+      alert('La jornada se cerró bien en Umbral 0, pero no se pudo avisar a E-Mood (para la validación de pago). Avisá a coordinación para que lo carguen a mano.');
+    }
+  }catch(e){
+    console.error('No se pudo avisar a E-Mood del cierre de jornada', e);
+    alert('La jornada se cerró bien en Umbral 0, pero no se pudo avisar a E-Mood (para la validación de pago). Avisá a coordinación para que lo carguen a mano.');
   }
 }
 
