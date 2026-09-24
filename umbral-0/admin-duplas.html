@@ -785,6 +785,11 @@ async function cargarKoboPendientesAdmin(){
     koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
       const duplaId = duplaIdPorOperador(p.operador, p.hora);
       if(!duplaId) return; // no matchea con ningún integrante activo — revisar el roster en "👥 Duplas territoriales"
+      // "No es población objetivo" / "No se encontró a nadie" — no hay
+      // ninguna persona que identificar, no debería aparecer como
+      // pendiente (reportado 24/9/2026: "veo todos sin nombre y
+      // apellido", eran justo estos).
+      if(p.poblacionObjetivo === 'no' || p.poblacionObjetivo === 'no_es') return;
       const dni = String((p.persona && p.persona.dni) || '').trim();
       if(dni){
         if(dnisPorDupla[duplaId] && dnisPorDupla[duplaId].has(dni)) return;
@@ -866,8 +871,16 @@ async function _crearCasoSinIdentificarAdmin(item, puntoContacto){
   ]);
   const subId = koboSubmissionId(p);
   const client = await SupabaseClient.getClient();
+  // 24/9/2026: "no se ven los nombres... antes los estábamos levantando
+  // bien" — este insert nunca guardaba nombre/apellido, aunque KoBo los
+  // haya traído (a "sin identificar" lo manda la falta de DNI, no
+  // necesariamente la falta de nombre). Mismo fix que confirmarKoboSinIdentificar()
+  // en casos.html — sin columna de alias propia en `personas`, si no hay
+  // nombre de pila se usa el alias como nombre.
   const { data: persona, error } = await client.from('personas').insert({
     sin_identificar: true,
+    nombre: p.persona.nombre || p.persona.alias || '',
+    apellido: p.persona.apellido || '',
     punto_contacto: puntoContacto,
     historia_breve: historiaBreve,
     estado: 'activo',
