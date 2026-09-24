@@ -1888,6 +1888,58 @@ function fmtHoraAdmin(iso){
 
 let _asistFilas = []; // última tabla de detalle calculada, para el export a CSV
 
+// Para jornadas con `inicio` pero sin `fin` (se olvidaron de cerrarla),
+// calcula un fin estimado a partir del ÚLTIMO envío de KoBo de esa dupla
+// ese día — pedido de Agustina (24/9/2026): "no importa si cerraron o no
+// la jornada, porque a veces se olvidan... yo sí sé que fueron a
+// trabajar porque tengo registros de KoBo, entonces si pones sin cierre
+// no sé cuánto tengo que pagarles". Solo pega contra KoBo si hace falta
+// (hay al menos una jornada sin cerrar en el rango) — evita el viaje
+// completo si no aporta nada.
+async function _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla){
+  const haySinCerrar = duplasAMostrar.some(d => (jornadasPorDupla[d.id]||[]).some(j => j.inicio && !j.fin));
+  if(!haySinCerrar) return {};
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form) return {};
+  try{
+    const client = await SupabaseClient.getClient();
+    const [{ data: integrantes }, koboRowsRaw] = await Promise.all([
+      client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+      fetchKoboProxyAll(project, form.id),
+    ]);
+    const turnoPorDuplaId = {};
+    duplasAMostrar.forEach(d => { turnoPorDuplaId[d.id] = d.turno; });
+    const duplaPorNombreArr = (integrantes||[])
+      .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`.trim(), dupla_id: i.dupla_id, turno: turnoPorDuplaId[i.dupla_id] }))
+      .filter(r => r.nombre);
+    const duplaIdPorOperador = (operador, hora) => {
+      const matches = duplaPorNombreArr.filter(r => nombresCoincidenKobo(r.nombre, operador));
+      if(!matches.length) return null;
+      if(matches.length === 1) return matches[0].dupla_id;
+      const porHorario = matches.filter(r => horaEnTurno(hora, r.turno));
+      if(porHorario.length === 1) return porHorario[0].dupla_id;
+      return matches[0].dupla_id; // sigue ambiguo — mismo fallback que el resto del archivo
+    };
+
+    const ultimoPorDuplaFecha = {}; // dupla_id -> { 'YYYY-MM-DD' local : iso mas reciente }
+    koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
+      if(!p.fecha) return;
+      const duplaId = duplaIdPorOperador(p.operador, p.hora);
+      if(!duplaId) return;
+      // Fecha LOCAL (Buenos Aires, UTC-3) — mismo criterio que el resto
+      // de la plataforma para decidir a qué día pertenece un envío.
+      const fechaLocal = new Date(new Date(p.fecha).getTime() - 3*3600*1000).toISOString().slice(0,10);
+      const porFecha = (ultimoPorDuplaFecha[duplaId] ||= {});
+      if(!porFecha[fechaLocal] || p.fecha > porFecha[fechaLocal]) porFecha[fechaLocal] = p.fecha;
+    });
+    return ultimoPorDuplaFecha;
+  }catch(e){
+    console.error('No se pudo calcular el fin estimado por KoBo para asistencia', e);
+    return {};
+  }
+}
+
 async function calcularAsistencia(){
   const desde = document.getElementById('asist-desde').value;
   const hasta = document.getElementById('asist-hasta').value;
@@ -1918,21 +1970,26 @@ async function calcularAsistencia(){
     (jornadas||[]).forEach(j => { (jornadasPorDupla[j.dupla_id] = jornadasPorDupla[j.dupla_id] || []).push(j); });
     const integrantesActivosDe = d => (d.integrantes||[]).filter(i => i.activo).map(i => `${i.nombre||''} ${i.apellido||''}`.trim()).filter(Boolean);
 
+    // Si no cerraron la jornada, el fin se estima con el último envío de
+    // KoBo de ese día (ver _finesEstimadosPorKobo) — para el pago no
+    // importa si tocaron el botón de cierre, importa si trabajaron.
+    const finEstimadoPorDuplaFecha = await _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla);
+    const finDeJornada = (d, j) => j.fin || (finEstimadoPorDuplaFecha[d.id] || {})[j.fecha] || null;
+
     const resumen = duplasAMostrar.map(d => {
-      const propias = jornadasPorDupla[d.id] || [];
-      const cerradas = propias.filter(j => j.inicio && j.fin);
-      const abiertas = propias.filter(j => j.inicio && !j.fin);
-      const totalHoras = cerradas.reduce((acc, j) => acc + (horasJornada(j.inicio, j.fin) || 0), 0);
-      return { dupla: d, integrantesActivos: integrantesActivosDe(d), cerradas: cerradas.length, abiertas: abiertas.length, totalHoras };
+      const propias = (jornadasPorDupla[d.id] || []).filter(j => j.inicio);
+      const totalHoras = propias.reduce((acc, j) => acc + (horasJornada(j.inicio, finDeJornada(d, j)) || 0), 0);
+      return { dupla: d, integrantesActivos: integrantesActivosDe(d), cantidadJornadas: propias.length, totalHoras };
     });
 
     const filas = [];
     duplasAMostrar.forEach(d => {
       const integrantesTxt = integrantesActivosDe(d).join(', ');
       (jornadasPorDupla[d.id]||[]).forEach(j => {
+        const fin = finDeJornada(d, j);
         filas.push({
           duplaCodigo: d.codigo, integrantes: integrantesTxt, fecha: j.fecha,
-          inicio: j.inicio, fin: j.fin, horas: horasJornada(j.inicio, j.fin),
+          inicio: j.inicio, fin, estimado: !j.fin && !!fin, horas: horasJornada(j.inicio, fin),
           observaciones: j.observaciones || '',
         });
       });
@@ -1958,17 +2015,20 @@ function _renderAsistencia(resumen, filas){
       <td>${esc(r.dupla.codigo)}</td>
       <td>${esc(r.dupla.turno || '—')}</td>
       <td>${esc(r.integrantesActivos.join(', ') || '—')}</td>
-      <td>${r.cerradas}</td>
-      <td>${r.abiertas ? `<span style="color:#d97706;font-weight:700;">${r.abiertas}</span>` : '0'}</td>
+      <td>${r.cantidadJornadas}</td>
       <td>${r.totalHoras.toFixed(1)} h</td>
     </tr>`;
+  // Si no cerraron la jornada pero se pudo estimar con KoBo, la hora de
+  // fin lleva una nota chica "(KoBo)" — no es una alerta, es solo de
+  // dónde salió el dato (pedido de Agustina: lo que importa es si
+  // trabajaron, no si tocaron el botón de cierre).
   const filaDetalle = f => `
     <tr>
       <td>${esc(f.duplaCodigo)}</td>
       <td>${esc(f.integrantes || '—')}</td>
       <td>${fmtFechaCorta(f.fecha)}</td>
       <td>${f.inicio ? fmtHoraAdmin(f.inicio) : '—'}</td>
-      <td>${f.fin ? fmtHoraAdmin(f.fin) : '<span style="color:#d97706;font-weight:700;">en curso</span>'}</td>
+      <td>${f.fin ? fmtHoraAdmin(f.fin) + (f.estimado ? ' <span style="color:#94a3b8;font-size:0.78rem;">(KoBo)</span>' : '') : '—'}</td>
       <td>${f.horas != null ? f.horas.toFixed(1) + ' h' : '—'}</td>
       <td>${esc(f.observaciones || '—')}</td>
     </tr>`;
@@ -1976,8 +2036,8 @@ function _renderAsistencia(resumen, filas){
     <div class="section-title" style="margin-top:0;">Resumen por dupla</div>
     <div class="tbl-wrap">
       <table class="reporte-tabla">
-        <thead><tr><th>Dupla</th><th>Turno</th><th>Integrantes</th><th>Jornadas cerradas</th><th>Sin cerrar</th><th>Horas totales</th></tr></thead>
-        <tbody>${resumen.length ? resumen.map(filaResumen).join('') : '<tr><td colspan="6">Sin datos en el rango.</td></tr>'}</tbody>
+        <thead><tr><th>Dupla</th><th>Turno</th><th>Integrantes</th><th>Jornadas</th><th>Horas totales</th></tr></thead>
+        <tbody>${resumen.length ? resumen.map(filaResumen).join('') : '<tr><td colspan="5">Sin datos en el rango.</td></tr>'}</tbody>
       </table>
     </div>
     <div class="section-title">Detalle por jornada</div>
@@ -1991,10 +2051,11 @@ function _renderAsistencia(resumen, filas){
 
 function descargarCsvAsistencia(){
   if(!_asistFilas.length) return;
-  const encabezado = ['Dupla','Integrantes','Fecha','Inicio','Fin','Horas','Observaciones'];
+  const encabezado = ['Dupla','Integrantes','Fecha','Inicio','Fin','Fin estimado por KoBo','Horas','Observaciones'];
   const filaCsv = f => [
     f.duplaCodigo, f.integrantes, f.fecha,
-    f.inicio ? fmtHoraAdmin(f.inicio) : '', f.fin ? fmtHoraAdmin(f.fin) : 'en curso',
+    f.inicio ? fmtHoraAdmin(f.inicio) : '', f.fin ? fmtHoraAdmin(f.fin) : '',
+    f.estimado ? 'Sí' : 'No',
     f.horas != null ? f.horas.toFixed(1) : '', f.observaciones,
   ].map(v => `"${String(v||'').replace(/"/g, '""')}"`).join(',');
   const csv = [encabezado.join(','), ..._asistFilas.map(filaCsv)].join('\n');
