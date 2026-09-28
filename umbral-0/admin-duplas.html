@@ -2138,14 +2138,14 @@ async function generarReporte(){
     const codigoPorDupla = {};
     (duplasRes.data||[]).forEach(d => { codigoPorDupla[d.id] = d.codigo; });
 
-    const reporte = calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId });
+    const reporte = await calcularReporte({ client, desde, hasta, personas, intervenciones, derivaciones, personaPorId });
     reporte.koboOutcomes = koboOutcomes;
     reporte.accionesPlataforma = await calcularAccionesPlataforma(desde, hasta, intervenciones)
       .catch(e => { console.error('No se pudo calcular acciones de la plataforma', e); return { conteo:{}, totalIntervenciones:0, totalValidaciones:0 }; });
     // Listado de casos del período (nuevos + recontactados) — pedido de
     // Agustina: "en el reporte tenemos que poder ver los casos también",
     // para no depender solo de agregados cuando "d." está en cero.
-    reporte.listadoCasos = armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla);
+    reporte.listadoCasos = armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla, reporte.poblacion.idsEnSeguimiento, reporte.poblacion.idsRecontactado);
     // g. Observaciones diarias del equipo (§10.1.28) — filtra las que
     // quedaron en '' tras un trim (observaciones no-null pero vacías no
     // deberían pasar el gate de casos.html, pero por las dudas con datos
@@ -2284,7 +2284,9 @@ function edadDesde(fechaNacimiento){
   if(noCumplioAun) edad--;
   return edad >= 0 ? edad : null;
 }
-function armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla){
+function armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla, idsEnSeguimiento, idsRecontactado){
+  idsEnSeguimiento = idsEnSeguimiento || new Set();
+  idsRecontactado = idsRecontactado || new Set();
   const idsNuevas = new Set(
     personas.filter(p => p.created_at >= desde && p.created_at <= (hasta + 'T23:59:59')).map(p => p.id)
   );
@@ -2303,6 +2305,10 @@ function armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupl
       estado: p.estado,
       aceptaEntrevista: !!p.acepta_entrevista,
       esNuevo: idsNuevas.has(p.id),
+      // "nuevo" | "recontactado" (15+ días sin contacto) | "seguimiento"
+      // (contacto de rutina) — pedido de Agustina, 28/9/2026, mismo
+      // criterio que calcularReporte()/_clasificarGapSeguimiento().
+      categoria: idsNuevas.has(p.id) ? 'nuevo' : (idsRecontactado.has(p.id) ? 'recontactado' : 'seguimiento'),
       historiaBreve: (p.historia_breve || '').trim(),
       // Campos pedidos por GOPA (sept/2026): "info que se considera
       // necesaria" en cada entrevista — fecha de nacimiento/edad,
@@ -2333,7 +2339,8 @@ function renderListadoCasosCards(lista){
       <summary>
         <span class="caso-dupla">${esc(c.dupla)}</span>
         <span class="caso-nombre">${esc(c.nombre)}</span>
-        ${c.esNuevo ? '<span class="badge-nuevo">nuevo</span>' : ''}
+        ${c.categoria === 'nuevo' ? '<span class="badge-nuevo">nuevo</span>' : ''}
+        ${c.categoria === 'recontactado' ? '<span class="badge-nuevo" style="background:#fef3c7;color:#92400e;">recontactado</span>' : ''}
         ${c.criticidad ? `<span class="caso-crit ${critClaseCaso(c.criticidad)}">${esc(c.criticidad)}</span>` : ''}
       </summary>
       <div class="caso-detalle">
@@ -2353,7 +2360,7 @@ function renderListadoCasosCards(lista){
   `).join('')}</div>`;
 }
 
-function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones, personaPorId }){
+async function calcularReporte({ client, desde, hasta, personas, intervenciones, derivaciones, personaPorId }){
   // ── a. Cobertura territorial ──────────────────────────────────────────
   // zonaDe/puntoDe tienen fallback al dato de la PERSONA (personas.zona /
   // personas.punto_contacto) — sigue funcionando para intervenciones
@@ -2377,7 +2384,17 @@ function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones,
   const personasNuevas = personas.filter(p => p.created_at >= desde && p.created_at <= (hasta + 'T23:59:59'));
   const idsPersonasNuevas = new Set(personasNuevas.map(p => p.id));
   const idsTocadasEnRango = new Set(intervenciones.map(i => i.persona_id).filter(Boolean));
-  const recontactadas = [...idsTocadasEnRango].filter(id => !idsPersonasNuevas.has(id));
+  const idsTocadasNoNuevas = [...idsTocadasEnRango].filter(id => !idsPersonasNuevas.has(id));
+  // "Recontactado" es una persona que estuvo 15+ días SIN ningún contacto
+  // antes del inicio de este período — no cualquier persona ya cargada
+  // con actividad en el rango (eso es "en seguimiento", contacto de
+  // rutina). Pedido de Agustina, 28/9/2026 — mismo criterio que
+  // _clasificarGapSeguimiento() del resumen diario.
+  const personasTocadasNoNuevas = idsTocadasNoNuevas.map(id => personaPorId[id]).filter(Boolean);
+  const desdeUtcReporte = desde + 'T03:00:00.000Z';
+  const { enSeguimiento: idsEnSeguimiento, recontactado: idsRecontactado } = await _clasificarGapSeguimiento(client, personasTocadasNoNuevas, desdeUtcReporte);
+  const enSeguimientoContinuo = personasTocadasNoNuevas.filter(p => idsEnSeguimiento.has(p.id));
+  const recontactadas = personasTocadasNoNuevas.filter(p => idsRecontactado.has(p.id));
   const seguimientoActivo = personas.filter(p => p.estado === 'activo');
   // Ya se estaba cargando en la ficha (checkbox "¿Acepta entrevista?",
   // sept/2026) pero el reporte nunca lo miraba — sept/2026, encontrado
@@ -2418,7 +2435,7 @@ function calcularReporte({ desde, hasta, personas, intervenciones, derivaciones,
   return {
     desde, hasta,
     cobertura: { zonas, puntos, dias, pctZonasCubiertas, totalIntervenciones: intervenciones.length },
-    poblacion: { nuevas: personasNuevas.length, recontactadas: recontactadas.length, seguimientoActivo: seguimientoActivo.length, aceptaEntrevista },
+    poblacion: { nuevas: personasNuevas.length, enSeguimientoContinuo: enSeguimientoContinuo.length, recontactadas: recontactadas.length, seguimientoActivo: seguimientoActivo.length, aceptaEntrevista, idsEnSeguimiento, idsRecontactado },
     evolucion: { porNivel },
     intervencionesDerivaciones: { porTipo, totalDerivaciones, totalEfectivizadas, totalRechazadas,
       pctConcretadas: totalDerivaciones ? Math.round((totalEfectivizadas/totalDerivaciones)*100) : null },
@@ -2453,7 +2470,8 @@ function renderReporte(cont, r){
     <div class="card">
       <div class="kpi-grid">
         <div class="kpi"><div class="num">${r.poblacion.nuevas}</div><div class="lbl">Personas nuevas identificadas</div></div>
-        <div class="kpi"><div class="num">${r.poblacion.recontactadas}</div><div class="lbl">Personas recontactadas</div></div>
+        <div class="kpi"><div class="num">${r.poblacion.enSeguimientoContinuo}</div><div class="lbl">Contactos de seguimiento (rutina, sin gap)</div></div>
+        <div class="kpi"><div class="num">${r.poblacion.recontactadas}</div><div class="lbl">Personas recontactadas (15+ días sin contacto)</div></div>
         <div class="kpi"><div class="num">${r.poblacion.seguimientoActivo}</div><div class="lbl">Personas con seguimiento activo (al cierre del período)</div></div>
         <div class="kpi"><div class="num">${r.poblacion.aceptaEntrevista}</div><div class="lbl">Personas que aceptan entrevista (total cargado)</div></div>
       </div>
@@ -2558,7 +2576,8 @@ function renderReporte(cont, r){
         <tbody>
           <tr><td>Cobertura</td><td>% de zonas prioritarias recorridas</td><td class="num">${r.cobertura.pctZonasCubiertas!=null?r.cobertura.pctZonasCubiertas+'%':'—'}</td></tr>
           <tr><td>Contacto</td><td>Personas nuevas identificadas</td><td class="num">${r.poblacion.nuevas}</td></tr>
-          <tr><td>Revinculación</td><td>Personas con segundo contacto</td><td class="num">${r.poblacion.recontactadas}</td></tr>
+          <tr><td>Seguimiento</td><td>Contactos de rutina (sin gap de 15+ días)</td><td class="num">${r.poblacion.enSeguimientoContinuo}</td></tr>
+          <tr><td>Revinculación</td><td>Personas recontactadas (15+ días sin contacto)</td><td class="num">${r.poblacion.recontactadas}</td></tr>
           <tr><td>Continuidad</td><td>Personas con seguimiento activo</td><td class="num">${r.poblacion.seguimientoActivo}</td></tr>
           <tr><td>Acceso</td><td>% de derivaciones efectivamente concretadas</td><td class="num">${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}</td></tr>
           <tr><td>Estrategia</td><td>Derivaciones rechazadas (requieren alternativa)</td><td class="num">${r.intervencionesDerivaciones.totalRechazadas}</td></tr>
@@ -2618,8 +2637,9 @@ function armarMensaje(){
   const labelsAcciones = window.PROJECT_CONFIG.accionesIntervencionLabels || {};
   const accionesLinea = Object.entries(r.accionesPlataforma.conteo).sort((a,b)=>b[1]-a[1])
     .map(([codigo,n]) => `  · ${labelsAcciones[codigo]||codigo}: ${n}`).join('\n') || '  (sin acciones confirmadas en la plataforma en el período)';
+  const ETIQUETA_CATEGORIA = { nuevo: 'nuevo', seguimiento: 'en seguimiento', recontactado: 'recontactado — 15+ días sin contacto' };
   const casosLinea = (r.listadoCasos||[]).map(c =>
-    `  · [${c.dupla}] ${c.nombre}${c.dni ? ' — DNI ' + c.dni : ''}${c.criticidad ? ' — ' + c.criticidad : ''}${c.esNuevo ? ' (nuevo)' : ' (recontactado)'}`
+    `  · [${c.dupla}] ${c.nombre}${c.dni ? ' — DNI ' + c.dni : ''}${c.criticidad ? ' — ' + c.criticidad : ''} (${ETIQUETA_CATEGORIA[c.categoria] || c.categoria})`
   ).join('\n') || '  (sin casos nuevos ni recontactados en el período)';
   const observacionesLinea = (r.observacionesDiarias||[]).map(o =>
     `  · [Dupla ${o.dupla} · ${fmtFechaCorta(o.fecha)}] ${o.texto}`
@@ -2637,7 +2657,8 @@ a. COBERTURA TERRITORIAL
 
 b. POBLACIÓN ABORDADA
 - Personas nuevas identificadas: ${r.poblacion.nuevas}
-- Personas recontactadas: ${r.poblacion.recontactadas}
+- Contactos de seguimiento (rutina, sin gap): ${r.poblacion.enSeguimientoContinuo}
+- Personas recontactadas (15+ días sin contacto): ${r.poblacion.recontactadas}
 - Personas con seguimiento activo: ${r.poblacion.seguimientoActivo}
 - Personas que aceptan entrevista: ${r.poblacion.aceptaEntrevista}
 
@@ -2875,6 +2896,44 @@ async function calcularResumenDiarioAdmin(){
   }
 }
 
+// "Recontactado" es una persona que estuvo 15+ días SIN ningún contacto
+// (intervención, seguimiento, derivación o validación de KoBo) antes de
+// esa fecha — no cualquier persona ya cargada que tuvo actividad ese
+// día (eso es "en seguimiento", contacto de rutina). Pedido de
+// Agustina, 28/9/2026: "el término recontactado es una persona que
+// después de 15 días sin seguimiento vuelve a ser contactada" — mismo
+// criterio que _clasificarGapSeguimiento() en casos.html (archivos
+// separados, no comparten JS).
+const DIAS_GAP_RECONTACTO = 15;
+async function _clasificarGapSeguimiento(client, personas, desdeUtc){
+  const enSeguimiento = new Set(), recontactado = new Set();
+  if(!personas.length) return { enSeguimiento, recontactado };
+  const ids = personas.map(p => p.id);
+  const desdeMs = new Date(desdeUtc).getTime();
+  const [intervPrev, seguPrev, derivPrev, kvPrev] = await Promise.all([
+    client.from('intervenciones').select('persona_id, created_at').in('persona_id', ids).lt('created_at', desdeUtc),
+    client.from('seguimientos').select('persona_id, created_at').in('persona_id', ids).lt('created_at', desdeUtc),
+    client.from('derivaciones').select('persona_id, created_at').in('persona_id', ids).lt('created_at', desdeUtc),
+    client.from('kobo_validaciones').select('persona_id, created_at').in('persona_id', ids).lt('created_at', desdeUtc),
+  ]);
+  [intervPrev, seguPrev, derivPrev, kvPrev].forEach(r => { if(r.error) throw r.error; });
+  const ultimaPorId = {};
+  personas.forEach(p => { ultimaPorId[p.id] = p.created_at; }); // arranca en el alta
+  [intervPrev, seguPrev, derivPrev, kvPrev].forEach(res => {
+    (res.data||[]).forEach(row => {
+      if(!row.persona_id) return;
+      if(!ultimaPorId[row.persona_id] || row.created_at > ultimaPorId[row.persona_id]) ultimaPorId[row.persona_id] = row.created_at;
+    });
+  });
+  personas.forEach(p => {
+    const ultima = ultimaPorId[p.id];
+    const dias = ultima ? (desdeMs - new Date(ultima).getTime()) / (24*60*60*1000) : Infinity;
+    if(dias >= DIAS_GAP_RECONTACTO) recontactado.add(p.id);
+    else enSeguimiento.add(p.id);
+  });
+  return { enSeguimiento, recontactado };
+}
+
 // Cálculo + render del resumen de un día para una dupla, factorizado para
 // poder usarse tanto desde el formulario de abajo (contId='diario-cont')
 // como desde el desplegable inline de la tabla de "todas las duplas"
@@ -2896,7 +2955,9 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
       // Todos los persona_id de la dupla (sin filtro de fecha) — hace
       // falta tanto para resolver nombre/DNI de los recontactados como
       // para el .in() de abajo, que scopea las derivaciones a esta dupla.
-      client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve').eq('dupla_id', duplaId).eq('oculto', false),
+      // `created_at` hace falta para _clasificarGapSeguimiento() (arranca
+      // el gap ahí si la persona nunca tuvo contacto anterior).
+      client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve, created_at').eq('dupla_id', duplaId).eq('oculto', false),
       client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', duplaId).eq('fecha', fecha),
       client.from('seguimientos').select('id').eq('dupla_id', duplaId)
         .gte('fecha', desdeUtc).lt('fecha', hastaUtc),
@@ -2932,12 +2993,16 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
     const personaPorId = {};
     personasTodas.forEach(p => personaPorId[p.id] = p); // ya trae nombre/DNI de TODA la dupla, no hace falta pedir aparte
     const recontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id)).map(id => personaPorId[id]).filter(Boolean);
+    const { enSeguimiento: idsEnSeguimiento, recontactado: idsRecontactado } = await _clasificarGapSeguimiento(client, recontactadas, desdeUtc);
+    const casosEnSeguimiento = recontactadas.filter(p => idsEnSeguimiento.has(p.id));
+    const casosRecontactados = recontactadas.filter(p => idsRecontactado.has(p.id));
     const derivacionesPorTipo = {};
     derivData.forEach(d => { derivacionesPorTipo[d.tipo] = (derivacionesPorTipo[d.tipo]||0) + 1; });
 
     const r = {
       casosNuevos: nuevas,
-      casosRecontactados: recontactadas,
+      casosEnSeguimiento,
+      casosRecontactados,
       // Detalle por intervención (§10.1.27, pedido de Agustina: "el
       // resumen tiene que tener el resumen de las intervenciones, los
       // casos con la info") — no alcanza con un número.
@@ -2991,6 +3056,7 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha, contId, duplaId){
     <div class="card">
       <div class="kpi-grid">
         <div class="kpi"><div class="num">${r.casosNuevos.length}</div><div class="lbl">Casos nuevos</div></div>
+        <div class="kpi"><div class="num">${r.casosEnSeguimiento.length}</div><div class="lbl">Casos en seguimiento</div></div>
         <div class="kpi"><div class="num">${r.casosRecontactados.length}</div><div class="lbl">Casos recontactados</div></div>
         <div class="kpi"><div class="num">${r.intervenciones.length}</div><div class="lbl">Intervenciones registradas</div></div>
         <div class="kpi"><div class="num">${r.totalDerivaciones}</div><div class="lbl">Derivaciones pedidas</div></div>
@@ -2998,7 +3064,8 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha, contId, duplaId){
       </div>
       <div style="margin-top:14px;font-size:0.85rem;line-height:1.6;">
         <div style="margin-bottom:8px;"><b>📋 Casos nuevos:</b>${listaCasos(r.casosNuevos)}</div>
-        <div style="margin-bottom:8px;"><b>🔁 Casos recontactados:</b>${listaCasos(r.casosRecontactados)}</div>
+        <div style="margin-bottom:8px;"><b>🔄 Casos en seguimiento:</b>${listaCasos(r.casosEnSeguimiento)}</div>
+        <div style="margin-bottom:8px;"><b>🔁 Casos recontactados — 15+ días sin contacto:</b>${listaCasos(r.casosRecontactados)}</div>
         <div style="margin-bottom:8px;"><b>📝 Intervenciones:</b>${intervHtml}</div>
       </div>
       ${r.totalDerivaciones ? `<div class="nota-limite" style="background:#f0f6ff;border-color:#93c5fd;color:#1e3a5f;">📨 Derivaciones: ${esc(derivLinea)}</div>` : ''}
@@ -3078,7 +3145,10 @@ ${fmtFechaCorta(fecha)}
 📋 CASOS NUEVOS (${r.casosNuevos.length}):
 ${listaCasosTxt(r.casosNuevos)}
 
-🔁 CASOS RECONTACTADOS (${r.casosRecontactados.length}):
+🔄 CASOS EN SEGUIMIENTO (${r.casosEnSeguimiento.length}):
+${listaCasosTxt(r.casosEnSeguimiento)}
+
+🔁 CASOS RECONTACTADOS — 15+ días sin contacto (${r.casosRecontactados.length}):
 ${listaCasosTxt(r.casosRecontactados)}
 
 📝 INTERVENCIONES (${r.intervenciones.length}):

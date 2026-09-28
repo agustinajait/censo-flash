@@ -92,7 +92,8 @@ function renderListadoCasosCards(lista){
       <summary>
         <span class="caso-dupla">${esc(c.dupla)}</span>
         <span class="caso-nombre">${esc(c.nombre)}</span>
-        ${c.esNuevo ? '<span class="badge-nuevo">nuevo</span>' : ''}
+        ${c.categoria === 'nuevo' ? '<span class="badge-nuevo">nuevo</span>' : ''}
+        ${c.categoria === 'recontactado' ? '<span class="badge-nuevo" style="background:#fef3c7;color:#92400e;">recontactado</span>' : ''}
         ${c.criticidad ? `<span class="caso-crit ${critClaseCaso(c.criticidad)}">${esc(c.criticidad)}</span>` : ''}
       </summary>
       <div class="caso-detalle">
