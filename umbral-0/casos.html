@@ -1617,7 +1617,7 @@ async function calcularResumenDiaParaFecha(fecha){
     client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', miPerfil.dupla_id).eq('fecha', fecha),
     client.from('derivaciones').select('id, tipo')
       .gte('fecha_solicitud', desdeUtc.toISOString()).lt('fecha_solicitud', hastaUtc.toISOString()),
-    client.from('seguimientos').select('id').eq('dupla_id', miPerfil.dupla_id)
+    client.from('seguimientos').select('id, persona_id').eq('dupla_id', miPerfil.dupla_id)
       .gte('fecha', desdeUtc.toISOString()).lt('fecha', hastaUtc.toISOString()),
   ]);
   if(personasRes.error) throw personasRes.error;
@@ -1627,7 +1627,15 @@ async function calcularResumenDiaParaFecha(fecha){
 
   const nuevas = personasRes.data || [];
   const idsNuevas = new Set(nuevas.map(p => p.id));
-  const idsTocadas = new Set((intervRes.data||[]).map(i => i.persona_id).filter(Boolean));
+  // "Tocada" = tuvo una intervención O un seguimiento (nota/checklist)
+  // ese día — reportado por Agustina, 28/9/2026: "agregar seguimiento"
+  // guarda solo en `seguimientos`, sin crear una intervención, así que
+  // antes esos contactos quedaban completamente afuera del resumen (ni
+  // "en seguimiento" ni "recontactado").
+  const idsTocadas = new Set([
+    ...(intervRes.data||[]).map(i => i.persona_id),
+    ...(seguRes.data||[]).map(s => s.persona_id),
+  ].filter(Boolean));
   const idsRecontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id));
 
   // Nombre/DNI de los recontactados — no vienen en personasRes (ese solo
