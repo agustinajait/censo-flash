@@ -206,7 +206,20 @@ async function renderMapaPuntos(containerId, puntos, zonas){
     bounds.push([p.lat, p.lng]);
   });
 
-  if(bounds.length) inst.map.fitBounds(bounds, { padding: [24,24], maxZoom: 15 });
+  // Sin puntos (28/9/2026, pedido de Agustina: "necesito ver acá" el mapa
+  // de zonas solo — pestaña Cobertura / mapa-cobertura.html llaman a esta
+  // función con puntos:[]): sin este fallback el mapa se quedaba en la
+  // vista genérica inicial (zoom 11 centrado en CABA), demasiado alejada
+  // para distinguir zonas vecinas — encuadra contra las zonas en vez de
+  // dejarlo así.
+  if(bounds.length){
+    inst.map.fitBounds(bounds, { padding: [24,24], maxZoom: 15 });
+  } else if(zonas){
+    const boundsZonas = [];
+    Object.values(zonas.porDupla||{}).forEach(z => { if(z.poly) boundsZonas.push(...z.poly); });
+    Object.values(zonas.comedores||{}).forEach(lista => (lista||[]).forEach(c => { if(c.poly) boundsZonas.push(...c.poly); }));
+    if(boundsZonas.length) inst.map.fitBounds(boundsZonas, { padding: [24,24] });
+  }
 
   // Leyenda de colores por dupla — solo si hay al menos un punto coloreado
   // por zona real (si no hay zonas o ningún punto trae dupla reconocida,
