@@ -2834,6 +2834,18 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
       </tr>
     `;
   }).join('');
+  // Fila de promedio por dupla (pedido de Agustina, 28/9/2026: "dónde
+  // veíamos el promedio de casos por dupla") — se calcula sobre las
+  // duplas cargadas ese día, no solo las que tuvieron actividad, para
+  // que sirva de referencia real de cuánto está rindiendo cada una.
+  const totalDuplas = duplas.length || 1;
+  const sumarPor = mapa => duplas.reduce((acc, d) => acc + (mapa[d.id] || 0), 0);
+  const totalNuevas = sumarPor(datos.nuevasPorDupla);
+  const totalInterv = sumarPor(datos.intervPorDupla);
+  const totalDeriv = sumarPor(datos.derivPorDupla);
+  const totalSegu = sumarPor(datos.seguPorDupla);
+  const prom = n => (n / totalDuplas).toFixed(1);
+
   cont.innerHTML = `
     <div class="card">
       <div class="tbl-wrap">
@@ -2844,6 +2856,14 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
             <th style="text-align:right;">Seguimientos</th><th style="width:1%;white-space:nowrap;"></th>
           </tr></thead>
           <tbody>${filas || '<tr><td colspan="7" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
+          ${duplas.length ? `<tfoot><tr style="font-weight:700;background:#f1f5f9;">
+            <td colspan="2">Promedio por dupla (${totalDuplas})</td>
+            <td class="num">${prom(totalNuevas)}</td>
+            <td class="num">${prom(totalInterv)}</td>
+            <td class="num">${prom(totalDeriv)}</td>
+            <td class="num">${prom(totalSegu)}</td>
+            <td></td>
+          </tr></tfoot>` : ''}
         </table>
       </div>
       <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero.</div>
