@@ -2112,10 +2112,15 @@ async function generarReporte(){
   try{
     const client = await SupabaseClient.getClient();
 
-    const [personasRes, intervencionesRes, derivacionesRes, koboOutcomes, duplasRes, jornadasRes] = await Promise.all([
-      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').eq('oculto', false),
+    const [personasRes, intervencionesRes, derivacionesRes, seguimientosRes, koboOutcomes, duplasRes, jornadasRes] = await Promise.all([
+      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_educativa, situacion_economica, redes_contencion').eq('oculto', false),
       client.from('intervenciones').select('*').gte('fecha', desde).lte('fecha', hasta),
       client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
+      // "Tocada" tiene que incluir seguimientos (notas/checklist), no solo
+      // intervenciones — reportado por Agustina, 28/9/2026: "agregar
+      // seguimiento" no crea una intervención, así que esos contactos
+      // quedaban completamente afuera de "b. Población abordada".
+      client.from('seguimientos').select('persona_id').gte('fecha', desde).lte('fecha', hasta + 'T23:59:59'),
       calcularOutcomesKobo(desde, hasta).catch(e => { console.error('No se pudo traer KoBo para el reporte', e); return null; }),
       client.from('duplas').select('id, codigo'),
       // Observaciones diarias libres que cargan las duplas al cerrar la
@@ -2128,24 +2133,26 @@ async function generarReporte(){
     if(personasRes.error) throw personasRes.error;
     if(intervencionesRes.error) throw intervencionesRes.error;
     if(derivacionesRes.error) throw derivacionesRes.error;
+    if(seguimientosRes.error) throw seguimientosRes.error;
     if(jornadasRes.error) throw jornadasRes.error;
 
     const personas = personasRes.data || [];
     const intervenciones = intervencionesRes.data || [];
     const derivaciones = derivacionesRes.data || [];
+    const seguimientosIds = (seguimientosRes.data||[]).map(s => s.persona_id).filter(Boolean);
     const personaPorId = {};
     personas.forEach(p => personaPorId[p.id] = p);
     const codigoPorDupla = {};
     (duplasRes.data||[]).forEach(d => { codigoPorDupla[d.id] = d.codigo; });
 
-    const reporte = await calcularReporte({ client, desde, hasta, personas, intervenciones, derivaciones, personaPorId });
+    const reporte = await calcularReporte({ client, desde, hasta, personas, intervenciones, seguimientosIds, derivaciones, personaPorId });
     reporte.koboOutcomes = koboOutcomes;
     reporte.accionesPlataforma = await calcularAccionesPlataforma(desde, hasta, intervenciones)
       .catch(e => { console.error('No se pudo calcular acciones de la plataforma', e); return { conteo:{}, totalIntervenciones:0, totalValidaciones:0 }; });
     // Listado de casos del período (nuevos + recontactados) — pedido de
     // Agustina: "en el reporte tenemos que poder ver los casos también",
     // para no depender solo de agregados cuando "d." está en cero.
-    reporte.listadoCasos = armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla, reporte.poblacion.idsEnSeguimiento, reporte.poblacion.idsRecontactado);
+    reporte.listadoCasos = armarListadoCasos(personas, intervenciones, seguimientosIds, desde, hasta, codigoPorDupla, reporte.poblacion.idsEnSeguimiento, reporte.poblacion.idsRecontactado);
     // g. Observaciones diarias del equipo (§10.1.28) — filtra las que
     // quedaron en '' tras un trim (observaciones no-null pero vacías no
     // deberían pasar el gate de casos.html, pero por las dudas con datos
@@ -2284,13 +2291,16 @@ function edadDesde(fechaNacimiento){
   if(noCumplioAun) edad--;
   return edad >= 0 ? edad : null;
 }
-function armarListadoCasos(personas, intervenciones, desde, hasta, codigoPorDupla, idsEnSeguimiento, idsRecontactado){
+function armarListadoCasos(personas, intervenciones, seguimientosIds, desde, hasta, codigoPorDupla, idsEnSeguimiento, idsRecontactado){
   idsEnSeguimiento = idsEnSeguimiento || new Set();
   idsRecontactado = idsRecontactado || new Set();
   const idsNuevas = new Set(
     personas.filter(p => p.created_at >= desde && p.created_at <= (hasta + 'T23:59:59')).map(p => p.id)
   );
-  const idsTocados = new Set(intervenciones.map(i => i.persona_id).filter(Boolean));
+  const idsTocados = new Set([
+    ...intervenciones.map(i => i.persona_id),
+    ...(seguimientosIds||[]),
+  ].filter(Boolean));
   const idsRelevantes = new Set([...idsNuevas, ...idsTocados]);
 
   return personas
@@ -2360,7 +2370,7 @@ function renderListadoCasosCards(lista){
   `).join('')}</div>`;
 }
 
-async function calcularReporte({ client, desde, hasta, personas, intervenciones, derivaciones, personaPorId }){
+async function calcularReporte({ client, desde, hasta, personas, intervenciones, seguimientosIds, derivaciones, personaPorId }){
   // ── a. Cobertura territorial ──────────────────────────────────────────
   // zonaDe/puntoDe tienen fallback al dato de la PERSONA (personas.zona /
   // personas.punto_contacto) — sigue funcionando para intervenciones
@@ -2383,7 +2393,12 @@ async function calcularReporte({ client, desde, hasta, personas, intervenciones,
   // ── b. Población abordada ─────────────────────────────────────────────
   const personasNuevas = personas.filter(p => p.created_at >= desde && p.created_at <= (hasta + 'T23:59:59'));
   const idsPersonasNuevas = new Set(personasNuevas.map(p => p.id));
-  const idsTocadasEnRango = new Set(intervenciones.map(i => i.persona_id).filter(Boolean));
+  // "Tocada" incluye seguimientos (notas/checklist), no solo
+  // intervenciones — ver nota en generarReporte().
+  const idsTocadasEnRango = new Set([
+    ...intervenciones.map(i => i.persona_id),
+    ...(seguimientosIds||[]),
+  ].filter(Boolean));
   const idsTocadasNoNuevas = [...idsTocadasEnRango].filter(id => !idsPersonasNuevas.has(id));
   // "Recontactado" es una persona que estuvo 15+ días SIN ningún contacto
   // antes del inicio de este período — no cualquier persona ya cargada
@@ -2959,7 +2974,7 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
       // el gap ahí si la persona nunca tuvo contacto anterior).
       client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve, created_at').eq('dupla_id', duplaId).eq('oculto', false),
       client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', duplaId).eq('fecha', fecha),
-      client.from('seguimientos').select('id').eq('dupla_id', duplaId)
+      client.from('seguimientos').select('id, persona_id').eq('dupla_id', duplaId)
         .gte('fecha', desdeUtc).lt('fecha', hastaUtc),
       client.from('duplas').select('codigo').eq('id', duplaId).single(),
       // Observaciones libres que cargó la propia dupla al cerrar esa
@@ -2989,7 +3004,14 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
 
     const nuevas = personasHoyRes.data || [];
     const idsNuevas = new Set(nuevas.map(p => p.id));
-    const idsTocadas = new Set((intervRes.data||[]).map(i => i.persona_id).filter(Boolean));
+    // "Tocada" = tuvo una intervención O un seguimiento (nota/checklist)
+    // ese día — reportado por Agustina, 28/9/2026: "agregar seguimiento"
+    // guarda solo en `seguimientos`, sin crear una intervención, así que
+    // antes esos contactos quedaban completamente afuera del resumen.
+    const idsTocadas = new Set([
+      ...(intervRes.data||[]).map(i => i.persona_id),
+      ...(seguRes.data||[]).map(s => s.persona_id),
+    ].filter(Boolean));
     const personaPorId = {};
     personasTodas.forEach(p => personaPorId[p.id] = p); // ya trae nombre/DNI de TODA la dupla, no hace falta pedir aparte
     const recontactadas = [...idsTocadas].filter(id => !idsNuevas.has(id)).map(id => personaPorId[id]).filter(Boolean);
