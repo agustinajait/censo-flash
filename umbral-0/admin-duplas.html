@@ -237,6 +237,7 @@
     <button class="admin-tab" data-tab="reporte" onclick="switchTab('reporte')">📊 Reporte semanal</button>
     <button class="admin-tab" data-tab="diario" onclick="switchTab('diario')">📅 Resumen diario</button>
     <button class="admin-tab" data-tab="asistencia" onclick="switchTab('asistencia')">🗓️ Asistencia</button>
+    <button class="admin-tab" data-tab="cobertura" onclick="switchTab('cobertura')">🗺️ Cobertura</button>
   </div>
 
   <!-- PESTAÑA: DUPLAS Y EQUIPO -->
@@ -477,6 +478,31 @@
 
   </div>
 
+  <!-- PESTAÑA: COBERTURA (28/9/2026, pedido de Agustina: "necesito ver
+       acá" — viendo el mapa desde la misma cuenta donde ya ve reporte
+       semanal/asistencia, en vez de un link público aparte. Muestra solo
+       las zonas (porDupla + comedores de iglesias) con su leyenda, sin
+       puntos de casos — el link público equivalente para compartir con
+       duplas/gobierno sin login es umbral-0/mapa-cobertura.html.) -->
+  <div class="wrap" id="tab-cobertura" style="display:none;">
+
+    <div class="section-title" style="margin-top:0;">Zonas de cobertura por dupla</div>
+    <div class="section-hint">Cada polígono es la zona asignada a una dupla en su turno. La línea punteada gris es la zona de frontera de referencia. Los polígonos chicos violetas son las iglesias/comedores de las duplas sin zona de patrullaje propia.</div>
+    <div class="card">
+      <div id="cobertura-map" style="height:460px;border-radius:10px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="reporte-tabla" id="tabla-cobertura">
+          <thead><tr><th></th><th>Dupla</th><th>Zona</th><th>Turno</th></tr></thead>
+          <tbody id="tbody-cobertura"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
   <div class="huehaci-credit">
     <img src="../assets/huehaci-logo.png" alt="Huehaci">
     <span>Huehaci — Desarrolladora de sistemas y contenidos digitales de innovación local sustentable</span>
@@ -581,12 +607,14 @@ async function boot(){
 let _reporteCargado = false;
 let _diarioCargado = false;
 let _asistenciaCargada = false;
+let _coberturaCargada = false;
 function switchTab(nombre){
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === nombre));
   document.getElementById('tab-duplas').style.display = nombre === 'duplas' ? 'block' : 'none';
   document.getElementById('tab-reporte').style.display = nombre === 'reporte' ? 'block' : 'none';
   document.getElementById('tab-diario').style.display = nombre === 'diario' ? 'block' : 'none';
   document.getElementById('tab-asistencia').style.display = nombre === 'asistencia' ? 'block' : 'none';
+  document.getElementById('tab-cobertura').style.display = nombre === 'cobertura' ? 'block' : 'none';
   history.replaceState(null, '', nombre === 'duplas' ? '#duplas' : '#' + nombre);
   if(nombre === 'reporte' && !_reporteCargado){
     _reporteCargado = true;
@@ -617,6 +645,45 @@ function switchTab(nombre){
     cargarDuplasSelectAsistencia();
     setRangoAsistencia('mes');
   }
+  if(nombre === 'cobertura' && !_coberturaCargada){
+    _coberturaCargada = true;
+    renderTabCobertura();
+  }
+}
+
+// Pestaña Cobertura — solo zonas (sin puntos de casos), misma lógica de
+// leyenda que umbral-0/mapa-cobertura.html (el link público equivalente
+// para compartir sin login).
+const TURNO_ORDEN_COBERTURA = { 'TURNO 1':1, 'TURNO 2':2, 'TURNO 3':3, 'TURNO 4':4 };
+function _ordenTurnoCobertura(turno){
+  const clave = Object.keys(TURNO_ORDEN_COBERTURA).find(k => (turno||'').startsWith(k));
+  return clave ? TURNO_ORDEN_COBERTURA[clave] : 99;
+}
+async function renderTabCobertura(){
+  const zonas = window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas;
+  if(!zonas){
+    document.getElementById('cobertura-map').innerHTML = '<div class="empty-msg">No se pudieron cargar las zonas.</div>';
+    return;
+  }
+  const filas = [];
+  Object.entries(zonas.porDupla || {}).forEach(([codigo, z]) => {
+    filas.push({ codigo, nombre: z.nombre || '', turno: z.turno || '', color: z.color || '#1e50a2', esIglesia: false });
+  });
+  Object.entries(zonas.comedores || {}).forEach(([codigo, lista]) => {
+    (lista || []).forEach(c => {
+      filas.push({ codigo, nombre: c.nombre || '', turno: '', color: c.color || '#a21caf', esIglesia: true });
+    });
+  });
+  filas.sort((a, b) => a.codigo.localeCompare(b.codigo) || _ordenTurnoCobertura(a.turno) - _ordenTurnoCobertura(b.turno));
+  document.getElementById('tbody-cobertura').innerHTML = filas.map(f => `
+    <tr>
+      <td><span style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${esc(f.color)};"></span></td>
+      <td><b>${esc(f.codigo)}</b></td>
+      <td>${esc(f.nombre)}${f.esIglesia ? ' <span style="font-size:0.7rem;color:#a21caf;">(iglesia)</span>' : ''}</td>
+      <td>${esc(f.turno)}</td>
+    </tr>
+  `).join('');
+  await renderMapaPuntos('cobertura-map', [], zonas);
 }
 
 async function cargarTodo(){
