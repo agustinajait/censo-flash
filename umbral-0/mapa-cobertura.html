@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de cobertura — Umbral Cero</title>
+<link rel="icon" type="image/png" href="../assets/huehaci-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#1a56db; --border:#dbeafe; }
+  * { box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; margin:0; }
+  .topbar { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:22px 20px; }
+  .topbar h1 { font-family:'Sora',sans-serif; font-size:1.15rem; font-weight:800; margin:0 0 4px; }
+  .topbar .sub { font-size:0.85rem; opacity:0.85; }
+  .wrap { max-width:820px; margin:0 auto; padding:18px 16px 50px; }
+  .section-title { font-family:'Sora',sans-serif; font-size:0.95rem; font-weight:800; color:var(--navy); margin:24px 0 10px; }
+  .section-hint { font-size:0.78rem; color:#94a3b8; margin:-6px 0 12px; }
+  .card { background:white; border-radius:14px; padding:18px; margin-bottom:14px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  #mapa-cobertura { height:480px; border-radius:10px; }
+  table.leyenda-tabla { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  table.leyenda-tabla th, table.leyenda-tabla td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef2f7; vertical-align:middle; }
+  table.leyenda-tabla th { font-family:'Sora',sans-serif; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; }
+  .tbl-wrap { overflow-x:auto; }
+  .swatch { display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:middle; }
+  .cod-badge { font-family:'Sora',sans-serif; font-weight:800; font-size:0.78rem; color:var(--blue); background:#e0eaff; padding:2px 9px; border-radius:20px; }
+  .tag-iglesia { font-size:0.68rem; color:#a21caf; background:#fae8ff; padding:2px 7px; border-radius:20px; font-weight:700; margin-left:4px; }
+  .footer-nota { text-align:center; font-size:0.74rem; color:#94a3b8; margin-top:30px; }
+  .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
+  .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+    <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:52px; width:auto; background:white; border-radius:6px; padding:4px 8px;">
+    <div style="font-size:0.68rem; color:rgba(255,255,255,0.6); line-height:1.25;">Elaborado por<br><b style="color:rgba(255,255,255,0.85);">Huehaci</b> — Consultora de innovación<br>cívica y tecnológica</div>
+  </div>
+  <h1>🗺️ Mapa de cobertura — Umbral Cero</h1>
+  <div class="sub">Zonas de patrullaje por dupla, actualizado al momento de abrir esta página</div>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <div id="mapa-cobertura"></div>
+  </div>
+
+  <div class="section-title">Referencias</div>
+  <div class="section-hint">Cada polígono es la zona asignada a una dupla en su turno. La línea punteada gris es la zona de frontera de referencia (sin dupla fija asignada). Los polígonos chicos violetas son las iglesias/comedores de referencia de las duplas que no tienen zona de patrullaje propia.</div>
+  <div class="card">
+    <div class="tbl-wrap">
+      <table class="leyenda-tabla" id="tabla-leyenda">
+        <thead><tr><th></th><th>Dupla</th><th>Zona</th><th>Turno</th></tr></thead>
+        <tbody id="tbody-leyenda"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-nota">Este mapa se genera a partir de las zonas operativas cargadas en la plataforma — no requiere inicio de sesión.</div>
+  <div class="huehaci-credit"><img src="../assets/huehaci-logo.png" alt="Huehaci">Plataforma desarrollada por Huehaci</div>
+
+</div>
+
+<script src="../config/umbral-0.js"></script>
+<script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script src="../shared/js/mapa-puntos.js?v=2026-09-28"></script>
+<script>
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const TURNO_ORDEN = { 'TURNO 1':1, 'TURNO 2':2, 'TURNO 3':3, 'TURNO 4':4 };
+function ordenTurno(turno){
+  const clave = Object.keys(TURNO_ORDEN).find(k => (turno||'').startsWith(k));
+  return clave ? TURNO_ORDEN[clave] : 99;
+}
+
+function renderLeyenda(zonas){
+  const filas = [];
+  Object.entries(zonas.porDupla || {}).forEach(([codigo, z]) => {
+    filas.push({ codigo, nombre: z.nombre || '', turno: z.turno || '', color: z.color || '#1e50a2', esIglesia: false });
+  });
+  Object.entries(zonas.comedores || {}).forEach(([codigo, lista]) => {
+    (lista || []).forEach(c => {
+      filas.push({ codigo, nombre: c.nombre || '', turno: '', color: c.color || '#a21caf', esIglesia: true });
+    });
+  });
+  filas.sort((a, b) => a.codigo.localeCompare(b.codigo) || ordenTurno(a.turno) - ordenTurno(b.turno));
+
+  document.getElementById('tbody-leyenda').innerHTML = filas.map(f => `
+    <tr>
+      <td><span class="swatch" style="background:${esc(f.color)};"></span></td>
+      <td><span class="cod-badge">${esc(f.codigo)}</span></td>
+      <td>${esc(f.nombre)}${f.esIglesia ? '<span class="tag-iglesia">iglesia</span>' : ''}</td>
+      <td>${esc(f.turno)}</td>
+    </tr>
+  `).join('');
+}
+
+(async function init(){
+  const zonas = window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas;
+  if(!zonas){
+    document.getElementById('mapa-cobertura').innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;">No se pudieron cargar las zonas.</div>';
+    return;
+  }
+  renderLeyenda(zonas);
+  await renderMapaPuntos('mapa-cobertura', [], zonas);
+})();
+
+</script>
+</body>
+</html>
