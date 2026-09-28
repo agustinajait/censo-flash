@@ -2080,11 +2080,19 @@ async function cargarKoboPendientes(){
       .filter(n => n.trim());
     const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
     const idsYaValidados = new Set((validacionesPropias||[]).map(v => v.kobo_submission_id));
-    // Nombre normalizado -> persona ya cargada, SOLO las que tienen nombre
-    // real (sin_identificar no tiene con qué matchear por nombre).
+    // Nombre normalizado -> persona ya cargada, para matchear posibles
+    // continuaciones (envíos de KoBo sin DNI). Antes excluía TODA persona
+    // sin_identificar de este matcheo ("no tiene con qué matchear por
+    // nombre") — cierto para las que además no tienen nombre cargado,
+    // pero KoBo sí suele traer un nombre de pila aunque no traiga DNI
+    // (ver _prefillDesdeKobo). Reportado por dupla E (28/9/2026): cargó un
+    // seguimiento de "Miguel Angel" en KoBo y, como su ficha ya existente
+    // era sin_identificar, el matcheo la ignoraba y terminó creando una
+    // ficha "Miguel Angel" DUPLICADA en vez de sugerir la continuación de
+    // la que ya había. Ahora solo se excluye a quien de verdad no tiene
+    // ningún nombre cargado (nom vacío) — sea sin_identificar o no.
     const personasPorNombre = new Map();
     (personasPropias||[]).forEach(p => {
-      if(p.sin_identificar) return;
       const nom = normalizarNombreKobo(`${p.nombre||''} ${p.apellido||''}`);
       if(nom) personasPorNombre.set(nom, p);
     });
