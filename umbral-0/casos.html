@@ -1564,6 +1564,45 @@ function mostrarJornada(){
 // "marcan el fin de la jornada pero si se olvidan después no lo pueden
 // mandar") para poder recalcular el resumen de CUALQUIER día ya cerrado,
 // no solo el de hoy — ver Casos.abrirModalMensajeCierreFecha().
+// "Recontactado" es una persona que estuvo 15+ días SIN ningún contacto
+// (intervención, seguimiento, derivación o validación de KoBo) antes de
+// hoy — no cualquier persona ya cargada que tuvo actividad hoy (eso es
+// "en seguimiento", contacto de rutina). Pedido de Agustina, 28/9/2026:
+// "el término recontactado es una persona que después de 15 días sin
+// seguimiento vuelve a ser contactada por el operador" — antes ambas
+// cosas se mezclaban bajo "recontactado".
+const DIAS_GAP_RECONTACTO = 15;
+async function _clasificarGapSeguimiento(client, personas, desdeUtc){
+  const enSeguimiento = new Set(), recontactado = new Set();
+  if(!personas.length) return { enSeguimiento, recontactado };
+  const ids = personas.map(p => p.id);
+  const desdeIso = desdeUtc.toISOString();
+  const [intervPrev, seguPrev, derivPrev, kvPrev] = await Promise.all([
+    client.from('intervenciones').select('persona_id, created_at').in('persona_id', ids).lt('created_at', desdeIso),
+    client.from('seguimientos').select('persona_id, created_at').in('persona_id', ids).lt('created_at', desdeIso),
+    client.from('derivaciones').select('persona_id, created_at').in('persona_id', ids).lt('created_at', desdeIso),
+    client.from('kobo_validaciones').select('persona_id, created_at').in('persona_id', ids).lt('created_at', desdeIso),
+  ]);
+  [intervPrev, seguPrev, derivPrev, kvPrev].forEach(r => { if(r.error) throw r.error; });
+  // Arranca en la fecha de alta de cada persona — si nunca tuvo ningún
+  // contacto anterior, el gap se mide desde ahí.
+  const ultimaPorId = {};
+  personas.forEach(p => { ultimaPorId[p.id] = p.created_at; });
+  [intervPrev, seguPrev, derivPrev, kvPrev].forEach(res => {
+    (res.data||[]).forEach(row => {
+      if(!row.persona_id) return;
+      if(!ultimaPorId[row.persona_id] || row.created_at > ultimaPorId[row.persona_id]) ultimaPorId[row.persona_id] = row.created_at;
+    });
+  });
+  personas.forEach(p => {
+    const ultima = ultimaPorId[p.id];
+    const dias = ultima ? (desdeUtc - new Date(ultima)) / (24*60*60*1000) : Infinity;
+    if(dias >= DIAS_GAP_RECONTACTO) recontactado.add(p.id);
+    else enSeguimiento.add(p.id);
+  });
+  return { enSeguimiento, recontactado };
+}
+
 async function calcularResumenDiaParaFecha(fecha){
   const client = await SupabaseClient.getClient();
   // Mismo criterio de rango UTC del día LOCAL que buscarPersonas() (ver
@@ -1593,9 +1632,11 @@ async function calcularResumenDiaParaFecha(fecha){
 
   // Nombre/DNI de los recontactados — no vienen en personasRes (ese solo
   // trae altas de ese día), así que se pide aparte solo si hace falta.
+  // `created_at` hace falta para _clasificarGapSeguimiento() (arranca el
+  // gap ahí si la persona nunca tuvo contacto anterior).
   let recontactadas = [];
   if(idsRecontactadas.length){
-    const { data, error } = await client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve')
+    const { data, error } = await client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve, created_at')
       .in('id', idsRecontactadas).eq('oculto', false);
     if(error) throw error;
     recontactadas = data || [];
@@ -1604,12 +1645,17 @@ async function calcularResumenDiaParaFecha(fecha){
   nuevas.forEach(p => personaPorId[p.id] = p);
   recontactadas.forEach(p => personaPorId[p.id] = p);
 
+  const { enSeguimiento: idsEnSeguimiento, recontactado: idsRecontactado } = await _clasificarGapSeguimiento(client, recontactadas, desdeUtc);
+  const casosEnSeguimiento = recontactadas.filter(p => idsEnSeguimiento.has(p.id));
+  const casosRecontactados = recontactadas.filter(p => idsRecontactado.has(p.id));
+
   const derivacionesPorTipo = {};
   (derivRes.data||[]).forEach(d => { derivacionesPorTipo[d.tipo] = (derivacionesPorTipo[d.tipo]||0) + 1; });
 
   return {
     casosNuevos: nuevas,
-    casosRecontactados: recontactadas,
+    casosEnSeguimiento,
+    casosRecontactados,
       // Cada intervención con su persona resuelta (§10.1.27, pedido de
       // Agustina: "el resumen tiene que tener el resumen de las
       // intervenciones, los casos con la info" — no alcanza con un
@@ -1675,7 +1721,10 @@ ${fmtFechaSolo(fecha)} · ${inicioTxt} a ${finTxt}
 📋 CASOS NUEVOS (${r.casosNuevos.length}):
 ${listaCasosTxt(r.casosNuevos)}
 
-🔁 CASOS RECONTACTADOS (${r.casosRecontactados.length}):
+🔄 CASOS EN SEGUIMIENTO (${r.casosEnSeguimiento.length}):
+${listaCasosTxt(r.casosEnSeguimiento)}
+
+🔁 CASOS RECONTACTADOS — 15+ días sin contacto (${r.casosRecontactados.length}):
 ${listaCasosTxt(r.casosRecontactados)}
 
 📝 INTERVENCIONES (${r.intervenciones.length}):
@@ -1779,7 +1828,7 @@ async function avisarCierreAEmood(observaciones, finIso){
   try{
     const d = duplasPorId[miPerfil.dupla_id];
     const r = await calcularResumenDiaParaFecha(hoyStr());
-    const cantidadRegistros = r.casosNuevos.length + r.casosRecontactados.length;
+    const cantidadRegistros = r.casosNuevos.length + r.casosEnSeguimiento.length + r.casosRecontactados.length;
     const inicioTxt = jornadaHoy && jornadaHoy.inicio ? fmtHora(jornadaHoy.inicio) : '—';
     const resp = await fetch('/.netlify/functions/emood-cierre', {
       method: 'POST',
@@ -2804,7 +2853,8 @@ const Casos = {
     box.innerHTML = `
       <div class="jornada-resumen" style="font-size:0.82rem;line-height:1.6;margin-top:6px;">
         <div style="margin-bottom:8px;"><b>📋 Casos nuevos (${r.casosNuevos.length}):</b>${listaCasos(r.casosNuevos)}</div>
-        <div style="margin-bottom:8px;"><b>🔁 Casos recontactados (${r.casosRecontactados.length}):</b>${listaCasos(r.casosRecontactados)}</div>
+        <div style="margin-bottom:8px;"><b>🔄 Casos en seguimiento (${r.casosEnSeguimiento.length}):</b>${listaCasos(r.casosEnSeguimiento)}</div>
+        <div style="margin-bottom:8px;"><b>🔁 Casos recontactados — 15+ días sin contacto (${r.casosRecontactados.length}):</b>${listaCasos(r.casosRecontactados)}</div>
         <div style="margin-bottom:8px;"><b>📝 Intervenciones (${r.intervenciones.length}):</b>${intervHtml}</div>
         <div style="margin-bottom:8px;"><b>📨 Derivaciones (${r.totalDerivaciones}):</b> ${r.totalDerivaciones ? derivLinea : 'ninguna'}</div>
         <div>📄 Seguimientos agregados: <b>${r.seguimientos}</b></div>
