@@ -113,19 +113,24 @@ function _dibujarZonas(capa, zonas, focusCod){
     if(!z.poly || !z.poly.length) return;
     const esFoco = !focusCod || codigo === focusCod;
     const color = esFoco ? (z.color || '#1e50a2') : '#94a3b8';
+    // Con foco, la zona propia se pinta bien fuerte (pedido de Agustina,
+    // 29/9/2026: "podés pintar un poco más fuerte la zona en el mapa que
+    // le va a tocar a cada dupla") — antes quedaba muy tenue (0.18) contra
+    // las calles del mapa real.
     _anillosDe(z.poly).forEach(anillo => {
       L.polygon(anillo, {
-        color, weight: esFoco && focusCod ? 3 : 2, fillOpacity: esFoco ? (focusCod ? 0.18 : 0.06) : 0.05, fillColor: color,
+        color, weight: esFoco && focusCod ? 4 : 2, fillOpacity: esFoco ? (focusCod ? 0.4 : 0.06) : 0.05, fillColor: color,
       }).bindTooltip(`Dupla ${_escMapa(codigo)}${z.nombre ? ' — ' + _escMapa(z.nombre) : ''}`, { sticky:true, permanent: esFoco && !!focusCod }).addTo(capa);
     });
   });
   Object.entries(zonas.comedores||{}).forEach(([codigo, lista]) => {
     if(focusCod && codigo !== focusCod) return; // con foco, no se muestran las iglesias de otras duplas
+    const esFoco = !focusCod || codigo === focusCod;
     (lista||[]).forEach(c => {
       if(!c.poly || !c.poly.length) return;
       L.polygon(c.poly, {
-        color: c.color || '#a21caf', weight:1.5, fillOpacity:0.12, fillColor: c.color || '#a21caf',
-      }).bindTooltip(`Dupla ${_escMapa(codigo)} — ${_escMapa(c.nombre||'')} (comedor de referencia)`, { sticky:true }).addTo(capa);
+        color: c.color || '#a21caf', weight: esFoco && focusCod ? 3 : 1.5, fillOpacity: esFoco && focusCod ? 0.45 : 0.12, fillColor: c.color || '#a21caf',
+      }).bindTooltip(`Dupla ${_escMapa(codigo)} — ${_escMapa(c.nombre||'')} (comedor de referencia)`, { sticky:true, permanent: esFoco && !!focusCod }).addTo(capa);
     });
   });
 }
