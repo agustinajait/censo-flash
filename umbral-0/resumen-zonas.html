@@ -22,6 +22,8 @@
   .zone-label { font-family:'Sora',sans-serif; font-weight:800; font-size:15px; fill:var(--navy); paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
   .avenida-line { stroke:#94a3b8; stroke-width:1; stroke-dasharray:4 4; opacity:0.55; }
   .avenida-label { font-family:'DM Sans',sans-serif; font-size:9.5px; font-weight:700; fill:#64748b; paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
+  .comedor-label { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:700; fill:#1e293b; paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
+  .mapa-nota-fuera { font-size:0.72rem; color:#94a3b8; margin-top:4px; }
   .map-legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:10px; font-size:0.74rem; color:#64748b; }
   .map-legend span { display:inline-flex; align-items:center; gap:5px; }
   .dot { width:9px; height:9px; border-radius:50%; display:inline-block; flex:none; }
@@ -60,10 +62,11 @@
   <div class="card map-card">
     <div class="map-svg-wrap"><svg id="mapa-svg" viewBox="0 0 640 460" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div class="map-legend">
-      <span><span class="dot" style="background:#C542D6;"></span>Iglesia / comedor de referencia</span>
+      <span><span class="dot" style="background:#C542D6;border:2px solid #94a3b8;"></span>Iglesia/comedor — el borde es del color de SU dupla (en horario pico va ahí; el resto del turno, a su zona del mismo color)</span>
       <span>┄ Avenidas de referencia (ubicación aproximada, no geocodificada)</span>
       <span>Mapa esquemático, no a escala real — ver el polígono exacto en <a href="./mapa-cobertura.html">mapa-cobertura.html</a></span>
     </div>
+    <div class="mapa-nota-fuera" id="mapa-nota-fuera"></div>
   </div>
 
   <div id="turnos-cont"></div>
@@ -173,16 +176,30 @@ function renderMapa(zonas){
     out += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" class="zone-label">${esc(cod)}</text>`;
   });
 
+  // Iglesias/comedores — con el color de SU dupla (no un magenta genérico)
+  // para que se vea de un vistazo que ese puntito es de la misma dupla que
+  // el polígono del mismo color, y con nombre al lado: la dupla de
+  // iglesia va a su iglesia EN SU HORARIO PICO y además patrulla su zona
+  // el resto del turno — reportado por Agustina, 29/9/2026: "no marca las
+  // iglesias... tiene que ir a la iglesia + su nuevo recorrido".
+  const fueraDelMapa = [];
   Object.entries(zonas.comedores || {}).forEach(([cod, lista]) => {
+    const colorDupla = (zonas.porDupla[cod] && zonas.porDupla[cod].color) || '#C542D6';
     (lista||[]).forEach(c => {
       if(!c.poly || !c.poly.length) return;
       const [x,y] = centroid(proj, c.poly);
-      if(x < -10 || x > proj.W+10 || y < -10 || y > proj.H+10) return;
-      out += `<circle cx="${x}" cy="${y}" r="3.2" fill="${esc(c.color||'#C542D6')}" stroke="#f8faff" stroke-width="1" />`;
+      if(x < -10 || x > proj.W+10 || y < -10 || y > proj.H+10){
+        fueraDelMapa.push(`${cod} — ${c.nombre||''}`);
+        return;
+      }
+      out += `<circle cx="${x}" cy="${y}" r="4" fill="#C542D6" stroke="${esc(colorDupla)}" stroke-width="2" />`;
+      out += `<text x="${x+7}" y="${y+3}" class="comedor-label">${esc(cod)} · ${esc(c.nombre||'')}</text>`;
     });
   });
 
   svg.innerHTML = out;
+  const notaFuera = document.getElementById('mapa-nota-fuera');
+  notaFuera.textContent = fueraDelMapa.length ? `Fuera de este recorte: ${fueraDelMapa.join(', ')}.` : '';
 }
 
 function claseTag(z){
