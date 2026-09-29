@@ -17,13 +17,8 @@
   .wrap { max-width:920px; margin:0 auto; padding:18px 16px 50px; }
   .card { background:white; border-radius:14px; padding:18px; margin-bottom:16px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
   .map-card { padding:14px; }
-  .map-svg-wrap { width:100%; overflow:hidden; border-radius:10px; background:#f8faff; }
-  .map-svg-wrap svg { display:block; width:100%; height:auto; }
-  .zone-label { font-family:'Sora',sans-serif; font-weight:800; font-size:15px; fill:var(--navy); paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
-  .avenida-line { stroke:#94a3b8; stroke-width:1; stroke-dasharray:4 4; opacity:0.55; }
-  .avenida-label { font-family:'DM Sans',sans-serif; font-size:9.5px; font-weight:700; fill:#64748b; paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
-  .comedor-label { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:700; fill:#1e293b; paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
-  .mapa-nota-fuera { font-size:0.72rem; color:#94a3b8; margin-bottom:10px; }
+  .map-leaflet-wrap { width:100%; height:420px; border-radius:10px; overflow:hidden; background:#f8faff; }
+  .map-leaflet-nota { font-size:0.72rem; color:#94a3b8; margin-top:8px; }
   .turno-section { margin-top:26px; }
   .turno-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }
   .turno-head h2 { font-family:'Sora',sans-serif; font-weight:800; font-size:1.02rem; color:var(--navy); margin:0; }
@@ -61,8 +56,8 @@
   <div id="turnos-cont"></div>
 
   <div class="card map-card">
-    <div class="mapa-nota-fuera" id="mapa-nota-fuera"></div>
-    <div class="map-svg-wrap"><svg id="mapa-svg" viewBox="0 0 640 460" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div class="map-leaflet-wrap" id="mapa-leaflet"></div>
+    <div class="map-leaflet-nota">Mapa real de OpenStreetMap — el polígono de color es tu zona (o zonas, si patrullás dos partes separadas).</div>
   </div>
 
   <div class="footer-nota">Esta página se genera en vivo a partir de <code>config/umbral-0.js</code> — si cambia una zona, se actualiza sola.</div>
@@ -72,6 +67,7 @@
 
 <script src="../config/umbral-0.js?v=2026-09-29"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script src="../shared/js/mapa-puntos.js?v=2026-09-29"></script>
 <script>
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -82,151 +78,6 @@ const TURNOS = [
   { id:'TURNO 3', label:'Turno 3', hora:'14 – 18 hs' },
   { id:'TURNO 4', label:'Turno 4', hora:'18 – 22 hs' },
 ];
-
-// Avenidas de referencia — SACADAS (29/9/2026, Agustina: "coordoba y
-// rivadavia son paralelas") — se habían dibujado a mano, sin
-// geocodificación, tratando a Rivadavia/Pueyrredón como horizontales y
-// a Córdoba/Corrientes/Entre Ríos/Díaz Vélez como verticales; error
-// real, esas avenidas no son perpendiculares entre sí. Hasta no tener
-// coordenadas reales (KML dibujado contra el mapa de calles, mismo
-// proceso que ya se usó para las zonas de Umbral 0 y Censo Flash), la
-// referencia queda solo en los polígonos, que sí son confiables.
-const AVENIDAS = [];
-
-// Algunas duplas (H, I desde el 29/9/2026: Once-Balvanera y Almagro no son
-// contiguas, las separa el corredor de frontera de K) patrullan dos zonas
-// separadas en vez de una sola. z.poly admite entonces dos formas: un
-// anillo simple [[lat,lng],...] (la mayoría de las duplas), o una lista de
-// anillos [[[lat,lng],...], [[lat,lng],...]] cuando son varios pedazos
-// desconectados. anillosDe() normaliza siempre a "lista de anillos".
-function anillosDe(poly){
-  if(!poly || !poly.length) return [];
-  return (typeof poly[0][0] === 'number') ? [poly] : poly;
-}
-
-function construirProyeccion(zonas){
-  const W = 640, H = 460, PAD = 10;
-  let minLat=Infinity, maxLat=-Infinity, minLng=Infinity, maxLng=-Infinity;
-  Object.values(zonas.porDupla||{}).forEach(z => anillosDe(z.poly).forEach(anillo => anillo.forEach(([lat,lng]) => {
-    if(lat<minLat) minLat=lat; if(lat>maxLat) maxLat=lat;
-    if(lng<minLng) minLng=lng; if(lng>maxLng) maxLng=lng;
-  })));
-  const latPad = (maxLat-minLat)*0.08, lngPad = (maxLng-minLng)*0.08;
-  minLat -= latPad; maxLat += latPad; minLng -= lngPad; maxLng += lngPad;
-  const latMid = (minLat+maxLat)/2;
-  const cosLat = Math.cos(latMid*Math.PI/180);
-  const lngSpan = (maxLng-minLng)*cosLat, latSpan = (maxLat-minLat);
-  const scale = Math.min((W-2*PAD)/lngSpan, (H-2*PAD)/latSpan);
-  const drawnW = lngSpan*scale, drawnH = latSpan*scale;
-  const offX = (W-drawnW)/2, offY = (H-drawnH)/2;
-  return {
-    W, H,
-    project(lat,lng){
-      const x = offX + (lng-minLng)*cosLat*scale;
-      const y = offY + (maxLat-lat)*scale;
-      return [Math.round(x*100)/100, Math.round(y*100)/100];
-    },
-    bounds: { minLat, maxLat, minLng, maxLng },
-  };
-}
-
-function pathFor(proj, poly){
-  return anillosDe(poly).map(anillo => anillo.map((p,i) => { const [x,y] = proj.project(p[0],p[1]); return (i===0?'M':'L')+x+','+y; }).join(' ') + ' Z').join(' ');
-}
-// Para el punto de la etiqueta (la letra de la dupla), si hay varios
-// anillos desconectados se usa el más grande, para no poner la letra en
-// el pedacito chico.
-function centroid(proj, poly){
-  const anillos = anillosDe(poly);
-  let mejorAnillo = anillos[0], mejorArea = -1;
-  anillos.forEach(anillo => {
-    let area = 0;
-    for(let i=0;i<anillo.length;i++){
-      const [x1,y1] = proj.project(anillo[i][0], anillo[i][1]);
-      const [x2,y2] = proj.project(anillo[(i+1)%anillo.length][0], anillo[(i+1)%anillo.length][1]);
-      area += x1*y2 - x2*y1;
-    }
-    area = Math.abs(area);
-    if(area > mejorArea){ mejorArea = area; mejorAnillo = anillo; }
-  });
-  let sx=0, sy=0;
-  mejorAnillo.forEach(([lat,lng]) => { const [x,y] = proj.project(lat,lng); sx+=x; sy+=y; });
-  return [Math.round(sx/mejorAnillo.length*100)/100, Math.round(sy/mejorAnillo.length*100)/100];
-}
-
-function renderMapa(zonas, focusCod){
-  const svg = document.getElementById('mapa-svg');
-  const proj = construirProyeccion(zonas);
-  let out = '';
-
-  AVENIDAS.forEach(a => {
-    if(a.tipo === 'horiz'){
-      const [x1,y] = proj.project(a.lat, proj.bounds.minLng);
-      const [x2] = proj.project(a.lat, proj.bounds.maxLng);
-      out += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="avenida-line" />`;
-      out += `<text x="${x1+6}" y="${y-6}" class="avenida-label">${esc(a.nombre)}</text>`;
-    } else {
-      const [x,y1] = proj.project(proj.bounds.maxLat, a.lng);
-      const [,y2] = proj.project(proj.bounds.minLat, a.lng);
-      if(x < 0 || x > proj.W) return;
-      out += `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" class="avenida-line" />`;
-      out += `<text x="${x+4}" y="${y1+12}" class="avenida-label" transform="rotate(90 ${x+4} ${y1+12})">${esc(a.nombre)}</text>`;
-    }
-  });
-
-  // Con foco en una dupla (mapa-de-cada-una), el resto queda apenas
-  // insinuado en gris para dar contexto sin distraer — pedido de
-  // Agustina, 29/9/2026: "quiero darle a cada dupla su mapa".
-  const codigos = Object.keys(zonas.porDupla||{});
-  codigos.forEach(cod => {
-    const z = zonas.porDupla[cod];
-    if(!z.poly || !z.poly.length) return;
-    const esFoco = !focusCod || cod === focusCod;
-    const color = esFoco ? z.color : '#94a3b8';
-    const fillOp = esFoco ? 0.24 : 0.08;
-    const strokeW = esFoco && focusCod ? 2.4 : 1.8;
-    out += `<path d="${pathFor(proj, z.poly)}" fill="${esc(color)}" fill-opacity="${fillOp}" stroke="${esc(color)}" stroke-width="${strokeW}" stroke-linejoin="round" />`;
-  });
-
-  const usados = {};
-  codigos.forEach(cod => {
-    const z = zonas.porDupla[cod];
-    if(!z.poly || !z.poly.length) return;
-    if(focusCod && cod !== focusCod) return; // sin foco: se ven todas; con foco: solo la propia, para no tapar el resto de gris
-    let [x,y] = centroid(proj, z.poly);
-    const key = x + '_' + y;
-    const n = usados[key] || 0;
-    usados[key] = n + 1;
-    y += n * 14;
-    out += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" class="zone-label">${esc(cod)}</text>`;
-  });
-
-  // Iglesias/comedores — con el color de SU dupla (no un magenta genérico)
-  // para que se vea de un vistazo que ese puntito es de la misma dupla que
-  // el polígono del mismo color, y con nombre al lado: la dupla de
-  // iglesia va a su iglesia EN SU HORARIO PICO y además patrulla su zona
-  // el resto del turno — reportado por Agustina, 29/9/2026: "no marca las
-  // iglesias... tiene que ir a la iglesia + su nuevo recorrido".
-  const fueraDelMapa = [];
-  Object.entries(zonas.comedores || {}).forEach(([cod, lista]) => {
-    if(focusCod && cod !== focusCod) return; // con foco, no se muestran las iglesias de otras duplas
-    const colorDupla = (zonas.porDupla[cod] && zonas.porDupla[cod].color) || '#C542D6';
-    (lista||[]).forEach(c => {
-      if(!c.poly || !c.poly.length) return;
-      const [x,y] = centroid(proj, c.poly);
-      if(x < -10 || x > proj.W+10 || y < -10 || y > proj.H+10){
-        fueraDelMapa.push(`${cod} — ${c.nombre||''}`);
-        return;
-      }
-      out += `<circle cx="${x}" cy="${y}" r="4" fill="#C542D6" stroke="${esc(colorDupla)}" stroke-width="2" />`;
-      out += `<text x="${x+7}" y="${y+3}" class="comedor-label">${esc(cod)} · ${esc(c.nombre||'')}</text>`;
-    });
-  });
-
-  svg.innerHTML = out;
-  const notaFuera = document.getElementById('mapa-nota-fuera');
-  notaFuera.textContent = fueraDelMapa.length ? `Fuera de este recorte: ${fueraDelMapa.join(', ')}.` : '';
-}
 
 // Una sola explicación por dupla, sin repetir el nombre de la zona dos
 // veces (pedido de Agustina, 29/9/2026: "una sola vez no repitas") —
@@ -290,7 +141,7 @@ function actualizarEncabezado(zonas, focusCod){
   }
   const focusCod = duplaEnfocada(zonas);
   actualizarEncabezado(zonas, focusCod);
-  renderMapa(zonas, focusCod);
+  renderMapaPuntos('mapa-leaflet', [], zonas, focusCod);
   renderTurnos(zonas, focusCod);
 })();
 

@@ -95,7 +95,14 @@ function _fueraDeZona(dupla, lat, lng, zonas){
   return !anillos.some(anillo => anillo.length >= 3 && _puntoDentroPoligono(lat, lng, anillo));
 }
 
-function _dibujarZonas(capa, zonas){
+// focusCod (opcional): pedido de Agustina, 29/9/2026 ("el mapa que les
+// muestro no tiene nombres de calles, ¿no podemos embeber el de
+// MyMaps?") — en vez de mantener un My Maps aparte sincronizado a mano,
+// resumen-zonas.html?dupla=X reusa este mismo mapa real (con calles de
+// OpenStreetMap) y le pasa el código de su dupla para resaltar solo esa
+// zona; el resto queda apenas insinuado en gris, igual que hacía el mapa
+// esquemático que reemplaza.
+function _dibujarZonas(capa, zonas, focusCod){
   if(!zonas) return;
   if(zonas.zonaFrontera && zonas.zonaFrontera.length){
     L.polygon(zonas.zonaFrontera, {
@@ -104,13 +111,16 @@ function _dibujarZonas(capa, zonas){
   }
   Object.entries(zonas.porDupla||{}).forEach(([codigo, z]) => {
     if(!z.poly || !z.poly.length) return;
+    const esFoco = !focusCod || codigo === focusCod;
+    const color = esFoco ? (z.color || '#1e50a2') : '#94a3b8';
     _anillosDe(z.poly).forEach(anillo => {
       L.polygon(anillo, {
-        color: z.color || '#1e50a2', weight:2, fillOpacity:0.06, fillColor: z.color || '#1e50a2',
-      }).bindTooltip(`Dupla ${_escMapa(codigo)}${z.nombre ? ' — ' + _escMapa(z.nombre) : ''}`, { sticky:true }).addTo(capa);
+        color, weight: esFoco && focusCod ? 3 : 2, fillOpacity: esFoco ? (focusCod ? 0.18 : 0.06) : 0.05, fillColor: color,
+      }).bindTooltip(`Dupla ${_escMapa(codigo)}${z.nombre ? ' — ' + _escMapa(z.nombre) : ''}`, { sticky:true, permanent: esFoco && !!focusCod }).addTo(capa);
     });
   });
   Object.entries(zonas.comedores||{}).forEach(([codigo, lista]) => {
+    if(focusCod && codigo !== focusCod) return; // con foco, no se muestran las iglesias de otras duplas
     (lista||[]).forEach(c => {
       if(!c.poly || !c.poly.length) return;
       L.polygon(c.poly, {
@@ -128,7 +138,7 @@ function _dibujarZonas(capa, zonas){
 // dibuja los polígonos de zona por debajo de los puntos (una sola vez), y
 // además colorea cada punto con el color real de SU dupla (si el punto
 // trae `dupla` y zonas la reconoce) en vez del celeste genérico.
-async function renderMapaPuntos(containerId, puntos, zonas){
+async function renderMapaPuntos(containerId, puntos, zonas, focusCod){
   const cont = document.getElementById(containerId);
   if(!cont) return;
   try{
@@ -168,7 +178,7 @@ async function renderMapaPuntos(containerId, puntos, zonas){
   }
 
   if(zonas && !inst.zonasDibujadas){
-    _dibujarZonas(inst.capaZonas, zonas);
+    _dibujarZonas(inst.capaZonas, zonas, focusCod);
     inst.zonasDibujadas = true;
   }
 
@@ -229,8 +239,15 @@ async function renderMapaPuntos(containerId, puntos, zonas){
     inst.map.fitBounds(bounds, { padding: [24,24], maxZoom: 15 });
   } else if(zonas){
     const boundsZonas = [];
-    Object.values(zonas.porDupla||{}).forEach(z => { if(z.poly) _anillosDe(z.poly).forEach(anillo => boundsZonas.push(...anillo)); });
-    Object.values(zonas.comedores||{}).forEach(lista => (lista||[]).forEach(c => { if(c.poly) boundsZonas.push(...c.poly); }));
+    // Con foco en una dupla (resumen-zonas.html?dupla=X), encuadra solo
+    // contra SU zona (más cerca) en vez de las 13 juntas.
+    if(focusCod && zonas.porDupla && zonas.porDupla[focusCod] && zonas.porDupla[focusCod].poly){
+      _anillosDe(zonas.porDupla[focusCod].poly).forEach(anillo => boundsZonas.push(...anillo));
+      (zonas.comedores && zonas.comedores[focusCod] || []).forEach(c => { if(c.poly) boundsZonas.push(...c.poly); });
+    } else {
+      Object.values(zonas.porDupla||{}).forEach(z => { if(z.poly) _anillosDe(z.poly).forEach(anillo => boundsZonas.push(...anillo)); });
+      Object.values(zonas.comedores||{}).forEach(lista => (lista||[]).forEach(c => { if(c.poly) boundsZonas.push(...c.poly); }));
+    }
     if(boundsZonas.length) inst.map.fitBounds(boundsZonas, { padding: [24,24] });
   }
 
