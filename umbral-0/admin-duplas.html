@@ -445,8 +445,14 @@
        jornada es automático por webhook, esto es la vista humana de lo
        mismo, para auditar/reconciliar). jornadas se marca por dupla (no
        por persona individual), así que la columna "Integrantes" lista a
-       los dos integrantes activos de esa dupla para esa jornada — no hay
-       forma hoy de saber si faltó uno de los dos y el otro cubrió solo. -->
+       los dos integrantes activos de esa dupla para esa jornada. Desde el
+       29/9/2026 (pedido de Agustina, ej. real: "ayer la dupla g la
+       reemplazaron mayra y mercedes") la dupla puede anotar un reemplazo
+       al cerrar la jornada (columna "Reemplazo"), y el admin puede
+       agregar su propia nota por jornada (columna "Nota", editable acá
+       mismo) — separada de las observaciones que carga la dupla. También
+       se agregó una columna de clima (lluvia, vía Open-Meteo) para poder
+       explicar de un vistazo una jornada faltante. -->
   <div class="wrap" id="tab-asistencia" style="display:none;">
 
     <div class="section-title" style="margin-top:0;">Asistencia — jornadas por dupla</div>
@@ -2007,6 +2013,50 @@ async function _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla){
   }
 }
 
+// Milímetros de lluvia por día, Buenos Aires, para un rango de fechas —
+// pedido de Agustina, 29/9/2026: "que levante el clima ya que si llueve
+// no se sale" (si un día falta una jornada, ayuda ver de un vistazo si
+// llovió, en vez de asumir que faltaron sin más). Open-Meteo es gratis,
+// sin API key, y trae todo el rango en un solo pedido — se cachea acá
+// mismo para no repetir el pedido si se vuelve a calcular el mismo rango.
+const _climaCache = {};
+async function _climaPorFecha(desde, hasta){
+  const key = desde + '_' + hasta;
+  if(_climaCache[key]) return _climaCache[key];
+  try{
+    const url = `https://archive-api.open-meteo.com/v1/archive?latitude=-34.61&longitude=-58.38&start_date=${desde}&end_date=${hasta}&daily=precipitation_sum&timezone=America%2FArgentina%2FBuenos_Aires`;
+    const resp = await fetch(url);
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const dias = (data.daily && data.daily.time) || [];
+    const mm = (data.daily && data.daily.precipitation_sum) || [];
+    const porFecha = {};
+    dias.forEach((fecha, i) => { porFecha[fecha] = mm[i]; });
+    _climaCache[key] = porFecha;
+    return porFecha;
+  }catch(e){
+    console.error('No se pudo traer el clima para el rango de asistencia', e);
+    return {};
+  }
+}
+
+// Edita la nota interna del admin sobre una jornada puntual (distinta de
+// `observaciones`, que la carga la dupla al cerrar) — pedido de
+// Agustina: "un feature en asistencias que permita agregar comentarios".
+// Se guarda al perder el foco del campo, sin botón aparte.
+async function guardarNotaAdmin(jornadaId, valor){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('jornadas').update({ nota_admin: valor.trim() || null }).eq('id', jornadaId);
+    if(error) throw error;
+    const fila = _asistFilas.find(f => f.id === jornadaId);
+    if(fila) fila.notaAdmin = valor.trim();
+  }catch(e){
+    console.error('No se pudo guardar la nota de asistencia', e);
+    alert('No se pudo guardar la nota: ' + e.message);
+  }
+}
+
 async function calcularAsistencia(){
   const desde = document.getElementById('asist-desde').value;
   const hasta = document.getElementById('asist-hasta').value;
@@ -2020,7 +2070,7 @@ async function calcularAsistencia(){
   cont.innerHTML = '';
   try{
     const client = await SupabaseClient.getClient();
-    let qJornadas = client.from('jornadas').select('dupla_id, fecha, inicio, fin, observaciones')
+    let qJornadas = client.from('jornadas').select('id, dupla_id, fecha, inicio, fin, observaciones, reemplazo, nota_admin')
       .gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: false });
     if(duplaFiltro) qJornadas = qJornadas.eq('dupla_id', duplaFiltro);
 
@@ -2055,13 +2105,23 @@ async function calcularAsistencia(){
       (jornadasPorDupla[d.id]||[]).forEach(j => {
         const fin = finDeJornada(d, j);
         filas.push({
-          duplaCodigo: d.codigo, integrantes: integrantesTxt, fecha: j.fecha,
+          id: j.id, duplaCodigo: d.codigo, integrantes: integrantesTxt, fecha: j.fecha,
           inicio: j.inicio, fin, estimado: !j.fin && !!fin, horas: horasJornada(j.inicio, fin),
-          observaciones: j.observaciones || '',
+          observaciones: j.observaciones || '', reemplazo: j.reemplazo || '', notaAdmin: j.nota_admin || '',
+          llovio: null,
         });
       });
     });
     filas.sort((a,b) => b.fecha.localeCompare(a.fecha) || a.duplaCodigo.localeCompare(b.duplaCodigo));
+
+    // Clima (pedido de Agustina, 29/9/2026: "que levante el clima ya que
+    // si llueve no se sale") — un solo pedido a Open-Meteo (gratis, sin
+    // API key) por todo el rango de fechas en vez de uno por día. Si
+    // falla (sin conexión, servicio caído), no rompe el resto del
+    // reporte: las columnas de clima quedan en "—" y listo.
+    const climaPorFecha = await _climaPorFecha(desde, hasta);
+    filas.forEach(f => { f.llovio = climaPorFecha[f.fecha] != null ? climaPorFecha[f.fecha] > 0.1 : null; });
+
     _asistFilas = filas;
 
     cont.innerHTML = _renderAsistencia(resumen, filas);
@@ -2089,6 +2149,7 @@ function _renderAsistencia(resumen, filas){
   // fin lleva una nota chica "(KoBo)" — no es una alerta, es solo de
   // dónde salió el dato (pedido de Agustina: lo que importa es si
   // trabajaron, no si tocaron el botón de cierre).
+  const climaTxt = f => f.llovio == null ? '—' : (f.llovio ? '🌧️ Llovió' : '☀️ No llovió');
   const filaDetalle = f => `
     <tr>
       <td>${esc(f.duplaCodigo)}</td>
@@ -2097,7 +2158,10 @@ function _renderAsistencia(resumen, filas){
       <td>${f.inicio ? fmtHoraAdmin(f.inicio) : '—'}</td>
       <td>${f.fin ? fmtHoraAdmin(f.fin) + (f.estimado ? ' <span style="color:#94a3b8;font-size:0.78rem;">(KoBo)</span>' : '') : '—'}</td>
       <td>${f.horas != null ? f.horas.toFixed(1) + ' h' : '—'}</td>
+      <td>${climaTxt(f)}</td>
       <td>${esc(f.observaciones || '—')}</td>
+      <td>${esc(f.reemplazo || '—')}</td>
+      <td><input type="text" class="nota-admin-input" value="${esc(f.notaAdmin)}" placeholder="Agregar nota…" onchange="guardarNotaAdmin('${f.id}', this.value)" style="width:100%;border:1px solid #dbeafe;border-radius:6px;padding:4px 6px;font-size:0.82rem;"></td>
     </tr>`;
   return `
     <div class="section-title" style="margin-top:0;">Resumen por dupla</div>
@@ -2108,22 +2172,25 @@ function _renderAsistencia(resumen, filas){
       </table>
     </div>
     <div class="section-title">Detalle por jornada</div>
+    <div class="section-hint">Clima: milímetros de lluvia del día en CABA (Open-Meteo) — ayuda a explicar una jornada faltante. Reemplazo: si ese día los cubrió otra persona (lo carga la dupla al cerrar). Nota: comentario propio, editable, para lo que necesites anotar.</div>
     <div class="tbl-wrap">
       <table class="reporte-tabla">
-        <thead><tr><th>Dupla</th><th>Integrantes</th><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Observaciones</th></tr></thead>
-        <tbody>${filas.length ? filas.map(filaDetalle).join('') : '<tr><td colspan="7">Sin jornadas en el rango.</td></tr>'}</tbody>
+        <thead><tr><th>Dupla</th><th>Integrantes</th><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Clima</th><th>Observaciones</th><th>Reemplazo</th><th>Nota</th></tr></thead>
+        <tbody>${filas.length ? filas.map(filaDetalle).join('') : '<tr><td colspan="10">Sin jornadas en el rango.</td></tr>'}</tbody>
       </table>
     </div>`;
 }
 
 function descargarCsvAsistencia(){
   if(!_asistFilas.length) return;
-  const encabezado = ['Dupla','Integrantes','Fecha','Inicio','Fin','Fin estimado por KoBo','Horas','Observaciones'];
+  const encabezado = ['Dupla','Integrantes','Fecha','Inicio','Fin','Fin estimado por KoBo','Horas','Llovió','Observaciones','Reemplazo','Nota'];
   const filaCsv = f => [
     f.duplaCodigo, f.integrantes, f.fecha,
     f.inicio ? fmtHoraAdmin(f.inicio) : '', f.fin ? fmtHoraAdmin(f.fin) : '',
     f.estimado ? 'Sí' : 'No',
-    f.horas != null ? f.horas.toFixed(1) : '', f.observaciones,
+    f.horas != null ? f.horas.toFixed(1) : '',
+    f.llovio == null ? '' : (f.llovio ? 'Sí' : 'No'),
+    f.observaciones, f.reemplazo, f.notaAdmin,
   ].map(v => `"${String(v||'').replace(/"/g, '""')}"`).join(',');
   const csv = [encabezado.join(','), ..._asistFilas.map(filaCsv)].join('\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });

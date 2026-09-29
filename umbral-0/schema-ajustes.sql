@@ -860,3 +860,18 @@ alter policy derivaciones_update on public.derivaciones
 -- dato). RLS de `jornadas` ya cubre esta columna nueva sin cambios (la
 -- policy es por fila, no por columna). Ya aplicado en producción.
 alter table public.jornadas add column observaciones text;
+
+-- jornadas.reemplazo + jornadas.nota_admin (29/9/2026) — pedido de
+-- Agustina: "un feature en asistencias que permita agregar comentarios...
+-- ayer la dupla g la reemplazaron mayra y mercedes por ejemplo".
+-- `reemplazo` la carga la dupla al cerrar la jornada (campo opcional en
+-- el mismo modal donde ya escriben `observaciones`, ver
+-- abrirModalCierreJornada() en casos.html) — para dejar registrado
+-- cuando no salió la dupla habitual sino que la cubrió otra persona.
+-- `nota_admin` es un comentario aparte, que solo el admin carga/edita
+-- desde la pestaña Asistencia (guardarNotaAdmin() en admin-duplas.html)
+-- — no lo toca la dupla. Ambas nullable, mismo criterio que
+-- `observaciones`: nada obligatorio a nivel de base, RLS de `jornadas`
+-- ya cubre columnas nuevas sin cambios.
+alter table public.jornadas add column reemplazo text;
+alter table public.jornadas add column nota_admin text;

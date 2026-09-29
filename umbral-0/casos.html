@@ -1533,6 +1533,7 @@ function mostrarJornada(){
     // título se llena solo cuando termina de calcularse (ver _renderResumenDia()).
     html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}<span id="jornada-resumen-mini" style="color:#64748b;"></span></div>
       ${jornadaHoy.observaciones ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>💬 Observaciones del día:</b><br>${esc(jornadaHoy.observaciones)}</div>` : ''}
+      ${jornadaHoy.reemplazo ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>👥 Reemplazo:</b> ${esc(jornadaHoy.reemplazo)}</div>` : ''}
       <button class="btn btn-outline btn-sm" id="btn-toggle-resumen-dia" style="margin-top:8px;" onclick="Casos.toggleResumenDia()">🔽 Ver detalle del día</button>
       <div id="resumen-dia-box" style="display:none;"></div>
       <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="reabrirJornada()">↩️ Reabrir jornada</button>`;
@@ -1745,7 +1746,7 @@ ${derivLinea}
 
 💬 OBSERVACIONES DEL DÍA:
 ${jornada && jornada.observaciones ? jornada.observaciones : '(sin cargar)'}
-
+${jornada && jornada.reemplazo ? `\n👥 REEMPLAZO: ${jornada.reemplazo}\n` : ''}
 Umbral Cero — Huehaci`;
 }
 
@@ -1786,6 +1787,11 @@ function abrirModalCierreJornada(){
         <div class="hint">Contá brevemente cómo te fue — zonas recorridas, dificultades, algo a tener en cuenta. Es obligatorio para poder cerrar la jornada.</div>
         <textarea id="f-observaciones-cierre" rows="4"></textarea>
       </div>
+      <div class="form-field">
+        <label>¿Hoy los reemplazó alguien? (opcional)</label>
+        <div class="hint">Si hoy no salió la dupla habitual y los cubrió otra persona, contanos quién — para que quede registrado en asistencia.</div>
+        <input type="text" id="f-reemplazo-cierre" placeholder="Ej: Mayra y Mercedes">
+      </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-blue" id="btn-confirmar-cierre">⏹️ Cerrar jornada</button>
         <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -1800,13 +1806,14 @@ async function marcarFinJornada(){
   const ta = document.getElementById('f-observaciones-cierre');
   const observaciones = ta.value.trim();
   if(!observaciones){ modalError('Contá cómo estuvo la jornada — es obligatorio para cerrarla.'); return; }
+  const reemplazo = document.getElementById('f-reemplazo-cierre').value.trim() || null;
   const btn = document.getElementById('btn-confirmar-cierre');
   btn.disabled = true; btn.textContent = 'Guardando…';
   const finIso = new Date().toISOString();
   try{
     const client = await SupabaseClient.getClient();
     const { error } = await client.from('jornadas')
-      .update({ fin: finIso, observaciones })
+      .update({ fin: finIso, observaciones, reemplazo })
       .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr());
     if(error) throw error;
     closeModal();
@@ -1838,6 +1845,11 @@ async function avisarCierreAEmood(observaciones, finIso){
     const r = await calcularResumenDiaParaFecha(hoyStr());
     const cantidadRegistros = r.casosNuevos.length + r.casosEnSeguimiento.length + r.casosRecontactados.length;
     const inicioTxt = jornadaHoy && jornadaHoy.inicio ? fmtHora(jornadaHoy.inicio) : '—';
+    // Si hoy los reemplazó otra persona, va también en las observaciones
+    // que le llegan a E-Mood — importa para la validación de pago saber
+    // quién estuvo realmente en la calle, no solo quién está logueado.
+    const reemplazo = jornadaHoy && jornadaHoy.reemplazo;
+    const observacionesConReemplazo = reemplazo ? `${observaciones}\n\n[Reemplazo: ${reemplazo}]` : observaciones;
     const resp = await fetch('/.netlify/functions/emood-cierre', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1849,7 +1861,7 @@ async function avisarCierreAEmood(observaciones, finIso){
         p_cantidad_registros: String(cantidadRegistros),
         p_inconvenientes: '',
         p_situaciones_urgentes: '',
-        p_observaciones: observaciones,
+        p_observaciones: observacionesConReemplazo,
       }),
     });
     if(!resp.ok){
