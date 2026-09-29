@@ -93,13 +93,24 @@ const TURNOS = [
 // referencia queda solo en los polígonos, que sí son confiables.
 const AVENIDAS = [];
 
+// Algunas duplas (H, I desde el 29/9/2026: Once-Balvanera y Almagro no son
+// contiguas, las separa el corredor de frontera de K) patrullan dos zonas
+// separadas en vez de una sola. z.poly admite entonces dos formas: un
+// anillo simple [[lat,lng],...] (la mayoría de las duplas), o una lista de
+// anillos [[[lat,lng],...], [[lat,lng],...]] cuando son varios pedazos
+// desconectados. anillosDe() normaliza siempre a "lista de anillos".
+function anillosDe(poly){
+  if(!poly || !poly.length) return [];
+  return (typeof poly[0][0] === 'number') ? [poly] : poly;
+}
+
 function construirProyeccion(zonas){
   const W = 640, H = 460, PAD = 10;
   let minLat=Infinity, maxLat=-Infinity, minLng=Infinity, maxLng=-Infinity;
-  Object.values(zonas.porDupla||{}).forEach(z => (z.poly||[]).forEach(([lat,lng]) => {
+  Object.values(zonas.porDupla||{}).forEach(z => anillosDe(z.poly).forEach(anillo => anillo.forEach(([lat,lng]) => {
     if(lat<minLat) minLat=lat; if(lat>maxLat) maxLat=lat;
     if(lng<minLng) minLng=lng; if(lng>maxLng) maxLng=lng;
-  }));
+  })));
   const latPad = (maxLat-minLat)*0.08, lngPad = (maxLng-minLng)*0.08;
   minLat -= latPad; maxLat += latPad; minLng -= lngPad; maxLng += lngPad;
   const latMid = (minLat+maxLat)/2;
@@ -120,12 +131,27 @@ function construirProyeccion(zonas){
 }
 
 function pathFor(proj, poly){
-  return poly.map((p,i) => { const [x,y] = proj.project(p[0],p[1]); return (i===0?'M':'L')+x+','+y; }).join(' ') + ' Z';
+  return anillosDe(poly).map(anillo => anillo.map((p,i) => { const [x,y] = proj.project(p[0],p[1]); return (i===0?'M':'L')+x+','+y; }).join(' ') + ' Z').join(' ');
 }
+// Para el punto de la etiqueta (la letra de la dupla), si hay varios
+// anillos desconectados se usa el más grande, para no poner la letra en
+// el pedacito chico.
 function centroid(proj, poly){
+  const anillos = anillosDe(poly);
+  let mejorAnillo = anillos[0], mejorArea = -1;
+  anillos.forEach(anillo => {
+    let area = 0;
+    for(let i=0;i<anillo.length;i++){
+      const [x1,y1] = proj.project(anillo[i][0], anillo[i][1]);
+      const [x2,y2] = proj.project(anillo[(i+1)%anillo.length][0], anillo[(i+1)%anillo.length][1]);
+      area += x1*y2 - x2*y1;
+    }
+    area = Math.abs(area);
+    if(area > mejorArea){ mejorArea = area; mejorAnillo = anillo; }
+  });
   let sx=0, sy=0;
-  poly.forEach(([lat,lng]) => { const [x,y] = proj.project(lat,lng); sx+=x; sy+=y; });
-  return [Math.round(sx/poly.length*100)/100, Math.round(sy/poly.length*100)/100];
+  mejorAnillo.forEach(([lat,lng]) => { const [x,y] = proj.project(lat,lng); sx+=x; sy+=y; });
+  return [Math.round(sx/mejorAnillo.length*100)/100, Math.round(sy/mejorAnillo.length*100)/100];
 }
 
 function renderMapa(zonas, focusCod){

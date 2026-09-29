@@ -55,6 +55,17 @@ function _colorDupla(dupla, zonas){
   return null;
 }
 
+// Algunas duplas (H, I desde el 29/9/2026: Once-Balvanera y Almagro no
+// son contiguas, las separa el corredor de frontera de K) patrullan dos
+// zonas separadas en vez de una sola. z.poly admite entonces un anillo
+// simple [[lat,lng],...] o una lista de anillos [[[lat,lng],...], [...]]
+// cuando son varios pedazos desconectados. _anillosDe() normaliza
+// siempre a "lista de anillos".
+function _anillosDe(poly){
+  if(!poly || !poly.length) return [];
+  return (typeof poly[0][0] === 'number') ? [poly] : poly;
+}
+
 // Punto-en-polígono (ray casting) — poly: [[lat,lng], ...]. Mismo
 // algoritmo usado para el análisis a mano del Excel de KoBo (22/9/2026,
 // antes de que existiera este cálculo en la plataforma).
@@ -79,9 +90,9 @@ function _puntoDentroPoligono(lat, lng, poly){
 // §10.1.39/§10.1.46).
 function _fueraDeZona(dupla, lat, lng, zonas){
   if(!zonas || !dupla || !zonas.porDupla || !zonas.porDupla[dupla]) return null;
-  const poly = zonas.porDupla[dupla].poly;
-  if(!poly || poly.length < 3) return null;
-  return !_puntoDentroPoligono(lat, lng, poly);
+  const anillos = _anillosDe(zonas.porDupla[dupla].poly);
+  if(!anillos.length) return null;
+  return !anillos.some(anillo => anillo.length >= 3 && _puntoDentroPoligono(lat, lng, anillo));
 }
 
 function _dibujarZonas(capa, zonas){
@@ -93,9 +104,11 @@ function _dibujarZonas(capa, zonas){
   }
   Object.entries(zonas.porDupla||{}).forEach(([codigo, z]) => {
     if(!z.poly || !z.poly.length) return;
-    L.polygon(z.poly, {
-      color: z.color || '#1e50a2', weight:2, fillOpacity:0.06, fillColor: z.color || '#1e50a2',
-    }).bindTooltip(`Dupla ${_escMapa(codigo)}${z.nombre ? ' — ' + _escMapa(z.nombre) : ''}`, { sticky:true }).addTo(capa);
+    _anillosDe(z.poly).forEach(anillo => {
+      L.polygon(anillo, {
+        color: z.color || '#1e50a2', weight:2, fillOpacity:0.06, fillColor: z.color || '#1e50a2',
+      }).bindTooltip(`Dupla ${_escMapa(codigo)}${z.nombre ? ' — ' + _escMapa(z.nombre) : ''}`, { sticky:true }).addTo(capa);
+    });
   });
   Object.entries(zonas.comedores||{}).forEach(([codigo, lista]) => {
     (lista||[]).forEach(c => {
@@ -216,7 +229,7 @@ async function renderMapaPuntos(containerId, puntos, zonas){
     inst.map.fitBounds(bounds, { padding: [24,24], maxZoom: 15 });
   } else if(zonas){
     const boundsZonas = [];
-    Object.values(zonas.porDupla||{}).forEach(z => { if(z.poly) boundsZonas.push(...z.poly); });
+    Object.values(zonas.porDupla||{}).forEach(z => { if(z.poly) _anillosDe(z.poly).forEach(anillo => boundsZonas.push(...anillo)); });
     Object.values(zonas.comedores||{}).forEach(lista => (lista||[]).forEach(c => { if(c.poly) boundsZonas.push(...c.poly); }));
     if(boundsZonas.length) inst.map.fitBounds(boundsZonas, { padding: [24,24] });
   }
