@@ -362,6 +362,17 @@
         <div class="metric m-amber"><div class="metric-icon">🌙</div><div class="metric-val" id="m-noches">—</div><div class="metric-lbl">Noches operativas</div></div>
       </div>
 
+      <!-- Mapa de puntos reales de KoBo, coloreados por polígono — mismo
+           componente que ya usa Umbral 0 (shared/js/mapa-puntos.js).
+           Pedido de Agustina (29/9/2026): "hacer de censo flash el mismo
+           mapa que hacemos en umbral 0", para saber cuánta gente releva
+           Censo Flash a la noche y hacerle seguimiento con Umbral 0 a la
+           mañana. -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">🗺️ Mapa de puntos relevados</div>
+        <div id="cf-map" style="height:420px;border-radius:10px;"></div>
+      </div>
+
       <!-- Por día -->
       <div class="grid-3">
         <div class="card">

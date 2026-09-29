@@ -252,11 +252,19 @@ function extractLatLng(row){
 // polígono, o el GPS falló), se prueba con el nombre de usuario como
 // respaldo — no hace daño dejarlo, por si alguna vez vuelve a haber
 // cuentas por dupla.
+// Devuelve SIEMPRE con cero a la izquierda ('01', no 1) — mismo formato
+// que `d.id` en `duplas` y que normDupla() en dashboard-engine.js. Antes
+// perdía el padding acá (parseInt('01')===1), lo que rompía en
+// silencio el desglose por polígono/comuna para las duplas 01-09: la
+// tabla guardaba la suma bajo la clave "1" pero la buscaba bajo "01",
+// así que esas 9 duplas siempre mostraban 0 aunque tuvieran datos
+// reales — bug real, no reportado explícitamente pero encontrado al
+// conectar el mapa (28/9/2026).
 function resolverDupla(row){
   const geo = extractLatLng(row);
   if(geo){
     const porGeo = duplaPorGeo(geo.lat, geo.lng);
-    if(porGeo) return parseInt(porGeo, 10);
+    if(porGeo) return porGeo;
   }
   return extractDupla(row);
 }
@@ -264,7 +272,7 @@ function resolverDupla(row){
 function extractDupla(row){
   const user = String(row['username'] || row['_submitted_by'] || '');
   const n = parseInt(user.replace(/\D/g,''), 10);
-  return isNaN(n) ? null : n;
+  return isNaN(n) ? null : String(n).padStart(2,'0');
 }
 
 // Techo de sensatez para "cantidad de personas" de UN punto de censo — bug
@@ -298,7 +306,8 @@ function parseNorte(row){
   }
   if(personas<=0) return null;
   const start = row['start'] || row['_submission_time'];
-  return { personas, situacion:'—', hora: start? new Date(start).getHours(): null, fecha:start, dupla: resolverDupla(row), formulario:'Flash Norte' };
+  const geo = extractLatLng(row);
+  return { personas, situacion:'—', hora: start? new Date(start).getHours(): null, fecha:start, dupla: resolverDupla(row), formulario:'Flash Norte', lat: geo?geo.lat:null, lng: geo?geo.lng:null };
 }
 
 // Formulario "Flash Centro" (desde sept/2026) — es el mismo asset de KoBo
@@ -314,7 +323,8 @@ function parseCentro(row){
   if(personas<=0) return null;
   const start = row['start'] || row['_submission_time'];
   const sit = SIT_MAP[row['sit_calle']] || row['sit_calle'] || 'Otro';
-  return { personas, situacion: sit, hora: start? new Date(start).getHours(): null, fecha:start, dupla: resolverDupla(row), formulario:'Flash Centro' };
+  const geo = extractLatLng(row);
+  return { personas, situacion: sit, hora: start? new Date(start).getHours(): null, fecha:start, dupla: resolverDupla(row), formulario:'Flash Centro', lat: geo?geo.lat:null, lng: geo?geo.lng:null };
 }
 
 // Formulario "Flash Sur" (nuevo desde sept/2026) — todavía no tenemos el
@@ -328,6 +338,32 @@ function parseSur(row){
   const r = parseCentro(row);
   return r ? { ...r, formulario:'Flash Sur' } : null;
 }
+
+// zonasOperativas — mismo formato que ZONAS_OPERATIVAS_UMBRAL_0 (ver
+// config/umbral-0.js) para poder reusar renderMapaPuntos() de
+// shared/js/mapa-puntos.js tal cual, sin duplicar lógica de mapa.
+// Pedido de Agustina (29/9/2026): "hacer de censo flash el mismo mapa
+// que hacemos en umbral 0". Se arma en vivo a partir de POLIGONOS_DUPLA
+// (KML real) — no hay que mantenerlo a mano.
+// Nota: cada entrada de POLIGONOS_DUPLA es un MultiPolígono (array de
+// anillos); acá se usa solo el primer anillo (el principal) para cada
+// dupla — solo la dupla 21 tiene un segundo anillo (zona separada por
+// una vía), que queda afuera del dibujo por ahora.
+const PALETA_CENSO_FLASH = ['#1a56db','#dc2626','#059669','#7c3aed','#ea580c','#0891b2','#db2777','#65a30d','#9333ea','#0d9488','#e11d48','#4f46e5','#ca8a04'];
+function colorParaDupla(id){
+  const idx = parseInt(id, 10) % PALETA_CENSO_FLASH.length;
+  return PALETA_CENSO_FLASH[idx];
+}
+const ZONAS_OPERATIVAS_CENSO_FLASH = { porDupla: {} };
+duplas.forEach(d => {
+  const anillos = POLIGONOS_DUPLA[d.id];
+  if(!anillos || !anillos.length) return; // duplas 31/32/33 todavía sin polígono
+  ZONAS_OPERATIVAS_CENSO_FLASH.porDupla[d.id] = {
+    nombre: `${d.zona} — ${d.poligono}`,
+    poly: anillos[0],
+    color: colorParaDupla(d.id),
+  };
+});
 
 window.PROJECT_CONFIG_CENSO_FLASH = {
   id: 'censo-flash',
@@ -361,6 +397,7 @@ window.PROJECT_CONFIG_CENSO_FLASH = {
   coordPassword: 'Coordinacion2026#',
   comunas,
   duplas,
+  zonasOperativas: ZONAS_OPERATIVAS_CENSO_FLASH,
   kobo: {
     token: '685fc2e5a79995c816b2652530a9fc520387a630',
     base: 'https://kf.kobotoolbox.org/api/v2/assets',
