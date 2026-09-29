@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resumen de zonas — Umbral Cero</title>
+<link rel="icon" type="image/png" href="../assets/huehaci-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#1a56db; --border:#dbeafe; --iglesia:#7c3aed; --frontera:#b45309; }
+  * { box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; margin:0; }
+  .topbar { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:22px 20px; }
+  .topbar h1 { font-family:'Sora',sans-serif; font-size:1.15rem; font-weight:800; margin:0 0 4px; }
+  .topbar .sub { font-size:0.85rem; opacity:0.85; max-width:70ch; }
+  .wrap { max-width:920px; margin:0 auto; padding:18px 16px 50px; }
+  .card { background:white; border-radius:14px; padding:18px; margin-bottom:16px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  .map-card { padding:14px; }
+  .map-svg-wrap { width:100%; overflow:hidden; border-radius:10px; background:#f8faff; }
+  .map-svg-wrap svg { display:block; width:100%; height:auto; }
+  .zone-label { font-family:'Sora',sans-serif; font-weight:800; font-size:15px; fill:var(--navy); paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
+  .avenida-line { stroke:#94a3b8; stroke-width:1; stroke-dasharray:4 4; opacity:0.55; }
+  .avenida-label { font-family:'DM Sans',sans-serif; font-size:9.5px; font-weight:700; fill:#64748b; paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
+  .map-legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:10px; font-size:0.74rem; color:#64748b; }
+  .map-legend span { display:inline-flex; align-items:center; gap:5px; }
+  .dot { width:9px; height:9px; border-radius:50%; display:inline-block; flex:none; }
+  .turno-section { margin-top:26px; }
+  .turno-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }
+  .turno-head h2 { font-family:'Sora',sans-serif; font-weight:800; font-size:1.02rem; color:var(--navy); margin:0; }
+  .turno-head .hora { font-size:0.8rem; color:#64748b; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; }
+  .dupla-card { background:white; border:1px solid var(--border); border-radius:14px; padding:14px 16px; border-top:3px solid var(--card-color,var(--blue)); min-width:0; }
+  .dupla-card .top { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .dupla-card .codigo { font-family:'Sora',sans-serif; font-weight:800; font-size:0.95rem; color:var(--navy); }
+  .dupla-card .tag { font-size:0.66rem; font-weight:700; font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.4px; padding:2px 8px; border-radius:20px; }
+  .tag-iglesia { background:#ede9fe; color:var(--iglesia); }
+  .tag-frontera { background:#fef3c7; color:var(--frontera); }
+  .dupla-card .zona { font-weight:700; font-size:0.88rem; color:#1e293b; margin-bottom:4px; }
+  .dupla-card .detalle { font-size:0.78rem; color:#64748b; line-height:1.45; }
+  .empty-msg { text-align:center; color:#94a3b8; padding:40px 20px; font-size:0.9rem; }
+  .footer-nota { text-align:center; font-size:0.74rem; color:#94a3b8; margin-top:30px; }
+  .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
+  .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+    <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:52px; width:auto; background:white; border-radius:6px; padding:4px 8px;">
+    <div style="font-size:0.68rem; color:rgba(255,255,255,0.6); line-height:1.25;">Elaborado por<br><b style="color:rgba(255,255,255,0.85);">Huehaci</b> — Consultora de innovación<br>cívica y tecnológica</div>
+  </div>
+  <h1>🗺️ Resumen de zonas — Umbral Cero</h1>
+  <div class="sub">Cómo queda repartido el territorio entre las 13 duplas, turno por turno. Las duplas de <span style="color:#fbbf24;font-weight:700;">frontera</span> (D, H) se corrieron desde Chacarita/Villa Crespo; las de <span style="color:#c4b5fd;font-weight:700;">iglesia</span> (C, F, I, L, M) bajan ahí fuera de su horario pico.</div>
+</div>
+
+<div class="wrap">
+
+  <div class="card map-card">
+    <div class="map-svg-wrap"><svg id="mapa-svg" viewBox="0 0 640 460" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div class="map-legend">
+      <span><span class="dot" style="background:#C542D6;"></span>Iglesia / comedor de referencia</span>
+      <span>┄ Avenidas de referencia (ubicación aproximada, no geocodificada)</span>
+      <span>Mapa esquemático, no a escala real — ver el polígono exacto en <a href="./mapa-cobertura.html">mapa-cobertura.html</a></span>
+    </div>
+  </div>
+
+  <div id="turnos-cont"></div>
+
+  <div class="footer-nota">Esta página se genera en vivo a partir de <code>config/umbral-0.js</code> — si cambia una zona, se actualiza sola.</div>
+  <div class="huehaci-credit"><img src="../assets/huehaci-logo.png" alt="Huehaci">Plataforma desarrollada por Huehaci</div>
+
+</div>
+
+<script src="../config/umbral-0.js?v=2026-09-29"></script>
+<script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script>
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const TURNOS = [
+  { id:'TURNO 1', label:'Turno 1', hora:'6 – 10 hs' },
+  { id:'TURNO 2', label:'Turno 2', hora:'10 – 14 hs' },
+  { id:'TURNO 3', label:'Turno 3', hora:'14 – 18 hs' },
+  { id:'TURNO 4', label:'Turno 4', hora:'18 – 22 hs' },
+];
+
+// Avenidas de referencia — ubicación aproximada (sin geocodificación
+// disponible en este entorno), pensadas para el recorte Almagro/Once/
+// Balvanera. Se proyectan con la MISMA función que las zonas, así se
+// mantienen razonablemente alineadas aunque cambien los polígonos.
+const AVENIDAS = [
+  { nombre:'Av. Pueyrredón', tipo:'horiz', lat:-34.598 },
+  { nombre:'Av. Rivadavia', tipo:'horiz', lat:-34.609 },
+  { nombre:'Av. Díaz Vélez / Áng. Gallardo', tipo:'vert', lng:-58.428 },
+  { nombre:'Av. Córdoba', tipo:'vert', lng:-58.414 },
+  { nombre:'Av. Corrientes', tipo:'vert', lng:-58.406 },
+  { nombre:'Av. Entre Ríos / Callao', tipo:'vert', lng:-58.393 },
+];
+
+function construirProyeccion(zonas){
+  const W = 640, H = 460, PAD = 10;
+  let minLat=Infinity, maxLat=-Infinity, minLng=Infinity, maxLng=-Infinity;
+  Object.values(zonas.porDupla||{}).forEach(z => (z.poly||[]).forEach(([lat,lng]) => {
+    if(lat<minLat) minLat=lat; if(lat>maxLat) maxLat=lat;
+    if(lng<minLng) minLng=lng; if(lng>maxLng) maxLng=lng;
+  }));
+  const latPad = (maxLat-minLat)*0.08, lngPad = (maxLng-minLng)*0.08;
+  minLat -= latPad; maxLat += latPad; minLng -= lngPad; maxLng += lngPad;
+  const latMid = (minLat+maxLat)/2;
+  const cosLat = Math.cos(latMid*Math.PI/180);
+  const lngSpan = (maxLng-minLng)*cosLat, latSpan = (maxLat-minLat);
+  const scale = Math.min((W-2*PAD)/lngSpan, (H-2*PAD)/latSpan);
+  const drawnW = lngSpan*scale, drawnH = latSpan*scale;
+  const offX = (W-drawnW)/2, offY = (H-drawnH)/2;
+  return {
+    W, H,
+    project(lat,lng){
+      const x = offX + (lng-minLng)*cosLat*scale;
+      const y = offY + (maxLat-lat)*scale;
+      return [Math.round(x*100)/100, Math.round(y*100)/100];
+    },
+    bounds: { minLat, maxLat, minLng, maxLng },
+  };
+}
+
+function pathFor(proj, poly){
+  return poly.map((p,i) => { const [x,y] = proj.project(p[0],p[1]); return (i===0?'M':'L')+x+','+y; }).join(' ') + ' Z';
+}
+function centroid(proj, poly){
+  let sx=0, sy=0;
+  poly.forEach(([lat,lng]) => { const [x,y] = proj.project(lat,lng); sx+=x; sy+=y; });
+  return [Math.round(sx/poly.length*100)/100, Math.round(sy/poly.length*100)/100];
+}
+
+function renderMapa(zonas){
+  const svg = document.getElementById('mapa-svg');
+  const proj = construirProyeccion(zonas);
+  let out = '';
+
+  AVENIDAS.forEach(a => {
+    if(a.tipo === 'horiz'){
+      const [x1,y] = proj.project(a.lat, proj.bounds.minLng);
+      const [x2] = proj.project(a.lat, proj.bounds.maxLng);
+      out += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="avenida-line" />`;
+      out += `<text x="${x1+6}" y="${y-6}" class="avenida-label">${esc(a.nombre)}</text>`;
+    } else {
+      const [x,y1] = proj.project(proj.bounds.maxLat, a.lng);
+      const [,y2] = proj.project(proj.bounds.minLat, a.lng);
+      if(x < 0 || x > proj.W) return;
+      out += `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" class="avenida-line" />`;
+      out += `<text x="${x+4}" y="${y1+12}" class="avenida-label" transform="rotate(90 ${x+4} ${y1+12})">${esc(a.nombre)}</text>`;
+    }
+  });
+
+  const codigos = Object.keys(zonas.porDupla||{});
+  codigos.forEach(cod => {
+    const z = zonas.porDupla[cod];
+    if(!z.poly || !z.poly.length) return;
+    out += `<path d="${pathFor(proj, z.poly)}" fill="${esc(z.color)}" fill-opacity="0.24" stroke="${esc(z.color)}" stroke-width="1.8" stroke-linejoin="round" />`;
+  });
+
+  const usados = {};
+  codigos.forEach(cod => {
+    const z = zonas.porDupla[cod];
+    if(!z.poly || !z.poly.length) return;
+    let [x,y] = centroid(proj, z.poly);
+    const key = x + '_' + y;
+    const n = usados[key] || 0;
+    usados[key] = n + 1;
+    y += n * 14;
+    out += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" class="zone-label">${esc(cod)}</text>`;
+  });
+
+  Object.entries(zonas.comedores || {}).forEach(([cod, lista]) => {
+    (lista||[]).forEach(c => {
+      if(!c.poly || !c.poly.length) return;
+      const [x,y] = centroid(proj, c.poly);
+      if(x < -10 || x > proj.W+10 || y < -10 || y > proj.H+10) return;
+      out += `<circle cx="${x}" cy="${y}" r="3.2" fill="${esc(c.color||'#C542D6')}" stroke="#f8faff" stroke-width="1" />`;
+    });
+  });
+
+  svg.innerHTML = out;
+}
+
+function claseTag(z){
+  if(!z.pico) return '';
+  return z.pico.startsWith('Pico:') ? 'tag-iglesia' : 'tag-frontera';
+}
+function textoTag(z){
+  if(!z.pico) return '';
+  return z.pico.startsWith('Pico:') ? 'iglesia' : 'frontera';
+}
+
+function renderTurnos(zonas){
+  const cont = document.getElementById('turnos-cont');
+  const codigos = Object.keys(zonas.porDupla||{}).sort();
+  cont.innerHTML = TURNOS.map(t => {
+    const deEsteTurno = codigos.filter(cod => (zonas.porDupla[cod].turno||'').startsWith(t.id));
+    if(!deEsteTurno.length) return '';
+    const cards = deEsteTurno.map(cod => {
+      const z = zonas.porDupla[cod];
+      const tag = textoTag(z) ? `<span class="tag ${claseTag(z)}">${esc(textoTag(z))}</span>` : '';
+      const detalle = z.pico ? `<div class="detalle">${esc(z.pico)}</div>` : `<div class="detalle">Sin cambios.</div>`;
+      return `<div class="dupla-card" style="--card-color:${esc(z.color||'#1a56db')};">
+        <div class="top"><span class="codigo">Dupla ${esc(cod)}</span>${tag}</div>
+        <div class="zona">${esc(z.nombre||'')}</div>
+        ${detalle}
+      </div>`;
+    }).join('');
+    return `<div class="turno-section">
+      <div class="turno-head"><h2>${esc(t.label)}</h2><span class="hora">${esc(t.hora)}</span></div>
+      <div class="grid">${cards}</div>
+    </div>`;
+  }).join('');
+}
+
+(function init(){
+  const zonas = window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas;
+  if(!zonas || !zonas.porDupla){
+    document.getElementById('turnos-cont').innerHTML = '<div class="empty-msg">No se pudieron cargar las zonas.</div>';
+    return;
+  }
+  renderMapa(zonas);
+  renderTurnos(zonas);
+})();
+
+</script>
+</body>
+</html>
