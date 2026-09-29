@@ -24,9 +24,6 @@
   .avenida-label { font-family:'DM Sans',sans-serif; font-size:9.5px; font-weight:700; fill:#64748b; paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
   .comedor-label { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:700; fill:#1e293b; paint-order:stroke; stroke:#f8faff; stroke-width:3px; }
   .mapa-nota-fuera { font-size:0.72rem; color:#94a3b8; margin-bottom:10px; }
-  .map-legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-bottom:12px; font-size:0.74rem; color:#64748b; }
-  .map-legend span { display:inline-flex; align-items:center; gap:5px; }
-  .dot { width:9px; height:9px; border-radius:50%; display:inline-block; flex:none; }
   .turno-section { margin-top:26px; }
   .turno-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }
   .turno-head h2 { font-family:'Sora',sans-serif; font-weight:800; font-size:1.02rem; color:var(--navy); margin:0; }
@@ -61,18 +58,12 @@
 
 <div class="wrap">
 
+  <div id="turnos-cont"></div>
+
   <div class="card map-card">
-    <div class="map-legend">
-      <span><span class="dot" style="background:#C542D6;border:2px solid #94a3b8;"></span>Iglesia/comedor — el borde es del color de SU dupla (en horario pico va ahí; el resto del turno, a su zona del mismo color)</span>
-      <span>┄ Avenidas de referencia (ubicación aproximada, no geocodificada)</span>
-      <span>🛣️ Las calles límite de cada tarjeta también son aproximadas — ante la duda, guiarse por el polígono del mapa</span>
-      <span>Mapa esquemático, no a escala real — ver el polígono exacto en <a href="./mapa-cobertura.html">mapa-cobertura.html</a></span>
-    </div>
     <div class="mapa-nota-fuera" id="mapa-nota-fuera"></div>
     <div class="map-svg-wrap"><svg id="mapa-svg" viewBox="0 0 640 460" xmlns="http://www.w3.org/2000/svg"></svg></div>
   </div>
-
-  <div id="turnos-cont"></div>
 
   <div class="footer-nota">Esta página se genera en vivo a partir de <code>config/umbral-0.js</code> — si cambia una zona, se actualiza sola.</div>
   <div class="huehaci-credit"><img src="../assets/huehaci-logo.png" alt="Huehaci">Plataforma desarrollada por Huehaci</div>
