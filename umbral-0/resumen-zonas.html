@@ -38,6 +38,7 @@
   .dupla-card .tag { font-size:0.66rem; font-weight:700; font-family:'Sora',sans-serif; text-transform:uppercase; letter-spacing:0.4px; padding:2px 8px; border-radius:20px; }
   .tag-iglesia { background:#ede9fe; color:var(--iglesia); }
   .tag-frontera { background:#fef3c7; color:var(--frontera); }
+  .dupla-card .turno-linea { font-size:0.72rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
   .dupla-card .zona { font-weight:700; font-size:0.88rem; color:#1e293b; margin-bottom:4px; }
   .dupla-card .detalle { font-size:0.78rem; color:#64748b; line-height:1.45; }
   .dupla-card .calles { font-size:0.74rem; color:#94a3b8; line-height:1.4; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); }
@@ -212,13 +213,17 @@ function renderMapa(zonas, focusCod){
   notaFuera.textContent = fueraDelMapa.length ? `Fuera de este recorte: ${fueraDelMapa.join(', ')}.` : '';
 }
 
-function claseTag(z){
-  if(!z.pico) return '';
-  return z.pico.startsWith('Pico:') ? 'tag-iglesia' : 'tag-frontera';
-}
-function textoTag(z){
-  if(!z.pico) return '';
-  return z.pico.startsWith('Pico:') ? 'iglesia' : 'frontera';
+// Una sola explicación por dupla, sin repetir el nombre de la zona dos
+// veces (pedido de Agustina, 29/9/2026: "una sola vez no repitas") —
+// el nombre va UNA vez en la línea "zona"; acá solo se arma el resto:
+// horario pico (si es iglesia) + nota corta (si hay), sin volver a
+// nombrar la zona.
+function explicacion(z){
+  const partes = [];
+  if(z.pico) partes.push(`En su horario pico: ${z.pico}. Fuera de ese horario, patrulla esta zona.`);
+  if(z.nota) partes.push(z.nota);
+  if(!partes.length) return 'Sin cambios.';
+  return partes.join(' ');
 }
 
 function renderTurnos(zonas, focusCod){
@@ -229,13 +234,13 @@ function renderTurnos(zonas, focusCod){
     if(!deEsteTurno.length) return '';
     const cards = deEsteTurno.map(cod => {
       const z = zonas.porDupla[cod];
-      const tag = textoTag(z) ? `<span class="tag ${claseTag(z)}">${esc(textoTag(z))}</span>` : '';
-      const detalle = z.pico ? `<div class="detalle">${esc(z.pico)}</div>` : `<div class="detalle">Sin cambios.</div>`;
+      const tag = z.tipo ? `<span class="tag tag-${esc(z.tipo)}">${esc(z.tipo)}</span>` : '';
       const calles = z.calles ? `<div class="calles">🛣️ ${esc(z.calles)}</div>` : '';
       return `<div class="dupla-card" style="--card-color:${esc(z.color||'#1a56db')};">
         <div class="top"><span class="codigo">Dupla ${esc(cod)}</span>${tag}</div>
+        <div class="turno-linea">${esc(t.label)} · ${esc(t.hora)}</div>
         <div class="zona">${esc(z.nombre||'')}</div>
-        ${detalle}
+        <div class="detalle">${esc(explicacion(z))}</div>
         ${calles}
       </div>`;
     }).join('');
