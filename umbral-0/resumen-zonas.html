@@ -53,8 +53,8 @@
     <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:52px; width:auto; background:white; border-radius:6px; padding:4px 8px;">
     <div style="font-size:0.68rem; color:rgba(255,255,255,0.6); line-height:1.25;">Elaborado por<br><b style="color:rgba(255,255,255,0.85);">Huehaci</b> — Consultora de innovación<br>cívica y tecnológica</div>
   </div>
-  <h1>🗺️ Resumen de zonas — Umbral Cero</h1>
-  <div class="sub">Cómo queda repartido el territorio entre las 13 duplas, turno por turno. Las duplas de <span style="color:#fbbf24;font-weight:700;">frontera</span> (D, H) se corrieron desde Chacarita/Villa Crespo; las de <span style="color:#c4b5fd;font-weight:700;">iglesia</span> (C, F, I, L, M) bajan ahí fuera de su horario pico.</div>
+  <h1 id="pagina-titulo">🗺️ Resumen de zonas — Umbral Cero</h1>
+  <div class="sub" id="pagina-sub">Cómo queda repartido el territorio entre las 13 duplas, turno por turno. Las duplas de <span style="color:#fbbf24;font-weight:700;">frontera</span> (D, H) se corrieron desde Chacarita/Villa Crespo; las de <span style="color:#c4b5fd;font-weight:700;">iglesia</span> (C, F, I, L, M) bajan ahí fuera de su horario pico.</div>
 </div>
 
 <div class="wrap">
@@ -137,7 +137,7 @@ function centroid(proj, poly){
   return [Math.round(sx/poly.length*100)/100, Math.round(sy/poly.length*100)/100];
 }
 
-function renderMapa(zonas){
+function renderMapa(zonas, focusCod){
   const svg = document.getElementById('mapa-svg');
   const proj = construirProyeccion(zonas);
   let out = '';
@@ -157,17 +157,25 @@ function renderMapa(zonas){
     }
   });
 
+  // Con foco en una dupla (mapa-de-cada-una), el resto queda apenas
+  // insinuado en gris para dar contexto sin distraer — pedido de
+  // Agustina, 29/9/2026: "quiero darle a cada dupla su mapa".
   const codigos = Object.keys(zonas.porDupla||{});
   codigos.forEach(cod => {
     const z = zonas.porDupla[cod];
     if(!z.poly || !z.poly.length) return;
-    out += `<path d="${pathFor(proj, z.poly)}" fill="${esc(z.color)}" fill-opacity="0.24" stroke="${esc(z.color)}" stroke-width="1.8" stroke-linejoin="round" />`;
+    const esFoco = !focusCod || cod === focusCod;
+    const color = esFoco ? z.color : '#94a3b8';
+    const fillOp = esFoco ? 0.24 : 0.08;
+    const strokeW = esFoco && focusCod ? 2.4 : 1.8;
+    out += `<path d="${pathFor(proj, z.poly)}" fill="${esc(color)}" fill-opacity="${fillOp}" stroke="${esc(color)}" stroke-width="${strokeW}" stroke-linejoin="round" />`;
   });
 
   const usados = {};
   codigos.forEach(cod => {
     const z = zonas.porDupla[cod];
     if(!z.poly || !z.poly.length) return;
+    if(focusCod && cod !== focusCod) return; // sin foco: se ven todas; con foco: solo la propia, para no tapar el resto de gris
     let [x,y] = centroid(proj, z.poly);
     const key = x + '_' + y;
     const n = usados[key] || 0;
@@ -184,6 +192,7 @@ function renderMapa(zonas){
   // iglesias... tiene que ir a la iglesia + su nuevo recorrido".
   const fueraDelMapa = [];
   Object.entries(zonas.comedores || {}).forEach(([cod, lista]) => {
+    if(focusCod && cod !== focusCod) return; // con foco, no se muestran las iglesias de otras duplas
     const colorDupla = (zonas.porDupla[cod] && zonas.porDupla[cod].color) || '#C542D6';
     (lista||[]).forEach(c => {
       if(!c.poly || !c.poly.length) return;
@@ -211,9 +220,9 @@ function textoTag(z){
   return z.pico.startsWith('Pico:') ? 'iglesia' : 'frontera';
 }
 
-function renderTurnos(zonas){
+function renderTurnos(zonas, focusCod){
   const cont = document.getElementById('turnos-cont');
-  const codigos = Object.keys(zonas.porDupla||{}).sort();
+  const codigos = Object.keys(zonas.porDupla||{}).sort().filter(cod => !focusCod || cod === focusCod);
   cont.innerHTML = TURNOS.map(t => {
     const deEsteTurno = codigos.filter(cod => (zonas.porDupla[cod].turno||'').startsWith(t.id));
     if(!deEsteTurno.length) return '';
@@ -234,14 +243,32 @@ function renderTurnos(zonas){
   }).join('');
 }
 
+// ?dupla=X — mapa personal de una sola dupla (pedido de Agustina,
+// 29/9/2026: "quiero darle a cada dupla su mapa"), misma página de
+// siempre así queda actualizada sola: solo cambia qué se resalta.
+function duplaEnfocada(zonas){
+  const cod = (new URLSearchParams(location.search).get('dupla') || '').trim().toUpperCase();
+  return (zonas.porDupla && zonas.porDupla[cod]) ? cod : null;
+}
+
+function actualizarEncabezado(zonas, focusCod){
+  if(!focusCod) return;
+  const z = zonas.porDupla[focusCod];
+  document.getElementById('pagina-titulo').textContent = `🗺️ Tu zona — Dupla ${focusCod}`;
+  document.getElementById('pagina-sub').innerHTML =
+    `${esc(z.nombre||'')} · ${esc(z.turno||'')}${z.pico ? ' — ' + esc(z.pico) : ''} · <a href="./resumen-zonas.html" style="color:#c7d7ff;">Ver el mapa completo de todas las duplas</a>`;
+}
+
 (function init(){
   const zonas = window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas;
   if(!zonas || !zonas.porDupla){
     document.getElementById('turnos-cont').innerHTML = '<div class="empty-msg">No se pudieron cargar las zonas.</div>';
     return;
   }
-  renderMapa(zonas);
-  renderTurnos(zonas);
+  const focusCod = duplaEnfocada(zonas);
+  actualizarEncabezado(zonas, focusCod);
+  renderMapa(zonas, focusCod);
+  renderTurnos(zonas, focusCod);
 })();
 
 </script>
