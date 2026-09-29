@@ -83,18 +83,15 @@ const TURNOS = [
   { id:'TURNO 4', label:'Turno 4', hora:'18 – 22 hs' },
 ];
 
-// Avenidas de referencia — ubicación aproximada (sin geocodificación
-// disponible en este entorno), pensadas para el recorte Almagro/Once/
-// Balvanera. Se proyectan con la MISMA función que las zonas, así se
-// mantienen razonablemente alineadas aunque cambien los polígonos.
-const AVENIDAS = [
-  { nombre:'Av. Pueyrredón', tipo:'horiz', lat:-34.598 },
-  { nombre:'Av. Rivadavia', tipo:'horiz', lat:-34.609 },
-  { nombre:'Av. Díaz Vélez / Áng. Gallardo', tipo:'vert', lng:-58.428 },
-  { nombre:'Av. Córdoba', tipo:'vert', lng:-58.414 },
-  { nombre:'Av. Corrientes', tipo:'vert', lng:-58.406 },
-  { nombre:'Av. Entre Ríos / Callao', tipo:'vert', lng:-58.393 },
-];
+// Avenidas de referencia — SACADAS (29/9/2026, Agustina: "coordoba y
+// rivadavia son paralelas") — se habían dibujado a mano, sin
+// geocodificación, tratando a Rivadavia/Pueyrredón como horizontales y
+// a Córdoba/Corrientes/Entre Ríos/Díaz Vélez como verticales; error
+// real, esas avenidas no son perpendiculares entre sí. Hasta no tener
+// coordenadas reales (KML dibujado contra el mapa de calles, mismo
+// proceso que ya se usó para las zonas de Umbral 0 y Censo Flash), la
+// referencia queda solo en los polígonos, que sí son confiables.
+const AVENIDAS = [];
 
 function construirProyeccion(zonas){
   const W = 640, H = 460, PAD = 10;
