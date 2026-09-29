@@ -40,6 +40,7 @@
   .tag-frontera { background:#fef3c7; color:var(--frontera); }
   .dupla-card .zona { font-weight:700; font-size:0.88rem; color:#1e293b; margin-bottom:4px; }
   .dupla-card .detalle { font-size:0.78rem; color:#64748b; line-height:1.45; }
+  .dupla-card .calles { font-size:0.74rem; color:#94a3b8; line-height:1.4; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); }
   .empty-msg { text-align:center; color:#94a3b8; padding:40px 20px; font-size:0.9rem; }
   .footer-nota { text-align:center; font-size:0.74rem; color:#94a3b8; margin-top:30px; }
   .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
@@ -71,7 +72,7 @@
 
   <div id="turnos-cont"></div>
 
-  <div class="footer-nota">Esta página se genera en vivo a partir de <code>config/umbral-0.js</code> — si cambia una zona, se actualiza sola.</div>
+  <div class="footer-nota">🛣️ Las calles límite en las tarjetas son aproximadas (sin geocodificación disponible) — ante la duda, guiarse por el polígono del mapa. Esta página se genera en vivo a partir de <code>config/umbral-0.js</code> — si cambia una zona, se actualiza sola.</div>
   <div class="huehaci-credit"><img src="../assets/huehaci-logo.png" alt="Huehaci">Plataforma desarrollada por Huehaci</div>
 
 </div>
@@ -230,10 +231,12 @@ function renderTurnos(zonas, focusCod){
       const z = zonas.porDupla[cod];
       const tag = textoTag(z) ? `<span class="tag ${claseTag(z)}">${esc(textoTag(z))}</span>` : '';
       const detalle = z.pico ? `<div class="detalle">${esc(z.pico)}</div>` : `<div class="detalle">Sin cambios.</div>`;
+      const calles = z.calles ? `<div class="calles">🛣️ ${esc(z.calles)}</div>` : '';
       return `<div class="dupla-card" style="--card-color:${esc(z.color||'#1a56db')};">
         <div class="top"><span class="codigo">Dupla ${esc(cod)}</span>${tag}</div>
         <div class="zona">${esc(z.nombre||'')}</div>
         ${detalle}
+        ${calles}
       </div>`;
     }).join('');
     return `<div class="turno-section">
