@@ -859,6 +859,16 @@ function renderWithData(project, cierres, rows, presentes, ausencias){
   renderDuplasPresentes(project, presentes, ausencias);
   renderDuplasPendientes(project, cierres, ausencias);
   applyKoboVisibility();
+
+  // Mapa de puntos reales de KoBo (§Censo Flash, 29/9/2026) — mismo
+  // componente que usa Umbral 0. No bloquea el resto del render si el
+  // proyecto no tiene mapa (renderMapaPuntos() no hace nada si no
+  // encuentra el contenedor).
+  if(window.renderMapaPuntos){
+    const puntos = rows.filter(r => r.lat!=null && r.lng!=null)
+      .map(r => ({ lat:r.lat, lng:r.lng, fecha:r.fecha, tipo:r.situacion, dupla:r.dupla }));
+    renderMapaPuntos('cf-map', puntos, project.zonasOperativas);
+  }
 }
 
 function renderKoboCharts(project, rows){
