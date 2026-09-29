@@ -295,13 +295,31 @@ function personasValidas(n){
 
 // Formulario "Flash Norte" (desde sept/2026) — es el mismo asset de KoBo
 // que antes se llamaba "Flash 2", solo cambió qué duplas lo usan.
+//
+// Bug real encontrado 29/9/2026 (Agustina, comparando contra el Excel
+// exportado real de KoBo porque "temo que la plataforma no los esta
+// contabilizando bien"): la columna con la cantidad de personas en Flash
+// Norte se llama literalmente `cant_pers` — igual que en Flash Centro —,
+// pero esta función buscaba una columna que contuviera "cantidad" o
+// "person", que "cant_pers" no matchea de ninguna de las dos formas.
+// Resultado: TODOS los envíos de Flash Norte volvían con personas=0 y se
+// descartaban en silencio (return null más abajo) — el 78% del volumen
+// real del operativo (Norte tiene muchas más filas que Centro) no se
+// contaba en "Total personas observadas" ni en "Puntos registrados".
+// Confirmado contra la exportación real: sobre 9.510 envíos de Flash
+// Norte en el rango 1/6-30/8/2026, esta función encontraba personas>0 en
+// CERO de ellos. Se corrige probando `cant_pers` directo primero (mismo
+// campo, mismo criterio que parseCentro), y se deja el barrido genérico
+// como respaldo por si alguna vez cambia el nombre del campo.
 function parseNorte(row){
-  let personas = 0;
-  for(const key of Object.keys(row)){
-    const k = key.toLowerCase();
-    if(k.includes('cantidad') || (k.includes('person') && !k.includes('_by'))){
-      const v = personasValidas(parseInt(row[key]||0)||0);
-      if(v>0){ personas=v; break; }
+  let personas = personasValidas(parseInt(row['cant_pers']||0)||0);
+  if(personas<=0){
+    for(const key of Object.keys(row)){
+      const k = key.toLowerCase();
+      if(k.includes('cantidad') || (k.includes('person') && !k.includes('_by'))){
+        const v = personasValidas(parseInt(row[key]||0)||0);
+        if(v>0){ personas=v; break; }
+      }
     }
   }
   if(personas<=0) return null;
