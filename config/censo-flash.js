@@ -345,13 +345,15 @@ function parseCentro(row){
   return { personas, situacion: sit, hora: start? new Date(start).getHours(): null, fecha:start, dupla: resolverDupla(row), formulario:'Flash Centro', lat: geo?geo.lat:null, lng: geo?geo.lng:null };
 }
 
-// Formulario "Flash Sur" (nuevo desde sept/2026) — todavía no tenemos el
-// ID interno de KoBo (el `.../forms/aXXXXXXX/` que se ve en la URL al
-// abrir el formulario en kf.kobotoolbox.org) ni una muestra real de sus
-// columnas. Uso el mismo parseo que "Flash Centro" como punto de partida
-// razonable (misma familia de formulario Flash), pero HAY QUE
-// VALIDARLO contra el primer envío real del martes y ajustar si hace
-// falta (columnas distintas, campo de situación con otro nombre, etc.).
+// Formulario "Flash Sur" (nuevo desde sept/2026) — ID de KoBo ya
+// confirmado (30/9/2026), pero todavía no hay una muestra real de sus
+// columnas (a diferencia de Norte/Centro, que se validaron contra
+// exportaciones reales — ver el bug real de parseNorte más abajo). Uso
+// el mismo parseo que "Flash Centro" como punto de partida razonable
+// (misma familia de formulario Flash), pero HAY QUE VALIDARLO contra el
+// primer envío real y ajustar si hace falta (columnas distintas, campo
+// de situación con otro nombre, etc. — exactamente el tipo de cosa que
+// hizo fallar a parseNorte en silencio).
 function parseSur(row){
   const r = parseCentro(row);
   return r ? { ...r, formulario:'Flash Sur' } : null;
@@ -427,11 +429,12 @@ window.PROJECT_CONFIG_CENSO_FLASH = {
     forms: [
       { id:'aPou2eJThDtn45mdmfrbaA', nombre:'Flash Norte (ex Flash 2)', parseRow: parseNorte },
       { id:'aH2SygyBTRCkqCgBtu4m3R', nombre:'Flash Centro (ex Flash 1)', parseRow: parseCentro },
-      // TODO: falta el ID interno de "Flash Sur" (formulario nuevo, sin
-      // reemplazo previo) — sin esto el dashboard no puede traer sus
-      // envíos. Conseguirlo en kf.kobotoolbox.org → abrir el formulario →
-      // copiar el ID de la URL (.../forms/aXXXXXXXXXXXXXXXXXXX/...).
-      // { id:'PENDIENTE', nombre:'Flash Sur (nuevo)', parseRow: parseSur },
+      // ID real confirmado por Agustina 30/9/2026 (antes pendiente, ver
+      // kf.kobotoolbox.org/#/forms/aBVmBrbhxVuujtx2254vGT/landing).
+      // parseSur() por ahora es una copia de parseCentro (misma familia
+      // de formulario) — falta validarla contra un envío real de este
+      // form específico (columnas podrían diferir, ver nota en parseSur()).
+      { id:'aBVmBrbhxVuujtx2254vGT', nombre:'Flash Sur', parseRow: parseSur },
     ],
   },
 };
