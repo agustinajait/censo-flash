@@ -374,9 +374,9 @@ function parseUmbral0(row){
 
 window.PROJECT_CONFIG_UMBRAL_0 = {
   id: 'umbral-0',
-  nombre: 'Umbral 0',
+  nombre: 'Releva Umbral',
   emoji: '🌒',
-  descripcion: 'Relevamiento territorial nocturno — Umbral 0.',
+  descripcion: 'Relevamiento territorial nocturno — Releva Umbral.',
   badge: 'En configuración',
   colorNavy:'#0f1f3d', colorBlue:'#7c3aed', colorGreen:'#10b981', colorAmber:'#f59e0b', colorRed:'#ef4444',
   whatsappNumero: '', // TODO: número de la operadora, formato "+54 9 11 ...."

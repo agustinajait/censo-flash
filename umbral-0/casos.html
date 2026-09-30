@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Umbral 0 · Casos</title>
+<title>Releva Umbral · Casos</title>
 <link rel="icon" type="image/png" href="../assets/huehaci-logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -245,7 +245,7 @@
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
-    <h2>🌒 Umbral 0</h2>
+    <h2>🌒 Releva Umbral</h2>
     <div class="sub">Casos — ingreso, derivación y acompañamiento</div>
     <div class="login-msg" id="login-error"></div>
     <div class="form-field">
@@ -272,7 +272,7 @@
   <div class="denied-box">
     <div class="emoji">🔒</div>
     <h2>No tenés acceso a esta sección</h2>
-    <p>Tu cuenta está logueada pero no tiene un rol de carga de casos asignado en Umbral 0 (admin / coordinación / dupla). Pedile a quien administra la plataforma que te asigne un rol en <code>perfiles</code>.</p>
+    <p>Tu cuenta está logueada pero no tiene un rol de carga de casos asignado en Releva Umbral (admin / coordinación / dupla). Pedile a quien administra la plataforma que te asigne un rol en <code>perfiles</code>.</p>
     <button class="btn btn-outline" onclick="doLogout()">Cerrar sesión</button>
   </div>
 </div>
@@ -319,7 +319,7 @@
     <div style="display:flex; align-items:center; gap:10px;">
       <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:30px; width:auto; background:white; border-radius:5px; padding:2px 5px;">
       <div>
-        <h1>🌒 Casos — Umbral 0</h1>
+        <h1>🌒 Casos — Releva Umbral</h1>
         <div class="sub" id="topbar-user"></div>
       </div>
     </div>
@@ -1747,7 +1747,7 @@ ${derivLinea}
 💬 OBSERVACIONES DEL DÍA:
 ${jornada && jornada.observaciones ? jornada.observaciones : '(sin cargar)'}
 ${jornada && jornada.reemplazo ? `\n👥 REEMPLAZO: ${jornada.reemplazo}\n` : ''}
-Umbral Cero — Huehaci`;
+Releva Umbral — Huehaci`;
 }
 
 async function marcarInicioJornada(){
@@ -1867,12 +1867,12 @@ async function avisarCierreAEmood(observaciones, finIso){
     if(!resp.ok){
       const cuerpo = await resp.text().catch(()=>'');
       console.error('E-Mood respondió con error al cerrar la jornada', resp.status, cuerpo);
-      alert('La jornada se cerró bien en Umbral 0, pero no se pudo avisar a E-Mood (para la validación de pago). Avisá a coordinación para que lo carguen a mano.');
-    }
+      alert('La jornada se cerró bien en Releva Umbral, pero no se pudo avisar a E-Mood (para la validación de pago). Avisá a coordinación para que lo carguen a mano.');
+}
   }catch(e){
     console.error('No se pudo avisar a E-Mood del cierre de jornada', e);
-    alert('La jornada se cerró bien en Umbral 0, pero no se pudo avisar a E-Mood (para la validación de pago). Avisá a coordinación para que lo carguen a mano.');
-  }
+    alert('La jornada se cerró bien en Releva Umbral, pero no se pudo avisar a E-Mood (para la validación de pago). Avisá a coordinación para que lo carguen a mano.');
+}
 }
 
 // Reportado en vivo (dupla K, 17/9/2026): marcó fin de jornada por error
@@ -2440,7 +2440,7 @@ async function descargarInformePDF(titulo, nombrePersona, filas){
   doc.text(titulo, marginX, y); y += 20;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
   doc.setTextColor(110);
-  doc.text(`Umbral 0 · ${nombrePersona || 'sin nombre'} · ${new Date().toLocaleDateString('es-AR')}`, marginX, y);
+  doc.text(`Releva Umbral · ${nombrePersona || 'sin nombre'} · ${new Date().toLocaleDateString('es-AR')}`, marginX, y);
   y += 26;
   doc.setTextColor(20);
 
