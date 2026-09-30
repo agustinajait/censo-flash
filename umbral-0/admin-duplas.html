@@ -404,27 +404,11 @@
        "hoy, mi propia dupla". Ver calcularResumenDiarioAdmin(). -->
   <div class="wrap" id="tab-diario" style="display:none;">
 
-    <!-- RESUMEN DE TODAS LAS DUPLAS, UN DÍA (§10.1.60, pedido de Agustina:
-         "además de filtrar 1 por una quiero ver el resumen [de todas],
-         así veo quienes están en falta, quienes están haciendo pocos
-         casos... necesito poder controlar lo que pasa"). Mismas fuentes
-         que el resumen por dupla de abajo, pero agregadas de una: una
-         fila por dupla (las 13, aunque no hayan hecho nada ese día), con
-         la jornada resaltada en rojo si no la marcaron. "Ver detalle →"
-         lleva directo al resumen individual de abajo, sin tener que
-         volver a elegir dupla/fecha a mano. -->
-    <div class="section-title" style="margin-top:0;">Resumen de todas las duplas — un día</div>
-    <div class="rango-card">
-      <div class="form-field">
-        <label>Día</label>
-        <input type="date" id="diario-todas-fecha">
-      </div>
-      <button class="btn btn-blue" id="btn-diario-todas-calcular" onclick="calcularResumenTodasLasDuplas()">📊 Calcular</button>
-      <span id="diario-todas-estado" style="font-size:0.8rem;color:#64748b;"></span>
-    </div>
-    <div id="diario-todas-cont"></div>
-
-    <div class="section-title">Resumen de una dupla — un día, con detalle</div>
+    <!-- RESUMEN DE UNA DUPLA, UN DÍA (arriba de todo — pedido de Agustina,
+         30/9/2026: "el selector de dupla debe estar arriba no abajo". Antes
+         iba después de la tabla de todas las duplas, había que bajar toda
+         la pantalla para llegar al selector. -->
+    <div class="section-title" style="margin-top:0;">Resumen de una dupla — un día, con detalle</div>
     <div class="rango-card">
       <div class="form-field">
         <label>Dupla</label>
@@ -439,6 +423,26 @@
     </div>
 
     <div id="diario-cont"></div>
+
+    <!-- RESUMEN DE TODAS LAS DUPLAS, UN DÍA (§10.1.60, pedido de Agustina:
+         "además de filtrar 1 por una quiero ver el resumen [de todas],
+         así veo quienes están en falta, quienes están haciendo pocos
+         casos... necesito poder controlar lo que pasa"). Mismas fuentes
+         que el resumen por dupla de arriba, pero agregadas de una: una
+         fila por dupla (las 13, aunque no hayan hecho nada ese día), con
+         la jornada resaltada en rojo si no la marcaron. "Ver detalle →"
+         despliega inline en la misma fila (23/9/2026), no depende del
+         selector de arriba. -->
+    <div class="section-title">Resumen de todas las duplas — un día</div>
+    <div class="rango-card">
+      <div class="form-field">
+        <label>Día</label>
+        <input type="date" id="diario-todas-fecha">
+      </div>
+      <button class="btn btn-blue" id="btn-diario-todas-calcular" onclick="calcularResumenTodasLasDuplas()">📊 Calcular</button>
+      <span id="diario-todas-estado" style="font-size:0.8rem;color:#64748b;"></span>
+    </div>
+    <div id="diario-todas-cont"></div>
 
   </div>
 
