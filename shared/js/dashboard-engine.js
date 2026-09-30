@@ -636,6 +636,14 @@ function buildData(raw, project){
         fecha, _fecha: fecha,
         formulario: parsed.formulario || form.nombre,
         dupla: normDupla(parsed.dupla),
+        // Bug real (30/9/2026): parseNorte/parseCentro/parseSur SÍ calculan
+        // lat/lng bien (confirmado contra un envío real de Flash Norte),
+        // pero acá nunca se copiaban al objeto final — se perdían en este
+        // mismo paso, siempre, para cualquier formulario y cualquier fecha.
+        // Por eso el mapa de puntos (renderMapaPuntos, más abajo) nunca
+        // tuvo nada que dibujar, no importa cuántos envíos hubiera.
+        lat: parsed.lat!=null ? parsed.lat : null,
+        lng: parsed.lng!=null ? parsed.lng : null,
       });
     });
   });
