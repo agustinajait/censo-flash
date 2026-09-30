@@ -607,8 +607,13 @@ function buildData(raw, project){
     // dispositivo, ids internos de KoBo) se ocultan — el resto (ubicación,
     // cantidad, fecha, situación) no identifica a nadie y se muestra tal
     // cual para poder ver el formato real.
+    // Se toma la ÚLTIMA fila, no la primera: la API de KoBo devuelve los
+    // envíos en orden cronológico ascendente, así que rows[0] es el envío
+    // más VIEJO del formulario (se vio en vivo: una muestra de abril con
+    // coordenadas inválidas) — para diagnosticar un problema de HOY hace
+    // falta ver el envío más reciente.
     if(rows.length){
-      const muestra = rows[0];
+      const muestra = rows[rows.length - 1];
       const camposMuestra = Object.keys(muestra).map(campo => {
         const esPersonal = /usuario|username|device|dni|submitted_by|uuid|instanceid/i.test(campo);
         let valor = esPersonal ? '[oculto]' : muestra[campo];
