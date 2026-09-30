@@ -100,8 +100,16 @@ function _fueraDeZona(dupla, lat, lng, zonas){
 // MyMaps?") — en vez de mantener un My Maps aparte sincronizado a mano,
 // resumen-zonas.html?dupla=X reusa este mismo mapa real (con calles de
 // OpenStreetMap) y le pasa el código de su dupla para resaltar solo esa
-// zona; el resto queda apenas insinuado en gris, igual que hacía el mapa
-// esquemático que reemplaza.
+// zona.
+//
+// Con foco, las demás duplas NO se dibujan (antes quedaban insinuadas en
+// gris de fondo) — pedido de Agustina, 30/9/2026, sobre la Dupla F: "es
+// confuso el mapa, quiero darle una zona sola y bien marcada". Muchas
+// zonas de turnos distintos ocupan prácticamente el mismo territorio
+// (ver Retiro-San Telmo: F, M e I se superponen bastante ahí, cada una
+// en su turno), así que mostrarlas todas juntas —aunque sea tenues—
+// generaba justo la confusión que se quería evitar. Sin foco (el mapa
+// general, todas las duplas) se siguen mostrando todas.
 function _dibujarZonas(capa, zonas, focusCod){
   if(!zonas) return;
   if(zonas.zonaFrontera && zonas.zonaFrontera.length){
@@ -111,26 +119,21 @@ function _dibujarZonas(capa, zonas, focusCod){
   }
   Object.entries(zonas.porDupla||{}).forEach(([codigo, z]) => {
     if(!z.poly || !z.poly.length) return;
-    const esFoco = !focusCod || codigo === focusCod;
-    const color = esFoco ? (z.color || '#1e50a2') : '#94a3b8';
-    // Con foco, la zona propia se pinta bien fuerte (pedido de Agustina,
-    // 29/9/2026: "podés pintar un poco más fuerte la zona en el mapa que
-    // le va a tocar a cada dupla") — antes quedaba muy tenue (0.18) contra
-    // las calles del mapa real.
+    if(focusCod && codigo !== focusCod) return; // con foco, no se dibujan las demás duplas
+    const color = z.color || '#1e50a2';
     _anillosDe(z.poly).forEach(anillo => {
       L.polygon(anillo, {
-        color, weight: esFoco && focusCod ? 4 : 2, fillOpacity: esFoco ? (focusCod ? 0.4 : 0.06) : 0.05, fillColor: color,
-      }).bindTooltip(`Dupla ${_escMapa(codigo)}${z.nombre ? ' — ' + _escMapa(z.nombre) : ''}`, { sticky:true, permanent: esFoco && !!focusCod }).addTo(capa);
+        color, weight: focusCod ? 4 : 2, fillOpacity: focusCod ? 0.4 : 0.06, fillColor: color,
+      }).bindTooltip(`Dupla ${_escMapa(codigo)}${z.nombre ? ' — ' + _escMapa(z.nombre) : ''}`, { sticky:true, permanent: !!focusCod }).addTo(capa);
     });
   });
   Object.entries(zonas.comedores||{}).forEach(([codigo, lista]) => {
     if(focusCod && codigo !== focusCod) return; // con foco, no se muestran las iglesias de otras duplas
-    const esFoco = !focusCod || codigo === focusCod;
     (lista||[]).forEach(c => {
       if(!c.poly || !c.poly.length) return;
       L.polygon(c.poly, {
-        color: c.color || '#a21caf', weight: esFoco && focusCod ? 3 : 1.5, fillOpacity: esFoco && focusCod ? 0.45 : 0.12, fillColor: c.color || '#a21caf',
-      }).bindTooltip(`Dupla ${_escMapa(codigo)} — ${_escMapa(c.nombre||'')} (comedor de referencia)`, { sticky:true, permanent: esFoco && !!focusCod }).addTo(capa);
+        color: c.color || '#a21caf', weight: focusCod ? 3 : 1.5, fillOpacity: focusCod ? 0.45 : 0.12, fillColor: c.color || '#a21caf',
+      }).bindTooltip(`Dupla ${_escMapa(codigo)} — ${_escMapa(c.nombre||'')} (comedor de referencia)`, { sticky:true, permanent: !!focusCod }).addTo(capa);
     });
   });
 }
