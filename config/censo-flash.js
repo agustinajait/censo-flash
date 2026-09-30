@@ -387,7 +387,7 @@ duplas.forEach(d => {
 
 window.PROJECT_CONFIG_CENSO_FLASH = {
   id: 'censo-flash',
-  nombre: 'Censo Flash',
+  nombre: 'Releva Flash',
   emoji: '🏙️',
   descripcion: 'Relevamiento nocturno de personas en situación de calle en la Ciudad de Buenos Aires.',
   badge: 'Operativo oficial',

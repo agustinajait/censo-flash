@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Censo Flash</title>
+<title>Releva Flash</title>
 <link rel="icon" type="image/png" href="assets/huehaci-logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -21,6 +21,8 @@
     color:white; padding:44px 24px 38px; text-align:center; position:relative; overflow:hidden;
   }
   .cover::before { content:''; position:absolute; width:300px; height:300px; background:radial-gradient(circle,rgba(59,130,246,0.2) 0%,transparent 70%); top:-80px; right:-60px; border-radius:50%; }
+  .cover-brand { position:absolute; top:16px; left:16px; z-index:2; }
+  .cover-brand img { height:40px; width:auto; background:white; border-radius:7px; padding:5px 8px; display:block; }
   .badge { display:inline-block; background:rgba(245,158,11,0.2); border:1px solid rgba(245,158,11,0.5); color:#fcd34d; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:5px 16px; border-radius:20px; margin-bottom:14px; position:relative; }
   .cover h1 { font-family:'Sora',sans-serif; font-size:2rem; font-weight:800; margin-bottom:8px; position:relative; }
   .cover p { font-size:0.92rem; opacity:0.8; max-width:400px; margin:0 auto 24px; position:relative; }
@@ -157,8 +159,9 @@
 <!-- HOME -->
 <div id="home">
   <div class="cover">
+    <div class="cover-brand"><img src="./assets/huehaci-logo.png" alt="Huehaci"></div>
     <div class="badge" data-cfg="badge">Operativo oficial</div>
-    <h1><span data-cfg="emoji">🏙️</span> <span data-cfg="nombre">Censo Flash</span></h1>
+    <h1><span data-cfg="emoji">🏙️</span> <span data-cfg="nombre">Releva Flash</span></h1>
     <p data-cfg="descripcion">Relevamiento nocturno de personas en situación de calle en la Ciudad de Buenos Aires.</p>
     <a href="#" id="wa-btn" data-cfg-href="whatsappLink" target="_blank" class="wa-btn">💬 Contactar a la operadora</a>
     <div class="wa-num" data-cfg="whatsappNumero"></div>
@@ -341,7 +344,7 @@
 
   </div>
   <div class="footer">
-    <strong data-cfg="nombre">Censo Flash</strong> · Uso exclusivo operativo
+    <strong data-cfg="nombre">Releva Flash</strong> · Uso exclusivo operativo
     <div class="huehaci-credit">
       <img src="./assets/huehaci-logo.png" alt="Huehaci">
       <span>Huehaci — Desarrolladora de sistemas y contenidos digitales de innovación local sustentable</span>
