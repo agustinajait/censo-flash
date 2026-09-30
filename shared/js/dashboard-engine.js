@@ -599,13 +599,24 @@ function buildData(raw, project){
     const rows = (raw.formRows||[])[idx];
     if(!rows) return;
     // Debug (30/9/2026, pedido de Agustina ante Flash Sur recién activado
-    // mostrando "141 puntos, 0 con ubicación"): guarda solo los NOMBRES de
-    // campo de una fila de muestra por formulario — nunca los valores, no
-    // expone datos personales — para poder diagnosticar bugs de nombre de
-    // campo (misma familia que el de `cant_pers` en parseNorte) sin
-    // depender de que alguien exporte un Excel de KoBo cada vez.
+    // mostrando "141 puntos, 0 con ubicación"): guarda nombre Y valor de
+    // muestra de una fila por formulario, para poder diagnosticar bugs de
+    // nombre/formato de campo (misma familia que el de `cant_pers` en
+    // parseNorte) sin depender de que alguien exporte un Excel de KoBo
+    // cada vez. Los campos que identifican a la operadora (usuario, DNI,
+    // dispositivo, ids internos de KoBo) se ocultan — el resto (ubicación,
+    // cantidad, fecha, situación) no identifica a nadie y se muestra tal
+    // cual para poder ver el formato real.
     if(rows.length){
-      d.koboDebug[form.id] = { nombre: form.nombre, totalFilas: rows.length, camposMuestra: Object.keys(rows[0]) };
+      const muestra = rows[0];
+      const camposMuestra = Object.keys(muestra).map(campo => {
+        const esPersonal = /usuario|username|device|dni|submitted_by|uuid|instanceid/i.test(campo);
+        let valor = esPersonal ? '[oculto]' : muestra[campo];
+        if(valor && typeof valor === 'object') valor = JSON.stringify(valor);
+        if(typeof valor === 'string' && valor.length > 120) valor = valor.slice(0,120) + '…';
+        return { campo, valor };
+      });
+      d.koboDebug[form.id] = { nombre: form.nombre, totalFilas: rows.length, camposMuestra };
     }
     rows.forEach(r=>{
       const startVal = r['start']||r['_submission_time'];
@@ -1489,9 +1500,9 @@ function mostrarDebugKobo(){
     return;
   }
   const texto = Object.values(data.koboDebug).map(info =>
-    `${info.nombre} (${info.totalFilas} filas)\n` + info.camposMuestra.map(c => '  • ' + c).join('\n')
+    `${info.nombre} (${info.totalFilas} filas)\n` + info.camposMuestra.map(c => `  • ${c.campo}: ${c.valor}`).join('\n')
   ).join('\n\n');
-  alert('Campos crudos de KoBo (solo nombres de campo, sin datos personales):\n\n' + texto);
+  alert('Campos y valores de muestra de KoBo (usuario/DNI/dispositivo ocultos):\n\n' + texto);
 }
 
 // ── MODAL DE FOTO (captura de GeoTracker) — se ve adentro de la plataforma,
