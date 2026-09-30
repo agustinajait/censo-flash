@@ -590,7 +590,7 @@ function parseAusenteRow(r){
 // nunca una exclusión permanente: si se dejan vacías o mal puestas, no se
 // pierden datos, y el filtro de arriba siempre puede ampliarse después.
 function buildData(raw, project){
-  const d = {inicio:raw.inicio, fin:raw.fin, loaded:raw.loaded, cierres:[], koboRows:[], presentes:[], ausencias:[]};
+  const d = {inicio:raw.inicio, fin:raw.fin, loaded:raw.loaded, cierres:[], koboRows:[], presentes:[], ausencias:[], koboDebug:{}};
   if(raw.sheet) d.cierres = raw.sheet.map(parseCierreRow);
   if(raw.presentes) d.presentes = raw.presentes.map(parsePresenteRow).filter(p=>p.dupla);
   if(raw.ausencias) d.ausencias = raw.ausencias.map(parseAusenteRow).filter(a=>a.dupla);
@@ -598,6 +598,15 @@ function buildData(raw, project){
   (project.kobo.forms||[]).forEach((form, idx)=>{
     const rows = (raw.formRows||[])[idx];
     if(!rows) return;
+    // Debug (30/9/2026, pedido de Agustina ante Flash Sur recién activado
+    // mostrando "141 puntos, 0 con ubicación"): guarda solo los NOMBRES de
+    // campo de una fila de muestra por formulario — nunca los valores, no
+    // expone datos personales — para poder diagnosticar bugs de nombre de
+    // campo (misma familia que el de `cant_pers` en parseNorte) sin
+    // depender de que alguien exporte un Excel de KoBo cada vez.
+    if(rows.length){
+      d.koboDebug[form.id] = { nombre: form.nombre, totalFilas: rows.length, camposMuestra: Object.keys(rows[0]) };
+    }
     rows.forEach(r=>{
       const startVal = r['start']||r['_submission_time'];
       let parsed;
@@ -1471,6 +1480,20 @@ function toggleKobo(){
   applyKoboVisibility();
 }
 
+// Muestra los nombres de campo crudos de KoBo (ver koboDebug en buildData)
+// para diagnosticar bugs de nombre de campo sin pedir un export manual.
+function mostrarDebugKobo(){
+  const data = dataByProject[activeProjectId];
+  if(!data || !data.koboDebug || !Object.keys(data.koboDebug).length){
+    alert('No hay datos de KoBo cargados todavía para este proyecto.');
+    return;
+  }
+  const texto = Object.values(data.koboDebug).map(info =>
+    `${info.nombre} (${info.totalFilas} filas)\n` + info.camposMuestra.map(c => '  • ' + c).join('\n')
+  ).join('\n\n');
+  alert('Campos crudos de KoBo (solo nombres de campo, sin datos personales):\n\n' + texto);
+}
+
 // ── MODAL DE FOTO (captura de GeoTracker) — se ve adentro de la plataforma,
 // sin salir a Drive. Convertimos el link de "ver" de Drive a una URL de
 // imagen directa (funciona porque el Apps Script comparte el archivo como
@@ -1507,7 +1530,7 @@ document.addEventListener('click', function(ev){
 
 window.DashboardEngine = {
   doLogin, logout, toggleModo, processFiles, loadFromAPI, applyFilter, clearFilter,
-  toggleKobo, verFoto, cerrarFoto, togglePwd, abrirCalendario, cerrarCalendario,
+  toggleKobo, mostrarDebugKobo, verFoto, cerrarFoto, togglePwd, abrirCalendario, cerrarCalendario,
   refrescarAhora, aplicarFiltroUmbral0, limpiarFiltroUmbral0,
 };
 
