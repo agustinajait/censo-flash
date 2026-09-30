@@ -184,7 +184,7 @@
         </div>
       </div>
       <div class="link-row">
-        <div class="link-lbl">🗺️ Mi zona — My Maps</div>
+        <div class="link-lbl">🗺️ Mi zona — mapa con calles reales</div>
         <a id="d-mymaps" class="open-btn" href="#" target="_blank">Abrir mapa →</a>
       </div>
       <div class="link-row">
@@ -347,7 +347,7 @@ function mostrarDupla(codigo){
   const pills = document.getElementById('d-pills');
   pills.innerHTML = (d.turno ? `<div class="pill">🕙 ${esc(d.turno)} · ${esc(TURNO_HORARIO[d.turno]||'')}</div>` : '')
     + (d.es_referente ? '<div class="pill pill-ref">⭐ Referente del turno</div>' : '');
-  setLinkOrDisabled('d-mymaps', d.mymaps, 'Abrir mapa →');
+  setLinkOrDisabled('d-mymaps', 'resumen-zonas.html?dupla=' + encodeURIComponent(d.codigo), 'Abrir mapa →');
   setLinkOrDisabled('d-kobo', window.PROJECT_CONFIG.koboFormLink, 'Abrir KoBo →');
   const detalleCard = document.getElementById('d-detalle-card');
   if(d.detalle){
