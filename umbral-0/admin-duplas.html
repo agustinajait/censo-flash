@@ -66,6 +66,9 @@
   .dupla-resumen-codigo { font-family:'Sora',sans-serif; font-weight:800; color:var(--navy); }
   .dupla-resumen-sub { font-size:0.78rem; color:#64748b; }
   .dupla-resumen-integrantes { font-size:0.78rem; color:#94a3b8; }
+  .mini-mapa-link { flex:none; display:block; border-radius:8px; overflow:hidden; border:1.5px solid var(--border); background:#f8faff; line-height:0; transition:border-color 0.15s; }
+  .mini-mapa-link:hover { border-color:var(--blue); }
+  .mini-mapa-svg { display:block; }
   .turno-divider { font-family:'Sora',sans-serif; font-weight:800; font-size:0.72rem; letter-spacing:0.6px; text-transform:uppercase; color:#64748b; margin:20px 0 8px; padding-bottom:5px; border-bottom:2px solid #e2e8f0; }
   .turno-divider:first-child { margin-top:0; }
   .btn-sm { padding:5px 11px; font-size:0.74rem; }
@@ -1396,6 +1399,44 @@ function renderTurnoDivider(turno){
 
 const fmtHoraDupla = iso => iso ? new Date(iso).toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }) : '—';
 
+// Mapita chico dentro de cada tarjeta de "Duplas territoriales" (30/9/2026,
+// pedido de Agustina: "podes agregar una cajita con el mapita de cada
+// dupla... sin alterar el contenido ni el tamaño, y que si clickeo en el
+// mapita abra el link de cada dupla"). Es un SVG del polígono real de esa
+// dupla nomás — no el mapa real con calles (eso ya lo tiene el link de
+// destino) — así no depende de cargar tiles en vivo por cada una de las
+// 13 tarjetas, y renderiza al toque. z.poly admite un anillo simple o una
+// lista de anillos (ver anillosDe() en resumen-zonas.html/mapa-puntos.js)
+// — acá alcanza con dibujar todos los anillos que tenga.
+function _anillosDeMini(poly){
+  if(!poly || !poly.length) return [];
+  return (typeof poly[0][0] === 'number') ? [poly] : poly;
+}
+function miniMapaHtml(codigo){
+  const zonas = window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas;
+  const z = zonas && zonas.porDupla && zonas.porDupla[codigo];
+  if(!z || !z.poly || !z.poly.length) return '';
+  const anillos = _anillosDeMini(z.poly);
+  let minLat=Infinity, maxLat=-Infinity, minLng=Infinity, maxLng=-Infinity;
+  anillos.forEach(anillo => anillo.forEach(([lat,lng]) => {
+    if(lat<minLat) minLat=lat; if(lat>maxLat) maxLat=lat;
+    if(lng<minLng) minLng=lng; if(lng>maxLng) maxLng=lng;
+  }));
+  const W=48, H=48, PAD=3;
+  const latMid = (minLat+maxLat)/2;
+  const cosLat = Math.cos(latMid*Math.PI/180);
+  const lngSpan = Math.max((maxLng-minLng)*cosLat, 1e-6), latSpan = Math.max(maxLat-minLat, 1e-6);
+  const scale = Math.min((W-2*PAD)/lngSpan, (H-2*PAD)/latSpan);
+  const offX = (W-lngSpan*scale)/2, offY = (H-latSpan*scale)/2;
+  const project = (lat,lng) => [offX + (lng-minLng)*cosLat*scale, offY + (maxLat-lat)*scale];
+  const d = anillos.map(anillo => anillo.map((p,i) => { const [x,y]=project(p[0],p[1]); return (i===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1); }).join(' ') + ' Z').join(' ');
+  const color = z.color || '#1a56db';
+  const href = `resumen-zonas.html?dupla=${encodeURIComponent(codigo)}`;
+  return `<a href="${escAttr(href)}" target="_blank" rel="noopener" class="mini-mapa-link" title="Ver mapa de la Dupla ${escAttr(codigo)}" onclick="event.stopPropagation();">
+    <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="mini-mapa-svg"><path d="${d}" fill="${escAttr(color)}" fill-opacity="0.35" stroke="${escAttr(color)}" stroke-width="1.5" stroke-linejoin="round"/></svg>
+  </a>`;
+}
+
 // Cada tarjeta arranca colapsada (23/9/2026, pedido de Agustina: "no
 // necesito ver el listado completo... si quiero que se abra un
 // desplegable") — el resumen de arriba (`data-role="resumen"`) muestra
@@ -1436,6 +1477,7 @@ function renderDuplaCard(d, jornada){
         <div class="dupla-resumen-sub">${esc(turnoResumen)} · ${esc(d.zona || 'sin zona')}</div>
         <div class="dupla-resumen-integrantes">👤 ${esc(integrantesTxt)}</div>
       </div>
+      ${miniMapaHtml(d.codigo)}
       <span class="chev">▾</span>
     </div>
     <div data-role="body" style="display:none;margin-top:12px;">
