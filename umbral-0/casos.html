@@ -67,6 +67,11 @@
   .kobo-pend-txt { flex:1; min-width:180px; font-size:0.86rem; color:#334155; }
   .kobo-pend-txt strong { font-family:'Sora',sans-serif; color:var(--navy); }
   .kobo-pend-txt .meta { font-size:0.74rem; color:#64748b; }
+  /* "Validado sin intervención" (1/10/2026): va primero y se destaca en
+     rojo porque es el caso más urgente — ya se arrancó el contacto, solo
+     falta un clic para que no quede invisible para siempre. */
+  .kobo-pend-head-urgente { color:#b91c1c; }
+  .kobo-pend-card.kobo-pend-urgente { background:linear-gradient(135deg,#fef2f2,#fff5f5); border-color:#fca5a5; }
 
   /* ACCIONES PENDIENTES — guía rápida de "qué hacer ahora" en el home de
      la dupla (§10.1.55): trámites de DNI y casos sin identificar, que
@@ -75,6 +80,8 @@
   .acciones-pend-chips { display:flex; gap:8px; flex-wrap:wrap; }
   .acciones-chip { background:white; border:1.5px solid var(--border); border-radius:20px; padding:8px 14px; font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; color:var(--navy); cursor:pointer; }
   .acciones-chip:hover { border-color:var(--blue); color:var(--blue); }
+  .acciones-chip-urgente { background:#fef2f2; border-color:#fca5a5; color:#b91c1c; }
+  .acciones-chip-urgente:hover { border-color:#b91c1c; color:#991b1b; }
 
   /* LOGIN (igual patrón que admin-duplas.html) */
   #login-screen { max-width:380px; margin:60px auto; padding:0 18px; }
@@ -2318,6 +2325,7 @@ async function cargarKoboPendientes(){
       .sort((a,b) => (b.envio.fecha||'').localeCompare(a.envio.fecha||''));
     koboSinIdentificarActuales = [...sinIdentificar.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
     mostrarKoboPendientes();
+    renderAccionesPendientes();
   }catch(e){
     console.error('No se pudieron revisar los envíos de KoBo pendientes', e);
     // Antes esto se escondía en silencio ("no es un gate, es una ayuda
@@ -2442,6 +2450,21 @@ function mostrarKoboPendientes(){
   }
   box.style.display = 'block';
   box.innerHTML = `
+    ${hayValidadoSinIntervencion ? `
+      <div class="kobo-pend">
+        <div class="kobo-pend-head kobo-pend-head-urgente">⚠️ ${koboValidadoSinIntervencionActuales.length} caso${koboValidadoSinIntervencionActuales.length===1?'':'s'} validado${koboValidadoSinIntervencionActuales.length===1?'':'s'} al que${koboValidadoSinIntervencionActuales.length===1?'':'s'} todavía le${koboValidadoSinIntervencionActuales.length===1?'':'s'} falta registrar la intervención</div>
+        <div class="section-hint" style="margin:-4px 0 8px;">Ya validaste el envío de KoBo, pero falta el paso de "Registrar tu intervención" en la ficha — por eso esa visita todavía no está contada.</div>
+        ${koboValidadoSinIntervencionActuales.map(v => `
+          <div class="kobo-pend-card kobo-pend-urgente" style="cursor:pointer;" onclick="Casos.abrirFicha('${v.persona.id}')">
+            <div class="kobo-pend-txt">
+              <strong>${esc(nombreDisplay(v.persona))}</strong>
+              <div class="meta">Validado el ${v.fecha ? new Date(v.fecha).toLocaleDateString('es-AR') : ''} — falta registrar la intervención</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${v.persona.id}')">Ver caso →</button>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
     ${hayAltas ? `
       <div class="kobo-pend">
         <div class="kobo-pend-head">📥 ${koboPendientesActuales.length} envío${koboPendientesActuales.length===1?'':'s'} de KoBo con DNI que todavía no ${koboPendientesActuales.length===1?'tiene':'tienen'} caso cargado acá</div>
@@ -2484,21 +2507,6 @@ function mostrarKoboPendientes(){
               <div class="meta">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}${p.persona.caracteristicas ? ' · ' + esc(p.persona.caracteristicas) : ''}${(p.lat!=null && p.lng!=null) ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Ver ubicación</a>` : ''}</div>
             </div>
             <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboSinIdentificar(${idx})">➕ Cargar como "Sin identificar"</button>
-          </div>
-        `).join('')}
-      </div>
-    ` : ''}
-    ${hayValidadoSinIntervencion ? `
-      <div class="kobo-pend">
-        <div class="kobo-pend-head">📝 ${koboValidadoSinIntervencionActuales.length} caso${koboValidadoSinIntervencionActuales.length===1?'':'s'} validado${koboValidadoSinIntervencionActuales.length===1?'':'s'} al que${koboValidadoSinIntervencionActuales.length===1?'':'s'} todavía le${koboValidadoSinIntervencionActuales.length===1?'':'s'} falta registrar la intervención</div>
-        <div class="section-hint" style="margin:-4px 0 8px;">Ya validaste el envío de KoBo, pero falta el paso de "Registrar tu intervención" en la ficha — por eso esa visita todavía no está contada.</div>
-        ${koboValidadoSinIntervencionActuales.map(v => `
-          <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${v.persona.id}')">
-            <div class="kobo-pend-txt">
-              <strong>${esc(nombreDisplay(v.persona))}</strong>
-              <div class="meta">Validado el ${v.fecha ? new Date(v.fecha).toLocaleDateString('es-AR') : ''} — falta registrar la intervención</div>
-            </div>
-            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${v.persona.id}')">Ver caso →</button>
           </div>
         `).join('')}
       </div>
@@ -2575,14 +2583,24 @@ async function cargarSinIdentificarCount(){
 // directo a lo que necesita atención, en vez de que la dupla tenga que
 // notar el numerito en un botón del nav (fácil de pasar por alto con
 // tantos botones ahí arriba). Reusa los mismos arrays que ya calculan
-// cargarDniPendientesCount()/cargarSinIdentificarCount() — no repite
-// ningún fetch, solo repinta. KoBo pendientes queda afuera a propósito:
-// ese ya tiene su propio panel bien visible en el home (kobo-pend-box),
-// no hace falta duplicarlo acá.
+// cargarDniPendientesCount()/cargarSinIdentificarCount()/cargarKoboPendientes()
+// — no repite ningún fetch, solo repinta. El resto de KoBo pendientes
+// (altas/continuaciones/sin identificar) queda afuera a propósito: ya
+// tiene su propio panel bien visible en el home (kobo-pend-box). El caso
+// "validado sin intervención" sí se duplica acá además (1/10/2026, pedido
+// de Agustina: "tienen que estar más visible arriba") porque es el más
+// urgente — ya se arrancó el contacto, solo falta un clic para que cuente.
 function renderAccionesPendientes(){
   const box = document.getElementById('acciones-box');
   if(!box || !miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
   const items = [];
+  if(koboValidadoSinIntervencionActuales.length) items.push({
+    n: koboValidadoSinIntervencionActuales.length,
+    label: koboValidadoSinIntervencionActuales.length === 1 ? 'caso sin intervención registrada' : 'casos sin intervención registrada',
+    emoji: '⚠️',
+    onclick: "document.getElementById('kobo-pend-box').scrollIntoView({behavior:'smooth',block:'start'})",
+    urgente: true,
+  });
   if(dniPendientesActuales.length) items.push({
     n: dniPendientesActuales.length,
     label: dniPendientesActuales.length === 1 ? 'trámite de DNI pendiente' : 'trámites de DNI pendientes',
@@ -2601,7 +2619,7 @@ function renderAccionesPendientes(){
     <div class="acciones-pend">
       <div class="acciones-pend-head">📌 Para revisar</div>
       <div class="acciones-pend-chips">
-        ${items.map(it => `<button class="acciones-chip" onclick="${it.onclick}">${it.emoji} ${it.n} ${esc(it.label)} →</button>`).join('')}
+        ${items.map(it => `<button class="acciones-chip${it.urgente ? ' acciones-chip-urgente' : ''}" onclick="${it.onclick}">${it.emoji} ${it.n} ${esc(it.label)} →</button>`).join('')}
       </div>
     </div>
   `;
