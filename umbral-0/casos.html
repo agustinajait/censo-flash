@@ -2082,6 +2082,7 @@ function koboSubmissionId(p){
 let koboPendientesActuales = [];
 let asociarKoboCandidatosActuales = []; // ver Casos.abrirModalAsociarKobo()
 let koboOperadoresNoMatcheadosActuales = []; // ver cargarKoboPendientes() — diagnóstico de nombres que no matchean
+let koboValidadoSinIntervencionActuales = []; // ver cargarKoboPendientes() — validado pero sin intervención/seguimiento registrado
 
 // Diagnóstico (1/10/2026): busca en las filas CRUDAS de KoBo (ANTES de
 // parseUmbral0 — que descarta en silencio cualquier fila donde
@@ -2178,7 +2179,9 @@ async function cargarKoboPendientes(){
     const [{ data: integrantes }, { data: personasPropias }, { data: validacionesPropias }, koboParseadas] = await Promise.all([
       client.from('integrantes').select('nombre,apellido').eq('dupla_id', miPerfil.dupla_id),
       client.from('personas').select('id,nombre,apellido,dni,sin_identificar').eq('dupla_id', miPerfil.dupla_id),
-      client.from('kobo_validaciones').select('kobo_submission_id').eq('dupla_id', miPerfil.dupla_id),
+      // persona_id (antes no se pedía) hace falta para el aviso nuevo de
+      // "validado pero sin intervención registrada" — ver más abajo.
+      client.from('kobo_validaciones').select('kobo_submission_id, persona_id').eq('dupla_id', miPerfil.dupla_id),
       obtenerKoboRowsParseadas(project, form),
     ]);
 
@@ -2187,6 +2190,44 @@ async function cargarKoboPendientes(){
       .filter(n => n.trim());
     const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
     const idsYaValidados = new Set((validacionesPropias||[]).map(v => v.kobo_submission_id));
+
+    // "Validado pero sin intervención registrada" (pedido de Agustina,
+    // 1/10/2026: "en ningún lado del perfil de la dupla tiene una alerta
+    // o etiqueta que le indique dónde registrar la intervención, ella
+    // puede no recordar el nombre de la persona") — caso real: validás un
+    // envío de KoBo desde la ficha de alguien, pero no tocás "➕ Registrar
+    // tu intervención" después (son dos pasos separados a propósito, ver
+    // guardarValidacionKobo()), así que la visita no queda contada en
+    // ningún lado salvo que te acuerdes de volver a esa ficha puntual.
+    const personaPorIdPropia = new Map((personasPropias||[]).map(p => [p.id, p]));
+    const fechaPorSubId = new Map();
+    koboParseadas.forEach(p => { const sid = koboSubmissionId(p); if(sid) fechaPorSubId.set(sid, p.fecha ? String(p.fecha).slice(0,10) : null); });
+    const idsPersonasPropias = (personasPropias||[]).map(p => p.id);
+    let intervPorPersonaFecha = new Set(), seguPorPersonaFecha = new Set();
+    if(idsPersonasPropias.length){
+      const [{ data: intervD }, { data: seguD }] = await Promise.all([
+        client.from('intervenciones').select('persona_id, fecha').in('persona_id', idsPersonasPropias),
+        client.from('seguimientos').select('persona_id, fecha').in('persona_id', idsPersonasPropias),
+      ]);
+      (intervD||[]).forEach(i => intervPorPersonaFecha.add(i.persona_id + '|' + String(i.fecha||'').slice(0,10)));
+      (seguD||[]).forEach(s => seguPorPersonaFecha.add(s.persona_id + '|' + String(s.fecha||'').slice(0,10)));
+    }
+    koboValidadoSinIntervencionActuales = (validacionesPropias||[])
+      .filter(v => v.persona_id)
+      .map(v => {
+        const persona = personaPorIdPropia.get(v.persona_id);
+        const fecha = fechaPorSubId.get(v.kobo_submission_id);
+        if(!persona || !fecha) return null;
+        const clave = v.persona_id + '|' + fecha;
+        if(intervPorPersonaFecha.has(clave) || seguPorPersonaFecha.has(clave)) return null; // ya se registró
+        return { persona, fecha };
+      })
+      .filter(Boolean)
+      // Una persona puede tener más de un envío validado sin intervención
+      // el mismo día (ej. dos recontactos seguidos) — se avisa una sola
+      // vez por persona+día, no una card repetida por cada envío.
+      .filter((v, i, arr) => arr.findIndex(x => x.persona.id === v.persona.id && x.fecha === v.fecha) === i)
+      .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
     // Nombre normalizado -> persona ya cargada, para matchear posibles
     // continuaciones (envíos de KoBo sin DNI). Antes excluía TODA persona
     // sin_identificar de este matcheo ("no tiene con qué matchear por
@@ -2374,7 +2415,8 @@ function mostrarKoboPendientes(){
   const hayAltas = koboPendientesActuales.length > 0;
   const hayContinuaciones = koboPosiblesContinuacionesActuales.length > 0;
   const haySinIdentificar = koboSinIdentificarActuales.length > 0;
-  if(!hayAltas && !hayContinuaciones && !haySinIdentificar){
+  const hayValidadoSinIntervencion = koboValidadoSinIntervencionActuales.length > 0;
+  if(!hayAltas && !hayContinuaciones && !haySinIdentificar && !hayValidadoSinIntervencion){
     // Nada pendiente — pero si hay operadores "parecidos" a los de esta
     // dupla que no matchearon en los últimos 7 días, probablemente sea
     // justo por eso (nombre mal cargado acá o tipeado distinto en KoBo),
@@ -2442,6 +2484,21 @@ function mostrarKoboPendientes(){
               <div class="meta">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}${p.persona.caracteristicas ? ' · ' + esc(p.persona.caracteristicas) : ''}${(p.lat!=null && p.lng!=null) ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Ver ubicación</a>` : ''}</div>
             </div>
             <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboSinIdentificar(${idx})">➕ Cargar como "Sin identificar"</button>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+    ${hayValidadoSinIntervencion ? `
+      <div class="kobo-pend">
+        <div class="kobo-pend-head">📝 ${koboValidadoSinIntervencionActuales.length} caso${koboValidadoSinIntervencionActuales.length===1?'':'s'} validado${koboValidadoSinIntervencionActuales.length===1?'':'s'} al que${koboValidadoSinIntervencionActuales.length===1?'':'s'} todavía le${koboValidadoSinIntervencionActuales.length===1?'':'s'} falta registrar la intervención</div>
+        <div class="section-hint" style="margin:-4px 0 8px;">Ya validaste el envío de KoBo, pero falta el paso de "Registrar tu intervención" en la ficha — por eso esa visita todavía no está contada.</div>
+        ${koboValidadoSinIntervencionActuales.map(v => `
+          <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${v.persona.id}')">
+            <div class="kobo-pend-txt">
+              <strong>${esc(nombreDisplay(v.persona))}</strong>
+              <div class="meta">Validado el ${v.fecha ? new Date(v.fecha).toLocaleDateString('es-AR') : ''} — falta registrar la intervención</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${v.persona.id}')">Ver caso →</button>
           </div>
         `).join('')}
       </div>
