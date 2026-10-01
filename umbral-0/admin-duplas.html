@@ -2170,7 +2170,7 @@ async function calcularAsistencia(){
 
     _asistFilas = filas;
 
-    cont.innerHTML = _renderAsistencia(resumen, filas);
+    cont.innerHTML = _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta);
     estadoEl.textContent = `Listo — ${filas.length} jornada${filas.length===1?'':'s'} en el rango.`;
     btnCsv.disabled = !filas.length;
   }catch(e){
@@ -2182,7 +2182,27 @@ async function calcularAsistencia(){
   }
 }
 
-function _renderAsistencia(resumen, filas){
+// Resumen de días de lluvia en el rango elegido (pedido de Agustina,
+// 1/10/2026: "quiero que la plataforma haga el resumen de días de lluvia
+// en CABA") — a diferencia de la columna "Clima" de la tabla de abajo
+// (que es por jornada, solo se ve si alguna dupla trabajó ese día), esto
+// recorre TODOS los días del rango vía climaPorFecha (ya trae todo el
+// rango de Open-Meteo), así se ven los días de lluvia aunque ninguna
+// dupla haya cargado nada ese día.
+function _resumenLluvia(climaPorFecha, desde, hasta){
+  const fechas = Object.keys(climaPorFecha).sort();
+  if(!fechas.length){
+    return '<div class="section-hint" style="color:#b45309;">⚠️ No se pudo traer el clima para este rango (Open-Meteo no respondió).</div>';
+  }
+  const lluviosos = fechas.filter(f => climaPorFecha[f] != null && climaPorFecha[f] > 0.1);
+  if(!lluviosos.length){
+    return `<div class="section-hint">☀️ No llovió ningún día en el rango (${fechas.length} día${fechas.length===1?'':'s'} consultados, CABA).</div>`;
+  }
+  const listado = lluviosos.map(f => `${fmtFechaCorta(f)} (${climaPorFecha[f].toFixed(1)}mm)`).join(', ');
+  return `<div class="section-hint">🌧️ Llovió ${lluviosos.length} de ${fechas.length} día${fechas.length===1?'':'s'} en el rango (CABA): ${esc(listado)}.</div>`;
+}
+
+function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta){
   const filaResumen = r => `
     <tr>
       <td>${esc(r.dupla.codigo)}</td>
@@ -2210,6 +2230,7 @@ function _renderAsistencia(resumen, filas){
       <td><input type="text" class="nota-admin-input" value="${esc(f.notaAdmin)}" placeholder="Agregar nota…" onchange="guardarNotaAdmin('${f.id}', this.value)" style="width:100%;border:1px solid #dbeafe;border-radius:6px;padding:4px 6px;font-size:0.82rem;"></td>
     </tr>`;
   return `
+    ${_resumenLluvia(climaPorFecha, desde, hasta)}
     <div class="section-title" style="margin-top:0;">Resumen por dupla</div>
     <div class="tbl-wrap">
       <table class="reporte-tabla">
@@ -2928,7 +2949,7 @@ async function calcularResumenTodasLasDuplas(){
       client.from('personas').select('id, dupla_id').eq('oculto', false),
       client.from('intervenciones').select('id, dupla_id').eq('fecha', fecha),
       client.from('seguimientos').select('id, dupla_id').gte('fecha', desdeUtc).lt('fecha', hastaUtc),
-      client.from('jornadas').select('dupla_id, inicio, fin').eq('fecha', fecha),
+      client.from('jornadas').select('id, dupla_id, inicio, fin, nota_admin').eq('fecha', fecha),
     ]);
     if(duplasRes.error) throw duplasRes.error;
     if(nuevasRes.error) throw nuevasRes.error;
@@ -2999,6 +3020,17 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
     const segu = datos.seguPorDupla[d.id] || 0;
     const sinActividad = nuevas===0 && interv===0 && deriv===0 && segu===0;
     const numCelda = n => `<td class="num"${n===0 ? ' style="color:#dc2626;"' : ''}>${n}</td>`;
+    // Nota del admin (cambio de dupla, turno de más, etc. — pedido de
+    // Agustina, 1/10/2026: "para que el admin pueda acotar si hubo cambio
+    // de dupla o si una dupla hizo un turno de más"). Reusa la misma
+    // columna nota_admin de `jornadas` que ya existe en la pestaña
+    // Asistencia (guardarNotaAdmin) — acá aparece en el lugar donde en
+    // realidad se la busca, el resumen de un día puntual. Si la dupla no
+    // marcó jornada ese día, no hay fila de `jornadas` a la que atar la
+    // nota — se muestra deshabilitado en vez de un campo que no guarda.
+    const notaCelda = j
+      ? `<input type="text" class="nota-admin-input" value="${esc(j.nota_admin||'')}" placeholder="Agregar nota…" onchange="guardarNotaAdmin('${j.id}', this.value)" style="width:100%;min-width:140px;border:1px solid #dbeafe;border-radius:6px;padding:4px 6px;font-size:0.82rem;">`
+      : `<span style="color:#cbd5e1;font-size:0.78rem;" title="La dupla no marcó inicio de jornada ese día — no hay dónde guardar la nota todavía.">— sin jornada —</span>`;
     return `
       <tr${sinMarcar ? ' style="background:#fef2f2;"' : (sinActividad ? ' style="background:#fffbeb;"' : '')}>
         <td><b>Dupla ${esc(d.codigo)}</b></td>
@@ -3007,10 +3039,11 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
         ${numCelda(interv)}
         ${numCelda(deriv)}
         ${numCelda(segu)}
+        <td style="min-width:150px;">${notaCelda}</td>
         <td style="white-space:nowrap;"><button class="btn btn-outline btn-sm" style="white-space:nowrap;" id="btn-detalle-${d.id}" onclick="Casos_toggleDetalleDiario('${d.id}','${fecha}')">Ver detalle →</button></td>
       </tr>
       <tr class="fila-detalle-diario" id="detalle-fila-${d.id}" style="display:none;">
-        <td colspan="7" style="background:#f8fafc;padding:12px;"><div id="detalle-cont-${d.id}"></div></td>
+        <td colspan="8" style="background:#f8fafc;padding:12px;"><div id="detalle-cont-${d.id}"></div></td>
       </tr>
     `;
   }).join('');
@@ -3033,9 +3066,9 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
           <thead><tr>
             <th>Dupla</th><th>Jornada</th><th style="text-align:right;">Casos nuevos</th>
             <th style="text-align:right;">Intervenciones</th><th style="text-align:right;">Derivaciones</th>
-            <th style="text-align:right;">Seguimientos</th><th style="width:1%;white-space:nowrap;"></th>
+            <th style="text-align:right;">Seguimientos</th><th>Nota</th><th style="width:1%;white-space:nowrap;"></th>
           </tr></thead>
-          <tbody>${filas || '<tr><td colspan="7" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
+          <tbody>${filas || '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
           ${duplas.length ? `<tfoot><tr style="font-weight:700;background:#f1f5f9;">
             <td colspan="2">Promedio por dupla (${totalDuplas})</td>
             <td class="num">${prom(totalNuevas)}</td>
@@ -3043,10 +3076,11 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
             <td class="num">${prom(totalDeriv)}</td>
             <td class="num">${prom(totalSegu)}</td>
             <td></td>
+            <td></td>
           </tr></tfoot>` : ''}
         </table>
       </div>
-      <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero.</div>
+      <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero. Nota: para anotar cambios de dupla, turnos de más, etc. — se guarda sola al salir del campo.</div>
     </div>
   `;
 }
