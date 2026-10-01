@@ -392,6 +392,17 @@
        todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
   <div id="kobo-pend-box" style="display:none;"></div>
 
+  <!-- Diagnóstico de KoBo (1/10/2026, pedido de Agustina: la Dupla E decía
+       haber cargado casos HOY que no aparecían en ningún lado de esta
+       pantalla, ni siquiera en "sin identificar" — a diferencia de envíos
+       viejos (septiembre) que sí matcheaban bien). Mira las filas CRUDAS
+       de KoBo (antes de parseUmbral0, que puede estar descartando en
+       silencio algo de hoy si cambió un campo del formulario — mismo tipo
+       de bug real que encontramos en Censo Flash con cant_pers). -->
+  <div style="text-align:center;margin:0 0 10px;">
+    <button class="btn btn-outline btn-sm" onclick="mostrarDebugKoboUmbral0()">🔍 Ver mi envío más reciente en KoBo (diagnóstico)</button>
+  </div>
+
   <div class="wrap">
 
     <!-- VISTA: BUSCAR -->
@@ -2071,6 +2082,63 @@ function koboSubmissionId(p){
 let koboPendientesActuales = [];
 let asociarKoboCandidatosActuales = []; // ver Casos.abrirModalAsociarKobo()
 let koboOperadoresNoMatcheadosActuales = []; // ver cargarKoboPendientes() — diagnóstico de nombres que no matchean
+
+// Diagnóstico (1/10/2026): busca en las filas CRUDAS de KoBo (ANTES de
+// parseUmbral0 — que descarta en silencio cualquier fila donde
+// identificacion/equipo no sea exactamente 'umbral_0', ver config/
+// umbral-0.js) alguna que mencione a un integrante de esta dupla en
+// CUALQUIER campo, no solo "operador_nombre". Si parseUmbral0 está
+// tirando filas de hoy por un campo que cambió en el formulario de
+// KoBo (compartido entre varios equipos de GOPA, fuera de nuestro
+// control), acá deberían seguir apareciendo igual, porque no pasan
+// por ese filtro. Se muestran nombre y valor de todos los campos de la
+// fila más reciente que matchea, ocultando los que identifican a la
+// PERSONA ayudada (nombre/apellido/dni/teléfono/dirección) — no hace
+// falta verlos para este diagnóstico, que es sobre el operador y la
+// estructura del formulario.
+async function mostrarDebugKoboUmbral0(){
+  if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id){
+    alert('Esta herramienta es para cuentas de dupla.');
+    return;
+  }
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form){ alert('Este proyecto no tiene KoBo conectado.'); return; }
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data: integrantes } = await client.from('integrantes').select('nombre,apellido').eq('dupla_id', miPerfil.dupla_id);
+    const misNombres = (integrantes||[]).map(i => `${i.nombre||''} ${i.apellido||''}`.trim().toLowerCase()).filter(Boolean);
+    if(!misNombres.length){ alert('Esta dupla no tiene integrantes cargados todavía.'); return; }
+
+    const rows = await fetchKoboProxyAll(project, form.id);
+    // "operador" queda afuera a propósito: es justo el dato que hay que
+    // ver para este diagnóstico (el nombre de la propia dupla en KoBo),
+    // y el campo real se llama "identificacion/operador_nombre" — sin
+    // esta excepción, el patrón de "nombre" de abajo lo taparía también.
+    const PII = /(?<!operador)(?:^|[^a-z])nombre|apellido|alias|\bdni\b|documento|telefono|celular|direccion|contacto/i;
+    let masReciente = null;
+    rows.forEach(r => {
+      const valores = Object.values(r).map(v => String(v==null?'':v).toLowerCase());
+      const esDeEsteEquipo = misNombres.some(n => n && valores.some(v => v.includes(n)));
+      if(!esDeEsteEquipo) return;
+      const fecha = r['_submission_time'] || r['start'] || '';
+      if(!masReciente || fecha > masReciente._fecha) masReciente = { row: r, _fecha: fecha };
+    });
+    if(!masReciente){
+      alert('No se encontró ninguna fila cruda de KoBo que mencione a los integrantes de esta dupla. Puede ser que en KoBo el nombre cargado sea distinto al de acá.');
+      return;
+    }
+    const texto = Object.entries(masReciente.row).map(([campo, valor]) => {
+      let v = PII.test(campo) ? '[oculto]' : valor;
+      if(v && typeof v === 'object') v = JSON.stringify(v);
+      if(typeof v === 'string' && v.length > 120) v = v.slice(0,120) + '…';
+      return `  • ${campo}: ${v}`;
+    }).join('\n');
+    alert(`Fila cruda más reciente de KoBo que menciona a esta dupla (${rows.length} filas revisadas, campos personales ocultos):\n\n${texto}`);
+  }catch(e){
+    alert('No se pudo traer el diagnóstico de KoBo: ' + e.message);
+  }
+}
 
 async function cargarKoboPendientes(){
   const box = document.getElementById('kobo-pend-box');
