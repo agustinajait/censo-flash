@@ -400,7 +400,7 @@
        silencio algo de hoy si cambió un campo del formulario — mismo tipo
        de bug real que encontramos en Censo Flash con cant_pers). -->
   <div style="text-align:center;margin:0 0 10px;">
-    <button class="btn btn-outline btn-sm" onclick="mostrarDebugKoboUmbral0()">🔍 Ver mi envío más reciente en KoBo (diagnóstico)</button>
+    <button class="btn btn-outline btn-sm" onclick="mostrarDebugKoboUmbral0()">🔍 Ver mis últimos envíos en KoBo (diagnóstico)</button>
   </div>
 
   <div class="wrap">
@@ -2116,25 +2116,36 @@ async function mostrarDebugKoboUmbral0(){
     // y el campo real se llama "identificacion/operador_nombre" — sin
     // esta excepción, el patrón de "nombre" de abajo lo taparía también.
     const PII = /(?<!operador)(?:^|[^a-z])nombre|apellido|alias|\bdni\b|documento|telefono|celular|direccion|contacto/i;
-    let masReciente = null;
+    // Antes mostraba solo LA ÚLTIMA fila — si una dupla cargó más de un
+    // envío el mismo día (ej. un "Primer Acercamiento" y un "Recontacto"
+    // seguidos), la más vieja de las dos quedaba afuera del diagnóstico
+    // sin que hubiera forma de verla. Reportado por Agustina (1/10/2026):
+    // "en KoBo hay cargados DOS registros que la plataforma no levantó" —
+    // el diagnóstico mismo solo mostraba uno. Ahora muestra hasta 3.
+    const coincidencias = [];
     rows.forEach(r => {
       const valores = Object.values(r).map(v => String(v==null?'':v).toLowerCase());
       const esDeEsteEquipo = misNombres.some(n => n && valores.some(v => v.includes(n)));
       if(!esDeEsteEquipo) return;
       const fecha = r['_submission_time'] || r['start'] || '';
-      if(!masReciente || fecha > masReciente._fecha) masReciente = { row: r, _fecha: fecha };
+      coincidencias.push({ row: r, fecha });
     });
-    if(!masReciente){
+    if(!coincidencias.length){
       alert('No se encontró ninguna fila cruda de KoBo que mencione a los integrantes de esta dupla. Puede ser que en KoBo el nombre cargado sea distinto al de acá.');
       return;
     }
-    const texto = Object.entries(masReciente.row).map(([campo, valor]) => {
-      let v = PII.test(campo) ? '[oculto]' : valor;
-      if(v && typeof v === 'object') v = JSON.stringify(v);
-      if(typeof v === 'string' && v.length > 120) v = v.slice(0,120) + '…';
-      return `  • ${campo}: ${v}`;
-    }).join('\n');
-    alert(`Fila cruda más reciente de KoBo que menciona a esta dupla (${rows.length} filas revisadas, campos personales ocultos):\n\n${texto}`);
+    coincidencias.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+    const ultimas = coincidencias.slice(0, 3);
+    const texto = ultimas.map((c, i) => {
+      const campos = Object.entries(c.row).map(([campo, valor]) => {
+        let v = PII.test(campo) ? '[oculto]' : valor;
+        if(v && typeof v === 'object') v = JSON.stringify(v);
+        if(typeof v === 'string' && v.length > 120) v = v.slice(0,120) + '…';
+        return `  • ${campo}: ${v}`;
+      }).join('\n');
+      return `── Envío ${i+1} de ${ultimas.length} (${c.fecha || 'sin fecha'}) ──\n${campos}`;
+    }).join('\n\n');
+    alert(`Últimos envíos de KoBo que mencionan a esta dupla (${coincidencias.length} coincidencias de ${rows.length} filas revisadas, campos personales ocultos):\n\n${texto}`);
   }catch(e){
     alert('No se pudo traer el diagnóstico de KoBo: ' + e.message);
   }
