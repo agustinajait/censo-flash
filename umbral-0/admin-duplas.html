@@ -2436,6 +2436,61 @@ async function calcularOutcomesKobo(desde, hasta){
   return { totalEnvios, conteo, puntos };
 }
 
+// Envíos de KoBo de un día puntual que TODAVÍA NADIE VALIDÓ desde la
+// cuenta de la dupla (pedido de Agustina, 1/10/2026, tras encontrar que
+// dos envíos de la Dupla E estaban validados pero sin intervención
+// registrada — un caso DISTINTO: "lo que faltaría es que en la ficha del
+// día aparezca que falta validar porque la dupla no lo vio"). Mismo
+// criterio de matcheo operador->dupla que calcularOutcomesKobo() de
+// arriba (nombre + desambiguación por turno si el nombre coincide con
+// más de una dupla). Un envío cuenta como "sin validar" si su
+// kobo_submission_id no tiene NINGUNA fila en `kobo_validaciones` —
+// sin importar cuándo se haya cargado esa validación (puede validarse
+// días después), lo único que importa es si YA se vio o no.
+async function koboSinValidarPorDupla(fecha){
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form) return {};
+  const client = await SupabaseClient.getClient();
+  const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, { data: validaciones, error: errV }, koboRowsRaw] = await Promise.all([
+    client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+    client.from('duplas').select('id, codigo, turno'),
+    client.from('kobo_validaciones').select('kobo_submission_id'),
+    fetchKoboProxyAll(project, form.id),
+  ]);
+  if(errI) throw errI;
+  if(errD) throw errD;
+  if(errV) throw errV;
+  const codigoPorDuplaId = {};
+  const turnoPorDuplaId = {};
+  (duplasRows||[]).forEach(d => { codigoPorDuplaId[d.id] = d.codigo; turnoPorDuplaId[d.id] = d.turno; });
+  const duplaPorNombreKobo = (integrantes||[])
+    .filter(i => i.dupla_id)
+    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null, turno: turnoPorDuplaId[i.dupla_id] }))
+    .filter(r => r.nombre.trim());
+  const idsValidados = new Set((validaciones||[]).map(v => v.kobo_submission_id));
+
+  const conteo = {}; // código de dupla -> cantidad sin validar
+  koboRowsRaw.forEach(r => {
+    const p = form.parseRow(r);
+    if(!p) return;
+    const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
+    if(fechaSolo !== fecha) return;
+    const subId = koboSubmissionId(p);
+    if(!subId || idsValidados.has(subId)) return; // ya lo vio alguien
+    const matches = duplaPorNombreKobo.filter(m => nombresCoincidenKobo(m.nombre, p.operador));
+    let match = matches.length === 1 ? matches[0] : null;
+    if(matches.length > 1){
+      const porHorario = matches.filter(m => horaEnTurno(p.hora, m.turno));
+      match = porHorario.length === 1 ? porHorario[0] : matches[0];
+    }
+    const codigoDupla = match ? match.codigo : null;
+    if(!codigoDupla) return;
+    conteo[codigoDupla] = (conteo[codigoDupla] || 0) + 1;
+  });
+  return conteo;
+}
+
 // ── f. Qué hicieron las duplas — confirmado en la plataforma ───────────
 // Complementa "e." (respuesta cruda de KoBo): esto es lo que la propia
 // dupla tildó en "¿Qué hiciste con este caso?" al validar un envío de
@@ -2942,7 +2997,7 @@ async function calcularResumenTodasLasDuplas(){
     const client = await SupabaseClient.getClient();
     const { desdeUtc, hastaUtc } = _rangoUtcDelDia(fecha);
 
-    const [duplasRes, nuevasRes, personasTodasRes, intervRes, seguRes, jornadasRes] = await Promise.all([
+    const [duplasRes, nuevasRes, personasTodasRes, intervRes, seguRes, jornadasRes, koboSinValidar] = await Promise.all([
       client.from('duplas').select('id, codigo').order('codigo'),
       client.from('personas').select('id, dupla_id').eq('oculto', false)
         .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
@@ -2950,6 +3005,10 @@ async function calcularResumenTodasLasDuplas(){
       client.from('intervenciones').select('id, dupla_id').eq('fecha', fecha),
       client.from('seguimientos').select('id, dupla_id').gte('fecha', desdeUtc).lt('fecha', hastaUtc),
       client.from('jornadas').select('id, dupla_id, inicio, fin, nota_admin').eq('fecha', fecha),
+      // No bloquea el resto del resumen si KoBo falla (sin conexión,
+      // servicio caído) — mejor mostrar todo lo demás con esta columna
+      // en 0 que romper el resumen entero por esto.
+      koboSinValidarPorDupla(fecha).catch(e => { console.error('No se pudo calcular KoBo sin validar', e); return {}; }),
     ]);
     if(duplasRes.error) throw duplasRes.error;
     if(nuevasRes.error) throw nuevasRes.error;
@@ -2987,7 +3046,7 @@ async function calcularResumenTodasLasDuplas(){
     (jornadasRes.data||[]).forEach(j => jornadaPorDupla[j.dupla_id] = j);
 
     _renderResumenTodasLasDuplas(duplasRes.data||[], {
-      nuevasPorDupla, intervPorDupla, seguPorDupla, derivPorDupla, jornadaPorDupla,
+      nuevasPorDupla, intervPorDupla, seguPorDupla, derivPorDupla, jornadaPorDupla, koboSinValidar,
     }, fecha);
     estadoEl.textContent = 'Listo.';
   }catch(e){
@@ -3020,6 +3079,13 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
     const segu = datos.seguPorDupla[d.id] || 0;
     const sinActividad = nuevas===0 && interv===0 && deriv===0 && segu===0;
     const numCelda = n => `<td class="num"${n===0 ? ' style="color:#dc2626;"' : ''}>${n}</td>`;
+    // Envíos de KoBo de este día que todavía NADIE validó desde la cuenta
+    // de la dupla (pedido de Agustina, 1/10/2026: "que en la ficha del
+    // día aparezca que falta validar porque la dupla no lo vio") — se
+    // resalta en rojo si hay alguno, es justo lo contrario del resto de
+    // la fila (acá el 0 es lo bueno, no lo malo).
+    const sinValidar = (datos.koboSinValidar && datos.koboSinValidar[d.codigo]) || 0;
+    const sinValidarCelda = `<td class="num"${sinValidar>0 ? ' style="color:#dc2626;font-weight:700;"' : ''}>${sinValidar}</td>`;
     // Nota del admin (cambio de dupla, turno de más, etc. — pedido de
     // Agustina, 1/10/2026: "para que el admin pueda acotar si hubo cambio
     // de dupla o si una dupla hizo un turno de más"). Reusa la misma
@@ -3039,11 +3105,12 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
         ${numCelda(interv)}
         ${numCelda(deriv)}
         ${numCelda(segu)}
+        ${sinValidarCelda}
         <td style="min-width:150px;">${notaCelda}</td>
         <td style="white-space:nowrap;"><button class="btn btn-outline btn-sm" style="white-space:nowrap;" id="btn-detalle-${d.id}" onclick="Casos_toggleDetalleDiario('${d.id}','${fecha}')">Ver detalle →</button></td>
       </tr>
       <tr class="fila-detalle-diario" id="detalle-fila-${d.id}" style="display:none;">
-        <td colspan="8" style="background:#f8fafc;padding:12px;"><div id="detalle-cont-${d.id}"></div></td>
+        <td colspan="9" style="background:#f8fafc;padding:12px;"><div id="detalle-cont-${d.id}"></div></td>
       </tr>
     `;
   }).join('');
@@ -3066,9 +3133,9 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
           <thead><tr>
             <th>Dupla</th><th>Jornada</th><th style="text-align:right;">Casos nuevos</th>
             <th style="text-align:right;">Intervenciones</th><th style="text-align:right;">Derivaciones</th>
-            <th style="text-align:right;">Seguimientos</th><th>Nota</th><th style="width:1%;white-space:nowrap;"></th>
+            <th style="text-align:right;">Seguimientos</th><th style="text-align:right;">KoBo sin validar</th><th>Nota</th><th style="width:1%;white-space:nowrap;"></th>
           </tr></thead>
-          <tbody>${filas || '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
+          <tbody>${filas || '<tr><td colspan="9" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
           ${duplas.length ? `<tfoot><tr style="font-weight:700;background:#f1f5f9;">
             <td colspan="2">Promedio por dupla (${totalDuplas})</td>
             <td class="num">${prom(totalNuevas)}</td>
@@ -3077,10 +3144,11 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
             <td class="num">${prom(totalSegu)}</td>
             <td></td>
             <td></td>
+            <td></td>
           </tr></tfoot>` : ''}
         </table>
       </div>
-      <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero. Nota: para anotar cambios de dupla, turnos de más, etc. — se guarda sola al salir del campo.</div>
+      <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero (excepto "KoBo sin validar", donde en rojo es que SÍ hay algo pendiente). KoBo sin validar: envíos de ese día que la dupla todavía no vio/validó desde su cuenta — un envío ya validado no cuenta acá aunque todavía le falte registrar la intervención (eso se ve adentro de la ficha de la persona). Nota: para anotar cambios de dupla, turnos de más, etc. — se guarda sola al salir del campo.</div>
     </div>
   `;
 }
