@@ -65,7 +65,7 @@
 
 </div>
 
-<script src="../config/umbral-0.js?v=2026-09-29"></script>
+<script src="../config/umbral-0.js?v=2026-10-01"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/mapa-puntos.js?v=2026-09-29"></script>
 <script>
@@ -129,8 +129,9 @@ function actualizarEncabezado(zonas, focusCod){
   if(!focusCod) return;
   const z = zonas.porDupla[focusCod];
   document.getElementById('pagina-titulo').textContent = `🗺️ Tu zona — Dupla ${focusCod}`;
+  const mymapsLink = z.mymaps ? ` · <a href="${esc(z.mymaps)}" target="_blank" rel="noopener" style="color:#c7d7ff;">📍 Ver en Google My Maps</a>` : '';
   document.getElementById('pagina-sub').innerHTML =
-    `${esc(z.nombre||'')} · ${esc(z.turno||'')}${z.pico ? ' — ' + esc(z.pico) : ''} · <a href="./resumen-zonas.html" style="color:#c7d7ff;">Ver el mapa completo de todas las duplas</a>`;
+    `${esc(z.nombre||'')} · ${esc(z.turno||'')}${z.pico ? ' — ' + esc(z.pico) : ''} · <a href="./resumen-zonas.html" style="color:#c7d7ff;">Ver el mapa completo de todas las duplas</a>${mymapsLink}`;
 }
 
 (function init(){
