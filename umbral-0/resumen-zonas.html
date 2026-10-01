@@ -35,6 +35,8 @@
   .dupla-card .detalle { font-size:0.78rem; color:#64748b; line-height:1.45; }
   .dupla-card .calles { font-size:0.74rem; color:#94a3b8; line-height:1.4; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); }
   .empty-msg { text-align:center; color:#94a3b8; padding:40px 20px; font-size:0.9rem; }
+  .mymaps-btn { display:inline-flex; align-items:center; gap:6px; background:#fbbf24; color:#1e1403; font-weight:800; font-family:'Sora',sans-serif; font-size:0.85rem; padding:9px 18px; border-radius:24px; text-decoration:none; margin-top:12px; box-shadow:0 2px 10px rgba(251,191,36,0.35); }
+  .mymaps-btn:hover { background:#f8ce5a; }
   .footer-nota { text-align:center; font-size:0.74rem; color:#94a3b8; margin-top:30px; }
   .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
   .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
@@ -49,6 +51,7 @@
   </div>
   <h1 id="pagina-titulo">🗺️ Resumen de zonas — Releva Umbral</h1>
   <div class="sub" id="pagina-sub">Cómo queda repartido el territorio entre las 13 duplas, turno por turno. Las duplas de <span style="color:#fbbf24;font-weight:700;">frontera</span> (D, H) se corrieron desde Chacarita/Villa Crespo; las de <span style="color:#c4b5fd;font-weight:700;">iglesia</span> (C, F, I, L, M) bajan ahí fuera de su horario pico.</div>
+  <div id="pagina-mymaps-btn"></div>
 </div>
 
 <div class="wrap">
@@ -129,9 +132,11 @@ function actualizarEncabezado(zonas, focusCod){
   if(!focusCod) return;
   const z = zonas.porDupla[focusCod];
   document.getElementById('pagina-titulo').textContent = `🗺️ Tu zona — Dupla ${focusCod}`;
-  const mymapsLink = z.mymaps ? ` · <a href="${esc(z.mymaps)}" target="_blank" rel="noopener" style="color:#c7d7ff;">📍 Ver en Google My Maps</a>` : '';
   document.getElementById('pagina-sub').innerHTML =
-    `${esc(z.nombre||'')} · ${esc(z.turno||'')}${z.pico ? ' — ' + esc(z.pico) : ''} · <a href="./resumen-zonas.html" style="color:#c7d7ff;">Ver el mapa completo de todas las duplas</a>${mymapsLink}`;
+    `${esc(z.nombre||'')} · ${esc(z.turno||'')}${z.pico ? ' — ' + esc(z.pico) : ''}`;
+  document.getElementById('pagina-mymaps-btn').innerHTML = z.mymaps
+    ? `<a class="mymaps-btn" href="${esc(z.mymaps)}" target="_blank" rel="noopener">📍 Ver mi zona en Google My Maps</a>`
+    : '';
 }
 
 (function init(){
