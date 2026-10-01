@@ -3266,7 +3266,7 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
     const desdeUtc = fecha + 'T03:00:00.000Z';
     const hastaUtc = new Date(new Date(desdeUtc).getTime() + 24*60*60*1000).toISOString();
 
-    const [personasHoyRes, personasTodasRes, intervRes, seguRes, duplaRes, jornadaRes] = await Promise.all([
+    const [personasHoyRes, personasTodasRes, intervRes, seguRes, duplaRes, jornadaRes, koboSinValidarMapa] = await Promise.all([
       client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve').eq('dupla_id', duplaId).eq('oculto', false)
         .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
       // Todos los persona_id de la dupla (sin filtro de fecha) — hace
@@ -3285,6 +3285,12 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
       // cerradas antes de este fix), por eso maybeSingle() en vez de
       // single() y el fallback a null más abajo.
       client.from('jornadas').select('inicio, fin, observaciones').eq('dupla_id', duplaId).eq('fecha', fecha).maybeSingle(),
+      // Mismo cálculo que en "Resumen de todas las duplas" (pedido de
+      // Agustina, 1/10/2026) — se repite acá porque es donde en realidad
+      // lo busca: esta vista de "una dupla, con detalle" es la que se usa
+      // para revisar un caso puntual. No bloquea el resto del resumen si
+      // KoBo falla (sin conexión, servicio caído).
+      koboSinValidarPorDupla(fecha).catch(e => { console.error('No se pudo calcular KoBo sin validar', e); return {}; }),
     ]);
     if(personasHoyRes.error) throw personasHoyRes.error;
     if(personasTodasRes.error) throw personasTodasRes.error;
@@ -3340,6 +3346,7 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
       totalDerivaciones: derivData.length,
       seguimientos: (seguRes.data||[]).length,
       jornada: jornadaRes.data || null,
+      koboSinValidar: (koboSinValidarMapa && koboSinValidarMapa[duplaRes.data.codigo]) || 0,
     };
     _renderResumenDiarioAdmin(r, duplaRes.data.codigo, fecha, contId, duplaId);
   }catch(e){
@@ -3385,6 +3392,7 @@ function _renderResumenDiarioAdmin(r, duplaCod, fecha, contId, duplaId){
         <div class="kpi"><div class="num">${r.intervenciones.length}</div><div class="lbl">Intervenciones registradas</div></div>
         <div class="kpi"><div class="num">${r.totalDerivaciones}</div><div class="lbl">Derivaciones pedidas</div></div>
         <div class="kpi"><div class="num">${r.seguimientos}</div><div class="lbl">Seguimientos agregados</div></div>
+        <div class="kpi"><div class="num"${r.koboSinValidar>0 ? ' style="color:#dc2626;"' : ''}>${r.koboSinValidar}</div><div class="lbl">KoBo sin validar</div></div>
       </div>
       <div style="margin-top:14px;font-size:0.85rem;line-height:1.6;">
         <div style="margin-bottom:8px;"><b>📋 Casos nuevos:</b>${listaCasos(r.casosNuevos)}</div>
