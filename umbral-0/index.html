@@ -188,6 +188,10 @@
         <a id="d-mymaps" class="open-btn" href="#" target="_blank">Abrir mapa →</a>
       </div>
       <div class="link-row">
+        <div class="link-lbl">📍 Mi zona — Google My Maps</div>
+        <a id="d-mymaps-google" class="open-btn" href="#" target="_blank">Abrir mapa →</a>
+      </div>
+      <div class="link-row">
         <div class="link-lbl">📝 Formulario KoBo (obligatorio por contacto)</div>
         <a id="d-kobo" class="open-btn" href="#" target="_blank">Abrir KoBo →</a>
       </div>
@@ -348,6 +352,7 @@ function mostrarDupla(codigo){
   pills.innerHTML = (d.turno ? `<div class="pill">🕙 ${esc(d.turno)} · ${esc(TURNO_HORARIO[d.turno]||'')}</div>` : '')
     + (d.es_referente ? '<div class="pill pill-ref">⭐ Referente del turno</div>' : '');
   setLinkOrDisabled('d-mymaps', 'resumen-zonas.html?dupla=' + encodeURIComponent(d.codigo), 'Abrir mapa →');
+  setLinkOrDisabled('d-mymaps-google', d.mymaps, 'Abrir mapa →');
   setLinkOrDisabled('d-kobo', window.PROJECT_CONFIG.koboFormLink, 'Abrir KoBo →');
   const detalleCard = document.getElementById('d-detalle-card');
   if(d.detalle){

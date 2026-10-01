@@ -1471,6 +1471,7 @@ function mostrarMiTurno(){
           ${(!d.es_referente && referente) ? `<div class="detalle">👤 Referente del turno: Dupla ${esc(referente.codigo)}${referente.referente_telefono ? ' · 📞 ' + esc(referente.referente_telefono) : ' (sin teléfono cargado todavía)'}</div>` : ''}
         </div>
         ${d.codigo ? `<a href="resumen-zonas.html?dupla=${escAttr(d.codigo)}" target="_blank" rel="noopener" class="btn btn-blue">🗺️ Abrir mapa</a>` : ''}
+        ${d.mymaps ? `<a href="${escAttr(d.mymaps)}" target="_blank" rel="noopener" class="btn btn-blue">📍 Abrir en My Maps</a>` : ''}
         ${refWa ? `<a href="${escAttr(refWa)}" target="_blank" rel="noopener" class="btn btn-green">💬 WhatsApp al referente</a>` : ''}
       </div>
     </div>
