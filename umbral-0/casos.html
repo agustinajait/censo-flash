@@ -2070,6 +2070,7 @@ function koboSubmissionId(p){
 
 let koboPendientesActuales = [];
 let asociarKoboCandidatosActuales = []; // ver Casos.abrirModalAsociarKobo()
+let koboOperadoresNoMatcheadosActuales = []; // ver cargarKoboPendientes() — diagnóstico de nombres que no matchean
 
 async function cargarKoboPendientes(){
   const box = document.getElementById('kobo-pend-box');
@@ -2113,6 +2114,33 @@ async function cargarKoboPendientes(){
     const porDni = new Map(); // dni -> envío más reciente (altas nuevas)
     const posiblesContinuaciones = new Map(); // subId -> { persona, envio } (sin DNI, nombre matchea un caso propio)
     const sinIdentificar = new Map(); // subId -> envío (sin DNI Y sin nombre que matchee un caso propio — ver §10.1.14)
+    // Diagnóstico (1/10/2026, pedido de Agustina: "no aparecen pendientes...
+    // entré con el usuario de la E y no hay nada", pero la dupla decía
+    // haber cargado casos en KoBo ese mismo día) — si el nombre de un
+    // integrante quedó mal cargado en `integrantes` (o se tipeó distinto
+    // en KoBo), nombresCoincidenKobo() nunca matchea y el envío
+    // simplemente desaparece, sin ningún aviso visible (el cuadro entero
+    // se esconde si no hay nada "pendiente"). Acá se juntan los
+    // "operador" de los últimos 7 días que NO matchean a nadie de esta
+    // dupla pero comparten al menos una palabra con alguno de sus
+    // nombres — un typo o apellido mal cargado sigue compartiendo "Mayra"
+    // o "Quito", por ejemplo, así que sirve para detectar el caso real
+    // sin mostrar cientos de operadores de otros equipos que comparten
+    // el mismo formulario de KoBo.
+    const hace7Dias = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+    const misTokens = misNombres.map(n => new Set(normalizarNombreKobo(n).split(' ').filter(Boolean)));
+    const operadoresCercanos = new Map(); // operador normalizado -> { operador, fecha }
+    koboParseadas.forEach(p => {
+      if(misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return; // matchea bien, no es un near-miss
+      if(!p.operador || !p.fecha || p.fecha < hace7Dias) return;
+      const tokensOp = new Set(normalizarNombreKobo(p.operador).split(' ').filter(Boolean));
+      const comparteAlgo = misTokens.some(ts => [...ts].some(t => tokensOp.has(t)));
+      if(!comparteAlgo) return;
+      const key = normalizarNombreKobo(p.operador);
+      const previo = operadoresCercanos.get(key);
+      if(!previo || (p.fecha||'') > (previo.fecha||'')) operadoresCercanos.set(key, { operador: p.operador, fecha: p.fecha });
+    });
+    koboOperadoresNoMatcheadosActuales = [...operadoresCercanos.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
     koboParseadas.forEach(p => {
       if(!misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return; // no es de mi dupla
       // "No es población objetivo" / "No se encontró a nadie" — no hay
@@ -2253,7 +2281,30 @@ function mostrarKoboPendientes(){
   const hayAltas = koboPendientesActuales.length > 0;
   const hayContinuaciones = koboPosiblesContinuacionesActuales.length > 0;
   const haySinIdentificar = koboSinIdentificarActuales.length > 0;
-  if(!hayAltas && !hayContinuaciones && !haySinIdentificar){ box.style.display = 'none'; return; }
+  if(!hayAltas && !hayContinuaciones && !haySinIdentificar){
+    // Nada pendiente — pero si hay operadores "parecidos" a los de esta
+    // dupla que no matchearon en los últimos 7 días, probablemente sea
+    // justo por eso (nombre mal cargado acá o tipeado distinto en KoBo),
+    // no porque no haya actividad real. Avisar en vez de mostrar un
+    // cuadro vacío/ausente sin pistas (pedido de Agustina, 1/10/2026).
+    if(koboOperadoresNoMatcheadosActuales.length){
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div class="kobo-pend">
+          <div class="kobo-pend-card" style="background:#fffbeb;border-color:#fcd34d;">
+            <div class="kobo-pend-txt">
+              ⚠️ No encontramos envíos de KoBo para tu dupla, pero en los últimos 7 días vimos en KoBo a alguien con un nombre parecido al de tu equipo que no matcheó exacto. Si cargaste algo y no te aparece, puede ser que tu nombre esté mal escrito acá o en KoBo:
+              ${koboOperadoresNoMatcheadosActuales.map(o => `<div class="meta" style="margin-top:4px;">· "${esc(o.operador)}" (${o.fecha ? new Date(o.fecha).toLocaleDateString('es-AR') : ''})</div>`).join('')}
+              <div class="meta" style="margin-top:6px;">Avisale a Agustina para que lo corrija.</div>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+    box.style.display = 'none';
+    return;
+  }
   box.style.display = 'block';
   box.innerHTML = `
     ${hayAltas ? `
