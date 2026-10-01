@@ -2136,16 +2136,30 @@ async function mostrarDebugKoboUmbral0(){
     }
     coincidencias.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
     const ultimas = coincidencias.slice(0, 3);
-    const texto = ultimas.map((c, i) => {
-      const campos = Object.entries(c.row).map(([campo, valor]) => {
+    // Modal con scroll en vez de alert() — con 3 envíos completos (20+
+    // campos cada uno) el texto superaba el límite de caracteres de
+    // alert() en Chrome y se cortaba a la mitad del primer envío, sin
+    // ningún aviso visible de que faltaba contenido (reportado por
+    // Agustina: el cuadro terminaba en "..." antes de llegar siquiera al
+    // segundo envío). El modal no tiene ese límite.
+    const bloques = ultimas.map((c, i) => {
+      const filas = Object.entries(c.row).map(([campo, valor]) => {
         let v = PII.test(campo) ? '[oculto]' : valor;
         if(v && typeof v === 'object') v = JSON.stringify(v);
-        if(typeof v === 'string' && v.length > 120) v = v.slice(0,120) + '…';
-        return `  • ${campo}: ${v}`;
-      }).join('\n');
-      return `── Envío ${i+1} de ${ultimas.length} (${c.fecha || 'sin fecha'}) ──\n${campos}`;
-    }).join('\n\n');
-    alert(`Últimos envíos de KoBo que mencionan a esta dupla (${coincidencias.length} coincidencias de ${rows.length} filas revisadas, campos personales ocultos):\n\n${texto}`);
+        if(typeof v === 'string' && v.length > 200) v = v.slice(0,200) + '…';
+        return `<tr><td style="padding:3px 10px 3px 0;color:#64748b;white-space:nowrap;vertical-align:top;">${esc(campo)}</td><td style="padding:3px 0;word-break:break-word;">${esc(String(v))}</td></tr>`;
+      }).join('');
+      return `
+        <div style="margin-bottom:16px;">
+          <div style="font-weight:700;color:#0f1f3d;margin-bottom:6px;">Envío ${i+1} de ${ultimas.length} — ${esc(c.fecha || 'sin fecha')}</div>
+          <table style="width:100%;font-size:0.8rem;border-collapse:collapse;">${filas}</table>
+        </div>`;
+    }).join('<hr style="border:none;border-top:1px solid #dbeafe;margin:14px 0;">');
+    openModal('Últimos envíos de KoBo de esta dupla', `
+      <div class="hint" style="margin-bottom:10px;">${coincidencias.length} coincidencia${coincidencias.length===1?'':'s'} de ${rows.length} filas revisadas · campos personales de la persona ayudada ocultos.</div>
+      <div style="max-height:60vh;overflow-y:auto;">${bloques}</div>
+      <div class="modal-foot"><button type="button" class="btn btn-outline" onclick="closeModal()">Cerrar</button></div>
+    `);
   }catch(e){
     alert('No se pudo traer el diagnóstico de KoBo: ' + e.message);
   }
