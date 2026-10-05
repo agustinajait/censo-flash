@@ -147,7 +147,7 @@
     </Placemark>
     <Placemark>
       <name>Dupla L — Frontera — P3 + P4</name>
-      <description>Tipo: iglesia | Zona final (5/10/2026): Patrulla los polígonos 3 y 4 (los más cercanos a Belgrano) y cierra el turno en La Redonda a las 18. Para llegar tiene que salir del corredor alrededor de las 17:15 (~4,7 km).</description>
+      <description>Zona final (5/10/2026): Polígonos 3 y 4 completos, todo el turno.</description>
       <Style>
         <LineStyle><color>fffa8ba7</color><width>3</width></LineStyle>
         <PolyStyle><color>55fa8ba7</color></PolyStyle>
@@ -180,7 +180,7 @@
     </Placemark>
     <Placemark>
       <name>Dupla K — Frontera — P4</name>
-      <description>Zona final (5/10/2026): Polígono 4 completo.</description>
+      <description>Tipo: iglesia | Zona final (5/10/2026): Lunes, miércoles y viernes: comedor de La Redonda desde las 18. Martes y jueves: recorre el Polígono 4 todo el turno.</description>
       <Style>
         <LineStyle><color>ff8b8bd6</color><width>3</width></LineStyle>
         <PolyStyle><color>558b8bd6</color></PolyStyle>
@@ -287,8 +287,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>La Redonda (Dupla L)</name>
-      <description>Iglesia/comedor de referencia de la Dupla L</description>
+      <name>La Redonda (Dupla K)</name>
+      <description>Iglesia/comedor de referencia de la Dupla K</description>
       <Style>
         <LineStyle><color>ffd642c5</color><width>3</width></LineStyle>
         <PolyStyle><color>55d642c5</color></PolyStyle>
