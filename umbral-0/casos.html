@@ -2209,41 +2209,39 @@ async function cargarKoboPendientes(){
     // ningún lado salvo que te acuerdes de volver a esa ficha puntual.
     const personaPorIdPropia = new Map((personasPropias||[]).map(p => [p.id, p]));
     const idsPersonasPropias = (personasPropias||[]).map(p => p.id);
-    // Antes esto matcheaba por persona+fecha-de-envío-de-KoBo contra
-    // persona+fecha-de-intervención, pero `intervenciones.fecha` /
-    // `seguimientos.fecha` se completan con la fecha en que la dupla tocó
-    // "Guardar" en la app (default de la columna, no se manda explícito
-    // al insertar — ver guardarIntervencion()/guardarSeguimiento()), que
-    // casi nunca es el mismo día que el envío original de KoBo (reportado
-    // por la dupla A, 5/10/2026: validó un envío del 22/9, pero el
-    // "Primer contacto" quedó guardado el 24/9 — dos días después — y por
-    // eso el caso seguía apareciendo como pendiente para siempre). Ahora
-    // se compara contra created_at (el momento real de cada fila) y se
-    // considera resuelto si hay una intervención o seguimiento de esa
-    // persona creado en o después del momento en que se validó el KoBo,
-    // sin importar qué día figure en `fecha`.
-    let ultimaIntervPorPersona = new Map(), ultimaSeguPorPersona = new Map();
+    // Primer intento (5/10/2026): comparar por created_at, "resuelto si
+    // hay una intervención/seguimiento creado en o después de la
+    // validación" — pero esto asume que siempre se valida primero y se
+    // registra la intervención después. En la práctica también pasa al
+    // revés (reportado por la dupla A el mismo día, mismo caso): registra
+    // el seguimiento en el momento, y recién días más tarde entra a
+    // "poner al día" validaciones de envíos de KoBo viejos — la
+    // intervención quedó ANTES de la validación, así que esa comparación
+    // también la dejaba marcada como pendiente para siempre.
+    // Ahora no se compara ningún orden ni fecha: alcanza con que la
+    // persona tenga alguna intervención o seguimiento real registrado.
+    // Se excluye específicamente el stub automático de alta ("Ingreso
+    // inicial del caso.", insertado solo por guardarPersona() al crear el
+    // caso — no es una intervención real) para que ese stub no haga que
+    // toda futura validación de esa persona se dé siempre por resuelta.
+    let personasConIntervencionReal = new Set(), personasConSeguimiento = new Set();
     if(idsPersonasPropias.length){
       const [{ data: intervD }, { data: seguD }] = await Promise.all([
-        client.from('intervenciones').select('persona_id, created_at').in('persona_id', idsPersonasPropias),
-        client.from('seguimientos').select('persona_id, created_at').in('persona_id', idsPersonasPropias),
+        client.from('intervenciones').select('persona_id, tipo, resumen').in('persona_id', idsPersonasPropias),
+        client.from('seguimientos').select('persona_id').in('persona_id', idsPersonasPropias),
       ]);
-      const guardarMax = (mapa, persona_id, created_at) => {
-        if(!created_at) return;
-        const prev = mapa.get(persona_id);
-        if(!prev || created_at > prev) mapa.set(persona_id, created_at);
-      };
-      (intervD||[]).forEach(i => guardarMax(ultimaIntervPorPersona, i.persona_id, i.created_at));
-      (seguD||[]).forEach(s => guardarMax(ultimaSeguPorPersona, s.persona_id, s.created_at));
+      (intervD||[]).forEach(i => {
+        const esStubDeAlta = i.tipo === 'contacto_espontaneo' && i.resumen === 'Ingreso inicial del caso.';
+        if(!esStubDeAlta) personasConIntervencionReal.add(i.persona_id);
+      });
+      (seguD||[]).forEach(s => personasConSeguimiento.add(s.persona_id));
     }
     koboValidadoSinIntervencionActuales = (validacionesPropias||[])
       .filter(v => v.persona_id && v.created_at)
       .map(v => {
         const persona = personaPorIdPropia.get(v.persona_id);
         if(!persona) return null;
-        const ultimaInterv = ultimaIntervPorPersona.get(v.persona_id);
-        const ultimaSegu = ultimaSeguPorPersona.get(v.persona_id);
-        if((ultimaInterv && ultimaInterv >= v.created_at) || (ultimaSegu && ultimaSegu >= v.created_at)) return null; // ya se registró después de validar
+        if(personasConIntervencionReal.has(v.persona_id) || personasConSeguimiento.has(v.persona_id)) return null; // ya tiene seguimiento real registrado
         return { persona, fecha: v.created_at };
       })
       .filter(Boolean)
