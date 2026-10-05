@@ -2188,7 +2188,8 @@ async function cargarKoboPendientes(){
       client.from('personas').select('id,nombre,apellido,dni,sin_identificar').eq('dupla_id', miPerfil.dupla_id),
       // persona_id (antes no se pedía) hace falta para el aviso nuevo de
       // "validado pero sin intervención registrada" — ver más abajo.
-      client.from('kobo_validaciones').select('kobo_submission_id, persona_id').eq('dupla_id', miPerfil.dupla_id),
+      // created_at también hace falta para ese mismo aviso (ver más abajo).
+      client.from('kobo_validaciones').select('kobo_submission_id, persona_id, created_at').eq('dupla_id', miPerfil.dupla_id),
       obtenerKoboRowsParseadas(project, form),
     ]);
 
@@ -2207,34 +2208,49 @@ async function cargarKoboPendientes(){
     // guardarValidacionKobo()), así que la visita no queda contada en
     // ningún lado salvo que te acuerdes de volver a esa ficha puntual.
     const personaPorIdPropia = new Map((personasPropias||[]).map(p => [p.id, p]));
-    const fechaPorSubId = new Map();
-    koboParseadas.forEach(p => { const sid = koboSubmissionId(p); if(sid) fechaPorSubId.set(sid, p.fecha ? String(p.fecha).slice(0,10) : null); });
     const idsPersonasPropias = (personasPropias||[]).map(p => p.id);
-    let intervPorPersonaFecha = new Set(), seguPorPersonaFecha = new Set();
+    // Antes esto matcheaba por persona+fecha-de-envío-de-KoBo contra
+    // persona+fecha-de-intervención, pero `intervenciones.fecha` /
+    // `seguimientos.fecha` se completan con la fecha en que la dupla tocó
+    // "Guardar" en la app (default de la columna, no se manda explícito
+    // al insertar — ver guardarIntervencion()/guardarSeguimiento()), que
+    // casi nunca es el mismo día que el envío original de KoBo (reportado
+    // por la dupla A, 5/10/2026: validó un envío del 22/9, pero el
+    // "Primer contacto" quedó guardado el 24/9 — dos días después — y por
+    // eso el caso seguía apareciendo como pendiente para siempre). Ahora
+    // se compara contra created_at (el momento real de cada fila) y se
+    // considera resuelto si hay una intervención o seguimiento de esa
+    // persona creado en o después del momento en que se validó el KoBo,
+    // sin importar qué día figure en `fecha`.
+    let ultimaIntervPorPersona = new Map(), ultimaSeguPorPersona = new Map();
     if(idsPersonasPropias.length){
       const [{ data: intervD }, { data: seguD }] = await Promise.all([
-        client.from('intervenciones').select('persona_id, fecha').in('persona_id', idsPersonasPropias),
-        client.from('seguimientos').select('persona_id, fecha').in('persona_id', idsPersonasPropias),
+        client.from('intervenciones').select('persona_id, created_at').in('persona_id', idsPersonasPropias),
+        client.from('seguimientos').select('persona_id, created_at').in('persona_id', idsPersonasPropias),
       ]);
-      (intervD||[]).forEach(i => intervPorPersonaFecha.add(i.persona_id + '|' + String(i.fecha||'').slice(0,10)));
-      (seguD||[]).forEach(s => seguPorPersonaFecha.add(s.persona_id + '|' + String(s.fecha||'').slice(0,10)));
+      const guardarMax = (mapa, persona_id, created_at) => {
+        if(!created_at) return;
+        const prev = mapa.get(persona_id);
+        if(!prev || created_at > prev) mapa.set(persona_id, created_at);
+      };
+      (intervD||[]).forEach(i => guardarMax(ultimaIntervPorPersona, i.persona_id, i.created_at));
+      (seguD||[]).forEach(s => guardarMax(ultimaSeguPorPersona, s.persona_id, s.created_at));
     }
     koboValidadoSinIntervencionActuales = (validacionesPropias||[])
-      .filter(v => v.persona_id)
+      .filter(v => v.persona_id && v.created_at)
       .map(v => {
         const persona = personaPorIdPropia.get(v.persona_id);
-        const fecha = fechaPorSubId.get(v.kobo_submission_id);
-        if(!persona || !fecha) return null;
-        const clave = v.persona_id + '|' + fecha;
-        if(intervPorPersonaFecha.has(clave) || seguPorPersonaFecha.has(clave)) return null; // ya se registró
-        return { persona, fecha };
+        if(!persona) return null;
+        const ultimaInterv = ultimaIntervPorPersona.get(v.persona_id);
+        const ultimaSegu = ultimaSeguPorPersona.get(v.persona_id);
+        if((ultimaInterv && ultimaInterv >= v.created_at) || (ultimaSegu && ultimaSegu >= v.created_at)) return null; // ya se registró después de validar
+        return { persona, fecha: v.created_at };
       })
       .filter(Boolean)
-      // Una persona puede tener más de un envío validado sin intervención
-      // el mismo día (ej. dos recontactos seguidos) — se avisa una sola
-      // vez por persona+día, no una card repetida por cada envío.
-      .filter((v, i, arr) => arr.findIndex(x => x.persona.id === v.persona.id && x.fecha === v.fecha) === i)
-      .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+      .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''))
+      // Una persona puede tener más de una validación sin intervención —
+      // se avisa una sola vez (la más reciente), no una card por cada envío.
+      .filter((v, i, arr) => arr.findIndex(x => x.persona.id === v.persona.id) === i);
     // Nombre normalizado -> persona ya cargada, para matchear posibles
     // continuaciones (envíos de KoBo sin DNI). Antes excluía TODA persona
     // sin_identificar de este matcheo ("no tiene con qué matchear por
