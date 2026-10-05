@@ -5,8 +5,8 @@
   <Folder>
     <name>TURNO 1 · 6-10hs</name>
     <Placemark>
-      <name>Dupla A — Frontera — P2 (Ayacucho → Ecuador)</name>
-      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P2 (Ayacucho → Ecuador). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla A — Frontera — P2</name>
+      <description>Zona final (5/10/2026): Polígono 2 completo.</description>
       <Style>
         <LineStyle><color>ffa04f6b</color><width>3</width></LineStyle>
         <PolyStyle><color>55a04f6b</color></PolyStyle>
@@ -14,14 +14,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.381075,-34.598776,0 -58.395805,-34.59961,0 -58.395235,-34.604476,0 -58.388146,-34.604289,0 -58.380971,-34.604084,0 -58.381075,-34.598776,0</coordinates>
+            <coordinates>-58.404445,-34.597599,0 -58.403638,-34.598073,0 -58.402784,-34.598672,0 -58.401441,-34.598912,0 -58.400852,-34.59917,0 -58.396836,-34.5996,0 -58.396344,-34.599586,0 -58.395,-34.599511,0 -58.395,-34.604641,0 -58.396965,-34.60463,0 -58.399621,-34.604785,0 -58.400639,-34.604866,0 -58.40073,-34.6053,0 -58.401027,-34.604897,0 -58.402205,-34.604883,0 -58.40592,-34.604748,0 -58.406125,-34.604716,0 -58.406435,-34.604712,0 -58.4075,-34.604539,0 -58.4075,-34.597715,0 -58.404445,-34.597599,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla B — Frontera — P1 mitad oeste (Paraná → Ayacucho)</name>
-      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 mitad oeste (Paraná → Ayacucho). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla B — Frontera — P1 oeste</name>
+      <description>Tipo: iglesia | Zona final (5/10/2026): Cubre Esclavas en el turno mañana (alerta 5 de gobierno) y patrulla la mitad oeste del Polígono 1 (Paraná → Ayacucho, aprox.).</description>
       <Style>
         <LineStyle><color>ff2b2bd6</color><width>3</width></LineStyle>
         <PolyStyle><color>552b2bd6</color></PolyStyle>
@@ -29,14 +29,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.387147,-34.59912,0 -58.381075,-34.598776,0 -58.38107,-34.599045,0 -58.379583,-34.598995,0 -58.37959,-34.59891,0 -58.37961,-34.59877,0 -58.37964,-34.59863,0 -58.37974,-34.59837,0 -58.37981,-34.59824,0 -58.37989,-34.59812,0 -58.37999,-34.59801,0 -58.38009,-34.59792,0 -58.3802,-34.59783,0 -58.38032,-34.59775,0 -58.38044,-34.59768,0 -58.38058,-34.59763,0 -58.38071,-34.59758,0 -58.38085,-34.59755,0 -58.38099,-34.59754,0 -58.38151,-34.59751,0 -58.38164,-34.59751,0 -58.38177,-34.59752,0 -58.38267,-34.59762,0 -58.38269,-34.59762,0 -58.38349,-34.59772,0 -58.38364,-34.59775,0 -58.38379,-34.59779,0 -58.38393,-34.59785,0 -58.38407,-34.59792,0 -58.3842,-34.59801,0 -58.38432,-34.59811,0 -58.384401,-34.598199,0 -58.38444,-34.59815,0 -58.38466,-34.59796,0 -58.38492,-34.59782,0 -58.38535,-34.59772,0 -58.385458,-34.597718,0 -58.3855,-34.59771,0 -58.385602,-34.597715,0 -58.38589,-34.59771,0 -58.3871,-34.59779,0 -58.387147,-34.597795,0 -58.387147,-34.59912,0</coordinates>
+            <coordinates>-58.392593,-34.599379,0 -58.392142,-34.599324,0 -58.391737,-34.599337,0 -58.391495,-34.599213,0 -58.391446,-34.599352,0 -58.39048,-34.59927,0 -58.390403,-34.599345,0 -58.389904,-34.599332,0 -58.389,-34.599368,0 -58.388,-34.599256,0 -58.388,-34.604274,0 -58.391782,-34.604563,0 -58.391962,-34.604617,0 -58.392199,-34.604639,0 -58.392232,-34.604629,0 -58.392768,-34.604654,0 -58.395,-34.604641,0 -58.395,-34.599511,0 -58.392593,-34.599379,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla C — Frontera — P1 mitad este (9 de Julio → Paraná)</name>
-      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 mitad este (9 de Julio → Paraná). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla C — Frontera — P1 este</name>
+      <description>Tipo: iglesia | Zona final (5/10/2026): Pasa por sus iglesias y después patrulla la mitad este del Polígono 1 (Carlos Pellegrini → Paraná, aprox.). El P1 es el de más demanda (1.801 llamados ago-sep), por eso a la mañana tiene dos duplas.</description>
       <Style>
         <LineStyle><color>fff65c8b</color><width>3</width></LineStyle>
         <PolyStyle><color>55f65c8b</color></PolyStyle>
@@ -44,14 +44,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.389786,-34.604332,0 -58.38975,-34.60457,0 -58.38958,-34.60497,0 -58.38918,-34.60541,0 -58.38878,-34.60561,0 -58.38835,-34.60569,0 -58.3871,-34.60562,0 -58.38641,-34.60554,0 -58.38593,-34.60533,0 -58.385711,-34.60518,0 -58.38565,-34.60523,0 -58.38552,-34.60531,0 -58.3854,-34.60537,0 -58.38526,-34.60542,0 -58.38512,-34.60546,0 -58.38498,-34.60548,0 -58.38483,-34.60549,0 -58.384714,-34.60549,0 -58.384714,-34.604191,0 -58.388146,-34.604289,0 -58.389786,-34.604332,0</coordinates>
+            <coordinates>-58.387207,-34.599168,0 -58.387208,-34.599233,0 -58.385203,-34.599128,0 -58.38512,-34.59902,0 -58.384632,-34.599031,0 -58.383984,-34.598768,0 -58.384026,-34.599044,0 -58.38334,-34.599128,0 -58.382348,-34.598998,0 -58.381135,-34.598892,0 -58.380862,-34.59906,0 -58.380863,-34.599001,0 -58.380687,-34.599167,0 -58.380862,-34.59906,0 -58.380826,-34.601251,0 -58.380976,-34.601782,0 -58.38084,-34.602851,0 -58.380626,-34.603398,0 -58.380946,-34.603446,0 -58.380558,-34.603766,0 -58.380922,-34.603618,0 -58.380902,-34.603755,0 -58.381119,-34.603657,0 -58.381281,-34.603672,0 -58.381755,-34.603877,0 -58.382924,-34.603827,0 -58.386195,-34.604136,0 -58.388,-34.604274,0 -58.388,-34.599256,0 -58.387207,-34.599168,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla G — Frontera — P3 + P4 (Ecuador → Av. Estado de Israel)</name>
-      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P3 + P4 (Ecuador → Av. Estado de Israel). Cambia de zona respecto a la semana anterior. [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla G — Frontera — P3 + P4</name>
+      <description>Zona final (5/10/2026): Pasó del Turno 2 al Turno 1 (6 a 10). Cubre los polígonos 3 y 4, los de menor demanda, en el turno con más llamados.</description>
       <Style>
         <LineStyle><color>ffa04f6b</color><width>3</width></LineStyle>
         <PolyStyle><color>55a04f6b</color></PolyStyle>
@@ -59,7 +59,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.381075,-34.598776,0 -58.395805,-34.59961,0 -58.395235,-34.604476,0 -58.388146,-34.604289,0 -58.380971,-34.604084,0 -58.381075,-34.598776,0</coordinates>
+            <coordinates>-58.432318,-34.602039,0 -58.432192,-34.601981,0 -58.432235,-34.601785,0 -58.43192,-34.601488,0 -58.43168,-34.601171,0 -58.431487,-34.600976,0 -58.431156,-34.600693,0 -58.430073,-34.599706,0 -58.429754,-34.599488,0 -58.429034,-34.59886,0 -58.42842,-34.598555,0 -58.427849,-34.598041,0 -58.427729,-34.597961,0 -58.427578,-34.597777,0 -58.427406,-34.597778,0 -58.427309,-34.597827,0 -58.42703,-34.597778,0 -58.424618,-34.597718,0 -58.422744,-34.597621,0 -58.421843,-34.597634,0 -58.421842,-34.597656,0 -58.420557,-34.597686,0 -58.4191,-34.597662,0 -58.418541,-34.597476,0 -58.418035,-34.597617,0 -58.417057,-34.597632,0 -58.41625,-34.597611,0 -58.415669,-34.59767,0 -58.415046,-34.597778,0 -58.414909,-34.597726,0 -58.414001,-34.597908,0 -58.41304,-34.59792,0 -58.41261,-34.5982,0 -58.412458,-34.598151,0 -58.411738,-34.597616,0 -58.411305,-34.59779,0 -58.41049,-34.597705,0 -58.409546,-34.597387,0 -58.407505,-34.597715,0 -58.4075,-34.597715,0 -58.4075,-34.604539,0 -58.408936,-34.604304,0 -58.410611,-34.604177,0 -58.41231,-34.60407,0 -58.413047,-34.6042,0 -58.413159,-34.604284,0 -58.41328,-34.6043,0 -58.41347,-34.604274,0 -58.413608,-34.604299,0 -58.413714,-34.604241,0 -58.415146,-34.604048,0 -58.415453,-34.604048,0 -58.415429,-34.60401,0 -58.417852,-34.603683,0 -58.427081,-34.602838,0 -58.427622,-34.602706,0 -58.429848,-34.602485,0 -58.431478,-34.602291,0 -58.431772,-34.602339,0 -58.431868,-34.602202,0 -58.432318,-34.602039,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -68,8 +68,8 @@
   <Folder>
     <name>TURNO 2 · 10-14hs</name>
     <Placemark>
-      <name>Dupla D — Frontera — P2 + P3 (Ayacucho → Bulnes)</name>
-      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P2 + P3 (Ayacucho → Bulnes). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla D — Frontera — P2 + P3</name>
+      <description>Zona final (5/10/2026): Polígonos 2 y 3.</description>
       <Style>
         <LineStyle><color>ff3f55c2</color><width>3</width></LineStyle>
         <PolyStyle><color>553f55c2</color></PolyStyle>
@@ -77,14 +77,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.395805,-34.59961,0 -58.398802,-34.599686,0 -58.401671,-34.599357,0 -58.405562,-34.597603,0 -58.407917,-34.604309,0 -58.395235,-34.604476,0 -58.395805,-34.59961,0</coordinates>
+            <coordinates>-58.418035,-34.597617,0 -58.417057,-34.597632,0 -58.41625,-34.597611,0 -58.415669,-34.59767,0 -58.415046,-34.597778,0 -58.414909,-34.597726,0 -58.414001,-34.597908,0 -58.41304,-34.59792,0 -58.41261,-34.5982,0 -58.412458,-34.598151,0 -58.411738,-34.597616,0 -58.411305,-34.59779,0 -58.41049,-34.597705,0 -58.409546,-34.597387,0 -58.407505,-34.597715,0 -58.404445,-34.597599,0 -58.403638,-34.598073,0 -58.402784,-34.598672,0 -58.401441,-34.598912,0 -58.400852,-34.59917,0 -58.396836,-34.5996,0 -58.396344,-34.599586,0 -58.395,-34.599511,0 -58.395,-34.604641,0 -58.396965,-34.60463,0 -58.399621,-34.604785,0 -58.400639,-34.604866,0 -58.40073,-34.6053,0 -58.401027,-34.604897,0 -58.402205,-34.604883,0 -58.40592,-34.604748,0 -58.406125,-34.604716,0 -58.406435,-34.604712,0 -58.408936,-34.604304,0 -58.410611,-34.604177,0 -58.41231,-34.60407,0 -58.413047,-34.6042,0 -58.413159,-34.604284,0 -58.41328,-34.6043,0 -58.41347,-34.604274,0 -58.413608,-34.604299,0 -58.413714,-34.604241,0 -58.415146,-34.604048,0 -58.415453,-34.604048,0 -58.415429,-34.60401,0 -58.417852,-34.603683,0 -58.4185,-34.603623,0 -58.4185,-34.597487,0 -58.418035,-34.597617,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla E — Frontera — P4 (Bulnes → Av. Estado de Israel)</name>
-      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P4 (Bulnes → Av. Estado de Israel). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla E — Frontera — P4</name>
+      <description>Zona final (5/10/2026): Polígono 4 completo (recupera la mitad que se le había dado a la K).</description>
       <Style>
         <LineStyle><color>ff8a5b2d</color><width>3</width></LineStyle>
         <PolyStyle><color>558a5b2d</color></PolyStyle>
@@ -92,14 +92,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.43279,-34.60218,0 -58.43277,-34.60233,0 -58.43274,-34.60247,0 -58.4327,-34.60261,0 -58.43264,-34.60275,0 -58.43257,-34.60288,0 -58.43249,-34.603,0 -58.4324,-34.60311,0 -58.43218,-34.60331,0 -58.43205,-34.60339,0 -58.43192,-34.60346,0 -58.43179,-34.60351,0 -58.43165,-34.60355,0 -58.4315,-34.60358,0 -58.4271,-34.60418,0 -58.42312,-34.604608,0 -58.42312,-34.603038,0 -58.432464,-34.60199,0 -58.432264,-34.601845,0 -58.432759,-34.601793,0 -58.43278,-34.60189,0 -58.43279,-34.60204,0 -58.43279,-34.60218,0</coordinates>
+            <coordinates>-58.432318,-34.602039,0 -58.432192,-34.601981,0 -58.432235,-34.601785,0 -58.43192,-34.601488,0 -58.43168,-34.601171,0 -58.431487,-34.600976,0 -58.431156,-34.600693,0 -58.430073,-34.599706,0 -58.429754,-34.599488,0 -58.429034,-34.59886,0 -58.42842,-34.598555,0 -58.427849,-34.598041,0 -58.427729,-34.597961,0 -58.427578,-34.597777,0 -58.427406,-34.597778,0 -58.427309,-34.597827,0 -58.42703,-34.597778,0 -58.424618,-34.597718,0 -58.422744,-34.597621,0 -58.421843,-34.597634,0 -58.421842,-34.597656,0 -58.420557,-34.597686,0 -58.4191,-34.597662,0 -58.418541,-34.597476,0 -58.4185,-34.597487,0 -58.4185,-34.603623,0 -58.427081,-34.602838,0 -58.427622,-34.602706,0 -58.429848,-34.602485,0 -58.431478,-34.602291,0 -58.431772,-34.602339,0 -58.431868,-34.602202,0 -58.432318,-34.602039,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla F — Frontera — P1 (9 de Julio → Ayacucho)</name>
-      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 (9 de Julio → Ayacucho). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla F — Frontera — P1</name>
+      <description>Tipo: iglesia | Zona final (5/10/2026): Pasa por Esclavas y patrulla el Polígono 1 completo.</description>
       <Style>
         <LineStyle><color>ff699605</color><width>3</width></LineStyle>
         <PolyStyle><color>55699605</color></PolyStyle>
@@ -107,7 +107,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.394212,-34.59949,0 -58.392892,-34.599445,0 -58.387147,-34.59912,0 -58.387147,-34.597795,0 -58.387171,-34.597798,0 -58.38759,-34.59782,0 -58.38933,-34.59804,0 -58.38961,-34.59814,0 -58.389638,-34.598158,0 -58.38967,-34.59817,0 -58.39059,-34.59799,0 -58.3927,-34.59792,0 -58.39314,-34.59797,0 -58.39354,-34.59814,0 -58.39396,-34.59854,0 -58.3942,-34.59907,0 -58.394212,-34.59949,0</coordinates>
+            <coordinates>-58.392593,-34.599379,0 -58.392142,-34.599324,0 -58.391737,-34.599337,0 -58.391495,-34.599213,0 -58.391446,-34.599352,0 -58.39048,-34.59927,0 -58.390403,-34.599345,0 -58.389904,-34.599332,0 -58.389,-34.599368,0 -58.387207,-34.599168,0 -58.387208,-34.599233,0 -58.385203,-34.599128,0 -58.38512,-34.59902,0 -58.384632,-34.599031,0 -58.383984,-34.598768,0 -58.384026,-34.599044,0 -58.38334,-34.599128,0 -58.382348,-34.598998,0 -58.381135,-34.598892,0 -58.380862,-34.59906,0 -58.380863,-34.599001,0 -58.380687,-34.599167,0 -58.380862,-34.59906,0 -58.380826,-34.601251,0 -58.380976,-34.601782,0 -58.38084,-34.602851,0 -58.380626,-34.603398,0 -58.380946,-34.603446,0 -58.380558,-34.603766,0 -58.380922,-34.603618,0 -58.380902,-34.603755,0 -58.381119,-34.603657,0 -58.381281,-34.603672,0 -58.381755,-34.603877,0 -58.382924,-34.603827,0 -58.386195,-34.604136,0 -58.391782,-34.604563,0 -58.391962,-34.604617,0 -58.392199,-34.604639,0 -58.392232,-34.604629,0 -58.392768,-34.604654,0 -58.395,-34.604641,0 -58.395,-34.599511,0 -58.392593,-34.599379,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -116,8 +116,8 @@
   <Folder>
     <name>TURNO 3 · 14-18hs</name>
     <Placemark>
-      <name>Dupla H — Frontera — P1 (9 de Julio → Ayacucho)</name>
-      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 (9 de Julio → Ayacucho). Cambia de zona respecto a la semana anterior. [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla H — Frontera — P1</name>
+      <description>Zona final (5/10/2026): Polígono 1 completo, el de más demanda (1.801 llamados ago-sep).</description>
       <Style>
         <LineStyle><color>ff14a0c5</color><width>3</width></LineStyle>
         <PolyStyle><color>5514a0c5</color></PolyStyle>
@@ -125,14 +125,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.428894,-34.597639,0 -58.423948,-34.597652,0 -58.423203,-34.597517,0 -58.419475,-34.597445,0 -58.419475,-34.59637,0 -58.4221,-34.59672,0 -58.4288,-34.59762,0 -58.428894,-34.597639,0</coordinates>
+            <coordinates>-58.392593,-34.599379,0 -58.392142,-34.599324,0 -58.391737,-34.599337,0 -58.391495,-34.599213,0 -58.391446,-34.599352,0 -58.39048,-34.59927,0 -58.390403,-34.599345,0 -58.389904,-34.599332,0 -58.389,-34.599368,0 -58.387207,-34.599168,0 -58.387208,-34.599233,0 -58.385203,-34.599128,0 -58.38512,-34.59902,0 -58.384632,-34.599031,0 -58.383984,-34.598768,0 -58.384026,-34.599044,0 -58.38334,-34.599128,0 -58.382348,-34.598998,0 -58.381135,-34.598892,0 -58.380862,-34.59906,0 -58.380863,-34.599001,0 -58.380687,-34.599167,0 -58.380862,-34.59906,0 -58.380826,-34.601251,0 -58.380976,-34.601782,0 -58.38084,-34.602851,0 -58.380626,-34.603398,0 -58.380946,-34.603446,0 -58.380558,-34.603766,0 -58.380922,-34.603618,0 -58.380902,-34.603755,0 -58.381119,-34.603657,0 -58.381281,-34.603672,0 -58.381755,-34.603877,0 -58.382924,-34.603827,0 -58.386195,-34.604136,0 -58.391782,-34.604563,0 -58.391962,-34.604617,0 -58.392199,-34.604639,0 -58.392232,-34.604629,0 -58.392768,-34.604654,0 -58.395,-34.604641,0 -58.395,-34.599511,0 -58.392593,-34.599379,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla I — Frontera — P2 (Ayacucho → Ecuador)</name>
-      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P2 (Ayacucho → Ecuador). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla I — Frontera — P2</name>
+      <description>Tipo: iglesia | Zona final (5/10/2026): Patrulla el Polígono 2 y sube a San Agustín (Las Heras 2560, ~1,4 km del corredor por Pueyrredón) en su horario.</description>
       <Style>
         <LineStyle><color>ff6b7d2f</color><width>3</width></LineStyle>
         <PolyStyle><color>556b7d2f</color></PolyStyle>
@@ -140,14 +140,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.405562,-34.597603,0 -58.408465,-34.597836,0 -58.411368,-34.597856,0 -58.41726,-34.597403,0 -58.418034,-34.603608,0 -58.407917,-34.604309,0 -58.405562,-34.597603,0</coordinates>
+            <coordinates>-58.404445,-34.597599,0 -58.403638,-34.598073,0 -58.402784,-34.598672,0 -58.401441,-34.598912,0 -58.400852,-34.59917,0 -58.396836,-34.5996,0 -58.396344,-34.599586,0 -58.395,-34.599511,0 -58.395,-34.604641,0 -58.396965,-34.60463,0 -58.399621,-34.604785,0 -58.400639,-34.604866,0 -58.40073,-34.6053,0 -58.401027,-34.604897,0 -58.402205,-34.604883,0 -58.40592,-34.604748,0 -58.406125,-34.604716,0 -58.406435,-34.604712,0 -58.4075,-34.604539,0 -58.4075,-34.597715,0 -58.404445,-34.597599,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla L — Frontera — P3 + P4 (Ecuador → Av. Estado de Israel)</name>
-      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P3 + P4 (Ecuador → Av. Estado de Israel). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla L — Frontera — P3 + P4</name>
+      <description>Tipo: iglesia | Zona final (5/10/2026): Patrulla los polígonos 3 y 4 (los más cercanos a Belgrano) y cierra el turno en La Redonda a las 18. Para llegar tiene que salir del corredor alrededor de las 17:15 (~4,7 km).</description>
       <Style>
         <LineStyle><color>fffa8ba7</color><width>3</width></LineStyle>
         <PolyStyle><color>55fa8ba7</color></PolyStyle>
@@ -155,7 +155,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.42312,-34.604608,0 -58.4218,-34.60475,0 -58.4218,-34.604744,0 -58.41586,-34.60538,0 -58.41571,-34.60539,0 -58.41555,-34.60538,0 -58.4154,-34.60536,0 -58.41526,-34.60532,0 -58.41511,-34.60527,0 -58.41231,-34.60407,0 -58.412195,-34.604013,0 -58.418034,-34.603608,0 -58.42312,-34.603038,0 -58.42312,-34.604608,0</coordinates>
+            <coordinates>-58.432318,-34.602039,0 -58.432192,-34.601981,0 -58.432235,-34.601785,0 -58.43192,-34.601488,0 -58.43168,-34.601171,0 -58.431487,-34.600976,0 -58.431156,-34.600693,0 -58.430073,-34.599706,0 -58.429754,-34.599488,0 -58.429034,-34.59886,0 -58.42842,-34.598555,0 -58.427849,-34.598041,0 -58.427729,-34.597961,0 -58.427578,-34.597777,0 -58.427406,-34.597778,0 -58.427309,-34.597827,0 -58.42703,-34.597778,0 -58.424618,-34.597718,0 -58.422744,-34.597621,0 -58.421843,-34.597634,0 -58.421842,-34.597656,0 -58.420557,-34.597686,0 -58.4191,-34.597662,0 -58.418541,-34.597476,0 -58.418035,-34.597617,0 -58.417057,-34.597632,0 -58.41625,-34.597611,0 -58.415669,-34.59767,0 -58.415046,-34.597778,0 -58.414909,-34.597726,0 -58.414001,-34.597908,0 -58.41304,-34.59792,0 -58.41261,-34.5982,0 -58.412458,-34.598151,0 -58.411738,-34.597616,0 -58.411305,-34.59779,0 -58.41049,-34.597705,0 -58.409546,-34.597387,0 -58.407505,-34.597715,0 -58.4075,-34.597715,0 -58.4075,-34.604539,0 -58.408936,-34.604304,0 -58.410611,-34.604177,0 -58.41231,-34.60407,0 -58.413047,-34.6042,0 -58.413159,-34.604284,0 -58.41328,-34.6043,0 -58.41347,-34.604274,0 -58.413608,-34.604299,0 -58.413714,-34.604241,0 -58.415146,-34.604048,0 -58.415453,-34.604048,0 -58.415429,-34.60401,0 -58.417852,-34.603683,0 -58.427081,-34.602838,0 -58.427622,-34.602706,0 -58.429848,-34.602485,0 -58.431478,-34.602291,0 -58.431772,-34.602339,0 -58.431868,-34.602202,0 -58.432318,-34.602039,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -164,8 +164,8 @@
   <Folder>
     <name>TURNO 4 · 18-22hs</name>
     <Placemark>
-      <name>Dupla J — Frontera — P2 + P3 (Ayacucho → Bulnes)</name>
-      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P2 + P3 (Ayacucho → Bulnes). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla J — Frontera — P2 + P3</name>
+      <description>Zona final (5/10/2026): Polígonos 2 y 3.</description>
       <Style>
         <LineStyle><color>ffc96f9b</color><width>3</width></LineStyle>
         <PolyStyle><color>55c96f9b</color></PolyStyle>
@@ -173,14 +173,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.41726,-34.597403,0 -58.423203,-34.597517,0 -58.426248,-34.59807,0 -58.428778,-34.59933,0 -58.432464,-34.60199,0 -58.418034,-34.603608,0 -58.41726,-34.597403,0</coordinates>
+            <coordinates>-58.418035,-34.597617,0 -58.417057,-34.597632,0 -58.41625,-34.597611,0 -58.415669,-34.59767,0 -58.415046,-34.597778,0 -58.414909,-34.597726,0 -58.414001,-34.597908,0 -58.41304,-34.59792,0 -58.41261,-34.5982,0 -58.412458,-34.598151,0 -58.411738,-34.597616,0 -58.411305,-34.59779,0 -58.41049,-34.597705,0 -58.409546,-34.597387,0 -58.407505,-34.597715,0 -58.404445,-34.597599,0 -58.403638,-34.598073,0 -58.402784,-34.598672,0 -58.401441,-34.598912,0 -58.400852,-34.59917,0 -58.396836,-34.5996,0 -58.396344,-34.599586,0 -58.395,-34.599511,0 -58.395,-34.604641,0 -58.396965,-34.60463,0 -58.399621,-34.604785,0 -58.400639,-34.604866,0 -58.40073,-34.6053,0 -58.401027,-34.604897,0 -58.402205,-34.604883,0 -58.40592,-34.604748,0 -58.406125,-34.604716,0 -58.406435,-34.604712,0 -58.408936,-34.604304,0 -58.410611,-34.604177,0 -58.41231,-34.60407,0 -58.413047,-34.6042,0 -58.413159,-34.604284,0 -58.41328,-34.6043,0 -58.41347,-34.604274,0 -58.413608,-34.604299,0 -58.413714,-34.604241,0 -58.415146,-34.604048,0 -58.415453,-34.604048,0 -58.415429,-34.60401,0 -58.417852,-34.603683,0 -58.4185,-34.603623,0 -58.4185,-34.597487,0 -58.418035,-34.597617,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla K — Frontera — P4 (Bulnes → Av. Estado de Israel)</name>
-      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P4 (Bulnes → Av. Estado de Israel). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla K — Frontera — P4</name>
+      <description>Zona final (5/10/2026): Polígono 4 completo.</description>
       <Style>
         <LineStyle><color>ff8b8bd6</color><width>3</width></LineStyle>
         <PolyStyle><color>558b8bd6</color></PolyStyle>
@@ -188,14 +188,14 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.419475,-34.597445,0 -58.41726,-34.597403,0 -58.413411,-34.597699,0 -58.41524,-34.59661,0 -58.41537,-34.59655,0 -58.41551,-34.59649,0 -58.41565,-34.59645,0 -58.4158,-34.59642,0 -58.41595,-34.59641,0 -58.41885,-34.59631,0 -58.41897,-34.59631,0 -58.4191,-34.59632,0 -58.419475,-34.59637,0 -58.419475,-34.597445,0</coordinates>
+            <coordinates>-58.432318,-34.602039,0 -58.432192,-34.601981,0 -58.432235,-34.601785,0 -58.43192,-34.601488,0 -58.43168,-34.601171,0 -58.431487,-34.600976,0 -58.431156,-34.600693,0 -58.430073,-34.599706,0 -58.429754,-34.599488,0 -58.429034,-34.59886,0 -58.42842,-34.598555,0 -58.427849,-34.598041,0 -58.427729,-34.597961,0 -58.427578,-34.597777,0 -58.427406,-34.597778,0 -58.427309,-34.597827,0 -58.42703,-34.597778,0 -58.424618,-34.597718,0 -58.422744,-34.597621,0 -58.421843,-34.597634,0 -58.421842,-34.597656,0 -58.420557,-34.597686,0 -58.4191,-34.597662,0 -58.418541,-34.597476,0 -58.4185,-34.597487,0 -58.4185,-34.603623,0 -58.427081,-34.602838,0 -58.427622,-34.602706,0 -58.429848,-34.602485,0 -58.431478,-34.602291,0 -58.431772,-34.602339,0 -58.431868,-34.602202,0 -58.432318,-34.602039,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla M — Frontera — P1 (9 de Julio → Ayacucho)</name>
-      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 (9 de Julio → Ayacucho). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
+      <name>Dupla M — Frontera — P1</name>
+      <description>Tipo: iglesia | Zona final (5/10/2026): Polígono 1 completo; mié y vie pasa por San Nicolás.</description>
       <Style>
         <LineStyle><color>ff99d334</color><width>3</width></LineStyle>
         <PolyStyle><color>5599d334</color></PolyStyle>
@@ -203,7 +203,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.384714,-34.60549,0 -58.38469,-34.60549,0 -58.38199,-34.60529,0 -58.38197,-34.60529,0 -58.38087,-34.60519,0 -58.38072,-34.60516,0 -58.38058,-34.60513,0 -58.38043,-34.60508,0 -58.3803,-34.60502,0 -58.38006,-34.60486,0 -58.37995,-34.60476,0 -58.37985,-34.60465,0 -58.37976,-34.60453,0 -58.37968,-34.6044,0 -58.37962,-34.60427,0 -58.37957,-34.60413,0 -58.37953,-34.60399,0 -58.37951,-34.60384,0 -58.379502,-34.603757,0 -58.380976,-34.603814,0 -58.380976,-34.603814,0 -58.380971,-34.604084,0 -58.384714,-34.604191,0 -58.384714,-34.60549,0</coordinates>
+            <coordinates>-58.392593,-34.599379,0 -58.392142,-34.599324,0 -58.391737,-34.599337,0 -58.391495,-34.599213,0 -58.391446,-34.599352,0 -58.39048,-34.59927,0 -58.390403,-34.599345,0 -58.389904,-34.599332,0 -58.389,-34.599368,0 -58.387207,-34.599168,0 -58.387208,-34.599233,0 -58.385203,-34.599128,0 -58.38512,-34.59902,0 -58.384632,-34.599031,0 -58.383984,-34.598768,0 -58.384026,-34.599044,0 -58.38334,-34.599128,0 -58.382348,-34.598998,0 -58.381135,-34.598892,0 -58.380862,-34.59906,0 -58.380863,-34.599001,0 -58.380687,-34.599167,0 -58.380862,-34.59906,0 -58.380826,-34.601251,0 -58.380976,-34.601782,0 -58.38084,-34.602851,0 -58.380626,-34.603398,0 -58.380946,-34.603446,0 -58.380558,-34.603766,0 -58.380922,-34.603618,0 -58.380902,-34.603755,0 -58.381119,-34.603657,0 -58.381281,-34.603672,0 -58.381755,-34.603877,0 -58.382924,-34.603827,0 -58.386195,-34.604136,0 -58.391782,-34.604563,0 -58.391962,-34.604617,0 -58.392199,-34.604639,0 -58.392232,-34.604629,0 -58.392768,-34.604654,0 -58.395,-34.604641,0 -58.395,-34.599511,0 -58.392593,-34.599379,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -221,7 +221,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.39222,-34.59366,0 -58.39208,-34.59502,0 -58.38989,-34.59513,0 -58.38997,-34.59389,0 -58.38994,-34.5932,0 -58.38891,-34.5925,0 -58.38996,-34.59166,0 -58.39106,-34.59275,0 -58.39222,-34.59366,0</coordinates>
+            <coordinates>-58.39222,-34.59366,0 -58.39106,-34.59275,0 -58.38996,-34.59166,0 -58.38891,-34.5925,0 -58.38994,-34.5932,0 -58.38997,-34.59389,0 -58.38989,-34.59513,0 -58.39208,-34.59502,0 -58.39222,-34.59366,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -236,7 +236,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.38178,-34.59284,0 -58.38173,-34.59423,0 -58.37945,-34.5941,0 -58.37759,-34.59416,0 -58.37702,-34.59284,0 -58.37892,-34.59276,0 -58.3816,-34.59265,0 -58.38178,-34.59284,0</coordinates>
+            <coordinates>-58.38178,-34.59284,0 -58.3816,-34.59265,0 -58.37892,-34.59276,0 -58.37702,-34.59284,0 -58.37759,-34.59416,0 -58.37945,-34.5941,0 -58.38173,-34.59423,0 -58.38178,-34.59284,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -251,7 +251,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.3884,-34.59587,0 -58.38826,-34.59717,0 -58.38417,-34.59687,0 -58.38429,-34.59568,0 -58.38429,-34.59543,0 -58.38598,-34.59548,0 -58.3882,-34.59557,0 -58.38855,-34.5956,0 -58.3884,-34.59587,0</coordinates>
+            <coordinates>-58.3884,-34.59587,0 -58.38855,-34.5956,0 -58.3882,-34.59557,0 -58.38598,-34.59548,0 -58.38429,-34.59543,0 -58.38429,-34.59568,0 -58.38417,-34.59687,0 -58.38826,-34.59717,0 -58.3884,-34.59587,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -266,7 +266,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.39222,-34.59366,0 -58.39208,-34.59502,0 -58.38989,-34.59513,0 -58.38997,-34.59389,0 -58.38994,-34.5932,0 -58.38891,-34.5925,0 -58.38996,-34.59166,0 -58.39106,-34.59275,0 -58.39222,-34.59366,0</coordinates>
+            <coordinates>-58.39222,-34.59366,0 -58.39106,-34.59275,0 -58.38996,-34.59166,0 -58.38891,-34.5925,0 -58.38994,-34.5932,0 -58.38997,-34.59389,0 -58.38989,-34.59513,0 -58.39208,-34.59502,0 -58.39222,-34.59366,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -281,7 +281,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.40025,-34.58516,0 -58.40128,-34.58593,0 -58.4002,-34.58663,0 -58.39807,-34.58795,0 -58.39728,-34.58759,0 -58.39995,-34.58513,0 -58.40025,-34.58516,0</coordinates>
+            <coordinates>-58.40025,-34.58516,0 -58.39995,-34.58513,0 -58.39728,-34.58759,0 -58.39807,-34.58795,0 -58.4002,-34.58663,0 -58.40128,-34.58593,0 -58.40025,-34.58516,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -296,7 +296,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.45768,-34.5611,0 -58.45645,-34.56253,0 -58.45526,-34.56403,0 -58.45403,-34.56335,0 -58.45592,-34.56111,0 -58.45651,-34.56045,0 -58.45768,-34.5611,0</coordinates>
+            <coordinates>-58.45768,-34.5611,0 -58.45651,-34.56045,0 -58.45592,-34.56111,0 -58.45403,-34.56335,0 -58.45526,-34.56403,0 -58.45645,-34.56253,0 -58.45768,-34.5611,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
@@ -311,7 +311,7 @@
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
-            <coordinates>-58.3884,-34.59587,0 -58.38826,-34.59717,0 -58.38417,-34.59687,0 -58.38429,-34.59568,0 -58.38429,-34.59543,0 -58.38598,-34.59548,0 -58.3882,-34.59557,0 -58.38855,-34.5956,0 -58.3884,-34.59587,0</coordinates>
+            <coordinates>-58.3884,-34.59587,0 -58.38855,-34.5956,0 -58.3882,-34.59557,0 -58.38598,-34.59548,0 -58.38429,-34.59543,0 -58.38429,-34.59568,0 -58.38417,-34.59687,0 -58.38826,-34.59717,0 -58.3884,-34.59587,0</coordinates>
           </LinearRing>
         </outerBoundaryIs>
       </Polygon>
