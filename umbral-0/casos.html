@@ -2219,21 +2219,20 @@ async function cargarKoboPendientes(){
     // intervención quedó ANTES de la validación, así que esa comparación
     // también la dejaba marcada como pendiente para siempre.
     // Ahora no se compara ningún orden ni fecha: alcanza con que la
-    // persona tenga alguna intervención o seguimiento real registrado.
-    // Se excluye específicamente el stub automático de alta ("Ingreso
-    // inicial del caso.", insertado solo por guardarPersona() al crear el
-    // caso — no es una intervención real) para que ese stub no haga que
-    // toda futura validación de esa persona se dé siempre por resuelta.
-    let personasConIntervencionReal = new Set(), personasConSeguimiento = new Set();
+    // persona tenga alguna intervención o seguimiento registrado, lo que
+    // sea (incluido el alta automática — "Ingreso inicial del caso." se
+    // ve en el historial como una card de Intervención más, y para la
+    // dupla cuenta como tal; excluirla solo generaba confusión: un caso
+    // nuevo con el alta ya cargada seguía mostrándose como pendiente aun
+    // viéndose la card de Intervención ahí mismo — reportado por la
+    // dupla A con el caso de Amilcar, 5/10/2026).
+    let personasConIntervencion = new Set(), personasConSeguimiento = new Set();
     if(idsPersonasPropias.length){
       const [{ data: intervD }, { data: seguD }] = await Promise.all([
-        client.from('intervenciones').select('persona_id, tipo, resumen').in('persona_id', idsPersonasPropias),
+        client.from('intervenciones').select('persona_id').in('persona_id', idsPersonasPropias),
         client.from('seguimientos').select('persona_id').in('persona_id', idsPersonasPropias),
       ]);
-      (intervD||[]).forEach(i => {
-        const esStubDeAlta = i.tipo === 'contacto_espontaneo' && i.resumen === 'Ingreso inicial del caso.';
-        if(!esStubDeAlta) personasConIntervencionReal.add(i.persona_id);
-      });
+      (intervD||[]).forEach(i => personasConIntervencion.add(i.persona_id));
       (seguD||[]).forEach(s => personasConSeguimiento.add(s.persona_id));
     }
     koboValidadoSinIntervencionActuales = (validacionesPropias||[])
@@ -2241,7 +2240,7 @@ async function cargarKoboPendientes(){
       .map(v => {
         const persona = personaPorIdPropia.get(v.persona_id);
         if(!persona) return null;
-        if(personasConIntervencionReal.has(v.persona_id) || personasConSeguimiento.has(v.persona_id)) return null; // ya tiene seguimiento real registrado
+        if(personasConIntervencion.has(v.persona_id) || personasConSeguimiento.has(v.persona_id)) return null; // ya tiene algo registrado
         return { persona, fecha: v.created_at };
       })
       .filter(Boolean)
