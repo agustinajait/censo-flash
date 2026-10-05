@@ -5,8 +5,8 @@
   <Folder>
     <name>TURNO 1 · 6-10hs</name>
     <Placemark>
-      <name>Dupla A — Frontera — Polígono 1 (Recoleta)</name>
-      <description>Tipo: frontera | Zona redefinida (2/10/2026) tras el informe de gobierno del 30/9/2026: la &quot;frontera&quot; deja de ser una zona difusa entre Almagro y Once-Balvanera y pasa a ser el corredor real sobre Av. Córdoba/Av. Corrientes, dividido en 4 polígonos siguiendo las calles reales (Carlos Pellegrini, Ayacucho, Ecuador, Bulnes, Av. Estado de Israel). A cubre el Polígono 1 junto con G — es el de mayor demanda (1.801 llamados ago-sep, más que los otros 3 juntos). A suma además una pasada por Esclavas al principio de su turno (~7:30hs, antes de que abra la olla a las 10).</description>
+      <name>Dupla A — Frontera — P2 (Ayacucho → Ecuador)</name>
+      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P2 (Ayacucho → Ecuador). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ffa04f6b</color><width>3</width></LineStyle>
         <PolyStyle><color>55a04f6b</color></PolyStyle>
@@ -20,8 +20,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla B — Retiro - San Telmo (franja 3 de 4, fuera de la frontera)</name>
-      <description>Corregida (2/10/2026), mismo motivo que Almagro-Boedo: B/C/F/M se recortan contra la banda completa de Av. Córdoba/Av. Corrientes, no solo los 4 polígonos numerados.</description>
+      <name>Dupla B — Frontera — P1 mitad oeste (Paraná → Ayacucho)</name>
+      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 mitad oeste (Paraná → Ayacucho). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ff2b2bd6</color><width>3</width></LineStyle>
         <PolyStyle><color>552b2bd6</color></PolyStyle>
@@ -35,8 +35,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla C — Retiro - San Telmo (franja 4 de 4, fuera de la frontera)</name>
-      <description>Tipo: iglesia | Corregida (2/10/2026), mismo motivo que Almagro-Boedo: B/C/F/M se recortan contra la banda completa de Av. Córdoba/Av. Corrientes, no solo los 4 polígonos numerados. Mantiene El Socorro y San Nicolás de Bari, sin cambios.</description>
+      <name>Dupla C — Frontera — P1 mitad este (9 de Julio → Paraná)</name>
+      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 mitad este (9 de Julio → Paraná). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>fff65c8b</color><width>3</width></LineStyle>
         <PolyStyle><color>55f65c8b</color></PolyStyle>
@@ -50,8 +50,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla G — Frontera — Polígono 1 (Recoleta), refuerzo</name>
-      <description>Tipo: frontera | Zona redefinida (2/10/2026), ver nota de A. G refuerza el Polígono 1 junto con A por ser el de mayor demanda del corredor.</description>
+      <name>Dupla G — Frontera — P3 + P4 (Ecuador → Av. Estado de Israel)</name>
+      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P3 + P4 (Ecuador → Av. Estado de Israel). Cambia de zona respecto a la semana anterior. [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ffa04f6b</color><width>3</width></LineStyle>
         <PolyStyle><color>55a04f6b</color></PolyStyle>
@@ -68,8 +68,8 @@
   <Folder>
     <name>TURNO 2 · 10-14hs</name>
     <Placemark>
-      <name>Dupla D — Frontera — Polígono 2 (Recoleta)</name>
-      <description>Tipo: frontera | Zona redefinida (2/10/2026), ver nota de A. D cubre el Polígono 2, sola en su turno (T2).</description>
+      <name>Dupla D — Frontera — P2 + P3 (Ayacucho → Bulnes)</name>
+      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P2 + P3 (Ayacucho → Bulnes). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ff3f55c2</color><width>3</width></LineStyle>
         <PolyStyle><color>553f55c2</color></PolyStyle>
@@ -83,8 +83,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla E — Almagro - Boedo (franja 3 de 4)</name>
-      <description>Corregida (2/10/2026): el fix anterior solo descontaba los 4 polígonos numerados de la frontera, pero E/H/K/L se extendían más allá de esos polígonos y ahí cruzaban Av. Córdoba o Av. Corrientes sin que nada las frenara (K llegaba a tener más de la mitad de su territorio adentro del corredor real). Ahora se recorta contra la unión de los polígonos reales + la banda completa de las dos avenidas, extendida. Verificado: cero superposición con la frontera, sin huecos ni solapes entre las 4.</description>
+      <name>Dupla E — Frontera — P4 (Bulnes → Av. Estado de Israel)</name>
+      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P4 (Bulnes → Av. Estado de Israel). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ff8a5b2d</color><width>3</width></LineStyle>
         <PolyStyle><color>558a5b2d</color></PolyStyle>
@@ -98,8 +98,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla F — Retiro - San Telmo (franja 1 de 4)</name>
-      <description>Tipo: iglesia | Corregida (2/10/2026), mismo motivo que Almagro-Boedo: B/C/F/M se recortan contra la banda completa de Av. Córdoba/Av. Corrientes, no solo los 4 polígonos numerados. Mantiene Esclavas (olla 10-12), sin cambios.</description>
+      <name>Dupla F — Frontera — P1 (9 de Julio → Ayacucho)</name>
+      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 (9 de Julio → Ayacucho). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ff699605</color><width>3</width></LineStyle>
         <PolyStyle><color>55699605</color></PolyStyle>
@@ -116,8 +116,8 @@
   <Folder>
     <name>TURNO 3 · 14-18hs</name>
     <Placemark>
-      <name>Dupla H — Almagro - Boedo (franja 2 de 4)</name>
-      <description>Corregida (2/10/2026): el fix anterior solo descontaba los 4 polígonos numerados de la frontera, pero E/H/K/L se extendían más allá de esos polígonos y ahí cruzaban Av. Córdoba o Av. Corrientes sin que nada las frenara (K llegaba a tener más de la mitad de su territorio adentro del corredor real). Ahora se recorta contra la unión de los polígonos reales + la banda completa de las dos avenidas, extendida. Verificado: cero superposición con la frontera, sin huecos ni solapes entre las 4.</description>
+      <name>Dupla H — Frontera — P1 (9 de Julio → Ayacucho)</name>
+      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 (9 de Julio → Ayacucho). Cambia de zona respecto a la semana anterior. [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ff14a0c5</color><width>3</width></LineStyle>
         <PolyStyle><color>5514a0c5</color></PolyStyle>
@@ -131,8 +131,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla I — Frontera — Polígono 3 (Recoleta) + San Agustín</name>
-      <description>Tipo: iglesia | Zona redefinida (2/10/2026), ver nota de A. I patrulla el Polígono 3 desde las 14hs y cierra el turno en San Agustín desde las 16:30 (coincide con el horario real de la asistente social, 16:30-18:30).</description>
+      <name>Dupla I — Frontera — P2 (Ayacucho → Ecuador)</name>
+      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P2 (Ayacucho → Ecuador). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ff6b7d2f</color><width>3</width></LineStyle>
         <PolyStyle><color>556b7d2f</color></PolyStyle>
@@ -146,8 +146,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla L — Almagro - Boedo (franja 1 de 4)</name>
-      <description>Corregida (2/10/2026): el fix anterior solo descontaba los 4 polígonos numerados de la frontera, pero E/H/K/L se extendían más allá de esos polígonos y ahí cruzaban Av. Córdoba o Av. Corrientes sin que nada las frenara (K llegaba a tener más de la mitad de su territorio adentro del corredor real). Ahora se recorta contra la unión de los polígonos reales + la banda completa de las dos avenidas, extendida. Verificado: cero superposición con la frontera, sin huecos ni solapes entre las 4.</description>
+      <name>Dupla L — Frontera — P3 + P4 (Ecuador → Av. Estado de Israel)</name>
+      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P3 + P4 (Ecuador → Av. Estado de Israel). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>fffa8ba7</color><width>3</width></LineStyle>
         <PolyStyle><color>55fa8ba7</color></PolyStyle>
@@ -164,8 +164,8 @@
   <Folder>
     <name>TURNO 4 · 18-22hs</name>
     <Placemark>
-      <name>Dupla J — Frontera — Polígono 4 (Recoleta/Almagro)</name>
-      <description>Tipo: frontera | Zona redefinida (2/10/2026), ver nota de A. J cubre el Polígono 4, el más angosto de los cuatro.</description>
+      <name>Dupla J — Frontera — P2 + P3 (Ayacucho → Bulnes)</name>
+      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P2 + P3 (Ayacucho → Bulnes). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ffc96f9b</color><width>3</width></LineStyle>
         <PolyStyle><color>55c96f9b</color></PolyStyle>
@@ -179,8 +179,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla K — Almagro - Boedo (franja 4 de 4)</name>
-      <description>Tipo: iglesia | Corregida (2/10/2026): el fix anterior solo descontaba los 4 polígonos numerados de la frontera, pero E/H/K/L se extendían más allá de esos polígonos y ahí cruzaban Av. Córdoba o Av. Corrientes sin que nada las frenara (K llegaba a tener más de la mitad de su territorio adentro del corredor real). Ahora se recorta contra la unión de los polígonos reales + la banda completa de las dos avenidas, extendida. Verificado: cero superposición con la frontera, sin huecos ni solapes entre las 4. Suma La Redonda al cierre de su turno.</description>
+      <name>Dupla K — Frontera — P4 (Bulnes → Av. Estado de Israel)</name>
+      <description>Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P4 (Bulnes → Av. Estado de Israel). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ff8b8bd6</color><width>3</width></LineStyle>
         <PolyStyle><color>558b8bd6</color></PolyStyle>
@@ -194,8 +194,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>Dupla M — Retiro - San Telmo (franja 2 de 4)</name>
-      <description>Tipo: iglesia | Corregida (2/10/2026), mismo motivo que Almagro-Boedo: B/C/F/M se recortan contra la banda completa de Av. Córdoba/Av. Corrientes, no solo los 4 polígonos numerados. Mantiene San Nicolás de Bari, sin cambios.</description>
+      <name>Dupla M — Frontera — P1 (9 de Julio → Ayacucho)</name>
+      <description>Tipo: iglesia | Zona reorganizada (5/10/2026): gobierno pidió concentrar el operativo en la frontera entre Av. Córdoba y Av. Corrientes, de Carlos Pellegrini/9 de Julio a Av. Estado de Israel, dividida en 4 polígonos (P1-P4). Esta dupla recorre P1 (9 de Julio → Ayacucho). [Geometría pendiente: el polígono dibujado todavía es el de la semana pasada — falta el KML nuevo de Agustina para actualizar la forma real.]</description>
       <Style>
         <LineStyle><color>ff99d334</color><width>3</width></LineStyle>
         <PolyStyle><color>5599d334</color></PolyStyle>
@@ -211,6 +211,21 @@
   </Folder>
   <Folder>
     <name>Iglesias / comedores de referencia</name>
+    <Placemark>
+      <name>Esclavas (Dupla B)</name>
+      <description>Iglesia/comedor de referencia de la Dupla B</description>
+      <Style>
+        <LineStyle><color>ffd642c5</color><width>3</width></LineStyle>
+        <PolyStyle><color>55d642c5</color></PolyStyle>
+      </Style>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>-58.39222,-34.59366,0 -58.39208,-34.59502,0 -58.38989,-34.59513,0 -58.38997,-34.59389,0 -58.38994,-34.5932,0 -58.38891,-34.5925,0 -58.38996,-34.59166,0 -58.39106,-34.59275,0 -58.39222,-34.59366,0</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
     <Placemark>
       <name>El Socorro (Dupla C)</name>
       <description>Iglesia/comedor de referencia de la Dupla C</description>
@@ -272,8 +287,8 @@
       </Polygon>
     </Placemark>
     <Placemark>
-      <name>La Redonda (Dupla K)</name>
-      <description>Iglesia/comedor de referencia de la Dupla K</description>
+      <name>La Redonda (Dupla L)</name>
+      <description>Iglesia/comedor de referencia de la Dupla L</description>
       <Style>
         <LineStyle><color>ffd642c5</color><width>3</width></LineStyle>
         <PolyStyle><color>55d642c5</color></PolyStyle>
