@@ -3650,10 +3650,26 @@ const Casos = {
         btn.disabled = true; btn.textContent = 'Revisando…';
         try{
           const client = await SupabaseClient.getClient();
-          const { data: coincidencias, error: errDni } = await client.from('personas_dni_index').select('*').eq('dni', dniTrim);
+          // personas_dni_index bypassea RLS a propósito para AVISAR de
+          // coincidencias de cualquier dupla, pero no trae `id` (ver
+          // schema-ajustes.sql) — no se puede abrir la ficha de otra
+          // dupla aunque se quisiera, cada una ve solo sus propios casos.
+          // Si la coincidencia es de la MISMA dupla, en cambio, sí se
+          // puede abrir directo: esta consulta aparte a `personas` (sin
+          // bypass de RLS, ya la permite el propio acceso de la dupla)
+          // trae ese `id` puntual para poder linkear "Ver esa ficha →" en
+          // vez de solo decirle a la dupla que la busque a mano (pedido
+          // de Agustina, 6/10/2026: "todo el tiempo me dicen que no los
+          // deja cargar de nuevo" un caso en seguimiento — el aviso ya
+          // les decía que buscaran el caso existente, pero sin un link
+          // directo varias duplas no encontraban cómo).
+          const [{ data: coincidencias, error: errDni }, { data: propia }] = await Promise.all([
+            client.from('personas_dni_index').select('*').eq('dni', dniTrim),
+            client.from('personas').select('id').eq('dupla_id', miPerfil.dupla_id).eq('dni', dniTrim).eq('oculto', false).limit(1).maybeSingle(),
+          ]);
           if(errDni) throw errDni;
           if(coincidencias && coincidencias.length){
-            Casos._mostrarAvisoDniDuplicado(form, coincidencias, campos.dni);
+            Casos._mostrarAvisoDniDuplicado(form, coincidencias, campos.dni, propia && propia.id);
             btn.disabled = false; btn.textContent = '💾 Dar de alta';
             _guardandoPersona = false;
             return;
@@ -3751,8 +3767,13 @@ const Casos = {
   // Banner dentro del propio formulario de alta (no un modal aparte, para
   // no perder lo ya tipeado) con los casos que ya tienen ese DNI, cargados
   // por cualquier dupla (personas_dni_index bypassea la RLS de `personas`
-  // a propósito para esto — ver schema-ajustes.sql).
-  _mostrarAvisoDniDuplicado(form, coincidencias, dni){
+  // a propósito para esto — ver schema-ajustes.sql). Si el caso ya está
+  // en la MISMA dupla (propiaFichaId), se suma un botón que abre esa
+  // ficha directo — antes solo se le decía a la dupla que "la buscara en
+  // el listado", y varias (pedido de Agustina, 6/10/2026) no encontraban
+  // cómo y terminaban pensando que el sistema "no las dejaba cargar" un
+  // caso en seguimiento.
+  _mostrarAvisoDniDuplicado(form, coincidencias, dni, propiaFichaId){
     const filas = coincidencias.map(c => {
       const nombre = `${c.nombre||''} ${c.apellido||''}`.trim() || 'Persona sin identificar';
       const fecha = c.created_at ? new Date(c.created_at).toLocaleDateString('es-AR') : '—';
@@ -3767,15 +3788,22 @@ const Casos = {
       cont.style.cssText = 'background:#fff7ed; border:1.5px solid #fdba74; border-radius:10px; padding:12px 14px; margin-bottom:14px;';
       form.insertBefore(cont, form.firstChild);
     }
+    const textoGuia = propiaFichaId
+      ? 'Ese caso ya está en TU listado — si es la misma persona (por ejemplo, un caso en seguimiento que volviste a visitar), no hace falta darla de alta de nuevo: abrí su ficha de abajo y usá "➕ Registrar intervención" o "📝 Agregar seguimiento" ahí adentro.'
+      : 'Esa carga es de otra dupla. Si es la misma persona, avisale a Agustina para decidir qué hacer (cada dupla ve solo sus propios casos, así que no hay una ficha que puedas abrir vos). Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.';
+    const botonVerFicha = propiaFichaId
+      ? `<button type="button" class="btn btn-blue btn-sm" onclick="closeModal(); Casos.abrirFicha('${escAttr(propiaFichaId)}')">Ver esa ficha →</button>`
+      : '';
     cont.innerHTML = `
       <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ Ya hay ${coincidencias.length===1?'un caso':coincidencias.length+' casos'} con el DNI ${esc(dni)}</div>
       ${filas}
-      <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona, cerrá este formulario y buscala en el listado de casos en vez de dar de alta uno nuevo. Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.</div>
+      <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">${textoGuia}</div>
       <div class="form-check" style="margin-bottom:10px;">
         <input type="checkbox" id="f_confirmar_dni_distinto" onchange="document.getElementById('btn-crear-dni-duplicado').disabled = !this.checked;">
         <label for="f_confirmar_dni_distinto">Confirmo que es una persona distinta a la(s) de arriba (no la misma cargada de nuevo)</label>
       </div>
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${botonVerFicha}
         <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('dni-dup-aviso').remove()">Volver a editar</button>
         <button type="button" class="btn btn-amber btn-sm" id="btn-crear-dni-duplicado" disabled onclick="Casos.guardarPersona(null, true)">Crear de todas formas</button>
       </div>
