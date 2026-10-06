@@ -2035,6 +2035,23 @@ function normalizarNombreKobo(s){
     .split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+// Para buscarPersonas() — sin acentos y sin ordenar tokens (a diferencia
+// de normalizarNombreKobo(), acá hace falta poder matchear una palabra
+// SUELTA como substring, no comparar dos nombres completos ya armados).
+function sinAcentos(s){
+  return String(s||'').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+// Cada palabra que escribió la dupla tiene que aparecer en algún lado
+// (nombre, apellido o dni), no importa el orden ni si hay tilde de por
+// medio — así "Juan Perez" sin tilde encuentra a nombre="Juan"
+// apellido="Pérez", y "Pérez Juan" al revés también.
+function coincidenciaBusquedaPersona(p, q){
+  const tokens = sinAcentos(q).split(/\s+/).filter(Boolean);
+  if(!tokens.length) return true;
+  const campo = sinAcentos(`${p.nombre||''} ${p.apellido||''} ${p.dni||''}`);
+  return tokens.every(t => campo.includes(t));
+}
+
 // Coincide si los tokens de un nombre son subconjunto de los del otro, en
 // cualquier dirección — así "Yesica Cuenca" (como se tipeó en KoBo) matchea
 // contra "Yesica Soledad Cuenca" (como está en integrantes) aunque falte el
@@ -3237,10 +3254,18 @@ const Casos = {
     // quede arriba de todo, en vez de perderse mezclado alfabéticamente
     // con el resto. Mismas políticas RLS que `personas` (la vista es
     // security_invoker — ver schema-ajustes.sql).
-    let query = client.from('personas_actividad').select('*').order('ultima_actividad', { ascending:true }).limit(40);
-    if(q){
-      query = query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,dni.ilike.%${q}%`);
-    }
+    // Antes el texto se mandaba tal cual a `ilike` en el servidor —
+    // reportado por varias duplas (6/10/2026, pedido de Agustina: "a
+    // veces no pueden encontrar a una persona... para hacerle un
+    // seguimiento") dos problemas reales: (1) escribir "Juan Pérez"
+    // junto no matchea cuando nombre="Juan" y apellido="Pérez" están en
+    // columnas separadas — ninguna columna sola contiene "Juan Pérez";
+    // (2) `ilike` no ignora acentos, así que tipear "Perez" sin tilde (muy
+    // común en el celular) no encuentra a "Pérez". Ahora, si hay texto de
+    // búsqueda, se trae un lote más amplio sin filtrar en el servidor y
+    // se filtra acá con coincidenciaBusquedaPersona() — sin acentos, por
+    // palabra suelta en cualquier orden.
+    let query = client.from('personas_actividad').select('*').order('ultima_actividad', { ascending:true }).limit(q ? 500 : 40);
     // Filtro por dupla (solo admin/coordinación ven el selector — ver
     // mostrarFiltroDupla() — una cuenta de dupla ya está scopeada por
     // RLS a sus propios casos).
@@ -3267,8 +3292,9 @@ const Casos = {
       const hastaUtc = new Date(desdeUtc.getTime() + 24*60*60*1000);
       query = query.gte('ultima_actividad', desdeUtc.toISOString()).lt('ultima_actividad', hastaUtc.toISOString());
     }
-    const { data, error } = await query;
+    const { data: dataCruda, error } = await query;
     if(error){ cont.innerHTML = `<div class="empty-msg">Error buscando personas: ${esc(error.message)}</div>`; return; }
+    const data = q ? (dataCruda||[]).filter(p => coincidenciaBusquedaPersona(p, q)).slice(0, 40) : dataCruda;
     if(!data || !data.length){
       cont.innerHTML = `<div class="empty-msg">${q || duplaId ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
       return;
