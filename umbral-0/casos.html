@@ -1119,7 +1119,15 @@ function esDniPlaceholderDup(dni){
   const s = String(dni||'').trim().toLowerCase();
   if(!s) return true;
   if(!/[a-z0-9]/i.test(s)) return true;
-  if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  // Sumadas las frases de "no quiere dar/decir/compartir [el DNI]"
+  // (reportado por la dupla G, 6/10/2026: Ángel Sandoval tiene
+  // dni="No quiere darlo" en su ficha, y cada vez que se vuelve a cargar
+  // el mismo caso en KoBo con una frase apenas distinta — "no lo quiere
+  // dar", mayúsculas distintas, etc. — el chequeo de "¿ya existe este
+  // DNI?" de cargarKoboPendientes() comparaba el texto letra por letra y
+  // nunca matcheaba, así que el caso volvía a aparecer como alta nueva
+  // para siempre).
+  if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde|tiene|quiere (dar|decir|brindar|compartir)\w*)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
   return false;
 }
 
@@ -2196,7 +2204,12 @@ async function cargarKoboPendientes(){
     const misNombres = (integrantes||[])
       .map(i => `${i.nombre||''} ${i.apellido||''}`)
       .filter(n => n.trim());
-    const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
+    // esDniPlaceholderDup() (definida más arriba, ya usada en
+    // revisarDuplicadosCasos()) descarta frases tipo "No quiere darlo" o
+    // "Nsnc" — sin esto, dos envíos de la MISMA persona con una frase así
+    // apenas distinta nunca matcheaban entre sí (texto comparado letra
+    // por letra) y el caso volvía a aparecer como alta nueva para siempre.
+    const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(d => d && !esDniPlaceholderDup(d)));
     const idsYaValidados = new Set((validacionesPropias||[]).map(v => v.kobo_submission_id));
 
     // "Validado pero sin intervención registrada" (pedido de Agustina,
@@ -2303,13 +2316,13 @@ async function cargarKoboPendientes(){
       // todos sin nombre y apellido", eran justo estos).
       if(p.poblacionObjetivo === 'no' || p.poblacionObjetivo === 'no_es') return;
       const dni = String((p.persona && p.persona.dni) || '').trim();
-      if(dni){
+      if(dni && !esDniPlaceholderDup(dni)){
         if(dnisExistentes.has(dni)) return; // ya es un caso cargado — cargarKoboDePersona() ya lo muestra en esa ficha
         const previo = porDni.get(dni);
         if(!previo || (p.fecha||'') > (previo.fecha||'')) porDni.set(dni, p);
         return;
       }
-      // Sin DNI: ¿el nombre matchea con un caso propio ya cargado? (pedido
+      // Sin DNI (o un "DNI" placeholder tipo "No quiere darlo"): ¿el nombre matchea con un caso propio ya cargado? (pedido
       // de Agustina, sept/2026: "si mañana el operador vuelve a cargar el
       // kobo con el mismo nombre... se debe asociar al mismo caso" — acá
       // NO se asocia solo, se le pregunta a la dupla, ver confirmarContinuacionKobo()).
