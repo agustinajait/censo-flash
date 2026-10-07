@@ -3811,7 +3811,13 @@ const Casos = {
   // ficha directo — antes solo se le decía a la dupla que "la buscara en
   // el listado", y varias (pedido de Agustina, 6/10/2026) no encontraban
   // cómo y terminaban pensando que el sistema "no las dejaba cargar" un
-  // caso en seguimiento.
+  // caso en seguimiento. Si la coincidencia es de OTRA dupla, se suma el
+  // botón "🔗 Compartir este caso conmigo" (pedido de Agustina, 7/10/2026:
+  // "un caso tiene que ser independiente de la dupla porque a veces la
+  // gente rota de lugar y puede cambiar de zona") — llama a
+  // compartir_caso_por_dni() (RPC, ver schema-ajustes.sql), que le da
+  // acceso real a esta dupla sobre el caso y abre su ficha directo, en vez
+  // de crear un alta duplicada o dejarla sin ninguna opción.
   _mostrarAvisoDniDuplicado(form, coincidencias, dni, propiaFichaId){
     const filas = coincidencias.map(c => {
       const nombre = `${c.nombre||''} ${c.apellido||''}`.trim() || 'Persona sin identificar';
@@ -3829,10 +3835,10 @@ const Casos = {
     }
     const textoGuia = propiaFichaId
       ? 'Ese caso ya está en TU listado — si es la misma persona (por ejemplo, un caso en seguimiento que volviste a visitar), no hace falta darla de alta de nuevo: abrí su ficha de abajo y usá "➕ Registrar intervención" o "📝 Agregar seguimiento" ahí adentro.'
-      : 'Esa carga es de otra dupla. Si es la misma persona, avisale a Agustina para decidir qué hacer (cada dupla ve solo sus propios casos, así que no hay una ficha que puedas abrir vos). Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.';
+      : 'Esa carga es de otra dupla. Si es la misma persona (por ejemplo, se mudó de zona y ahora la atienden ustedes), tocá "🔗 Compartir este caso conmigo" para sumarte al caso sin duplicarlo — vas a poder ver todo su historial y cargar intervenciones ahí. Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.';
     const botonVerFicha = propiaFichaId
       ? `<button type="button" class="btn btn-blue btn-sm" onclick="closeModal(); Casos.abrirFicha('${escAttr(propiaFichaId)}')">Ver esa ficha →</button>`
-      : '';
+      : `<button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>`;
     cont.innerHTML = `
       <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ Ya hay ${coincidencias.length===1?'un caso':coincidencias.length+' casos'} con el DNI ${esc(dni)}</div>
       ${filas}
@@ -3848,6 +3854,31 @@ const Casos = {
       </div>
     `;
     cont.scrollIntoView({ behavior:'smooth', block:'start' });
+  },
+
+  // Llama a compartir_caso_por_dni() (RPC con security definer — ver
+  // schema-ajustes.sql) y, si encuentra el caso, abre la ficha directo.
+  // El RPC ya valida que sea una cuenta de dupla y resuelve la propia
+  // dupla del lado del servidor (no se manda dupla_id desde acá), así que
+  // no hay forma de que una dupla se otorgue acceso a nombre de otra.
+  async compartirCasoPorDni(dni){
+    const btn = document.getElementById('btn-compartir-caso');
+    if(btn){ btn.disabled = true; btn.textContent = 'Compartiendo…'; }
+    try{
+      const client = await SupabaseClient.getClient();
+      const { data, error } = await client.rpc('compartir_caso_por_dni', { p_dni: dni });
+      if(error) throw error;
+      if(!data || !data.length){
+        alert('No se encontró ningún caso con ese DNI en otra dupla (puede que ya lo hayan ocultado o movido). Probá de nuevo desde el formulario.');
+        if(btn){ btn.disabled = false; btn.textContent = '🔗 Compartir este caso conmigo'; }
+        return;
+      }
+      closeModal();
+      await Casos.abrirFicha(data[0].id);
+    }catch(e){
+      alert('No se pudo compartir el caso: ' + e.message);
+      if(btn){ btn.disabled = false; btn.textContent = '🔗 Compartir este caso conmigo'; }
+    }
   },
 
   // ── FICHA ────────────────────────────────────────────────────────────
