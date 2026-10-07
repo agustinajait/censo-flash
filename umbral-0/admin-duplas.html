@@ -2110,6 +2110,50 @@ async function guardarNotaAdmin(jornadaId, valor){
   }
 }
 
+// `reemplazo` normalmente lo carga la propia dupla al cerrar la jornada
+// (campo libre en abrirModalCierreJornada(), casos.html) — pero si se
+// olvidan, o si hace falta corregirlo/cargarlo después de que ya cerró
+// esa jornada, antes no había forma de tocarlo desde acá (pedido de
+// Agustina, 7/10/2026: "hay días que uno de la dupla no va o es
+// reemplazado y no tengo como anotarlo"). Mismo patrón que
+// guardarNotaAdmin(): se guarda solo al perder el foco, sin botón aparte.
+async function guardarReemplazoAdmin(jornadaId, valor){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('jornadas').update({ reemplazo: valor.trim() || null }).eq('id', jornadaId);
+    if(error) throw error;
+    const fila = _asistFilas.find(f => f.id === jornadaId);
+    if(fila) fila.reemplazo = valor.trim();
+  }catch(e){
+    console.error('No se pudo guardar el reemplazo', e);
+    alert('No se pudo guardar el reemplazo: ' + e.message);
+  }
+}
+
+// Conteo de días por reemplazante en el rango elegido (pedido de
+// Agustina, 7/10/2026: "poder contabilizar también los días que
+// trabajó Alan") — `reemplazo` es texto libre, así que se agrupa por el
+// texto tal cual quedó cargado (sin acentos/mayúsculas, para que "Alan"
+// y "alan" cuenten juntos), mostrando la primera forma en que se
+// escribió. Si hay más de un nombre en el mismo campo (ej. "Alan por
+// Sergio") se cuenta como un solo texto, no se intenta separar nombres
+// — más confiable que adivinar mal un parseo.
+function _conteoReemplazos(filas){
+  const porClave = new Map(); // clave normalizada -> { texto, dias }
+  filas.forEach(f => {
+    const texto = (f.reemplazo || '').trim();
+    if(!texto) return;
+    const clave = sinAcentosAdmin(texto);
+    const prev = porClave.get(clave);
+    if(prev) prev.dias++;
+    else porClave.set(clave, { texto, dias: 1 });
+  });
+  return [...porClave.values()].sort((a,b) => b.dias - a.dias || a.texto.localeCompare(b.texto));
+}
+function sinAcentosAdmin(s){
+  return String(s||'').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
 async function calcularAsistencia(){
   const desde = document.getElementById('asist-desde').value;
   const hasta = document.getElementById('asist-hasta').value;
@@ -2233,7 +2277,7 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta){
       <td>${f.horas != null ? f.horas.toFixed(1) + ' h' : '—'}</td>
       <td>${climaTxt(f)}</td>
       <td>${esc(f.observaciones || '—')}</td>
-      <td>${esc(f.reemplazo || '—')}</td>
+      <td><input type="text" class="nota-admin-input" value="${esc(f.reemplazo)}" placeholder="¿Quién la cubrió?" onchange="guardarReemplazoAdmin('${f.id}', this.value)" style="width:100%;border:1px solid #dbeafe;border-radius:6px;padding:4px 6px;font-size:0.82rem;"></td>
       <td><input type="text" class="nota-admin-input" value="${esc(f.notaAdmin)}" placeholder="Agregar nota…" onchange="guardarNotaAdmin('${f.id}', this.value)" style="width:100%;border:1px solid #dbeafe;border-radius:6px;padding:4px 6px;font-size:0.82rem;"></td>
     </tr>`;
   return `
@@ -2245,12 +2289,33 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta){
         <tbody>${resumen.length ? resumen.map(filaResumen).join('') : '<tr><td colspan="5">Sin datos en el rango.</td></tr>'}</tbody>
       </table>
     </div>
+    ${_renderConteoReemplazos(filas)}
     <div class="section-title">Detalle por jornada</div>
-    <div class="section-hint">Clima: milímetros de lluvia del día en CABA (Open-Meteo) — ayuda a explicar una jornada faltante. Reemplazo: si ese día los cubrió otra persona (lo carga la dupla al cerrar). Nota: comentario propio, editable, para lo que necesites anotar.</div>
+    <div class="section-hint">Clima: milímetros de lluvia del día en CABA (Open-Meteo) — ayuda a explicar una jornada faltante. Reemplazo: quién cubrió esa jornada en vez del integrante habitual — lo carga la dupla al cerrar, o lo podés cargar/corregir vos acá directo. Nota: comentario propio, editable, para lo que necesites anotar.</div>
     <div class="tbl-wrap">
       <table class="reporte-tabla">
         <thead><tr><th>Dupla</th><th>Integrantes</th><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Clima</th><th>Observaciones</th><th>Reemplazo</th><th>Nota</th></tr></thead>
         <tbody>${filas.length ? filas.map(filaDetalle).join('') : '<tr><td colspan="10">Sin jornadas en el rango.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+// Cuántos días trabajó cada reemplazante en el rango elegido (pedido de
+// Agustina, 7/10/2026: "poder contabilizar también los días que trabajó
+// Alan") — agrupa por el texto cargado en "Reemplazo" en cada jornada.
+function _renderConteoReemplazos(filas){
+  const conteo = _conteoReemplazos(filas);
+  if(!conteo.length) return '';
+  const filasHtml = conteo.map(c => `
+    <tr><td>${esc(c.texto)}</td><td>${c.dias} día${c.dias===1?'':'s'}</td></tr>
+  `).join('');
+  return `
+    <div class="section-title">Días por reemplazante</div>
+    <div class="section-hint">Cuenta cada jornada donde el campo "Reemplazo" tiene ese texto cargado, en el rango de fechas elegido arriba.</div>
+    <div class="tbl-wrap">
+      <table class="reporte-tabla">
+        <thead><tr><th>Reemplazo</th><th>Días</th></tr></thead>
+        <tbody>${filasHtml}</tbody>
       </table>
     </div>`;
 }
