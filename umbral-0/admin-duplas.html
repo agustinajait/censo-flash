@@ -2132,21 +2132,25 @@ async function guardarReemplazoAdmin(jornadaId, valor){
 
 // Conteo de días por reemplazante en el rango elegido (pedido de
 // Agustina, 7/10/2026: "poder contabilizar también los días que
-// trabajó Alan") — `reemplazo` es texto libre, así que se agrupa por el
-// texto tal cual quedó cargado (sin acentos/mayúsculas, para que "Alan"
-// y "alan" cuenten juntos), mostrando la primera forma en que se
-// escribió. Si hay más de un nombre en el mismo campo (ej. "Alan por
-// Sergio") se cuenta como un solo texto, no se intenta separar nombres
-// — más confiable que adivinar mal un parseo.
+// trabajó Alan"; después aclaró que un mismo día puede tener más de un
+// reemplazo — "a Alan ahora a la tarde lo reemplaza Sergio") — se
+// separan varios nombres cargados en el mismo campo (coma, punto y
+// coma, "/", "+" o la palabra "y" sola, ej. "Alan (mañana), Sergio
+// (tarde)") y cada uno suma su propio día, en vez de contarse como un
+// solo texto combinado. Se agrupa sin acentos/mayúsculas, para que
+// "Alan" y "alan" cuenten juntos.
 function _conteoReemplazos(filas){
   const porClave = new Map(); // clave normalizada -> { texto, dias }
   filas.forEach(f => {
     const texto = (f.reemplazo || '').trim();
     if(!texto) return;
-    const clave = sinAcentosAdmin(texto);
-    const prev = porClave.get(clave);
-    if(prev) prev.dias++;
-    else porClave.set(clave, { texto, dias: 1 });
+    const nombres = texto.split(/\s*(?:,|;|\/|\+|\by\b)\s*/i).map(n => n.trim()).filter(Boolean);
+    nombres.forEach(nombre => {
+      const clave = sinAcentosAdmin(nombre);
+      const prev = porClave.get(clave);
+      if(prev) prev.dias++;
+      else porClave.set(clave, { texto: nombre, dias: 1 });
+    });
   });
   return [...porClave.values()].sort((a,b) => b.dias - a.dias || a.texto.localeCompare(b.texto));
 }
