@@ -1473,7 +1473,7 @@ function coordinadorUmbral0Ahora(){
   return turnos.find(t => hora >= t.desde && hora < t.hasta) || null;
 }
 
-function mostrarMiTurno(){
+async function mostrarMiTurno(){
   const box = document.getElementById('mi-turno-box');
   if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
   const d = duplasPorId[miPerfil.dupla_id];
@@ -1495,6 +1495,7 @@ function mostrarMiTurno(){
           <div class="zona">${esc(d.zona||'Sin zona asignada')}${d.es_referente ? '<span class="mi-turno-ref">⭐ Referente del turno</span>' : ''}</div>
           ${d.detalle ? `<div class="detalle">${esc(d.detalle)}</div>` : ''}
           ${(!d.es_referente && referente) ? `<div class="detalle">👤 Referente del turno: Dupla ${esc(referente.codigo)}${referente.referente_telefono ? ' · 📞 ' + esc(referente.referente_telefono) : ' (sin teléfono cargado todavía)'}</div>` : ''}
+          <div class="detalle" id="mi-turno-total-casos">📊 Calculando casos totales…</div>
         </div>
         ${d.codigo ? `<a href="resumen-zonas.html?dupla=${escAttr(d.codigo)}" target="_blank" rel="noopener" class="btn btn-blue">🗺️ Abrir mapa</a>` : ''}
         ${d.mymaps ? `<a href="${escAttr(d.mymaps)}" target="_blank" rel="noopener" class="btn btn-blue">📍 Abrir en My Maps</a>` : ''}
@@ -1502,6 +1503,20 @@ function mostrarMiTurno(){
       </div>
     </div>
   `;
+
+  // Total de casos a los que esta dupla tiene acceso (propios + los
+  // compartidos con ella, ver personas_compartido) — pedido de Agustina
+  // (7/10/2026): "cuando entra a su panel que pueda ver cuántos casos
+  // tiene en total". `head:true` trae solo el número, no las filas.
+  try{
+    const client = await SupabaseClient.getClient();
+    const { count, error } = await client.from('personas').select('id', { count:'exact', head:true }).eq('oculto', false);
+    const el = document.getElementById('mi-turno-total-casos');
+    if(el) el.textContent = error ? '📊 No se pudo calcular el total de casos.' : `📊 ${count} caso${count===1?'':'s'} cargado${count===1?'':'s'} en total`;
+  }catch(e){
+    const el = document.getElementById('mi-turno-total-casos');
+    if(el) el.textContent = '📊 No se pudo calcular el total de casos.';
+  }
 }
 
 // ── JORNADA DE HOY (inicio/fin) ───────────────────────────────────────────

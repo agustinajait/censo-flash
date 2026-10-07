@@ -1369,16 +1369,23 @@ async function cargarPerfilesPorDupla(){
 async function cargarDuplas(){
   const client = await SupabaseClient.getClient();
   const cont = document.getElementById('duplas-list');
-  const [{ data, error }, { data: jornadas, error: errJ }] = await Promise.all([
+  const [{ data, error }, { data: jornadas, error: errJ }, { data: personasTodas, error: errP }] = await Promise.all([
     client.from('duplas').select('*, integrantes(*)')
       .order('turno', { ascending: true, nullsFirst: false })
       .order('codigo', { ascending: true }),
     client.from('jornadas').select('dupla_id, inicio, fin').eq('fecha', hoyStr(0)),
+    // Total de casos por dupla (pedido de Agustina, 7/10/2026: "en el
+    // admin y en las duplas... cuántos casos hizo en total") — se trae
+    // solo dupla_id (liviano) y se cuenta acá mismo, en vez de 13
+    // consultas de count por separado.
+    client.from('personas').select('dupla_id').eq('oculto', false),
   ]);
   if(error){ cont.innerHTML = '<div class="empty-msg">Error cargando duplas: '+esc(error.message)+'</div>'; return; }
   if(!data || !data.length){ cont.innerHTML = '<div class="empty-msg">Todavía no hay duplas cargadas. Usá "+ Nueva dupla".</div>'; return; }
   const jornadaPorDupla = {};
   if(!errJ) (jornadas||[]).forEach(j => { jornadaPorDupla[j.dupla_id] = j; });
+  const totalCasosPorDupla = {};
+  if(!errP) (personasTodas||[]).forEach(p => { totalCasosPorDupla[p.dupla_id] = (totalCasosPorDupla[p.dupla_id]||0) + 1; });
   cont.innerHTML = '';
   // Marca dónde empieza cada turno (23/9/2026, pedido de Agustina: "marca
   // la división de turnos") — la lista ya viene ordenada por turno, pero
@@ -1390,7 +1397,7 @@ async function cargarDuplas(){
       turnoActual = turnoKey;
       cont.appendChild(renderTurnoDivider(turnoKey));
     }
-    cont.appendChild(renderDuplaCard(d, jornadaPorDupla[d.id]));
+    cont.appendChild(renderDuplaCard(d, jornadaPorDupla[d.id], totalCasosPorDupla[d.id] || 0));
   });
 }
 
@@ -1446,7 +1453,7 @@ function miniMapaHtml(codigo){
 // desplegable") — el resumen de arriba (`data-role="resumen"`) muestra
 // turno/horario, zona, si marcó jornada hoy e integrantes; el formulario
 // completo de abajo (`data-role="body"`) se abre al tocarlo.
-function renderDuplaCard(d, jornada){
+function renderDuplaCard(d, jornada, totalCasos){
   const card = document.createElement('div');
   card.className = 'card';
   card.id = 'dupla-card-' + d.id;
@@ -1478,7 +1485,7 @@ function renderDuplaCard(d, jornada){
           <span class="dupla-resumen-codigo">${esc(d.codigo || '(sin código)')}</span>
           ${jornadaBadge}
         </div>
-        <div class="dupla-resumen-sub">${esc(turnoResumen)} · ${esc(d.zona || 'sin zona')}</div>
+        <div class="dupla-resumen-sub">${esc(turnoResumen)} · ${esc(d.zona || 'sin zona')} · 📊 ${totalCasos||0} caso${totalCasos===1?'':'s'} en total</div>
         <div class="dupla-resumen-integrantes">👤 ${esc(integrantesTxt)}</div>
       </div>
       ${miniMapaHtml(d.codigo)}
