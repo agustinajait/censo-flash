@@ -2313,9 +2313,22 @@ async function generarReporte(){
   try{
     const client = await SupabaseClient.getClient();
 
+    // intervenciones.fecha es `date` con default CURRENT_DATE del SERVIDOR
+    // (UTC), nunca mandado explícito al insertar — una intervención cargada
+    // entre las 21:00 y las 23:59 hora de Buenos Aires queda con `fecha` =
+    // el día siguiente en UTC. Filtrar por igualdad/rango de `fecha` deja
+    // afuera del REPORTE OFICIAL A GOPA intervenciones reales (reportado
+    // por Agustina, 7/10/2026, a raíz de un "aparece 0 casos" de la dupla M
+    // — confirmado con una consulta: 49 de 789 intervenciones en toda la
+    // base tienen `fecha` desfasada contra su `created_at` real). Se arma
+    // el mismo rango UTC del período que ya usa _rangoUtcDelDia() para un
+    // solo día, pero para [desde, hasta] completo, y se filtra por
+    // `created_at` (timestamptz, sin ese problema).
+    const desdeUtcReporte = desde + 'T03:00:00.000Z';
+    const hastaUtcReporte = new Date(new Date(hasta + 'T03:00:00.000Z').getTime() + 24*60*60*1000).toISOString();
     const [personasRes, intervencionesRes, derivacionesRes, seguimientosRes, koboOutcomes, duplasRes, jornadasRes] = await Promise.all([
       client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_educativa, situacion_economica, redes_contencion').eq('oculto', false),
-      client.from('intervenciones').select('*').gte('fecha', desde).lte('fecha', hasta),
+      client.from('intervenciones').select('*').gte('created_at', desdeUtcReporte).lt('created_at', hastaUtcReporte),
       client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
       // "Tocada" tiene que incluir seguimientos (notas/checklist), no solo
       // intervenciones — reportado por Agustina, 28/9/2026: "agregar
@@ -3002,7 +3015,10 @@ async function calcularResumenTodasLasDuplas(){
       client.from('personas').select('id, dupla_id').eq('oculto', false)
         .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
       client.from('personas').select('id, dupla_id').eq('oculto', false),
-      client.from('intervenciones').select('id, dupla_id').eq('fecha', fecha),
+      // intervenciones.fecha es `date` con default CURRENT_DATE del
+      // SERVIDOR (UTC) — ver nota larga en generarReporte(). Se filtra por
+      // created_at, igual que personas arriba.
+      client.from('intervenciones').select('id, dupla_id').gte('created_at', desdeUtc).lt('created_at', hastaUtc),
       client.from('seguimientos').select('id, dupla_id').gte('fecha', desdeUtc).lt('fecha', hastaUtc),
       client.from('jornadas').select('id, dupla_id, inicio, fin, nota_admin').eq('fecha', fecha),
       // No bloquea el resto del resumen si KoBo falla (sin conexión,
@@ -3275,7 +3291,11 @@ async function _cargarResumenDiario(duplaId, fecha, contId){
       // `created_at` hace falta para _clasificarGapSeguimiento() (arranca
       // el gap ahí si la persona nunca tuvo contacto anterior).
       client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve, created_at').eq('dupla_id', duplaId).eq('oculto', false),
-      client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', duplaId).eq('fecha', fecha),
+      // intervenciones.fecha es `date` con default CURRENT_DATE del
+      // SERVIDOR (UTC) — ver nota larga en generarReporte(). Se filtra por
+      // created_at, igual que personas arriba.
+      client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', duplaId)
+        .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
       client.from('seguimientos').select('id, persona_id').eq('dupla_id', duplaId)
         .gte('fecha', desdeUtc).lt('fecha', hastaUtc),
       client.from('duplas').select('codigo').eq('id', duplaId).single(),

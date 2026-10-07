@@ -1642,7 +1642,20 @@ async function calcularResumenDiaParaFecha(fecha){
   const [personasRes, intervRes, derivRes, seguRes] = await Promise.all([
     client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve').eq('dupla_id', miPerfil.dupla_id).eq('oculto', false)
       .gte('created_at', desdeUtc.toISOString()).lt('created_at', hastaUtc.toISOString()),
-    client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', miPerfil.dupla_id).eq('fecha', fecha),
+    // intervenciones.fecha es `date` con default CURRENT_DATE del SERVIDOR
+    // (UTC) — nunca se manda explícito al insertar (ver guardarIntervencion()/
+    // guardarPersona()), así que una intervención cargada entre las 21:00 y
+    // las 23:59 hora de Buenos Aires (adentro del Turno 4, 18-22hs) queda con
+    // `fecha` = el día siguiente en UTC. Comparar por igualdad contra `fecha`
+    // dejaba esas intervenciones completamente afuera del resumen del día
+    // real (reportado por Agustina, 7/10/2026, dupla M: "cargan en casos
+    // pero al cierre de jornada aparece 0 casos" — confirmado con una
+    // consulta: 49 de 789 intervenciones en toda la base tienen `fecha`
+    // desfasada contra su `created_at` real). Se compara por rango de
+    // `created_at` (timestamptz, sin ese problema), mismo criterio que ya
+    // se usa para personas/derivaciones/seguimientos acá arriba y abajo.
+    client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', miPerfil.dupla_id)
+      .gte('created_at', desdeUtc.toISOString()).lt('created_at', hastaUtc.toISOString()),
     client.from('derivaciones').select('id, tipo')
       .gte('fecha_solicitud', desdeUtc.toISOString()).lt('fecha_solicitud', hastaUtc.toISOString()),
     client.from('seguimientos').select('id, persona_id').eq('dupla_id', miPerfil.dupla_id)
