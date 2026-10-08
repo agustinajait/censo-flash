@@ -3672,6 +3672,39 @@ const Casos = {
     let eraKoboSinIdentificar = false; // ver uso más abajo, tras guardar
     const form = document.getElementById('form-persona');
     const btn = document.getElementById('btn-guardar-persona');
+
+    // Blindaje contra el mismo envío de KoBo "sin identificar" creando MÁS
+    // de un caso (encontrado en producción: una misma persona cargada hasta
+    // 9 veces desde el mismo envío, ~10-60s entre cada una — la dupla
+    // reabrió el mismo pendiente y volvió a guardar, probablemente porque
+    // no vio que el primer guardado ya había funcionado). _guardandoPersona
+    // de arriba solo frena un doble clic DENTRO de esta misma carga de
+    // página; si se reabre el mismo pendiente (otra pestaña, recargó la
+    // página, volvió más tarde) ese flag ya vale cero. Antes de crear el
+    // caso, se chequea en el servidor si ese kobo_submission_id YA tiene
+    // una fila en kobo_validaciones — si la tiene, alguien (incluida esta
+    // misma persona, antes) ya lo cargó.
+    if(!personaExistente && koboSubIdSinIdentificarPendiente){
+      try{
+        const client = await SupabaseClient.getClient();
+        const { data: yaExiste, error: errChk } = await client.from('kobo_validaciones')
+          .select('persona_id').eq('kobo_submission_id', koboSubIdSinIdentificarPendiente).limit(1).maybeSingle();
+        if(errChk) throw errChk;
+        if(yaExiste){
+          modalError('Este envío de KoBo ya fue cargado como caso antes (quizás en otra pestaña, o ya lo habías guardado). No se creó un caso nuevo.');
+          koboSubIdSinIdentificarPendiente = null;
+          _guardandoPersona = false;
+          closeModal();
+          cargarKoboPendientes();
+          return;
+        }
+      }catch(e){
+        modalError('No se pudo confirmar si este envío ya estaba cargado (' + e.message + '). Probá guardar de nuevo.');
+        _guardandoPersona = false;
+        return;
+      }
+    }
+
     const campos = recolectarCampos(form);
     if(!campos.sin_identificar && (!campos.nombre || !campos.apellido)){
       modalError('Nombre y apellido son obligatorios (o tildá "Sin identificar" si la persona no quiso darlos).');

@@ -951,6 +951,18 @@ async function _crearCasoSinIdentificarAdmin(item, puntoContacto){
   ]);
   const subId = koboSubmissionId(p);
   const client = await SupabaseClient.getClient();
+  // Mismo blindaje que confirmarKoboSinIdentificar() en casos.html —
+  // encontrado en producción: el mismo envío creó hasta 9 casos distintos
+  // (confirmado dos veces sin que la lista se actualizara entre medio, o
+  // "✅ Confirmar todos" apretado más de una vez). Antes de insertar,
+  // reconfirmar en el servidor que este kobo_submission_id sigue sin
+  // ninguna fila en kobo_validaciones.
+  if(subId){
+    const { data: yaExiste, error: errChk } = await client.from('kobo_validaciones')
+      .select('persona_id').eq('kobo_submission_id', subId).limit(1).maybeSingle();
+    if(errChk) throw errChk;
+    if(yaExiste) throw new Error('Este envío de KoBo ya fue cargado como caso — no se creó un caso nuevo.');
+  }
   // 24/9/2026: "no se ven los nombres... antes los estábamos levantando
   // bien" — este insert nunca guardaba nombre/apellido, aunque KoBo los
   // haya traído (a "sin identificar" lo manda la falta de DNI, no
