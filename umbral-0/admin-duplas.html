@@ -527,10 +527,10 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-02"></script>
+<script src="../config/umbral-0.js?v=2026-10-12"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
-<script src="../shared/js/mapa-puntos.js?v=2026-09-28"></script>
+<script src="../shared/js/mapa-puntos.js?v=2026-10-12"></script>
 <script>
 
 let miPerfil = null;
@@ -2838,6 +2838,21 @@ function renderReporte(cont, r){
       <div id="reporte-map" style="height:380px;border-radius:10px;margin-top:14px;"></div>
     </div>
 
+    <!-- Clasificador geográfico (12/10/2026, pedido de gobierno vía
+         Agustina) — compara cada registro de KoBo con GPS contra las 3
+         sub-zonas vigentes (P1 este/P1 oeste/P2, con 30m de margen) y
+         contra los puntos neurálgicos marcados por gobierno. Usa los
+         mismos puntos de koboOutcomes de arriba — no vuelve a pedir
+         nada. Solo tiene sentido para fechas desde el 12/10/2026 en
+         adelante (antes regía el esquema P1-P4, ver nota abajo). -->
+    <div class="section-title">a2. Cobertura geográfica — zonas vigentes desde el 12/10/2026</div>
+    <div class="card">
+      <div class="section-hint">Compara cada registro de KoBo con ubicación contra la sub-zona que le toca a esa dupla en ese turno (margen de 30m). Solo es válido para fechas desde el 12/10/2026 — antes regía el esquema de polígonos P1-P4, no comparable contra esto.</div>
+      <div id="cobertura-geo-tabla"><div class="empty-msg" style="padding:12px 4px;">Se calcula junto con el resto del reporte.</div></div>
+      <div class="section-title" style="font-size:0.92rem;margin-top:18px;">Puntos neurálgicos (marcados por gobierno)</div>
+      <div id="cobertura-geo-puntos"></div>
+    </div>
+
     <div class="section-title">b. Población abordada</div>
     <div class="card">
       <div class="kpi-grid">
@@ -2990,6 +3005,57 @@ function renderReporte(cont, r){
   window._ultimoReporte = r;
   if(window.renderMapaPuntos){
     renderMapaPuntos('reporte-map', (r.koboOutcomes && r.koboOutcomes.puntos) || [], window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas);
+  }
+  if(window.clasificarPuntoVsZonas){
+    renderCoberturaGeografica((r.koboOutcomes && r.koboOutcomes.puntos) || [], window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas);
+  }
+}
+
+// Agrupa los puntos de KoBo (ya matcheados a su dupla, ver
+// calcularOutcomesKobo()) por turno+sub-zona ASIGNADA a esa dupla, y
+// dentro de cada grupo cuenta en qué clasificación cayó cada uno
+// (clasificarPuntoVsZonas(), en shared/js/mapa-puntos.js). `zonas` tiene
+// que ser el esquema nuevo (con `.subzonas`) — si todavía no se cargó
+// (script no incluido en esta página) o es el histórico, no hace nada.
+function renderCoberturaGeografica(puntos, zonas){
+  const tbl = document.getElementById('cobertura-geo-tabla');
+  const pnCont = document.getElementById('cobertura-geo-puntos');
+  if(!tbl || !pnCont) return;
+  if(!zonas || !zonas.subzonas){
+    tbl.innerHTML = '<div class="empty-msg">No se pudieron cargar las zonas vigentes.</div>';
+    pnCont.innerHTML = '';
+    return;
+  }
+  const grupos = {}; // "turno|poligono" -> { turno, poligono, en_zona, en_otra_subzona, fuera_corredor, iglesia }
+  puntos.forEach(p => {
+    const z = p.dupla && zonas.porDupla && zonas.porDupla[p.dupla];
+    if(!z) return; // dupla no reconocida en el esquema vigente (ej. choferes, o esquema histórico)
+    const key = `${z.turno}|${z.poligono}`;
+    if(!grupos[key]) grupos[key] = { turno: z.turno, poligono: z.poligono, en_zona:0, en_otra_subzona:0, fuera_corredor:0, iglesia:0, sin_clasificar:0 };
+    const clase = clasificarPuntoVsZonas(p.dupla, p.lat, p.lng, zonas);
+    if(clase) grupos[key][clase]++;
+    else grupos[key].sin_clasificar++;
+  });
+  const filas = Object.values(grupos).sort((a,b) => a.turno.localeCompare(b.turno) || a.poligono.localeCompare(b.poligono));
+  if(!filas.length){
+    tbl.innerHTML = '<div class="empty-msg">Sin registros de KoBo con ubicación en este rango para el esquema vigente.</div>';
+  } else {
+    tbl.innerHTML = `<div class="tbl-wrap"><table class="reporte-tabla">
+      <thead><tr><th>Turno</th><th>Sub-zona</th><th class="num">En su zona</th><th class="num">En otra sub-zona</th><th class="num">Fuera del corredor</th><th class="num">En iglesia</th><th class="num">Total</th></tr></thead>
+      <tbody>${filas.map(f => {
+        const total = f.en_zona + f.en_otra_subzona + f.fuera_corredor + f.iglesia + f.sin_clasificar;
+        return `<tr><td>${esc(f.turno)}</td><td>${esc(f.poligono)}</td><td class="num">${f.en_zona}</td><td class="num">${f.en_otra_subzona||'—'}</td><td class="num">${f.fuera_corredor||'—'}</td><td class="num">${f.iglesia||'—'}</td><td class="num"><b>${total}</b></td></tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+  }
+  const porPunto = (window.contarPorPuntoNeuralgico ? contarPorPuntoNeuralgico(puntos, zonas) : []);
+  if(!porPunto.length){
+    pnCont.innerHTML = '<div class="empty-msg">Sin puntos neurálgicos cargados.</div>';
+  } else {
+    pnCont.innerHTML = `<div class="tbl-wrap"><table class="reporte-tabla">
+      <thead><tr><th>Punto</th><th>Polígono</th><th class="num">Registros (100m)</th></tr></thead>
+      <tbody>${porPunto.map(p => `<tr><td>${esc(p.nombre)}${p.confirmarUbicacionGobierno ? ' <span class="badge badge-amber" title="Gobierno todavía no confirmó esta ubicación">⚠️ ubicación a confirmar</span>' : ''}</td><td>${esc(p.poligono)}</td><td class="num">${p.cantidad}</td></tr>`).join('')}</tbody>
+    </table></div>`;
   }
 }
 

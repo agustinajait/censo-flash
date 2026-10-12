@@ -95,6 +95,91 @@ function _fueraDeZona(dupla, lat, lng, zonas){
   return !anillos.some(anillo => anillo.length >= 3 && _puntoDentroPoligono(lat, lng, anillo));
 }
 
+// ── Clasificador geográfico (12/10/2026, pedido de gobierno vía Agustina:
+// point-in-polygon con 30m de margen contra las 3 sub-zonas, "en su
+// zona"/"en otra sub-zona"/"fuera del corredor"/"en iglesia") ───────────
+// Distancia en metros entre dos puntos [lat,lng] (Haversine — de sobra de
+// precisión para radios de 30-100m, no hace falta geometría proyectada).
+function _distanciaMetros(lat1, lng1, lat2, lng2){
+  const R = 6371000;
+  const toRad = x => x * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// true si el punto cae DENTRO del polígono o a <= margenMetros de su
+// borde. No calcula el buffer geométrico exacto del polígono (innecesario
+// para un margen de 30m a esta escala) — si no cayó adentro, prueba el
+// punto desplazado `margenMetros` en 8 direcciones; si alguno de esos
+// desplazamientos SÍ entra, el punto original estaba a esa distancia o
+// menos del borde.
+function _dentroConMargen(lat, lng, anillo, margenMetros){
+  if(_puntoDentroPoligono(lat, lng, anillo)) return true;
+  if(!margenMetros) return false;
+  const gradosLat = margenMetros / 111320;
+  const gradosLng = margenMetros / (111320 * Math.cos(lat * Math.PI / 180) || 1);
+  for(let i = 0; i < 8; i++){
+    const ang = i * Math.PI / 4;
+    const lat2 = lat + gradosLat * Math.sin(ang);
+    const lng2 = lng + gradosLng * Math.cos(ang);
+    if(_puntoDentroPoligono(lat2, lng2, anillo)) return true;
+  }
+  return false;
+}
+
+const MARGEN_SUBZONA_METROS = 30;
+
+// Clasifica un punto GPS contra el esquema de 3 sub-zonas (P1 este/P1
+// oeste/P2) vigente desde el 12/10/2026 — devuelve 'iglesia' (cae en el
+// comedor/iglesia de CUALQUIER dupla, sin importar cuál — el operativo
+// pasa por ahí, no por su polígono, en ese horario), 'en_zona' (dentro de
+// la sub-zona asignada a esa dupla, con margen), 'en_otra_subzona'
+// (dentro de otra de las 3, no la propia) o 'fuera_corredor' (ninguna).
+// null si falta algo para poder calcularlo (sin coordenadas, sin zonas
+// cargadas, o `zonas` todavía es el esquema histórico sin `.subzonas`).
+function clasificarPuntoVsZonas(dupla, lat, lng, zonas){
+  if(lat == null || lng == null || !zonas || !zonas.subzonas) return null;
+  const todasIglesias = Object.values(zonas.comedores || {}).flat();
+  for(const igl of todasIglesias){
+    if(igl.poly && _anillosDe(igl.poly).some(an => _puntoDentroPoligono(lat, lng, an))) return 'iglesia';
+  }
+  const poligonoAsignado = dupla && zonas.porDupla && zonas.porDupla[dupla] ? zonas.porDupla[dupla].poligono : null;
+  if(poligonoAsignado && zonas.subzonas[poligonoAsignado]){
+    const propio = zonas.subzonas[poligonoAsignado];
+    if(propio.poly && _anillosDe(propio.poly).some(an => _dentroConMargen(lat, lng, an, MARGEN_SUBZONA_METROS))) return 'en_zona';
+  }
+  for(const [nombrePoligono, sub] of Object.entries(zonas.subzonas)){
+    if(nombrePoligono === poligonoAsignado) continue;
+    if(sub.poly && _anillosDe(sub.poly).some(an => _dentroConMargen(lat, lng, an, MARGEN_SUBZONA_METROS))) return 'en_otra_subzona';
+  }
+  return 'fuera_corredor';
+}
+
+// Para cada punto neurálgico marcado por gobierno (zonas.puntosNeuralgicos
+// — ver config/umbral-0.js), cuenta cuántos `puntos` (de
+// calcularOutcomesKobo().puntos, o cualquier lista {lat,lng}) cayeron
+// dentro del radio (si es un Point) o dentro del polígono (si es una
+// franja, ver "Franja Av. Pueyrredón – Ecuador", tipoGeom:'Polygon') —
+// pedido de gobierno: "contar registros por punto neurálgico (100m
+// alrededor de cada punto, y dentro de la franja) por turno".
+const RADIO_PUNTO_NEURALGICO_METROS = 100;
+function contarPorPuntoNeuralgico(puntos, zonas){
+  if(!zonas || !zonas.puntosNeuralgicos) return [];
+  return zonas.puntosNeuralgicos.map(pn => {
+    let cantidad = 0;
+    (puntos || []).forEach(p => {
+      if(p.lat == null || p.lng == null) return;
+      if(pn.tipoGeom === 'Polygon'){
+        if(_puntoDentroPoligono(p.lat, p.lng, pn.geom)) cantidad++;
+      } else {
+        if(_distanciaMetros(p.lat, p.lng, pn.geom[0], pn.geom[1]) <= RADIO_PUNTO_NEURALGICO_METROS) cantidad++;
+      }
+    });
+    return { nombre: pn.nombre, poligono: pn.poligono, cantidad, confirmarUbicacionGobierno: !!pn.confirmarUbicacionGobierno };
+  });
+}
+
 // focusCod (opcional): pedido de Agustina, 29/9/2026 ("el mapa que les
 // muestro no tiene nombres de calles, ¿no podemos embeber el de
 // MyMaps?") — en vez de mantener un My Maps aparte sincronizado a mano,
