@@ -541,7 +541,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-02"></script>
+<script src="../config/umbral-0.js?v=2026-10-12"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
@@ -3324,6 +3324,27 @@ const Casos = {
     if(error){ cont.innerHTML = `<div class="empty-msg">Error buscando personas: ${esc(error.message)}</div>`; return; }
     const data = q ? (dataCruda||[]).filter(p => coincidenciaBusquedaPersona(p, q)).slice(0, 40) : dataCruda;
     if(!data || !data.length){
+      // Territorio más chico desde el 12/10/2026 (duplas comparten
+      // sub-zona) — pedido de Agustina: "cada dupla debe poder buscar por
+      // DNI el caso" aunque lo haya cargado otra dupla, no solo cuando el
+      // aviso de "DNI duplicado" salta al dar de alta. Si la búsqueda
+      // propia (scopeada por RLS) no encontró nada, el texto parece un
+      // DNI y sos una cuenta de dupla (admin/coordinación ya ven todo),
+      // se chequea personas_dni_index (bypassea RLS a propósito) — mismo
+      // mecanismo y mismo RPC compartir_caso_por_dni() que ya existía
+      // para el aviso de alta, ahora disparado también desde acá.
+      const soloDigitos = q.replace(/\D/g, '');
+      const pareceDni = soloDigitos.length >= 6 && soloDigitos.length <= 9 && soloDigitos === q.trim();
+      if(pareceDni && miPerfil && miPerfil.rol === 'dupla'){
+        cont.innerHTML = '<div class="empty-msg">Buscando en otras duplas…</div>';
+        try{
+          const { data: enOtraDupla } = await client.from('personas_dni_index').select('*').eq('dni', q.trim());
+          if(enOtraDupla && enOtraDupla.length){
+            Casos._mostrarResultadoBusquedaOtraDupla(cont, enOtraDupla, q.trim());
+            return;
+          }
+        }catch(e){ /* sigue al mensaje genérico de abajo si falla */ }
+      }
       cont.innerHTML = `<div class="empty-msg">${q || duplaId ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
       return;
     }
@@ -3927,6 +3948,29 @@ const Casos = {
       alert('No se pudo compartir el caso: ' + e.message);
       if(btn){ btn.disabled = false; btn.textContent = '🔗 Compartir este caso conmigo'; }
     }
+  },
+
+  // Buscaste un DNI, no tenés ningún caso propio con ese número, pero
+  // existe en otra dupla — mismo texto/botón que _mostrarAvisoDniDuplicado()
+  // pero en el resultado de la BÚSQUEDA, no en el formulario de alta (ver
+  // comentario en buscarPersonas()). compartirCasoPorDni() es la misma
+  // función para los dos casos: comparte el acceso y abre la ficha.
+  _mostrarResultadoBusquedaOtraDupla(cont, coincidencias, dni){
+    const filas = coincidencias.map(c => {
+      const nombre = `${c.nombre||''} ${c.apellido||''}`.trim() || 'Persona sin identificar';
+      const fecha = c.created_at ? new Date(c.created_at).toLocaleDateString('es-AR') : '—';
+      return `<div style="padding:5px 0; border-top:1px solid #fed7aa; font-size:0.82rem; color:#78350f;">
+        <b>${esc(nombre)}</b> — dupla ${esc(c.dupla_codigo||'—')}, cargado el ${esc(fecha)}
+      </div>`;
+    }).join('');
+    cont.innerHTML = `
+      <div style="background:#fff7ed; border:1.5px solid #fdba74; border-radius:10px; padding:14px 16px;">
+        <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ El DNI ${esc(dni)} ya está cargado, pero por otra dupla</div>
+        ${filas}
+        <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona (se mudó de zona y ahora la ven ustedes), tocá "🔗 Compartir este caso conmigo" para sumarte sin duplicarlo — vas a poder ver todo su historial y cargar la intervención o el seguimiento ahí mismo.</div>
+        <button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>
+      </div>
+    `;
   },
 
   // ── FICHA ────────────────────────────────────────────────────────────
