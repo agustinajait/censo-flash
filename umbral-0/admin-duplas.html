@@ -2200,6 +2200,23 @@ async function calcularAsistencia(){
     (jornadas||[]).forEach(j => { (jornadasPorDupla[j.dupla_id] = jornadasPorDupla[j.dupla_id] || []).push(j); });
     const integrantesActivosDe = d => (d.integrantes||[]).filter(i => i.activo).map(i => `${i.nombre||''} ${i.apellido||''}`.trim()).filter(Boolean);
 
+    // Quiénes se tildaron PRESENTE de verdad al marcar el inicio (pedido
+    // de Agustina, 13/10/2026: "necesito que los dos miembros de la
+    // dupla den el presente") — jornadas_presentes, ver schema-ajustes.sql.
+    // Jornadas de antes de este feature (o donde nadie tildó nada) no
+    // tienen filas acá — se distingue en la columna de abajo en vez de
+    // mostrar el roster completo como si fuera asistencia confirmada.
+    const presentesPorJornada = {};
+    if((jornadas||[]).length){
+      const { data: presentesRows } = await client.from('jornadas_presentes')
+        .select('jornada_id, integrantes(nombre, apellido)').in('jornada_id', jornadas.map(j => j.id));
+      (presentesRows||[]).forEach(p => {
+        const nombre = `${p.integrantes?.nombre||''} ${p.integrantes?.apellido||''}`.trim();
+        if(!nombre) return;
+        (presentesPorJornada[p.jornada_id] = presentesPorJornada[p.jornada_id] || []).push(nombre);
+      });
+    }
+
     // Si no cerraron la jornada, el fin se estima con el último envío de
     // KoBo de ese día (ver _finesEstimadosPorKobo) — para el pago no
     // importa si tocaron el botón de cierre, importa si trabajaron.
@@ -2217,8 +2234,12 @@ async function calcularAsistencia(){
       const integrantesTxt = integrantesActivosDe(d).join(', ');
       (jornadasPorDupla[d.id]||[]).forEach(j => {
         const fin = finDeJornada(d, j);
+        const presentes = presentesPorJornada[j.id];
         filas.push({
-          id: j.id, duplaCodigo: d.codigo, integrantes: integrantesTxt, fecha: j.fecha,
+          id: j.id, duplaCodigo: d.codigo,
+          integrantes: presentes ? presentes.join(', ') : integrantesTxt,
+          sinConfirmarPresentes: !presentes,
+          fecha: j.fecha,
           inicio: j.inicio, fin, estimado: !j.fin && !!fin, horas: horasJornada(j.inicio, fin),
           observaciones: j.observaciones || '', reemplazo: j.reemplazo || '', notaAdmin: j.nota_admin || '',
           llovio: null,
@@ -2286,7 +2307,7 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta){
   const filaDetalle = f => `
     <tr>
       <td>${esc(f.duplaCodigo)}</td>
-      <td>${esc(f.integrantes || '—')}</td>
+      <td>${esc(f.integrantes || '—')}${f.sinConfirmarPresentes ? ' <span style="color:#94a3b8;font-size:0.72rem;" title="Nadie tildó el checklist de presentes al marcar el inicio — se muestra el roster completo de la dupla, no una confirmación real.">(sin confirmar)</span>' : ''}</td>
       <td>${fmtFechaCorta(f.fecha)}</td>
       <td>${f.inicio ? fmtHoraAdmin(f.inicio) : '—'}</td>
       <td>${f.fin ? fmtHoraAdmin(f.fin) + (f.estimado ? ' <span style="color:#94a3b8;font-size:0.78rem;">(KoBo)</span>' : '') : '—'}</td>
@@ -2307,7 +2328,7 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta){
     </div>
     ${_renderConteoReemplazos(filas)}
     <div class="section-title">Detalle por jornada</div>
-    <div class="section-hint">Clima: milímetros de lluvia del día en CABA (Open-Meteo) — ayuda a explicar una jornada faltante. Reemplazo: quién cubrió esa jornada en vez del integrante habitual — lo carga la dupla al cerrar, o lo podés cargar/corregir vos acá directo. Nota: comentario propio, editable, para lo que necesites anotar.</div>
+    <div class="section-hint">Integrantes: desde el 13/10/2026, quiénes tildaron presente al marcar el inicio de la jornada (antes de esa fecha, o si nadie tildó nada, se muestra el roster completo de la dupla marcado "(sin confirmar)"). Clima: milímetros de lluvia del día en CABA (Open-Meteo) — ayuda a explicar una jornada faltante. Reemplazo: quién cubrió esa jornada en vez del integrante habitual — lo carga la dupla al cerrar, o lo podés cargar/corregir vos acá directo. Nota: comentario propio, editable, para lo que necesites anotar.</div>
     <div class="tbl-wrap">
       <table class="reporte-tabla">
         <thead><tr><th>Dupla</th><th>Integrantes</th><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Clima</th><th>Observaciones</th><th>Reemplazo</th><th>Nota</th></tr></thead>

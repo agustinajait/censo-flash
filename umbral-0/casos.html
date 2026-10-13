@@ -1548,14 +1548,22 @@ function fmtHora(iso){
   return isNaN(d) ? '' : d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
 }
 
+let presentesHoy = []; // nombres de los integrantes marcados presentes en jornadaHoy, para mostrarJornada()
+
 async function cargarJornadaHoy(){
   jornadaHoy = null;
+  presentesHoy = [];
   if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
   try{
     const client = await SupabaseClient.getClient();
     const { data } = await client.from('jornadas').select('*')
       .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr()).maybeSingle();
     jornadaHoy = data || null;
+    if(jornadaHoy){
+      const { data: pres } = await client.from('jornadas_presentes')
+        .select('integrante_id, integrantes(nombre, apellido)').eq('jornada_id', jornadaHoy.id);
+      presentesHoy = (pres || []).map(p => `${p.integrantes?.nombre||''} ${p.integrantes?.apellido||''}`.trim()).filter(Boolean);
+    }
   }catch(e){ /* si falla, se muestra el estado "pendiente" por defecto — no bloquea el resto de la app */ }
 }
 
@@ -1574,6 +1582,7 @@ function mostrarJornada(){
     // colapsado detrás de un toggle; el resumen mini de al lado del
     // título se llena solo cuando termina de calcularse (ver _renderResumenDia()).
     html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}<span id="jornada-resumen-mini" style="color:#64748b;"></span></div>
+      ${presentesHoy.length ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>✅ Presentes:</b> ${presentesHoy.map(esc).join(', ')}</div>` : ''}
       ${jornadaHoy.observaciones ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>💬 Observaciones del día:</b><br>${esc(jornadaHoy.observaciones)}</div>` : ''}
       ${jornadaHoy.reemplazo ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>👥 Reemplazo:</b> ${esc(jornadaHoy.reemplazo)}</div>` : ''}
       <button class="btn btn-outline btn-sm" id="btn-toggle-resumen-dia" style="margin-top:8px;" onclick="Casos.toggleResumenDia()">🔽 Ver detalle del día</button>
@@ -1582,6 +1591,7 @@ function mostrarJornada(){
   } else if(jornadaHoy && jornadaHoy.inicio){
     estado = 'en-curso';
     html = `<div class="jornada-txt">🌤️ <strong>Jornada en curso</strong> — inicio ${fmtHora(jornadaHoy.inicio)}</div>
+      ${presentesHoy.length ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>✅ Presentes:</b> ${presentesHoy.map(esc).join(', ')}</div>` : ''}
       <button class="btn btn-blue" onclick="abrirModalCierreJornada()">⏹️ Marcar fin de jornada</button>`;
   } else {
     estado = 'pendiente';
@@ -1815,17 +1825,84 @@ async function marcarInicioJornada(){
       if(!seguir) return;
     }
   }
+  // Pedido de Agustina (13/10/2026): "necesito que los dos miembros de la
+  // dupla den el presente" — hasta acá alcanzaba con que CUALQUIERA de
+  // los dos tocara el botón desde la cuenta compartida, sin quedar
+  // registrado quién de los dos vino. Antes de crear la jornada, se pide
+  // tildar presente a cada integrante activo (ver jornadas_presentes en
+  // schema-ajustes.sql). Si alguno falta, igual se puede arrancar la
+  // jornada — el reemplazo puntual se sigue anotando en texto libre al
+  // cerrar (abrirModalCierreJornada()), esto es la asistencia del roster
+  // habitual, no el reemplazo.
   try{
     const client = await SupabaseClient.getClient();
-    const { error } = await client.from('jornadas')
-      .insert({ dupla_id: miPerfil.dupla_id, fecha: hoyStr(), inicio: new Date().toISOString() });
-    if(error) throw error;
+    const { data: integrantesDupla, error: errI } = await client.from('integrantes')
+      .select('id, nombre, apellido').eq('dupla_id', miPerfil.dupla_id).eq('activo', true).neq('rol', 'chofer')
+      .order('nombre');
+    if(errI) throw errI;
+    if(!integrantesDupla || !integrantesDupla.length){
+      // Sin integrantes cargados (raro, pero posible) — no bloquea el
+      // inicio de jornada, solo no pide el checklist.
+      await _crearJornadaConPresentes([]);
+      return;
+    }
+    _abrirModalPresentes(integrantesDupla);
   }catch(e){
-    alert('No se pudo marcar el inicio: ' + e.message);
-  }finally{
-    await cargarJornadaHoy();
-    mostrarJornada();
+    alert('No se pudo revisar los integrantes de la dupla: ' + e.message);
   }
+}
+
+function _abrirModalPresentes(integrantesDupla){
+  const filas = integrantesDupla.map(i => `
+    <div class="form-check">
+      <input type="checkbox" id="presente-${escAttr(i.id)}" value="${escAttr(i.id)}" checked>
+      <label for="presente-${escAttr(i.id)}">${esc(`${i.nombre||''} ${i.apellido||''}`.trim() || 'Sin nombre')}</label>
+    </div>
+  `).join('');
+  const body = `
+    <form id="form-presentes" onsubmit="return false;">
+      <div class="form-field">
+        <label>¿Quiénes de la dupla están hoy? *</label>
+        <div class="hint">Destildá a quien no vino. Si los reemplazó alguien que no es del roster habitual, eso se anota aparte al cerrar la jornada.</div>
+        ${filas}
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-green" id="btn-confirmar-presentes">▶️ Marcar inicio de jornada</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      </div>
+    </form>
+  `;
+  openModal('Presentes hoy', body);
+  document.getElementById('btn-confirmar-presentes').onclick = () => {
+    const idsPresentes = integrantesDupla.map(i => i.id).filter(id => document.getElementById(`presente-${id}`).checked);
+    _crearJornadaConPresentes(idsPresentes);
+  };
+}
+
+async function _crearJornadaConPresentes(idsPresentes){
+  const btn = document.getElementById('btn-confirmar-presentes');
+  if(btn){ btn.disabled = true; btn.textContent = 'Guardando…'; }
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data: jornada, error } = await client.from('jornadas')
+      .insert({ dupla_id: miPerfil.dupla_id, fecha: hoyStr(), inicio: new Date().toISOString() })
+      .select().single();
+    if(error) throw error;
+    if(idsPresentes.length){
+      const { error: errP } = await client.from('jornadas_presentes')
+        .insert(idsPresentes.map(integrante_id => ({ jornada_id: jornada.id, integrante_id })));
+      // No bloquea el inicio de jornada si falla esto puntual — la
+      // jornada ya quedó creada, solo se pierde el detalle de quién vino.
+      if(errP) console.error('No se pudo guardar quiénes están presentes', errP);
+    }
+    closeModal();
+  }catch(e){
+    if(btn){ modalError('No se pudo marcar el inicio: ' + e.message); btn.disabled = false; btn.textContent = '▶️ Marcar inicio de jornada'; }
+    else alert('No se pudo marcar el inicio: ' + e.message);
+    return;
+  }
+  await cargarJornadaHoy();
+  mostrarJornada();
 }
 
 // Cierre de jornada con observaciones obligatorias (§10.1.28, pedido de

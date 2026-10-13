@@ -990,3 +990,52 @@ create policy seguimientos_select on public.seguimientos
     mi_rol() = any (array['admin','coordinacion','cliente'])
     or (mi_rol() = 'dupla' and (dupla_id = mi_dupla_id() or tengo_acceso_compartido(persona_id)))
   );
+
+-- jornadas_presentes (13/10/2026, pedido de Agustina: "necesito que los
+-- dos miembros de la dupla den el presente") — hasta acá, marcar el
+-- inicio de jornada alcanzaba con que CUALQUIERA de los dos integrantes
+-- tocara el botón desde la cuenta compartida (no quedaba registrado
+-- quién de los dos vino). Ahora, al marcar inicio (marcarInicioJornada()
+-- en casos.html), se pide tildar cuáles de los integrantes activos de la
+-- dupla están presentes ese día antes de crear la fila en `jornadas` —
+-- una fila acá por cada integrante marcado presente. No reemplaza
+-- `jornadas.reemplazo` (texto libre que la dupla carga al CERRAR si
+-- alguien fue cubierto por otra persona, fuera del roster) — esto es la
+-- asistencia del roster habitual, ese es el caso de reemplazo puntual.
+create table public.jornadas_presentes (
+  jornada_id uuid not null references public.jornadas(id) on delete cascade,
+  integrante_id uuid not null references public.integrantes(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (jornada_id, integrante_id)
+);
+
+alter table public.jornadas_presentes enable row level security;
+
+-- Mismo patrón que jornadas_propia_dupla, pero esta tabla no tiene su
+-- propio dupla_id (cuelga de `jornadas` vía jornada_id) — se resuelve con
+-- un exists() contra `jornadas` en vez de comparar la columna directo.
+-- `with check` además valida que el integrante marcado presente sea de la
+-- MISMA dupla que esa jornada (no alcanza con que la jornada sea propia:
+-- sin esto, nada impedía marcar presente a alguien de otra dupla) —
+-- reforzado el mismo día tras una simulación de RLS que lo detectó antes
+-- de llegar a producción.
+create policy "jornadas_presentes_propia_dupla" on public.jornadas_presentes
+  for all
+  using (
+    public.mi_rol() in ('admin', 'coordinacion')
+    or exists (
+      select 1 from public.jornadas j
+      where j.id = jornadas_presentes.jornada_id
+        and j.dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
+    )
+  )
+  with check (
+    public.mi_rol() in ('admin', 'coordinacion')
+    or exists (
+      select 1 from public.jornadas j
+      join public.integrantes i on i.id = jornadas_presentes.integrante_id
+      where j.id = jornadas_presentes.jornada_id
+        and j.dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
+        and i.dupla_id = j.dupla_id
+    )
+  );
