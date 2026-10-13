@@ -2179,7 +2179,7 @@ async function calcularAsistencia(){
   const btnCsv = document.getElementById('btn-asist-csv');
   if(!desde || !hasta){ estadoEl.textContent = 'Elegí desde/hasta.'; return; }
   const btn = document.getElementById('btn-asist-calcular');
-  btn.disabled = true; estadoEl.textContent = 'Calculando…'; btnCsv.disabled = true;
+  btn.disabled = true; estadoEl.textContent = 'Calculando… (si el rango incluye días de antes del 13/10, puede tardar más — reconstruye quién trabajó cada día desde KoBo)'; btnCsv.disabled = true;
   cont.innerHTML = '';
   try{
     const client = await SupabaseClient.getClient();
@@ -2219,26 +2219,44 @@ async function calcularAsistencia(){
     // tal cual) para no mezclar a dos personas distintas que compartan
     // nombre de pila, y para que siga sumando bien aunque después se
     // edite el nombre.
-    const diasPorIntegranteId = {}; // integrante_id -> { nombre, duplaCodigo, activo, dias }
+    const diasPorIntegranteId = {}; // integrante_id -> { nombre, duplaCodigo, activo, diasConfirmados, diasInferidos }
+    const jornadaIdsConfirmadas = new Set(); // jornadas con al menos 1 fila real en jornadas_presentes
+    const duplaIdACodigo = {};
+    (duplas||[]).forEach(d => { duplaIdACodigo[d.id] = d.codigo; });
     if((jornadas||[]).length){
       const { data: presentesRows } = await client.from('jornadas_presentes')
         .select('jornada_id, integrante_id, integrantes(nombre, apellido, activo, dupla_id)')
         .in('jornada_id', jornadas.map(j => j.id));
-      const duplaIdACodigo = {};
-      (duplas||[]).forEach(d => { duplaIdACodigo[d.id] = d.codigo; });
       (presentesRows||[]).forEach(p => {
         const nombre = `${p.integrantes?.nombre||''} ${p.integrantes?.apellido||''}`.trim();
         if(!nombre) return;
+        jornadaIdsConfirmadas.add(p.jornada_id);
         (presentesPorJornada[p.jornada_id] = presentesPorJornada[p.jornada_id] || []).push(nombre);
         const entry = diasPorIntegranteId[p.integrante_id] || {
           nombre, activo: p.integrantes?.activo !== false,
-          duplaCodigo: duplaIdACodigo[p.integrantes?.dupla_id] || '—', dias: 0,
+          duplaCodigo: duplaIdACodigo[p.integrantes?.dupla_id] || '—', diasConfirmados: 0, diasInferidos: 0,
         };
-        entry.dias++;
+        entry.diasConfirmados++;
         diasPorIntegranteId[p.integrante_id] = entry;
       });
     }
-    const diasPorIntegrante = Object.values(diasPorIntegranteId).sort((a,b) => b.dias - a.dias || a.nombre.localeCompare(b.nombre));
+    // Días de antes del 13/10 (o cualquier jornada sin checklist) — pedido
+    // de Agustina: "sería ideal tener todo", reconstruido desde KoBo (ver
+    // inferirPresentesPorKobo()). Puede ser lento (trae todo KoBo del
+    // rango) — mismo costo que ya paga "e. Derivaciones según KoBo" más
+    // abajo en este mismo cálculo, no es nuevo para esta pantalla.
+    const inferido = await inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas);
+    Object.entries(inferido.diasPorIntegranteId).forEach(([id, datos]) => {
+      const entry = diasPorIntegranteId[id] || { nombre: datos.nombre, activo: datos.activo, duplaCodigo: datos.duplaCodigo, diasConfirmados: 0, diasInferidos: 0 };
+      entry.diasInferidos += datos.dias;
+      diasPorIntegranteId[id] = entry;
+    });
+    Object.entries(inferido.nombresPorJornada).forEach(([jornadaId, nombres]) => {
+      presentesPorJornada[jornadaId] = nombres; // reemplaza el roster completo del fallback — ver filaDetalle más abajo
+    });
+    const diasPorIntegrante = Object.values(diasPorIntegranteId)
+      .map(p => ({ ...p, diasTotal: p.diasConfirmados + p.diasInferidos }))
+      .sort((a,b) => b.diasTotal - a.diasTotal || a.nombre.localeCompare(b.nombre));
 
     // Si no cerraron la jornada, el fin se estima con el último envío de
     // KoBo de ese día (ver _finesEstimadosPorKobo) — para el pago no
@@ -2258,10 +2276,11 @@ async function calcularAsistencia(){
       (jornadasPorDupla[d.id]||[]).forEach(j => {
         const fin = finDeJornada(d, j);
         const presentes = presentesPorJornada[j.id];
+        const fuentePresentes = jornadaIdsConfirmadas.has(j.id) ? 'confirmado' : (presentes ? 'inferido' : 'sin_dato');
         filas.push({
           id: j.id, duplaCodigo: d.codigo,
           integrantes: presentes ? presentes.join(', ') : integrantesTxt,
-          sinConfirmarPresentes: !presentes,
+          fuentePresentes,
           fecha: j.fecha,
           inicio: j.inicio, fin, estimado: !j.fin && !!fin, horas: horasJornada(j.inicio, fin),
           observaciones: j.observaciones || '', reemplazo: j.reemplazo || '', notaAdmin: j.nota_admin || '',
@@ -2326,17 +2345,19 @@ function _resumenLluvia(climaPorFecha, desde, hasta){
 // apenas se dan de baja, sería imposible liquidarles los últimos días.
 function _renderDiasPorIntegrante(diasPorIntegrante){
   if(!diasPorIntegrante.length){
-    return '<div class="section-hint">Sin datos — recién hay esto desde el 13/10/2026 (antes no se registraba quién de los dos integrantes estaba presente cada día).</div>';
+    return '<div class="section-hint">Sin datos en este rango — ni checklist de presentes ni envíos de KoBo identificables.</div>';
   }
   return `
     <div class="tbl-wrap">
       <table class="reporte-tabla">
-        <thead><tr><th>Persona</th><th>Dupla</th><th class="num">Días</th></tr></thead>
+        <thead><tr><th>Persona</th><th>Dupla</th><th class="num">Confirmados</th><th class="num">Inferidos (KoBo)</th><th class="num">Total</th></tr></thead>
         <tbody>${diasPorIntegrante.map(p => `
           <tr>
             <td>${esc(p.nombre)}${!p.activo ? ' <span class="badge badge-gray" title="Ya no está en el roster activo de la dupla — sigue contando sus días trabajados para poder pagarle.">dado de baja</span>' : ''}</td>
             <td>${esc(p.duplaCodigo)}</td>
-            <td class="num"><b>${p.dias}</b></td>
+            <td class="num">${p.diasConfirmados || '—'}</td>
+            <td class="num">${p.diasInferidos ? `<span title="Deducido de quién cargó envíos de KoBo ese día, no es un checklist confirmado.">${p.diasInferidos}</span>` : '—'}</td>
+            <td class="num"><b>${p.diasTotal}</b></td>
           </tr>`).join('')}</tbody>
       </table>
     </div>`;
@@ -2359,7 +2380,7 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorI
   const filaDetalle = f => `
     <tr>
       <td>${esc(f.duplaCodigo)}</td>
-      <td>${esc(f.integrantes || '—')}${f.sinConfirmarPresentes ? ' <span style="color:#94a3b8;font-size:0.72rem;" title="Nadie tildó el checklist de presentes al marcar el inicio — se muestra el roster completo de la dupla, no una confirmación real.">(sin confirmar)</span>' : ''}</td>
+      <td>${esc(f.integrantes || '—')}${f.fuentePresentes === 'inferido' ? ' <span style="color:#b45309;font-size:0.72rem;" title="No hay checklist de presentes para este día (es de antes del 13/10/2026) — se dedujo de quién cargó envíos de KoBo esa fecha. No es una confirmación, es la mejor inferencia posible.">(inferido de KoBo)</span>' : f.fuentePresentes === 'sin_dato' ? ' <span style="color:#94a3b8;font-size:0.72rem;" title="Ni checklist de presentes ni envíos de KoBo identificables ese día — se muestra el roster completo de la dupla, no hay forma de saber quién de los dos vino.">(sin dato)</span>' : ''}</td>
       <td>${fmtFechaCorta(f.fecha)}</td>
       <td>${f.inicio ? fmtHoraAdmin(f.inicio) : '—'}</td>
       <td>${f.fin ? fmtHoraAdmin(f.fin) + (f.estimado ? ' <span style="color:#94a3b8;font-size:0.78rem;">(KoBo)</span>' : '') : '—'}</td>
@@ -2379,11 +2400,11 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorI
       </table>
     </div>
     <div class="section-title">Días trabajados por persona</div>
-    <div class="section-hint">Para liquidar aunque cambie quién integra la dupla a mitad de rango — elegí el "Desde/Hasta" que corresponda y contá los días de cada uno acá, en vez de en "Resumen por dupla" (que suma a los dos juntos). Alguien dado de baja del roster sigue apareciendo con sus días trabajados, no desaparece.</div>
+    <div class="section-hint">Para liquidar aunque cambie quién integra la dupla a mitad de rango — elegí el "Desde/Hasta" que corresponda y contá los días de cada uno acá, en vez de en "Resumen por dupla" (que suma a los dos juntos). Alguien dado de baja del roster sigue apareciendo con sus días trabajados, no desaparece. "Confirmados": tildado en el checklist de presentes (desde el 13/10/2026). "Inferidos (KoBo)": de antes de esa fecha, deducido de quién cargó envíos de KoBo ese día — no es una confirmación, es la mejor reconstrucción posible con lo que hay.</div>
     ${_renderDiasPorIntegrante(diasPorIntegrante)}
     ${_renderConteoReemplazos(filas)}
     <div class="section-title">Detalle por jornada</div>
-    <div class="section-hint">Integrantes: desde el 13/10/2026, quiénes tildaron presente al marcar el inicio de la jornada (antes de esa fecha, o si nadie tildó nada, se muestra el roster completo de la dupla marcado "(sin confirmar)"). Clima: milímetros de lluvia del día en CABA (Open-Meteo) — ayuda a explicar una jornada faltante. Reemplazo: quién cubrió esa jornada en vez del integrante habitual — lo carga la dupla al cerrar, o lo podés cargar/corregir vos acá directo. Nota: comentario propio, editable, para lo que necesites anotar.</div>
+    <div class="section-hint">Integrantes: desde el 13/10/2026, quiénes tildaron presente al marcar el inicio de la jornada. Para fechas anteriores, "(inferido de KoBo)" marca que se dedujo de los envíos de ese día (no es una confirmación); "(sin dato)" significa que no hay forma de saber quién vino, se muestra el roster completo de la dupla. Clima: milímetros de lluvia del día en CABA (Open-Meteo) — ayuda a explicar una jornada faltante. Reemplazo: quién cubrió esa jornada en vez del integrante habitual — lo carga la dupla al cerrar, o lo podés cargar/corregir vos acá directo. Nota: comentario propio, editable, para lo que necesites anotar.</div>
     <div class="tbl-wrap">
       <table class="reporte-tabla">
         <thead><tr><th>Dupla</th><th>Integrantes</th><th>Fecha</th><th>Inicio</th><th>Fin</th><th>Horas</th><th>Clima</th><th>Observaciones</th><th>Reemplazo</th><th>Nota</th></tr></thead>
@@ -2547,6 +2568,90 @@ async function generarReporte(){
   }finally{
     btn.disabled = false;
   }
+}
+
+// Reconstrucción RETROACTIVA de "quién trabajó" para jornadas de antes
+// del 13/10/2026 (cuando no existía el checklist de presentes) — pedido
+// de Agustina: "sería ideal tener todo", no solo desde que armamos el
+// checklist. No hay forma de saber con 100% de certeza quién de los dos
+// integrantes estuvo presente un día viejo puntual, PERO el operador que
+// cargó cada envío de KoBo ese día sí quedó guardado (campo obligatorio),
+// y es la misma fuente que ya usa calcularOutcomesKobo()/cargarDuplas()
+// para matchear operador->dupla. Acá se va un paso más allá: dentro de la
+// dupla ya resuelta, matchea el nombre del operador contra CADA
+// integrante (activo o no — alguien dado de baja sigue necesitando sus
+// días viejos para cobrar) para saber a cuál de los dos corresponde ese
+// envío puntual.
+// Es una INFERENCIA, no una confirmación — por eso nunca pisa un día que
+// ya tiene jornadas_presentes (`jornadaIdsConfirmadas`), y si un día no
+// tiene NINGÚN envío de KoBo matcheable esa jornada queda "sin dato" en
+// vez de inventar que trabajaron los dos. `jornadas` acá es la lista ya
+// filtrada por el rango de fechas elegido en el formulario.
+async function inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas){
+  const porInferir = (jornadas||[]).filter(j => !jornadaIdsConfirmadas.has(j.id));
+  const resultado = { diasPorIntegranteId: {}, nombresPorJornada: {} };
+  if(!porInferir.length) return resultado;
+
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form) return resultado;
+
+  const client = await SupabaseClient.getClient();
+  const [{ data: integrantesRows, error: errI }, koboRowsRaw] = await Promise.all([
+    client.from('integrantes').select('id, nombre, apellido, dupla_id, activo').neq('rol', 'chofer'),
+    fetchKoboProxyAll(project, form.id),
+  ]);
+  if(errI) throw errI;
+
+  const duplaIdACodigo = {}; const turnoPorDuplaId = {};
+  (duplas||[]).forEach(d => { duplaIdACodigo[d.id] = d.codigo; turnoPorDuplaId[d.id] = d.turno; });
+  const duplaPorNombreKobo = (integrantesRows||[])
+    .filter(i => i.dupla_id)
+    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`, dupla_id: i.dupla_id, turno: turnoPorDuplaId[i.dupla_id] }))
+    .filter(r => r.nombre.trim());
+  const integrantesPorDuplaId = {};
+  (integrantesRows||[]).forEach(i => { if(i.dupla_id) (integrantesPorDuplaId[i.dupla_id] = integrantesPorDuplaId[i.dupla_id] || []).push(i); });
+
+  // Set de "dupla_id|fecha" a inferir, para no procesar de más envíos de
+  // KoBo que no corresponden a ningún día pendiente en este rango.
+  const pendientes = new Map(); // "dupla_id|fecha" -> jornada
+  porInferir.forEach(j => pendientes.set(`${j.dupla_id}|${j.fecha}`, j));
+
+  const vistoPorPersonaYFecha = new Set(); // "integrante_id|fecha", para no sumar 2 veces el mismo día con varios envíos
+  koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
+    const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
+    if(!fechaSolo || !p.operador) return;
+    const matches = duplaPorNombreKobo.filter(r => nombresCoincidenKobo(r.nombre, p.operador));
+    let match = matches.length === 1 ? matches[0] : null;
+    if(matches.length > 1){
+      const porHorario = matches.filter(r => horaEnTurno(p.hora, r.turno));
+      match = porHorario.length === 1 ? porHorario[0] : matches[0];
+    }
+    if(!match) return;
+    const clave = `${match.dupla_id}|${fechaSolo}`;
+    if(!pendientes.has(clave)) return; // ese día ya está confirmado, o fuera del rango pedido
+    // Dentro de la dupla ya resuelta, ¿a cuál de sus integrantes (activos
+    // o no) corresponde el nombre de este operador puntual?
+    const candidatos = (integrantesPorDuplaId[match.dupla_id] || [])
+      .filter(i => nombresCoincidenKobo(`${i.nombre||''} ${i.apellido||''}`, p.operador));
+    candidatos.forEach(i => {
+      const clavePersonaFecha = `${i.id}|${fechaSolo}`;
+      if(vistoPorPersonaYFecha.has(clavePersonaFecha)) return;
+      vistoPorPersonaYFecha.add(clavePersonaFecha);
+      const nombre = `${i.nombre||''} ${i.apellido||''}`.trim();
+      const entry = resultado.diasPorIntegranteId[i.id] || {
+        nombre, activo: i.activo !== false, duplaCodigo: duplaIdACodigo[i.dupla_id] || '—', dias: 0,
+      };
+      entry.dias++;
+      resultado.diasPorIntegranteId[i.id] = entry;
+      const jornada = pendientes.get(clave);
+      (resultado.nombresPorJornada[jornada.id] = resultado.nombresPorJornada[jornada.id] || new Set()).add(nombre);
+    });
+  });
+  // Set -> array, para que el resto del código lo consuma igual que
+  // presentesPorJornada (array de nombres).
+  Object.keys(resultado.nombresPorJornada).forEach(k => { resultado.nombresPorJornada[k] = [...resultado.nombresPorJornada[k]]; });
+  return resultado;
 }
 
 // ── e. Derivaciones y contactos según KoBo (terreno) ───────────────────
