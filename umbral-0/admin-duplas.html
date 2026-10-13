@@ -2207,15 +2207,38 @@ async function calcularAsistencia(){
     // tienen filas acá — se distingue en la columna de abajo en vez de
     // mostrar el roster completo como si fuera asistencia confirmada.
     const presentesPorJornada = {};
+    // Días trabajados por CADA PERSONA (no por dupla) en el rango — pedido
+    // de Agustina (13/10/2026): "la dupla A, César trabajó hasta la semana
+    // pasada y a partir de esta semana lo reemplaza otra persona... los
+    // días trabajados de la persona anterior deben quedar registrados para
+    // poder pagarle". Dar de baja a un integrante ya es soft-delete
+    // (activo=false, ver renderIntegranteRow) — su historial en
+    // jornadas_presentes no se toca. Lo que faltaba era ESTE conteo: sin
+    // él, había que contar a mano cuántos días marcó presente cada
+    // integrante en el detalle. Clave por integrante_id (no por nombre
+    // tal cual) para no mezclar a dos personas distintas que compartan
+    // nombre de pila, y para que siga sumando bien aunque después se
+    // edite el nombre.
+    const diasPorIntegranteId = {}; // integrante_id -> { nombre, duplaCodigo, activo, dias }
     if((jornadas||[]).length){
       const { data: presentesRows } = await client.from('jornadas_presentes')
-        .select('jornada_id, integrantes(nombre, apellido)').in('jornada_id', jornadas.map(j => j.id));
+        .select('jornada_id, integrante_id, integrantes(nombre, apellido, activo, dupla_id)')
+        .in('jornada_id', jornadas.map(j => j.id));
+      const duplaIdACodigo = {};
+      (duplas||[]).forEach(d => { duplaIdACodigo[d.id] = d.codigo; });
       (presentesRows||[]).forEach(p => {
         const nombre = `${p.integrantes?.nombre||''} ${p.integrantes?.apellido||''}`.trim();
         if(!nombre) return;
         (presentesPorJornada[p.jornada_id] = presentesPorJornada[p.jornada_id] || []).push(nombre);
+        const entry = diasPorIntegranteId[p.integrante_id] || {
+          nombre, activo: p.integrantes?.activo !== false,
+          duplaCodigo: duplaIdACodigo[p.integrantes?.dupla_id] || '—', dias: 0,
+        };
+        entry.dias++;
+        diasPorIntegranteId[p.integrante_id] = entry;
       });
     }
+    const diasPorIntegrante = Object.values(diasPorIntegranteId).sort((a,b) => b.dias - a.dias || a.nombre.localeCompare(b.nombre));
 
     // Si no cerraron la jornada, el fin se estima con el último envío de
     // KoBo de ese día (ver _finesEstimadosPorKobo) — para el pago no
@@ -2258,7 +2281,7 @@ async function calcularAsistencia(){
 
     _asistFilas = filas;
 
-    cont.innerHTML = _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta);
+    cont.innerHTML = _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorIntegrante);
     estadoEl.textContent = `Listo — ${filas.length} jornada${filas.length===1?'':'s'} en el rango.`;
     btnCsv.disabled = !filas.length;
   }catch(e){
@@ -2290,7 +2313,36 @@ function _resumenLluvia(climaPorFecha, desde, hasta){
   return `<div class="section-hint">🌧️ Llovió ${lluviosos.length} de ${fechas.length} día${fechas.length===1?'':'s'} en el rango (CABA): ${esc(listado)}.</div>`;
 }
 
-function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta){
+// "Días trabajados por integrante" (13/10/2026, pedido de Agustina: "la
+// dupla A, César trabajó hasta la semana pasada y a partir de esta semana
+// lo reemplaza otra persona... los días trabajados de la persona anterior
+// deben quedar registrados para poder pagarle"). A diferencia del resumen
+// "por dupla" (que suma a los dos integrantes juntos), esto cuenta cada
+// día que CADA PERSONA se tildó presente — así, al dar de baja a alguien
+// del roster (soft-delete, activo=false) y agregar a quien lo reemplaza,
+// los días de la persona anterior se pueden seguir viendo y pagando: solo
+// hace falta elegir el rango de fechas en el que trabajó. Las personas
+// inactivas se marcan aparte, no se esconden — si dejaran de listarse acá
+// apenas se dan de baja, sería imposible liquidarles los últimos días.
+function _renderDiasPorIntegrante(diasPorIntegrante){
+  if(!diasPorIntegrante.length){
+    return '<div class="section-hint">Sin datos — recién hay esto desde el 13/10/2026 (antes no se registraba quién de los dos integrantes estaba presente cada día).</div>';
+  }
+  return `
+    <div class="tbl-wrap">
+      <table class="reporte-tabla">
+        <thead><tr><th>Persona</th><th>Dupla</th><th class="num">Días</th></tr></thead>
+        <tbody>${diasPorIntegrante.map(p => `
+          <tr>
+            <td>${esc(p.nombre)}${!p.activo ? ' <span class="badge badge-gray" title="Ya no está en el roster activo de la dupla — sigue contando sus días trabajados para poder pagarle.">dado de baja</span>' : ''}</td>
+            <td>${esc(p.duplaCodigo)}</td>
+            <td class="num"><b>${p.dias}</b></td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorIntegrante){
   const filaResumen = r => `
     <tr>
       <td>${esc(r.dupla.codigo)}</td>
@@ -2326,6 +2378,9 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta){
         <tbody>${resumen.length ? resumen.map(filaResumen).join('') : '<tr><td colspan="5">Sin datos en el rango.</td></tr>'}</tbody>
       </table>
     </div>
+    <div class="section-title">Días trabajados por persona</div>
+    <div class="section-hint">Para liquidar aunque cambie quién integra la dupla a mitad de rango — elegí el "Desde/Hasta" que corresponda y contá los días de cada uno acá, en vez de en "Resumen por dupla" (que suma a los dos juntos). Alguien dado de baja del roster sigue apareciendo con sus días trabajados, no desaparece.</div>
+    ${_renderDiasPorIntegrante(diasPorIntegrante)}
     ${_renderConteoReemplazos(filas)}
     <div class="section-title">Detalle por jornada</div>
     <div class="section-hint">Integrantes: desde el 13/10/2026, quiénes tildaron presente al marcar el inicio de la jornada (antes de esa fecha, o si nadie tildó nada, se muestra el roster completo de la dupla marcado "(sin confirmar)"). Clima: milímetros de lluvia del día en CABA (Open-Meteo) — ayuda a explicar una jornada faltante. Reemplazo: quién cubrió esa jornada en vez del integrante habitual — lo carga la dupla al cerrar, o lo podés cargar/corregir vos acá directo. Nota: comentario propio, editable, para lo que necesites anotar.</div>
