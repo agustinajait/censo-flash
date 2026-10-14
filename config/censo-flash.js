@@ -196,8 +196,53 @@ function puntoDentroPoligono(lat, lng, poly){
   return dentro;
 }
 
-// Devuelve el id de dupla (string "01".."32") cuyo polígono contiene el
-// punto, o null si no cae en ninguna de las mapeadas todavía.
+// Distancia mínima (en metros) de un punto al BORDE de un polígono —
+// proyecta al segmento más cercano de cada lado, no solo al vértice más
+// cercano (un vértice puede estar lejos aunque el punto esté pegado a la
+// mitad de un lado largo). Conversión lat/lng -> metros aproximada con un
+// plano local centrado en el propio punto (suficiente a esta escala,
+// unos pocos km).
+function _distanciaBordePoligono(lat, lng, poly){
+  const toXY = (la, ln) => [ ln * 111320 * Math.cos(lat * Math.PI / 180), la * 111320 ];
+  const p = toXY(lat, lng);
+  let min = Infinity;
+  for(let i=0; i<poly.length; i++){
+    const a = toXY(poly[i][0], poly[i][1]);
+    const b = toXY(poly[(i+1)%poly.length][0], poly[(i+1)%poly.length][1]);
+    const dx = b[0]-a[0], dy = b[1]-a[1];
+    const len2 = dx*dx + dy*dy;
+    let t = len2 ? ((p[0]-a[0])*dx + (p[1]-a[1])*dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const cx = a[0] + t*dx, cy = a[1] + t*dy;
+    const d = Math.hypot(p[0]-cx, p[1]-cy);
+    if(d < min) min = d;
+  }
+  return min;
+}
+
+// Margen de tolerancia para identificar dupla por GPS (14/10/2026,
+// Agustina: "dupla 17 tiene flash centro y tiene muchos registros en kobo
+// y nada en la plataforma"). Las zonas de las duplas 01-19 son corredores
+// angostos en zigzag ("peine") que calcan la calle exacta — algunas de
+// pocos metros de ancho. Confirmado con coordenadas reales de dupla 17
+// (14/10/2026): sus 7 envíos más recientes caían TODOS afuera del
+// polígono exacto, a entre 0.7 y 76 metros del borde — nunca lejos (el
+// polígono está bien puesto, el corte sin margen es lo que fallaba). 80m
+// cubre ese rango real con margen de sobra (el error de GPS típico en
+// una calle con edificios ronda 20-70m). No confundir con el caso de un
+// punto de verdad fuera de cobertura (ej. Flash Sur sin validar — un
+// envío real de esa dupla dio 155m al polígono mapeado más cercano, muy
+// por encima de este margen, y con razón: esa dupla hoy no tiene
+// polígono cargado en absoluto).
+const MARGEN_DUPLA_METROS = 80;
+
+// Devuelve el id de dupla (string "01".."33") cuyo polígono contiene el
+// punto (con margen de tolerancia si no cae exacto adentro), o null si no
+// cae ni cerca de ninguna de las mapeadas todavía. Primero prueba
+// contención exacta en todos los polígonos (gratis, como antes); solo si
+// ninguno lo contiene, busca el polígono más cercano dentro del margen —
+// así un punto adentro de verdad nunca se ve afectado por este cambio, y
+// uno "cerca" ya no se pierde.
 function duplaPorGeo(lat, lng){
   if(lat==null || lng==null || isNaN(lat) || isNaN(lng)) return null;
   for(const id of Object.keys(POLIGONOS_DUPLA)){
@@ -205,7 +250,14 @@ function duplaPorGeo(lat, lng){
       if(puntoDentroPoligono(lat, lng, sub)) return id;
     }
   }
-  return null;
+  let mejorId = null, mejorDist = MARGEN_DUPLA_METROS;
+  for(const id of Object.keys(POLIGONOS_DUPLA)){
+    for(const sub of POLIGONOS_DUPLA[id]){
+      const d = _distanciaBordePoligono(lat, lng, sub);
+      if(d <= mejorDist){ mejorDist = d; mejorId = id; }
+    }
+  }
+  return mejorId;
 }
 
 // KoBo sufija SIEMPRE `_latitude`/`_longitude` al nombre de la pregunta
