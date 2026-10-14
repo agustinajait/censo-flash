@@ -3929,6 +3929,36 @@ const Casos = {
         const { error: errFoto } = await client.from('personas').update({ foto_url: path }).eq('id', persona.id);
         if(errFoto) throw errFoto;
       }
+      // Derivación "Hacer DNI" automática (14/10/2026, pedido de Agustina
+      // tras ver el reporte semanal: "d. Intervenciones y derivaciones"
+      // mostraba 134 personas con denuncia de extravío cargada pero 0
+      // derivaciones "Hacer DNI" formalizadas — las duplas tildaban la
+      // ficha pero casi nunca usaban el botón separado "Pedir derivación".
+      // En vez de depender de ese segundo paso manual, tildar la denuncia
+      // ahora genera la derivación sola. No duplica si ya existe una (ej.
+      // la dupla la había pedido a mano antes, o se vuelve a guardar la
+      // misma ficha sin destildar el check).
+      if(campos.dni_denuncia_extravio === true){
+        try{
+          const { data: yaExiste } = await client.from('derivaciones')
+            .select('id').eq('persona_id', persona.id).eq('tipo', 'Hacer DNI').limit(1).maybeSingle();
+          if(!yaExiste){
+            const { error: errDeriv } = await client.from('derivaciones').insert({
+              persona_id: persona.id,
+              tipo: 'Hacer DNI',
+              estado: 'solicitado',
+              solicitado_por: miPerfil.id,
+              observaciones: 'Generada automáticamente al marcar "denuncia de extravío de DNI" en la ficha.',
+            });
+            if(errDeriv) throw errDeriv;
+          }
+        }catch(e){
+          // No bloquea el guardado del caso por esto — la ficha ya se
+          // guardó bien, solo se pierde la derivación automática (se
+          // puede cargar a mano con "Pedir derivación" si hace falta).
+          console.error('No se pudo generar la derivación automática de "Hacer DNI"', e);
+        }
+      }
       closeModal();
       await Casos.abrirFicha(persona.id);
       cargarSinIdentificarCount(); // no se espera — por si esta edición identificó o "des-identificó" a alguien (§10.1.34)

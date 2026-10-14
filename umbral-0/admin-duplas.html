@@ -2985,6 +2985,32 @@ async function calcularReporte({ client, desde, hasta, personas, intervenciones,
   const personasConDenunciaExtravio = personas.filter(p => p.dni_denuncia_extravio === true).length;
   const derivacionesHacerDni = derivaciones.filter(d => d.tipo === 'Hacer DNI').length;
 
+  // ── f. Seguimientos y promedio diario por dupla (14/10/2026, pedido de
+  // Agustina para el reporte semanal) ─────────────────────────────────────
+  // "contacto_espontaneo" es el evento automático que se crea al dar de
+  // alta un caso (ver guardarPersona() en casos.html) — no es un
+  // seguimiento real, es el alta. Un seguimiento real es tipo:'seguimiento'.
+  const totalSeguimientos = intervenciones.filter(i => i.tipo === 'seguimiento').length;
+  // Promedio de casos nuevos por día, por dupla — usa los mismos "días con
+  // presencia territorial" (dias.size, de arriba) y las 13 duplas activas
+  // como denominador. Es un promedio agregado del período, no por dupla
+  // individual (para eso ya está "Desempeño por dupla" en el informe).
+  const totalDuplas = (window.PROJECT_CONFIG.duplas || []).filter(d => d.activa !== false).length || 13;
+  const promedioCasosDiarioPorDupla = dias.size ? +(personasNuevas.length / dias.size / totalDuplas).toFixed(2) : null;
+
+  // Lluvia (mismo chequeo contra Open-Meteo que ya usa la pestaña
+  // Asistencia — acá se pedía por separado, pedido de Agustina, 14/10/2026,
+  // para no tener que ir a buscarlo a otra pestaña al armar el reporte).
+  let diasLluvia = null, diasConsultadosClima = null;
+  try{
+    const clima = await _climaPorFecha(desde, hasta);
+    const fechasClima = Object.keys(clima);
+    diasConsultadosClima = fechasClima.length;
+    diasLluvia = fechasClima.filter(f => clima[f] != null && clima[f] > 0.1).length;
+  }catch(e){
+    console.error('No se pudo traer el clima para el reporte semanal', e);
+  }
+
   return {
     desde, hasta,
     cobertura: { zonas, puntos, dias, pctZonasCubiertas, totalIntervenciones: intervenciones.length },
@@ -2993,6 +3019,7 @@ async function calcularReporte({ client, desde, hasta, personas, intervenciones,
     intervencionesDerivaciones: { porTipo, totalDerivaciones, totalEfectivizadas, totalRechazadas,
       pctConcretadas: totalDerivaciones ? Math.round((totalEfectivizadas/totalDerivaciones)*100) : null },
     dniPendientes: { personasConDenunciaExtravio, derivacionesHacerDni },
+    seguimientosYClima: { totalSeguimientos, promedioCasosDiarioPorDupla, diasLluvia, diasConsultadosClima },
   };
 }
 
@@ -3090,6 +3117,17 @@ function renderReporte(cont, r){
       ${r.dniPendientes && r.dniPendientes.personasConDenunciaExtravio > r.dniPendientes.derivacionesHacerDni ? `<div class="nota-limite">⚠️ Hay ${r.dniPendientes.personasConDenunciaExtravio} personas cargadas con denuncia de extravío de DNI (estado actual de la ficha, no acotado al período) pero solo ${r.dniPendientes.derivacionesHacerDni} con el trámite de "Hacer DNI" formalizado como derivación en la plataforma — a ${r.dniPendientes.personasConDenunciaExtravio - r.dniPendientes.derivacionesHacerDni} les faltaría iniciar el trámite ahí.</div>` : ''}
     </div>
 
+    <div class="section-title">d2. Seguimientos y clima</div>
+    <div class="section-hint">Seguimientos reales sobre casos ya abiertos (no cuenta el alta inicial), promedio de casos nuevos por día y por dupla, y días de lluvia del período (mismo dato que la pestaña Asistencia).</div>
+    <div class="card">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="num">${r.seguimientosYClima.totalSeguimientos}</div><div class="lbl">Seguimientos en el período</div></div>
+        <div class="kpi"><div class="num">${r.seguimientosYClima.promedioCasosDiarioPorDupla!=null?r.seguimientosYClima.promedioCasosDiarioPorDupla:'—'}</div><div class="lbl">Promedio de casos nuevos por día, por dupla</div></div>
+        <div class="kpi"><div class="num">${r.seguimientosYClima.diasLluvia!=null?r.seguimientosYClima.diasLluvia:'—'}</div><div class="lbl">Días de lluvia${r.seguimientosYClima.diasConsultadosClima!=null?` (de ${r.seguimientosYClima.diasConsultadosClima} consultados)`:''}</div></div>
+      </div>
+      ${r.seguimientosYClima.diasLluvia==null ? '<div class="nota-limite">⚠️ No se pudo traer el clima para este período (Open-Meteo no respondió).</div>' : ''}
+    </div>
+
     <div class="section-title">e. Derivaciones y contactos según KoBo (terreno)</div>
     <div class="section-hint">Sale de la pregunta obligatoria de KoBo "¿Cómo terminó la intervención?", no de "Pedir derivación" — captura lo que realmente pasó (llamados a SAME/policía, derivaciones a CIS/RED/Casa Vincular, etc.) aunque no haya quedado cargado en la ficha del caso.</div>
     <div class="card">
@@ -3149,6 +3187,9 @@ function renderReporte(cont, r){
           <tr><td>Continuidad</td><td>Personas con seguimiento activo</td><td class="num">${r.poblacion.seguimientoActivo}</td></tr>
           <tr><td>Acceso</td><td>% de derivaciones efectivamente concretadas</td><td class="num">${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}</td></tr>
           <tr><td>Estrategia</td><td>Derivaciones rechazadas (requieren alternativa)</td><td class="num">${r.intervencionesDerivaciones.totalRechazadas}</td></tr>
+          <tr><td>Seguimiento</td><td>Seguimientos en el período</td><td class="num">${r.seguimientosYClima.totalSeguimientos}</td></tr>
+          <tr><td>Ritmo</td><td>Promedio de casos nuevos por día, por dupla</td><td class="num">${r.seguimientosYClima.promedioCasosDiarioPorDupla!=null?r.seguimientosYClima.promedioCasosDiarioPorDupla:'—'}</td></tr>
+          <tr><td>Clima</td><td>Días de lluvia en el período</td><td class="num">${r.seguimientosYClima.diasLluvia!=null?r.seguimientosYClima.diasLluvia:'—'}</td></tr>
           <tr><td>Territorialidad</td><td>Puntos nuevos identificados</td><td class="num">—</td></tr>
           <tr><td>Vínculo</td><td>Personas que pasan a seguimiento activo</td><td class="num">—</td></tr>
           <tr><td>Sostenimiento</td><td>% que sostiene el recurso luego del ingreso</td><td class="num">—</td></tr>
@@ -3287,6 +3328,11 @@ ${nivelesLinea}
 d. INTERVENCIONES Y DERIVACIONES (cargadas en la plataforma)
 ${tiposLinea}
 Total: ${r.intervencionesDerivaciones.totalDerivaciones} · Efectivizadas: ${r.intervencionesDerivaciones.totalEfectivizadas} (${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}) · Rechazadas: ${r.intervencionesDerivaciones.totalRechazadas}
+
+d2. SEGUIMIENTOS Y CLIMA
+- Seguimientos en el período: ${r.seguimientosYClima.totalSeguimientos}
+- Promedio de casos nuevos por día, por dupla: ${r.seguimientosYClima.promedioCasosDiarioPorDupla!=null?r.seguimientosYClima.promedioCasosDiarioPorDupla:'—'}
+- Días de lluvia: ${r.seguimientosYClima.diasLluvia!=null?r.seguimientosYClima.diasLluvia:'—'}${r.seguimientosYClima.diasConsultadosClima!=null?` (de ${r.seguimientosYClima.diasConsultadosClima} consultados)`:''}
 
 e. DERIVACIONES Y CONTACTOS SEGÚN KOBO (terreno)
 ${koboLinea}
