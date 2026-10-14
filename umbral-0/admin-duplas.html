@@ -3014,7 +3014,15 @@ async function calcularReporte({ client, desde, hasta, personas, intervenciones,
   return {
     desde, hasta,
     cobertura: { zonas, puntos, dias, pctZonasCubiertas, totalIntervenciones: intervenciones.length },
-    poblacion: { nuevas: personasNuevas.length, enSeguimientoContinuo: enSeguimientoContinuo.length, recontactadas: recontactadas.length, seguimientoActivo: seguimientoActivo.length, aceptaEntrevista, idsEnSeguimiento, idsRecontactado },
+    poblacion: { nuevas: personasNuevas.length, enSeguimientoContinuo: enSeguimientoContinuo.length, recontactadas: recontactadas.length, seguimientoActivo: seguimientoActivo.length, aceptaEntrevista, idsEnSeguimiento, idsRecontactado,
+      // 14/10/2026, pedido de Agustina ante un reporte con "0 contactos de
+      // seguimiento" que no coincidía con lo que sabía del territorio: no
+      // era un bug de cálculo — había elegido como rango "desde" el
+      // arranque del proyecto, así que TODAS las personas de la base caían
+      // en "nuevas" (nadie podía estar "tocada pero no nueva" si el rango
+      // cubre toda su historia). Se avisa explícito para que no se
+      // confunda con un error de datos.
+      rangoCubreTodoElProyecto: personas.length > 0 && personasNuevas.length === personas.length },
     evolucion: { porNivel },
     intervencionesDerivaciones: { porTipo, totalDerivaciones, totalEfectivizadas, totalRechazadas,
       pctConcretadas: totalDerivaciones ? Math.round((totalEfectivizadas/totalDerivaciones)*100) : null },
@@ -3070,6 +3078,7 @@ function renderReporte(cont, r){
         <div class="kpi"><div class="num">${r.poblacion.seguimientoActivo}</div><div class="lbl">Personas con seguimiento activo (al cierre del período)</div></div>
         <div class="kpi"><div class="num">${r.poblacion.aceptaEntrevista}</div><div class="lbl">Personas que aceptan entrevista (total cargado)</div></div>
       </div>
+      ${r.poblacion.rangoCubreTodoElProyecto ? `<div class="nota-limite">⚠️ El rango elegido (${r.desde} al ${r.hasta}) cubre toda la historia del proyecto, así que TODAS las personas caen en "nuevas identificadas" — por eso "Contactos de seguimiento" y "Recontactadas" dan 0: no puede haber nadie "tocado pero no nuevo" si el rango incluye el día en que se dio de alta cada caso. No es un error de datos. Para ver esos dos indicadores con sentido, elegí un rango más corto (ej. la última semana).</div>` : ''}
       <div class="nota-limite">⚠️ "Incorporadas al seguimiento" y "con las que se perdió contacto" todavía no se pueden calcular con precisión — falta guardar cuándo cambia el nivel de vínculo de cada persona. Por ahora completalos a mano si hace falta para el reporte.</div>
     </div>
 
