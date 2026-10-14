@@ -573,6 +573,15 @@ let koboSinIdentificarActuales = []; // envíos sin DNI NI nombre matcheable —
 // había usado y lo volvía a mostrar siempre). Se limpia en cada apertura
 // de _renderFormPersona() y se completa solo cuando el alta viene de acá.
 let koboSubIdSinIdentificarPendiente = null;
+// "qué hiciste con este caso" del envío de KoBo que se está confirmando como
+// alta nueva (confirmarKoboPendiente()/confirmarKoboSinIdentificar()) —
+// mismo dato que abrirModalValidarKobo() ya pre-tilda para seguimientos
+// sobre un caso existente (ver KOBO_TERMINO_A_ACCION en config/umbral-0.js),
+// pero hasta ahora el PRIMER contacto nunca lo heredaba: "Ingreso inicial
+// del caso" se guardaba siempre sin acciones aunque el envío de KoBo que lo
+// originó ya las tuviera. Se limpia en cada apertura de _renderFormPersona()
+// y se completa solo cuando el alta viene de un pendiente de KoBo.
+let koboAccionesPendientesParaAlta = null;
 let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
@@ -3555,6 +3564,9 @@ const Casos = {
       dni: p.persona.dni||'',
       ..._prefillDesdeKobo(p),
     });
+    // Después de _renderFormPersona(), que resetea esta variable — ver
+    // koboAccionesPendientesParaAlta arriba.
+    koboAccionesPendientesParaAlta = p.terminoIntervencionDiaria || [];
   },
 
   // Mismo prefill que confirmarKoboPendiente() pero para un envío SIN
@@ -3584,6 +3596,7 @@ const Casos = {
     // quedaría en null y guardarPersona() nunca sabría qué envío marcar
     // como ya usado en kobo_validaciones.
     koboSubIdSinIdentificarPendiente = koboSubmissionId(p);
+    koboAccionesPendientesParaAlta = p.terminoIntervencionDiaria || [];
   },
 
   // Confirma que un envío de KoBo sin DNI es la misma persona que un caso
@@ -3710,6 +3723,7 @@ const Casos = {
     // — evita que un valor viejo se cuele en una edición o en un alta
     // manual sin relación con ningún envío de KoBo.
     koboSubIdSinIdentificarPendiente = null;
+    koboAccionesPendientesParaAlta = null;
     const esEdicion = !!persona;
     const v = persona || prefill || {};
     // Si viene precargado desde KoBo, esas secciones arrancan abiertas —
@@ -3892,12 +3906,23 @@ const Casos = {
         if(error) throw error;
         persona = data;
         // Alta = primer evento del timeline (DISENO-CASOS.md §4)
-        const { error: errInt } = await client.from('intervenciones').insert({
+        // Si este alta viene de un pendiente de KoBo, hereda el "qué hiciste
+        // con este caso" que la dupla ya contestó ahí — mismo mapeo
+        // (KOBO_TERMINO_A_ACCION) que abrirModalValidarKobo() usa para
+        // seguimientos sobre un caso existente, acá aplicado al PRIMER
+        // contacto para que no se pierda (antes el alta siempre quedaba sin
+        // acciones, aunque el envío de KoBo que la originó ya las tuviera).
+        const mapeoAccionesKobo = window.PROJECT_CONFIG.koboTerminoAAccion || {};
+        const accionesDesdeKobo = [...new Set((koboAccionesPendientesParaAlta||[])
+          .map(codigo => mapeoAccionesKobo[codigo]).filter(Boolean))];
+        const altaIntervencion = {
           persona_id: persona.id,
           dupla_id: miPerfil.dupla_id || null,
           tipo: 'contacto_espontaneo',
           resumen: 'Ingreso inicial del caso.',
-        });
+        };
+        if(accionesDesdeKobo.length) altaIntervencion.acciones = accionesDesdeKobo;
+        const { error: errInt } = await client.from('intervenciones').insert(altaIntervencion);
         if(errInt) throw errInt;
         // Si este alta vino de "➕ Cargar como Sin identificar" sobre un
         // envío puntual de KoBo, hay que dejar registrado en
