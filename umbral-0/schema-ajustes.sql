@@ -875,3 +875,167 @@ alter table public.jornadas add column observaciones text;
 -- ya cubre columnas nuevas sin cambios.
 alter table public.jornadas add column reemplazo text;
 alter table public.jornadas add column nota_admin text;
+
+-- Casos compartidos entre duplas (7/10/2026, pedido de Agustina: "un
+-- caso tiene que ser independiente de la dupla porque a veces la gente
+-- rota de lugar y puede cambiar de zona" — una dupla que se encontraba
+-- con alguien ya cargado por otra dupla no tenía ninguna forma de
+-- sumarse al caso existente, solo el aviso de DNI duplicado de
+-- casos.html, que para una coincidencia de OTRA dupla solo podía avisar
+-- en texto — "cada dupla ve solo sus propios casos" es la RLS de base,
+-- a propósito, por privacidad). personas.dupla_id sigue siendo el dueño
+-- original (quien dio de alta el caso), esta tabla solo agrega acceso de
+-- OTRAS duplas puntuales cuando se confirma que es la misma persona.
+create table public.personas_compartido (
+  persona_id uuid not null references public.personas(id) on delete cascade,
+  dupla_id uuid not null references public.duplas(id) on delete cascade,
+  compartido_por uuid references public.perfiles(id),
+  created_at timestamptz not null default now(),
+  primary key (persona_id, dupla_id)
+);
+
+alter table public.personas_compartido enable row level security;
+
+create policy personas_compartido_select on public.personas_compartido
+  for select using (
+    mi_rol() = any (array['admin','coordinacion','cliente'])
+    or (mi_rol() = 'dupla' and dupla_id = mi_dupla_id())
+  );
+
+create policy personas_compartido_delete on public.personas_compartido
+  for delete using (mi_rol() = 'admin');
+
+grant select on public.personas_compartido to authenticated;
+revoke insert, update on public.personas_compartido from authenticated;
+
+-- Helper: ¿la dupla que está llamando tiene acceso compartido a esta persona?
+create or replace function public.tengo_acceso_compartido(p_persona_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists(
+    select 1 from personas_compartido
+    where persona_id = p_persona_id and dupla_id = mi_dupla_id()
+  );
+$$;
+
+-- RPC: una dupla pide compartir un caso existente de OTRA dupla,
+-- buscando por DNI (igual criterio que personas_dni_index, pero esta
+-- vez además de avisar, otorga acceso real agregando la fila en
+-- personas_compartido — SECURITY DEFINER a propósito, mismo patrón que
+-- esa vista, para poder leer personas de otra dupla solo en este caso
+-- puntual y controlado). Botón "🔗 Compartir este caso conmigo" en
+-- _mostrarAvisoDniDuplicado() de casos.html.
+create or replace function public.compartir_caso_por_dni(p_dni text)
+returns table(id uuid, nombre text, apellido text)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_dupla_id uuid;
+begin
+  if mi_rol() <> 'dupla' then
+    raise exception 'Solo cuentas de dupla pueden compartir un caso';
+  end if;
+  v_dupla_id := mi_dupla_id();
+  if v_dupla_id is null then
+    raise exception 'Esta cuenta no tiene dupla asignada';
+  end if;
+
+  insert into personas_compartido (persona_id, dupla_id, compartido_por)
+  select p.id, v_dupla_id, auth.uid()
+  from personas p
+  where trim(coalesce(p.dni,'')) = trim(p_dni) and trim(p_dni) <> ''
+    and coalesce(p.oculto,false) = false and p.dupla_id <> v_dupla_id
+  on conflict (persona_id, dupla_id) do nothing;
+
+  return query
+  select p.id, p.nombre, p.apellido
+  from personas p
+  where trim(coalesce(p.dni,'')) = trim(p_dni) and trim(p_dni) <> ''
+    and coalesce(p.oculto,false) = false and p.dupla_id <> v_dupla_id;
+end;
+$$;
+
+revoke all on function public.compartir_caso_por_dni(text) from public;
+grant execute on function public.compartir_caso_por_dni(text) to authenticated;
+
+-- Sumar acceso compartido a select/update de personas (insert sigue solo
+-- para la propia dupla; delete sigue solo admin).
+drop policy personas_select on public.personas;
+create policy personas_select on public.personas
+  for select using (
+    mi_rol() = any (array['admin','coordinacion','cliente'])
+    or (mi_rol() = 'dupla' and (dupla_id = mi_dupla_id() or tengo_acceso_compartido(id)))
+  );
+
+drop policy personas_update on public.personas;
+create policy personas_update on public.personas
+  for update using (
+    mi_rol() = any (array['admin','coordinacion'])
+    or (mi_rol() = 'dupla' and (dupla_id = mi_dupla_id() or tengo_acceso_compartido(id)))
+  );
+
+-- Sumar acceso compartido a select de intervenciones/seguimientos (para
+-- ver el historial completo del caso compartido, incluido lo que cargó
+-- la otra dupla) — insert/update/delete quedan igual: el dupla_id de
+-- CADA FILA sigue siendo "quién hizo esa intervención puntual", no el
+-- dueño del caso.
+drop policy intervenciones_select on public.intervenciones;
+create policy intervenciones_select on public.intervenciones
+  for select using (
+    mi_rol() = any (array['admin','coordinacion','cliente'])
+    or (mi_rol() = 'dupla' and (dupla_id = mi_dupla_id() or tengo_acceso_compartido(persona_id)))
+  );
+
+drop policy seguimientos_select on public.seguimientos;
+create policy seguimientos_select on public.seguimientos
+  for select using (
+    mi_rol() = any (array['admin','coordinacion','cliente'])
+    or (mi_rol() = 'dupla' and (dupla_id = mi_dupla_id() or tengo_acceso_compartido(persona_id)))
+  );
+
+-- jornadas_presentes (13/10/2026, pedido de Agustina: "necesito que los
+-- dos miembros de la dupla den el presente") — hasta acá, marcar el
+-- inicio de jornada alcanzaba con que CUALQUIERA de los dos integrantes
+-- tocara el botón desde la cuenta compartida (no quedaba registrado
+-- quién de los dos vino). Ahora, al marcar inicio (marcarInicioJornada()
+-- en casos.html), se pide tildar cuáles de los integrantes activos de la
+-- dupla están presentes ese día antes de crear la fila en `jornadas` —
+-- una fila acá por cada integrante marcado presente. No reemplaza
+-- `jornadas.reemplazo` (texto libre que la dupla carga al CERRAR si
+-- alguien fue cubierto por otra persona, fuera del roster) — esto es la
+-- asistencia del roster habitual, ese es el caso de reemplazo puntual.
+create table public.jornadas_presentes (
+  jornada_id uuid not null references public.jornadas(id) on delete cascade,
+  integrante_id uuid not null references public.integrantes(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (jornada_id, integrante_id)
+);
+
+alter table public.jornadas_presentes enable row level security;
+
+-- Mismo patrón que jornadas_propia_dupla, pero esta tabla no tiene su
+-- propio dupla_id (cuelga de `jornadas` vía jornada_id) — se resuelve con
+-- un exists() contra `jornadas` en vez de comparar la columna directo.
+-- `with check` además valida que el integrante marcado presente sea de la
+-- MISMA dupla que esa jornada (no alcanza con que la jornada sea propia:
+-- sin esto, nada impedía marcar presente a alguien de otra dupla) —
+-- reforzado el mismo día tras una simulación de RLS que lo detectó antes
+-- de llegar a producción.
+create policy "jornadas_presentes_propia_dupla" on public.jornadas_presentes
+  for all
+  using (
+    public.mi_rol() in ('admin', 'coordinacion')
+    or exists (
+      select 1 from public.jornadas j
+      where j.id = jornadas_presentes.jornada_id
+        and j.dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
+    )
+  )
+  with check (
+    public.mi_rol() in ('admin', 'coordinacion')
+    or exists (
+      select 1 from public.jornadas j
+      join public.integrantes i on i.id = jornadas_presentes.integrante_id
+      where j.id = jornadas_presentes.jornada_id
+        and j.dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
+        and i.dupla_id = j.dupla_id
+    )
+  );

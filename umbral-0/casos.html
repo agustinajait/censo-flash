@@ -541,7 +541,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-02"></script>
+<script src="../config/umbral-0.js?v=2026-10-12"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
@@ -1119,7 +1119,15 @@ function esDniPlaceholderDup(dni){
   const s = String(dni||'').trim().toLowerCase();
   if(!s) return true;
   if(!/[a-z0-9]/i.test(s)) return true;
-  if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  // Sumadas las frases de "no quiere dar/decir/compartir [el DNI]"
+  // (reportado por la dupla G, 6/10/2026: Ángel Sandoval tiene
+  // dni="No quiere darlo" en su ficha, y cada vez que se vuelve a cargar
+  // el mismo caso en KoBo con una frase apenas distinta — "no lo quiere
+  // dar", mayúsculas distintas, etc. — el chequeo de "¿ya existe este
+  // DNI?" de cargarKoboPendientes() comparaba el texto letra por letra y
+  // nunca matcheaba, así que el caso volvía a aparecer como alta nueva
+  // para siempre).
+  if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde|tiene|quiere (dar|decir|brindar|compartir)\w*)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
   return false;
 }
 
@@ -1465,7 +1473,7 @@ function coordinadorUmbral0Ahora(){
   return turnos.find(t => hora >= t.desde && hora < t.hasta) || null;
 }
 
-function mostrarMiTurno(){
+async function mostrarMiTurno(){
   const box = document.getElementById('mi-turno-box');
   if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
   const d = duplasPorId[miPerfil.dupla_id];
@@ -1487,6 +1495,7 @@ function mostrarMiTurno(){
           <div class="zona">${esc(d.zona||'Sin zona asignada')}${d.es_referente ? '<span class="mi-turno-ref">⭐ Referente del turno</span>' : ''}</div>
           ${d.detalle ? `<div class="detalle">${esc(d.detalle)}</div>` : ''}
           ${(!d.es_referente && referente) ? `<div class="detalle">👤 Referente del turno: Dupla ${esc(referente.codigo)}${referente.referente_telefono ? ' · 📞 ' + esc(referente.referente_telefono) : ' (sin teléfono cargado todavía)'}</div>` : ''}
+          <div class="detalle" id="mi-turno-total-casos">📊 Calculando casos totales…</div>
         </div>
         ${d.codigo ? `<a href="resumen-zonas.html?dupla=${escAttr(d.codigo)}" target="_blank" rel="noopener" class="btn btn-blue">🗺️ Abrir mapa</a>` : ''}
         ${d.mymaps ? `<a href="${escAttr(d.mymaps)}" target="_blank" rel="noopener" class="btn btn-blue">📍 Abrir en My Maps</a>` : ''}
@@ -1494,6 +1503,20 @@ function mostrarMiTurno(){
       </div>
     </div>
   `;
+
+  // Total de casos a los que esta dupla tiene acceso (propios + los
+  // compartidos con ella, ver personas_compartido) — pedido de Agustina
+  // (7/10/2026): "cuando entra a su panel que pueda ver cuántos casos
+  // tiene en total". `head:true` trae solo el número, no las filas.
+  try{
+    const client = await SupabaseClient.getClient();
+    const { count, error } = await client.from('personas').select('id', { count:'exact', head:true }).eq('oculto', false);
+    const el = document.getElementById('mi-turno-total-casos');
+    if(el) el.textContent = error ? '📊 No se pudo calcular el total de casos.' : `📊 ${count} caso${count===1?'':'s'} cargado${count===1?'':'s'} en total`;
+  }catch(e){
+    const el = document.getElementById('mi-turno-total-casos');
+    if(el) el.textContent = '📊 No se pudo calcular el total de casos.';
+  }
 }
 
 // ── JORNADA DE HOY (inicio/fin) ───────────────────────────────────────────
@@ -1525,14 +1548,22 @@ function fmtHora(iso){
   return isNaN(d) ? '' : d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
 }
 
+let presentesHoy = []; // nombres de los integrantes marcados presentes en jornadaHoy, para mostrarJornada()
+
 async function cargarJornadaHoy(){
   jornadaHoy = null;
+  presentesHoy = [];
   if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
   try{
     const client = await SupabaseClient.getClient();
     const { data } = await client.from('jornadas').select('*')
       .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr()).maybeSingle();
     jornadaHoy = data || null;
+    if(jornadaHoy){
+      const { data: pres } = await client.from('jornadas_presentes')
+        .select('integrante_id, integrantes(nombre, apellido)').eq('jornada_id', jornadaHoy.id);
+      presentesHoy = (pres || []).map(p => `${p.integrantes?.nombre||''} ${p.integrantes?.apellido||''}`.trim()).filter(Boolean);
+    }
   }catch(e){ /* si falla, se muestra el estado "pendiente" por defecto — no bloquea el resto de la app */ }
 }
 
@@ -1551,6 +1582,7 @@ function mostrarJornada(){
     // colapsado detrás de un toggle; el resumen mini de al lado del
     // título se llena solo cuando termina de calcularse (ver _renderResumenDia()).
     html = `<div class="jornada-txt">✅ <strong>Jornada de hoy completa</strong> — ${fmtHora(jornadaHoy.inicio)} a ${fmtHora(jornadaHoy.fin)}<span id="jornada-resumen-mini" style="color:#64748b;"></span></div>
+      ${presentesHoy.length ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>✅ Presentes:</b> ${presentesHoy.map(esc).join(', ')}</div>` : ''}
       ${jornadaHoy.observaciones ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>💬 Observaciones del día:</b><br>${esc(jornadaHoy.observaciones)}</div>` : ''}
       ${jornadaHoy.reemplazo ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>👥 Reemplazo:</b> ${esc(jornadaHoy.reemplazo)}</div>` : ''}
       <button class="btn btn-outline btn-sm" id="btn-toggle-resumen-dia" style="margin-top:8px;" onclick="Casos.toggleResumenDia()">🔽 Ver detalle del día</button>
@@ -1559,6 +1591,7 @@ function mostrarJornada(){
   } else if(jornadaHoy && jornadaHoy.inicio){
     estado = 'en-curso';
     html = `<div class="jornada-txt">🌤️ <strong>Jornada en curso</strong> — inicio ${fmtHora(jornadaHoy.inicio)}</div>
+      ${presentesHoy.length ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>✅ Presentes:</b> ${presentesHoy.map(esc).join(', ')}</div>` : ''}
       <button class="btn btn-blue" onclick="abrirModalCierreJornada()">⏹️ Marcar fin de jornada</button>`;
   } else {
     estado = 'pendiente';
@@ -1634,7 +1667,20 @@ async function calcularResumenDiaParaFecha(fecha){
   const [personasRes, intervRes, derivRes, seguRes] = await Promise.all([
     client.from('personas').select('id, nombre, apellido, dni, sin_identificar, historia_breve').eq('dupla_id', miPerfil.dupla_id).eq('oculto', false)
       .gte('created_at', desdeUtc.toISOString()).lt('created_at', hastaUtc.toISOString()),
-    client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', miPerfil.dupla_id).eq('fecha', fecha),
+    // intervenciones.fecha es `date` con default CURRENT_DATE del SERVIDOR
+    // (UTC) — nunca se manda explícito al insertar (ver guardarIntervencion()/
+    // guardarPersona()), así que una intervención cargada entre las 21:00 y
+    // las 23:59 hora de Buenos Aires (adentro del Turno 4, 18-22hs) queda con
+    // `fecha` = el día siguiente en UTC. Comparar por igualdad contra `fecha`
+    // dejaba esas intervenciones completamente afuera del resumen del día
+    // real (reportado por Agustina, 7/10/2026, dupla M: "cargan en casos
+    // pero al cierre de jornada aparece 0 casos" — confirmado con una
+    // consulta: 49 de 789 intervenciones en toda la base tienen `fecha`
+    // desfasada contra su `created_at` real). Se compara por rango de
+    // `created_at` (timestamptz, sin ese problema), mismo criterio que ya
+    // se usa para personas/derivaciones/seguimientos acá arriba y abajo.
+    client.from('intervenciones').select('id, persona_id, tipo, resumen, acciones').eq('dupla_id', miPerfil.dupla_id)
+      .gte('created_at', desdeUtc.toISOString()).lt('created_at', hastaUtc.toISOString()),
     client.from('derivaciones').select('id, tipo')
       .gte('fecha_solicitud', desdeUtc.toISOString()).lt('fecha_solicitud', hastaUtc.toISOString()),
     client.from('seguimientos').select('id, persona_id').eq('dupla_id', miPerfil.dupla_id)
@@ -1779,17 +1825,84 @@ async function marcarInicioJornada(){
       if(!seguir) return;
     }
   }
+  // Pedido de Agustina (13/10/2026): "necesito que los dos miembros de la
+  // dupla den el presente" — hasta acá alcanzaba con que CUALQUIERA de
+  // los dos tocara el botón desde la cuenta compartida, sin quedar
+  // registrado quién de los dos vino. Antes de crear la jornada, se pide
+  // tildar presente a cada integrante activo (ver jornadas_presentes en
+  // schema-ajustes.sql). Si alguno falta, igual se puede arrancar la
+  // jornada — el reemplazo puntual se sigue anotando en texto libre al
+  // cerrar (abrirModalCierreJornada()), esto es la asistencia del roster
+  // habitual, no el reemplazo.
   try{
     const client = await SupabaseClient.getClient();
-    const { error } = await client.from('jornadas')
-      .insert({ dupla_id: miPerfil.dupla_id, fecha: hoyStr(), inicio: new Date().toISOString() });
-    if(error) throw error;
+    const { data: integrantesDupla, error: errI } = await client.from('integrantes')
+      .select('id, nombre, apellido').eq('dupla_id', miPerfil.dupla_id).eq('activo', true).neq('rol', 'chofer')
+      .order('nombre');
+    if(errI) throw errI;
+    if(!integrantesDupla || !integrantesDupla.length){
+      // Sin integrantes cargados (raro, pero posible) — no bloquea el
+      // inicio de jornada, solo no pide el checklist.
+      await _crearJornadaConPresentes([]);
+      return;
+    }
+    _abrirModalPresentes(integrantesDupla);
   }catch(e){
-    alert('No se pudo marcar el inicio: ' + e.message);
-  }finally{
-    await cargarJornadaHoy();
-    mostrarJornada();
+    alert('No se pudo revisar los integrantes de la dupla: ' + e.message);
   }
+}
+
+function _abrirModalPresentes(integrantesDupla){
+  const filas = integrantesDupla.map(i => `
+    <div class="form-check">
+      <input type="checkbox" id="presente-${escAttr(i.id)}" value="${escAttr(i.id)}" checked>
+      <label for="presente-${escAttr(i.id)}">${esc(`${i.nombre||''} ${i.apellido||''}`.trim() || 'Sin nombre')}</label>
+    </div>
+  `).join('');
+  const body = `
+    <form id="form-presentes" onsubmit="return false;">
+      <div class="form-field">
+        <label>¿Quiénes de la dupla están hoy? *</label>
+        <div class="hint">Destildá a quien no vino. Si los reemplazó alguien que no es del roster habitual, eso se anota aparte al cerrar la jornada.</div>
+        ${filas}
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-green" id="btn-confirmar-presentes">▶️ Marcar inicio de jornada</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      </div>
+    </form>
+  `;
+  openModal('Presentes hoy', body);
+  document.getElementById('btn-confirmar-presentes').onclick = () => {
+    const idsPresentes = integrantesDupla.map(i => i.id).filter(id => document.getElementById(`presente-${id}`).checked);
+    _crearJornadaConPresentes(idsPresentes);
+  };
+}
+
+async function _crearJornadaConPresentes(idsPresentes){
+  const btn = document.getElementById('btn-confirmar-presentes');
+  if(btn){ btn.disabled = true; btn.textContent = 'Guardando…'; }
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data: jornada, error } = await client.from('jornadas')
+      .insert({ dupla_id: miPerfil.dupla_id, fecha: hoyStr(), inicio: new Date().toISOString() })
+      .select().single();
+    if(error) throw error;
+    if(idsPresentes.length){
+      const { error: errP } = await client.from('jornadas_presentes')
+        .insert(idsPresentes.map(integrante_id => ({ jornada_id: jornada.id, integrante_id })));
+      // No bloquea el inicio de jornada si falla esto puntual — la
+      // jornada ya quedó creada, solo se pierde el detalle de quién vino.
+      if(errP) console.error('No se pudo guardar quiénes están presentes', errP);
+    }
+    closeModal();
+  }catch(e){
+    if(btn){ modalError('No se pudo marcar el inicio: ' + e.message); btn.disabled = false; btn.textContent = '▶️ Marcar inicio de jornada'; }
+    else alert('No se pudo marcar el inicio: ' + e.message);
+    return;
+  }
+  await cargarJornadaHoy();
+  mostrarJornada();
 }
 
 // Cierre de jornada con observaciones obligatorias (§10.1.28, pedido de
@@ -2027,6 +2140,23 @@ function normalizarNombreKobo(s){
     .split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
+// Para buscarPersonas() — sin acentos y sin ordenar tokens (a diferencia
+// de normalizarNombreKobo(), acá hace falta poder matchear una palabra
+// SUELTA como substring, no comparar dos nombres completos ya armados).
+function sinAcentos(s){
+  return String(s||'').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+// Cada palabra que escribió la dupla tiene que aparecer en algún lado
+// (nombre, apellido o dni), no importa el orden ni si hay tilde de por
+// medio — así "Juan Perez" sin tilde encuentra a nombre="Juan"
+// apellido="Pérez", y "Pérez Juan" al revés también.
+function coincidenciaBusquedaPersona(p, q){
+  const tokens = sinAcentos(q).split(/\s+/).filter(Boolean);
+  if(!tokens.length) return true;
+  const campo = sinAcentos(`${p.nombre||''} ${p.apellido||''} ${p.dni||''}`);
+  return tokens.every(t => campo.includes(t));
+}
+
 // Coincide si los tokens de un nombre son subconjunto de los del otro, en
 // cualquier dirección — así "Yesica Cuenca" (como se tipeó en KoBo) matchea
 // contra "Yesica Soledad Cuenca" (como está en integrantes) aunque falte el
@@ -2188,14 +2318,20 @@ async function cargarKoboPendientes(){
       client.from('personas').select('id,nombre,apellido,dni,sin_identificar').eq('dupla_id', miPerfil.dupla_id),
       // persona_id (antes no se pedía) hace falta para el aviso nuevo de
       // "validado pero sin intervención registrada" — ver más abajo.
-      client.from('kobo_validaciones').select('kobo_submission_id, persona_id').eq('dupla_id', miPerfil.dupla_id),
+      // created_at también hace falta para ese mismo aviso (ver más abajo).
+      client.from('kobo_validaciones').select('kobo_submission_id, persona_id, created_at').eq('dupla_id', miPerfil.dupla_id),
       obtenerKoboRowsParseadas(project, form),
     ]);
 
     const misNombres = (integrantes||[])
       .map(i => `${i.nombre||''} ${i.apellido||''}`)
       .filter(n => n.trim());
-    const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(Boolean));
+    // esDniPlaceholderDup() (definida más arriba, ya usada en
+    // revisarDuplicadosCasos()) descarta frases tipo "No quiere darlo" o
+    // "Nsnc" — sin esto, dos envíos de la MISMA persona con una frase así
+    // apenas distinta nunca matcheaban entre sí (texto comparado letra
+    // por letra) y el caso volvía a aparecer como alta nueva para siempre.
+    const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(d => d && !esDniPlaceholderDup(d)));
     const idsYaValidados = new Set((validacionesPropias||[]).map(v => v.kobo_submission_id));
 
     // "Validado pero sin intervención registrada" (pedido de Agustina,
@@ -2207,34 +2343,46 @@ async function cargarKoboPendientes(){
     // guardarValidacionKobo()), así que la visita no queda contada en
     // ningún lado salvo que te acuerdes de volver a esa ficha puntual.
     const personaPorIdPropia = new Map((personasPropias||[]).map(p => [p.id, p]));
-    const fechaPorSubId = new Map();
-    koboParseadas.forEach(p => { const sid = koboSubmissionId(p); if(sid) fechaPorSubId.set(sid, p.fecha ? String(p.fecha).slice(0,10) : null); });
     const idsPersonasPropias = (personasPropias||[]).map(p => p.id);
-    let intervPorPersonaFecha = new Set(), seguPorPersonaFecha = new Set();
+    // Primer intento (5/10/2026): comparar por created_at, "resuelto si
+    // hay una intervención/seguimiento creado en o después de la
+    // validación" — pero esto asume que siempre se valida primero y se
+    // registra la intervención después. En la práctica también pasa al
+    // revés (reportado por la dupla A el mismo día, mismo caso): registra
+    // el seguimiento en el momento, y recién días más tarde entra a
+    // "poner al día" validaciones de envíos de KoBo viejos — la
+    // intervención quedó ANTES de la validación, así que esa comparación
+    // también la dejaba marcada como pendiente para siempre.
+    // Ahora no se compara ningún orden ni fecha: alcanza con que la
+    // persona tenga alguna intervención o seguimiento registrado, lo que
+    // sea (incluido el alta automática — "Ingreso inicial del caso." se
+    // ve en el historial como una card de Intervención más, y para la
+    // dupla cuenta como tal; excluirla solo generaba confusión: un caso
+    // nuevo con el alta ya cargada seguía mostrándose como pendiente aun
+    // viéndose la card de Intervención ahí mismo — reportado por la
+    // dupla A con el caso de Amilcar, 5/10/2026).
+    let personasConIntervencion = new Set(), personasConSeguimiento = new Set();
     if(idsPersonasPropias.length){
       const [{ data: intervD }, { data: seguD }] = await Promise.all([
-        client.from('intervenciones').select('persona_id, fecha').in('persona_id', idsPersonasPropias),
-        client.from('seguimientos').select('persona_id, fecha').in('persona_id', idsPersonasPropias),
+        client.from('intervenciones').select('persona_id').in('persona_id', idsPersonasPropias),
+        client.from('seguimientos').select('persona_id').in('persona_id', idsPersonasPropias),
       ]);
-      (intervD||[]).forEach(i => intervPorPersonaFecha.add(i.persona_id + '|' + String(i.fecha||'').slice(0,10)));
-      (seguD||[]).forEach(s => seguPorPersonaFecha.add(s.persona_id + '|' + String(s.fecha||'').slice(0,10)));
+      (intervD||[]).forEach(i => personasConIntervencion.add(i.persona_id));
+      (seguD||[]).forEach(s => personasConSeguimiento.add(s.persona_id));
     }
     koboValidadoSinIntervencionActuales = (validacionesPropias||[])
-      .filter(v => v.persona_id)
+      .filter(v => v.persona_id && v.created_at)
       .map(v => {
         const persona = personaPorIdPropia.get(v.persona_id);
-        const fecha = fechaPorSubId.get(v.kobo_submission_id);
-        if(!persona || !fecha) return null;
-        const clave = v.persona_id + '|' + fecha;
-        if(intervPorPersonaFecha.has(clave) || seguPorPersonaFecha.has(clave)) return null; // ya se registró
-        return { persona, fecha };
+        if(!persona) return null;
+        if(personasConIntervencion.has(v.persona_id) || personasConSeguimiento.has(v.persona_id)) return null; // ya tiene algo registrado
+        return { persona, fecha: v.created_at };
       })
       .filter(Boolean)
-      // Una persona puede tener más de un envío validado sin intervención
-      // el mismo día (ej. dos recontactos seguidos) — se avisa una sola
-      // vez por persona+día, no una card repetida por cada envío.
-      .filter((v, i, arr) => arr.findIndex(x => x.persona.id === v.persona.id && x.fecha === v.fecha) === i)
-      .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+      .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''))
+      // Una persona puede tener más de una validación sin intervención —
+      // se avisa una sola vez (la más reciente), no una card por cada envío.
+      .filter((v, i, arr) => arr.findIndex(x => x.persona.id === v.persona.id) === i);
     // Nombre normalizado -> persona ya cargada, para matchear posibles
     // continuaciones (envíos de KoBo sin DNI). Antes excluía TODA persona
     // sin_identificar de este matcheo ("no tiene con qué matchear por
@@ -2290,13 +2438,13 @@ async function cargarKoboPendientes(){
       // todos sin nombre y apellido", eran justo estos).
       if(p.poblacionObjetivo === 'no' || p.poblacionObjetivo === 'no_es') return;
       const dni = String((p.persona && p.persona.dni) || '').trim();
-      if(dni){
+      if(dni && !esDniPlaceholderDup(dni)){
         if(dnisExistentes.has(dni)) return; // ya es un caso cargado — cargarKoboDePersona() ya lo muestra en esa ficha
         const previo = porDni.get(dni);
         if(!previo || (p.fecha||'') > (previo.fecha||'')) porDni.set(dni, p);
         return;
       }
-      // Sin DNI: ¿el nombre matchea con un caso propio ya cargado? (pedido
+      // Sin DNI (o un "DNI" placeholder tipo "No quiere darlo"): ¿el nombre matchea con un caso propio ya cargado? (pedido
       // de Agustina, sept/2026: "si mañana el operador vuelve a cargar el
       // kobo con el mismo nombre... se debe asociar al mismo caso" — acá
       // NO se asocia solo, se le pregunta a la dupla, ver confirmarContinuacionKobo()).
@@ -3211,10 +3359,18 @@ const Casos = {
     // quede arriba de todo, en vez de perderse mezclado alfabéticamente
     // con el resto. Mismas políticas RLS que `personas` (la vista es
     // security_invoker — ver schema-ajustes.sql).
-    let query = client.from('personas_actividad').select('*').order('ultima_actividad', { ascending:true }).limit(40);
-    if(q){
-      query = query.or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,dni.ilike.%${q}%`);
-    }
+    // Antes el texto se mandaba tal cual a `ilike` en el servidor —
+    // reportado por varias duplas (6/10/2026, pedido de Agustina: "a
+    // veces no pueden encontrar a una persona... para hacerle un
+    // seguimiento") dos problemas reales: (1) escribir "Juan Pérez"
+    // junto no matchea cuando nombre="Juan" y apellido="Pérez" están en
+    // columnas separadas — ninguna columna sola contiene "Juan Pérez";
+    // (2) `ilike` no ignora acentos, así que tipear "Perez" sin tilde (muy
+    // común en el celular) no encuentra a "Pérez". Ahora, si hay texto de
+    // búsqueda, se trae un lote más amplio sin filtrar en el servidor y
+    // se filtra acá con coincidenciaBusquedaPersona() — sin acentos, por
+    // palabra suelta en cualquier orden.
+    let query = client.from('personas_actividad').select('*').order('ultima_actividad', { ascending:true }).limit(q ? 500 : 40);
     // Filtro por dupla (solo admin/coordinación ven el selector — ver
     // mostrarFiltroDupla() — una cuenta de dupla ya está scopeada por
     // RLS a sus propios casos).
@@ -3241,9 +3397,31 @@ const Casos = {
       const hastaUtc = new Date(desdeUtc.getTime() + 24*60*60*1000);
       query = query.gte('ultima_actividad', desdeUtc.toISOString()).lt('ultima_actividad', hastaUtc.toISOString());
     }
-    const { data, error } = await query;
+    const { data: dataCruda, error } = await query;
     if(error){ cont.innerHTML = `<div class="empty-msg">Error buscando personas: ${esc(error.message)}</div>`; return; }
+    const data = q ? (dataCruda||[]).filter(p => coincidenciaBusquedaPersona(p, q)).slice(0, 40) : dataCruda;
     if(!data || !data.length){
+      // Territorio más chico desde el 12/10/2026 (duplas comparten
+      // sub-zona) — pedido de Agustina: "cada dupla debe poder buscar por
+      // DNI el caso" aunque lo haya cargado otra dupla, no solo cuando el
+      // aviso de "DNI duplicado" salta al dar de alta. Si la búsqueda
+      // propia (scopeada por RLS) no encontró nada, el texto parece un
+      // DNI y sos una cuenta de dupla (admin/coordinación ya ven todo),
+      // se chequea personas_dni_index (bypassea RLS a propósito) — mismo
+      // mecanismo y mismo RPC compartir_caso_por_dni() que ya existía
+      // para el aviso de alta, ahora disparado también desde acá.
+      const soloDigitos = q.replace(/\D/g, '');
+      const pareceDni = soloDigitos.length >= 6 && soloDigitos.length <= 9 && soloDigitos === q.trim();
+      if(pareceDni && miPerfil && miPerfil.rol === 'dupla'){
+        cont.innerHTML = '<div class="empty-msg">Buscando en otras duplas…</div>';
+        try{
+          const { data: enOtraDupla } = await client.from('personas_dni_index').select('*').eq('dni', q.trim());
+          if(enOtraDupla && enOtraDupla.length){
+            Casos._mostrarResultadoBusquedaOtraDupla(cont, enOtraDupla, q.trim());
+            return;
+          }
+        }catch(e){ /* sigue al mensaje genérico de abajo si falla */ }
+      }
       cont.innerHTML = `<div class="empty-msg">${q || duplaId ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
       return;
     }
@@ -3592,6 +3770,39 @@ const Casos = {
     let eraKoboSinIdentificar = false; // ver uso más abajo, tras guardar
     const form = document.getElementById('form-persona');
     const btn = document.getElementById('btn-guardar-persona');
+
+    // Blindaje contra el mismo envío de KoBo "sin identificar" creando MÁS
+    // de un caso (encontrado en producción: una misma persona cargada hasta
+    // 9 veces desde el mismo envío, ~10-60s entre cada una — la dupla
+    // reabrió el mismo pendiente y volvió a guardar, probablemente porque
+    // no vio que el primer guardado ya había funcionado). _guardandoPersona
+    // de arriba solo frena un doble clic DENTRO de esta misma carga de
+    // página; si se reabre el mismo pendiente (otra pestaña, recargó la
+    // página, volvió más tarde) ese flag ya vale cero. Antes de crear el
+    // caso, se chequea en el servidor si ese kobo_submission_id YA tiene
+    // una fila en kobo_validaciones — si la tiene, alguien (incluida esta
+    // misma persona, antes) ya lo cargó.
+    if(!personaExistente && koboSubIdSinIdentificarPendiente){
+      try{
+        const client = await SupabaseClient.getClient();
+        const { data: yaExiste, error: errChk } = await client.from('kobo_validaciones')
+          .select('persona_id').eq('kobo_submission_id', koboSubIdSinIdentificarPendiente).limit(1).maybeSingle();
+        if(errChk) throw errChk;
+        if(yaExiste){
+          modalError('Este envío de KoBo ya fue cargado como caso antes (quizás en otra pestaña, o ya lo habías guardado). No se creó un caso nuevo.');
+          koboSubIdSinIdentificarPendiente = null;
+          _guardandoPersona = false;
+          closeModal();
+          cargarKoboPendientes();
+          return;
+        }
+      }catch(e){
+        modalError('No se pudo confirmar si este envío ya estaba cargado (' + e.message + '). Probá guardar de nuevo.');
+        _guardandoPersona = false;
+        return;
+      }
+    }
+
     const campos = recolectarCampos(form);
     if(!campos.sin_identificar && (!campos.nombre || !campos.apellido)){
       modalError('Nombre y apellido son obligatorios (o tildá "Sin identificar" si la persona no quiso darlos).');
@@ -3624,10 +3835,26 @@ const Casos = {
         btn.disabled = true; btn.textContent = 'Revisando…';
         try{
           const client = await SupabaseClient.getClient();
-          const { data: coincidencias, error: errDni } = await client.from('personas_dni_index').select('*').eq('dni', dniTrim);
+          // personas_dni_index bypassea RLS a propósito para AVISAR de
+          // coincidencias de cualquier dupla, pero no trae `id` (ver
+          // schema-ajustes.sql) — no se puede abrir la ficha de otra
+          // dupla aunque se quisiera, cada una ve solo sus propios casos.
+          // Si la coincidencia es de la MISMA dupla, en cambio, sí se
+          // puede abrir directo: esta consulta aparte a `personas` (sin
+          // bypass de RLS, ya la permite el propio acceso de la dupla)
+          // trae ese `id` puntual para poder linkear "Ver esa ficha →" en
+          // vez de solo decirle a la dupla que la busque a mano (pedido
+          // de Agustina, 6/10/2026: "todo el tiempo me dicen que no los
+          // deja cargar de nuevo" un caso en seguimiento — el aviso ya
+          // les decía que buscaran el caso existente, pero sin un link
+          // directo varias duplas no encontraban cómo).
+          const [{ data: coincidencias, error: errDni }, { data: propia }] = await Promise.all([
+            client.from('personas_dni_index').select('*').eq('dni', dniTrim),
+            client.from('personas').select('id').eq('dupla_id', miPerfil.dupla_id).eq('dni', dniTrim).eq('oculto', false).limit(1).maybeSingle(),
+          ]);
           if(errDni) throw errDni;
           if(coincidencias && coincidencias.length){
-            Casos._mostrarAvisoDniDuplicado(form, coincidencias, campos.dni);
+            Casos._mostrarAvisoDniDuplicado(form, coincidencias, campos.dni, propia && propia.id);
             btn.disabled = false; btn.textContent = '💾 Dar de alta';
             _guardandoPersona = false;
             return;
@@ -3725,8 +3952,19 @@ const Casos = {
   // Banner dentro del propio formulario de alta (no un modal aparte, para
   // no perder lo ya tipeado) con los casos que ya tienen ese DNI, cargados
   // por cualquier dupla (personas_dni_index bypassea la RLS de `personas`
-  // a propósito para esto — ver schema-ajustes.sql).
-  _mostrarAvisoDniDuplicado(form, coincidencias, dni){
+  // a propósito para esto — ver schema-ajustes.sql). Si el caso ya está
+  // en la MISMA dupla (propiaFichaId), se suma un botón que abre esa
+  // ficha directo — antes solo se le decía a la dupla que "la buscara en
+  // el listado", y varias (pedido de Agustina, 6/10/2026) no encontraban
+  // cómo y terminaban pensando que el sistema "no las dejaba cargar" un
+  // caso en seguimiento. Si la coincidencia es de OTRA dupla, se suma el
+  // botón "🔗 Compartir este caso conmigo" (pedido de Agustina, 7/10/2026:
+  // "un caso tiene que ser independiente de la dupla porque a veces la
+  // gente rota de lugar y puede cambiar de zona") — llama a
+  // compartir_caso_por_dni() (RPC, ver schema-ajustes.sql), que le da
+  // acceso real a esta dupla sobre el caso y abre su ficha directo, en vez
+  // de crear un alta duplicada o dejarla sin ninguna opción.
+  _mostrarAvisoDniDuplicado(form, coincidencias, dni, propiaFichaId){
     const filas = coincidencias.map(c => {
       const nombre = `${c.nombre||''} ${c.apellido||''}`.trim() || 'Persona sin identificar';
       const fecha = c.created_at ? new Date(c.created_at).toLocaleDateString('es-AR') : '—';
@@ -3741,20 +3979,75 @@ const Casos = {
       cont.style.cssText = 'background:#fff7ed; border:1.5px solid #fdba74; border-radius:10px; padding:12px 14px; margin-bottom:14px;';
       form.insertBefore(cont, form.firstChild);
     }
+    const textoGuia = propiaFichaId
+      ? 'Ese caso ya está en TU listado — si es la misma persona (por ejemplo, un caso en seguimiento que volviste a visitar), no hace falta darla de alta de nuevo: abrí su ficha de abajo y usá "➕ Registrar intervención" o "📝 Agregar seguimiento" ahí adentro.'
+      : 'Esa carga es de otra dupla. Si es la misma persona (por ejemplo, se mudó de zona y ahora la atienden ustedes), tocá "🔗 Compartir este caso conmigo" para sumarte al caso sin duplicarlo — vas a poder ver todo su historial y cargar intervenciones ahí. Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.';
+    const botonVerFicha = propiaFichaId
+      ? `<button type="button" class="btn btn-blue btn-sm" onclick="closeModal(); Casos.abrirFicha('${escAttr(propiaFichaId)}')">Ver esa ficha →</button>`
+      : `<button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>`;
     cont.innerHTML = `
       <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ Ya hay ${coincidencias.length===1?'un caso':coincidencias.length+' casos'} con el DNI ${esc(dni)}</div>
       ${filas}
-      <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona, cerrá este formulario y buscala en el listado de casos en vez de dar de alta uno nuevo. Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.</div>
+      <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">${textoGuia}</div>
       <div class="form-check" style="margin-bottom:10px;">
         <input type="checkbox" id="f_confirmar_dni_distinto" onchange="document.getElementById('btn-crear-dni-duplicado').disabled = !this.checked;">
         <label for="f_confirmar_dni_distinto">Confirmo que es una persona distinta a la(s) de arriba (no la misma cargada de nuevo)</label>
       </div>
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${botonVerFicha}
         <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('dni-dup-aviso').remove()">Volver a editar</button>
         <button type="button" class="btn btn-amber btn-sm" id="btn-crear-dni-duplicado" disabled onclick="Casos.guardarPersona(null, true)">Crear de todas formas</button>
       </div>
     `;
     cont.scrollIntoView({ behavior:'smooth', block:'start' });
+  },
+
+  // Llama a compartir_caso_por_dni() (RPC con security definer — ver
+  // schema-ajustes.sql) y, si encuentra el caso, abre la ficha directo.
+  // El RPC ya valida que sea una cuenta de dupla y resuelve la propia
+  // dupla del lado del servidor (no se manda dupla_id desde acá), así que
+  // no hay forma de que una dupla se otorgue acceso a nombre de otra.
+  async compartirCasoPorDni(dni){
+    const btn = document.getElementById('btn-compartir-caso');
+    if(btn){ btn.disabled = true; btn.textContent = 'Compartiendo…'; }
+    try{
+      const client = await SupabaseClient.getClient();
+      const { data, error } = await client.rpc('compartir_caso_por_dni', { p_dni: dni });
+      if(error) throw error;
+      if(!data || !data.length){
+        alert('No se encontró ningún caso con ese DNI en otra dupla (puede que ya lo hayan ocultado o movido). Probá de nuevo desde el formulario.');
+        if(btn){ btn.disabled = false; btn.textContent = '🔗 Compartir este caso conmigo'; }
+        return;
+      }
+      closeModal();
+      await Casos.abrirFicha(data[0].id);
+    }catch(e){
+      alert('No se pudo compartir el caso: ' + e.message);
+      if(btn){ btn.disabled = false; btn.textContent = '🔗 Compartir este caso conmigo'; }
+    }
+  },
+
+  // Buscaste un DNI, no tenés ningún caso propio con ese número, pero
+  // existe en otra dupla — mismo texto/botón que _mostrarAvisoDniDuplicado()
+  // pero en el resultado de la BÚSQUEDA, no en el formulario de alta (ver
+  // comentario en buscarPersonas()). compartirCasoPorDni() es la misma
+  // función para los dos casos: comparte el acceso y abre la ficha.
+  _mostrarResultadoBusquedaOtraDupla(cont, coincidencias, dni){
+    const filas = coincidencias.map(c => {
+      const nombre = `${c.nombre||''} ${c.apellido||''}`.trim() || 'Persona sin identificar';
+      const fecha = c.created_at ? new Date(c.created_at).toLocaleDateString('es-AR') : '—';
+      return `<div style="padding:5px 0; border-top:1px solid #fed7aa; font-size:0.82rem; color:#78350f;">
+        <b>${esc(nombre)}</b> — dupla ${esc(c.dupla_codigo||'—')}, cargado el ${esc(fecha)}
+      </div>`;
+    }).join('');
+    cont.innerHTML = `
+      <div style="background:#fff7ed; border:1.5px solid #fdba74; border-radius:10px; padding:14px 16px;">
+        <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ El DNI ${esc(dni)} ya está cargado, pero por otra dupla</div>
+        ${filas}
+        <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona (se mudó de zona y ahora la ven ustedes), tocá "🔗 Compartir este caso conmigo" para sumarte sin duplicarlo — vas a poder ver todo su historial y cargar la intervención o el seguimiento ahí mismo.</div>
+        <button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>
+      </div>
+    `;
   },
 
   // ── FICHA ────────────────────────────────────────────────────────────
