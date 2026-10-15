@@ -4711,6 +4711,22 @@ const Casos = {
     const sugerencias = tiposSugeridos.map(tipo => `
       <button class="btn btn-amber" onclick="Casos.abrirModalDerivacion('${escAttr(tipo)}')">📨 Completar derivación a ${esc(tipo)}</button>
     `).join('');
+    // Compartir por WhatsApp acá también (15/10/2026, pedido de Agustina:
+    // "cada caso que cargan en KoBo... validarlo y copiar el mensaje de
+    // WhatsApp... además del cierre") — hasta ahora esto solo se ofrecía
+    // al dar de alta o al registrar una intervención a mano, pero validar
+    // un envío de KoBo de SEGUIMIENTO sobre un caso ya existente (acá) es
+    // el camino más común del día a día y se había quedado afuera.
+    // Reutiliza _mensajeCompartirCasoActual/_compartirCasoWhatsapp, mismo
+    // mecanismo que las otras dos.
+    const duplaCod = (miPerfil && duplasMap[miPerfil.dupla_id]) || 'mi dupla';
+    const accionesTxt = (acciones||[]).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod).join(', ');
+    _mensajeCompartirCasoActual = [
+      `📋 Umbral 0 — Dupla ${duplaCod}`,
+      `${nombreDisplay(personaActual)}${personaActual.dni ? ' · DNI ' + personaActual.dni : ''}`,
+      `Seguimiento validado de KoBo`,
+      accionesTxt ? `Acciones: ${accionesTxt}` : null,
+    ].filter(Boolean).join('\n');
     const body = `
       <div style="text-align:center;padding:6px 0 4px;">
         <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Envío validado. ¿Querés agregar algo más sobre esta visita?</div>
@@ -4719,6 +4735,7 @@ const Casos = {
           ${sugerencias}
           <button class="btn btn-blue" onclick="Casos.abrirModalIntervencion()">➕ Registrar tu intervención</button>
           <button class="btn btn-green" onclick="Casos.abrirModalSeguimiento()">💬 Agregar un comentario</button>
+          <button class="btn btn-green" onclick="Casos._compartirCasoWhatsapp('${escAttr(personaActual.id)}')">📱 Compartir por WhatsApp</button>
           <button class="btn btn-outline" onclick="closeModal()">No, ya terminé</button>
         </div>
       </div>
