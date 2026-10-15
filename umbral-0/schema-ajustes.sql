@@ -1039,3 +1039,101 @@ create policy "jornadas_presentes_propia_dupla" on public.jornadas_presentes
         and i.dupla_id = j.dupla_id
     )
   );
+
+-- Pase de turno (15/10/2026, pedido de Agustina): dentro del mismo
+-- polígono, las duplas rotan en turnos T1-T4 durante el día — si la dupla
+-- de la mañana abre un caso, la dupla que entra en el turno siguiente en
+-- esa misma zona tiene que poder tomarlo, sin depender de que se le
+-- ocurra buscarlo por DNI (compartir_caso_por_dni ya existe para eso,
+-- pero es manual y solo funciona si ya se sabe el DNI). Reutiliza
+-- 100% el mecanismo ya probado de personas_compartido/tengo_acceso_compartido
+-- (mismo que usa compartir_caso_por_dni) — estas dos funciones solo
+-- agregan una forma automática de encontrar y tomar el caso, sin tocar
+-- RLS nueva ni duplicar lógica de acceso.
+
+-- Lista los casos de HOY (día calendario Buenos Aires) de OTRA dupla que
+-- comparte mi mismo polígono, y que todavía no tomé.
+create or replace function public.casos_pase_turno()
+returns table(id uuid, nombre text, apellido text, dni text, punto_contacto text, dupla_origen text, creado_en timestamptz)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_dupla_id uuid;
+  v_poligono text;
+begin
+  if mi_rol() <> 'dupla' then
+    raise exception 'Solo cuentas de dupla pueden ver el pase de turno';
+  end if;
+  v_dupla_id := mi_dupla_id();
+  if v_dupla_id is null then
+    raise exception 'Esta cuenta no tiene dupla asignada';
+  end if;
+  select poligono into v_poligono from duplas where id = v_dupla_id;
+  if v_poligono is null then
+    return;
+  end if;
+
+  return query
+  select p.id, p.nombre, p.apellido, p.dni, p.punto_contacto, d.codigo, p.created_at
+  from personas p
+  join duplas d on d.id = p.dupla_id
+  where d.poligono = v_poligono
+    and p.dupla_id <> v_dupla_id
+    and coalesce(p.oculto, false) = false
+    and (now() at time zone 'America/Argentina/Buenos_Aires')::date
+      = (p.created_at at time zone 'America/Argentina/Buenos_Aires')::date
+    and not exists (
+      select 1 from personas_compartido pc
+      where pc.persona_id = p.id and pc.dupla_id = v_dupla_id
+    )
+  order by p.created_at desc;
+end;
+$$;
+
+revoke all on function public.casos_pase_turno() from public;
+grant execute on function public.casos_pase_turno() to authenticated;
+
+-- Toma uno de esos casos: valida de nuevo del lado del servidor (mismo
+-- polígono, de hoy, no es ya mío) y agrega la fila en personas_compartido
+-- — de ahí en más esta dupla ve y puede sumar intervenciones al caso con
+-- la RLS que ya existe (tengo_acceso_compartido()), igual que un caso
+-- compartido a mano por DNI.
+create or replace function public.tomar_caso_pase_turno(p_persona_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_dupla_id uuid;
+  v_poligono text;
+  v_ok boolean;
+begin
+  if mi_rol() <> 'dupla' then
+    raise exception 'Solo cuentas de dupla pueden tomar un caso del pase de turno';
+  end if;
+  v_dupla_id := mi_dupla_id();
+  if v_dupla_id is null then
+    raise exception 'Esta cuenta no tiene dupla asignada';
+  end if;
+  select poligono into v_poligono from duplas where id = v_dupla_id;
+
+  select exists(
+    select 1 from personas p
+    join duplas d on d.id = p.dupla_id
+    where p.id = p_persona_id
+      and d.poligono = v_poligono
+      and p.dupla_id <> v_dupla_id
+      and coalesce(p.oculto, false) = false
+      and (now() at time zone 'America/Argentina/Buenos_Aires')::date
+        = (p.created_at at time zone 'America/Argentina/Buenos_Aires')::date
+  ) into v_ok;
+
+  if not v_ok then
+    raise exception 'Este caso no está disponible para pase de turno (no es de hoy, no es de tu zona, o ya es tuyo)';
+  end if;
+
+  insert into personas_compartido (persona_id, dupla_id, compartido_por)
+  values (p_persona_id, v_dupla_id, auth.uid())
+  on conflict (persona_id, dupla_id) do nothing;
+end;
+$$;
+
+revoke all on function public.tomar_caso_pase_turno(uuid) from public;
+grant execute on function public.tomar_caso_pase_turno(uuid) to authenticated;
