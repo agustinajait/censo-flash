@@ -399,6 +399,10 @@
        todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
   <div id="kobo-pend-box" style="display:none;"></div>
 
+  <!-- PASE DE TURNO (15/10/2026) — casos de hoy abiertos por otra dupla de
+       mi mismo polígono, en otro turno. Ver cargarCasosPaseTurno(). -->
+  <div id="pase-turno-box" style="display:none;"></div>
+
   <!-- Diagnóstico de KoBo (1/10/2026, pedido de Agustina: la Dupla E decía
        haber cargado casos HOY que no aparecían en ningún lado de esta
        pantalla, ni siquiera en "sin identificar" — a diferencia de envíos
@@ -583,6 +587,7 @@ let koboSubIdSinIdentificarPendiente = null;
 // y se completa solo cuando el alta viene de un pendiente de KoBo.
 let koboAccionesPendientesParaAlta = null;
 let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
+let _mensajeCompartirCasoActual = ''; // texto armado para "Compartir por WhatsApp" de un caso puntual (ver _ofrecerCompartirCasoWhatsapp())
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
 
@@ -1097,6 +1102,7 @@ async function entrarAlApp(){
   await cargarJornadaHoy();
   mostrarJornada();
   cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
+  cargarCasosPaseTurno(); // no se espera, mismo motivo
   revisarDuplicadosCasos(); // no se espera, mismo motivo
   cargarDniPendientesCount(); // no se espera, mismo motivo — solo actualiza el contador del botón
   cargarSinIdentificarCount(); // no se espera, mismo motivo
@@ -1469,6 +1475,13 @@ function waLink(tel){
 function waLinkConMensaje(tel, mensaje){
   const base = waLink(tel);
   return base ? base + '?text=' + encodeURIComponent(mensaje) : null;
+}
+// Sin número de destino — abre el selector de chat/grupo de WhatsApp con el
+// texto ya armado (mismo patrón que compartirWhatsappCierre() para el
+// cierre del día completo, acá por un caso puntual). La dupla elige el
+// chat y lo manda ella misma; no queda registro de que se mandó.
+function waLinkSinDestino(mensaje){
+  return 'https://wa.me/?text=' + encodeURIComponent(mensaje);
 }
 
 // La coordinación de Umbral Cero rota por turno (a diferencia del handy
@@ -2573,6 +2586,62 @@ async function cargarKoboDePersona(persona){
 function legibleKobo(s){
   s = String(s||'').replace(/_/g, ' ').trim();
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+// ── PASE DE TURNO (15/10/2026) ───────────────────────────────────────
+// Pedido de Agustina: dentro del mismo polígono, las duplas rotan en
+// turnos durante el día — si la dupla de la mañana abre un caso, la que
+// entra en el turno siguiente en esa misma zona tiene que poder tomarlo
+// sin tener que acordarse de buscarlo por DNI. Usa las RPC
+// casos_pase_turno()/tomar_caso_pase_turno() (ver schema-ajustes.sql) —
+// mismo mecanismo de personas_compartido que ya usa "🔗 Asociar un envío
+// de KoBo"/"Compartir este caso conmigo", solo que automático: aparece
+// solo, no hay que buscar nada.
+let casosPaseTurnoActuales = [];
+async function cargarCasosPaseTurno(){
+  if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.rpc('casos_pase_turno');
+    if(error) throw error;
+    casosPaseTurnoActuales = data || [];
+    mostrarCasosPaseTurno();
+  }catch(e){
+    console.error('No se pudo traer el pase de turno', e);
+    // falla en silencio — no es un dato crítico para poder seguir trabajando
+  }
+}
+function mostrarCasosPaseTurno(){
+  const box = document.getElementById('pase-turno-box');
+  if(!casosPaseTurnoActuales.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="kobo-pend">
+      <div class="kobo-pend-head">🔁 ${casosPaseTurnoActuales.length} caso${casosPaseTurnoActuales.length===1?'':'s'} de hoy en tu zona, de otro turno</div>
+      <div class="section-hint" style="margin:-4px 0 8px;">Abiertos hoy por otra dupla de tu mismo polígono. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
+      ${casosPaseTurnoActuales.map((c, i) => `
+        <div class="kobo-pend-card">
+          <div class="kobo-pend-txt">
+            <strong>${esc(nombreDisplay(c))}</strong>${c.dni ? ' · DNI ' + esc(c.dni) : ''}
+            <div class="meta">Dupla ${esc(c.dupla_origen)}${c.punto_contacto ? ' · ' + esc(c.punto_contacto) : ''}</div>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="tomarCasoPaseTurno('${escAttr(c.id)}', ${i})">🤝 Tomar este caso</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+async function tomarCasoPaseTurno(personaId, idx){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.rpc('tomar_caso_pase_turno', { p_persona_id: personaId });
+    if(error) throw error;
+    casosPaseTurnoActuales.splice(idx, 1);
+    mostrarCasosPaseTurno();
+    Casos.abrirFicha(personaId);
+  }catch(e){
+    alert('No se pudo tomar el caso: ' + e.message);
+  }
 }
 
 function mostrarKoboPendientes(){
@@ -3891,6 +3960,7 @@ const Casos = {
     try{
       const client = await SupabaseClient.getClient();
       let persona;
+      let accionesAltaParaCompartir = []; // para el ofrecimiento de compartir por WhatsApp, ver más abajo
       if(personaExistente){
         const { data, error } = await client.from('personas').update(campos).eq('id', personaExistente.id).select().single();
         if(error) throw error;
@@ -3913,7 +3983,7 @@ const Casos = {
         // contacto para que no se pierda (antes el alta siempre quedaba sin
         // acciones, aunque el envío de KoBo que la originó ya las tuviera).
         const mapeoAccionesKobo = window.PROJECT_CONFIG.koboTerminoAAccion || {};
-        const accionesDesdeKobo = [...new Set((koboAccionesPendientesParaAlta||[])
+        accionesAltaParaCompartir = [...new Set((koboAccionesPendientesParaAlta||[])
           .map(codigo => mapeoAccionesKobo[codigo]).filter(Boolean))];
         const altaIntervencion = {
           persona_id: persona.id,
@@ -3921,7 +3991,7 @@ const Casos = {
           tipo: 'contacto_espontaneo',
           resumen: 'Ingreso inicial del caso.',
         };
-        if(accionesDesdeKobo.length) altaIntervencion.acciones = accionesDesdeKobo;
+        if(accionesAltaParaCompartir.length) altaIntervencion.acciones = accionesAltaParaCompartir;
         const { error: errInt } = await client.from('intervenciones').insert(altaIntervencion);
         if(errInt) throw errInt;
         // Si este alta vino de "➕ Cargar como Sin identificar" sobre un
@@ -3984,8 +4054,6 @@ const Casos = {
           console.error('No se pudo generar la derivación automática de "Hacer DNI"', e);
         }
       }
-      closeModal();
-      await Casos.abrirFicha(persona.id);
       cargarSinIdentificarCount(); // no se espera — por si esta edición identificó o "des-identificó" a alguien (§10.1.34)
       // Reportado 24/9/2026: decenas de casos duplicados — el panel de
       // "envíos de KoBo pendientes" no se refrescaba después de confirmar
@@ -3996,6 +4064,16 @@ const Casos = {
       // porque cada duplicado tiene un persona_id distinto. Refrescar acá
       // saca el envío ya confirmado de la lista en memoria.
       if(eraKoboSinIdentificar) cargarKoboPendientes(); // no se espera, mismo motivo
+      // Solo se ofrece compartir por WhatsApp en un alta nueva (pedido de
+      // Agustina, 15/10/2026: "cada caso que cargan, compartirlo en un
+      // grupo de WhatsApp además del cierre del día") — en una edición de
+      // un caso ya existente no hay nada nuevo que compartir acá.
+      if(personaExistente){
+        closeModal();
+        await Casos.abrirFicha(persona.id);
+      }else{
+        Casos._ofrecerCompartirCasoWhatsapp(persona, 'Primer contacto', campos.historia_breve || '', accionesAltaParaCompartir);
+      }
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
@@ -4741,13 +4819,47 @@ const Casos = {
       });
       if(error) throw error;
       await Casos._reactivarSiEgresado();
-      closeModal();
-      await Casos.abrirFicha(personaActual.id);
+      const tipoLabel = campos.tipo === 'contacto_espontaneo' ? 'Primer contacto' : 'Seguimiento en territorio';
+      Casos._ofrecerCompartirCasoWhatsapp(personaActual, tipoLabel, campos.resumen || '', acciones);
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
       btn.disabled = false; btn.textContent = '💾 Guardar';
     }
+  },
+
+  // ── COMPARTIR UN CASO POR WHATSAPP (15/10/2026) ──────────────────────
+  // Pedido de Agustina: además del mensaje de cierre del día completo
+  // (ver compartirWhatsappCierre()), cada caso que se carga —alta nueva o
+  // una intervención sobre uno ya existente— se ofrece compartir suelto al
+  // grupo de WhatsApp, para que coordinación vea en el momento qué se hizo
+  // con esa persona, no recién al cierre de la jornada. Mismo patrón: abre
+  // WhatsApp con el texto ya armado, la dupla elige el chat y lo manda
+  // ella misma — no es un envío automático ni queda registrado en el caso.
+  _ofrecerCompartirCasoWhatsapp(persona, tipoLabel, resumen, acciones){
+    const duplaCod = (miPerfil && duplasMap[miPerfil.dupla_id]) || 'mi dupla';
+    const accionesTxt = (acciones||[]).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod).join(', ');
+    _mensajeCompartirCasoActual = [
+      `📋 Umbral 0 — Dupla ${duplaCod}`,
+      `${nombreDisplay(persona)}${persona.dni ? ' · DNI ' + persona.dni : ''}`,
+      `${tipoLabel}${resumen ? ': ' + resumen : ''}`,
+      accionesTxt ? `Acciones: ${accionesTxt}` : null,
+    ].filter(Boolean).join('\n');
+    const body = `
+      <div style="text-align:center;padding:6px 0 4px;">
+        <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Caso guardado. ¿Lo compartís con el grupo de WhatsApp?</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-green" onclick="Casos._compartirCasoWhatsapp('${escAttr(persona.id)}')">📱 Compartir por WhatsApp</button>
+          <button class="btn btn-outline" onclick="closeModal();Casos.abrirFicha('${escAttr(persona.id)}');">Listo</button>
+        </div>
+      </div>
+    `;
+    openModal('¿Compartir este caso?', body);
+  },
+  _compartirCasoWhatsapp(personaId){
+    window.open(waLinkSinDestino(_mensajeCompartirCasoActual), '_blank');
+    closeModal();
+    Casos.abrirFicha(personaId);
   },
 
   // ── PEDIR DERIVACIÓN ─────────────────────────────────────────────────
