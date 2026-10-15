@@ -395,13 +395,16 @@
        que lo toque cualquiera de los dos integrantes, es la misma cuenta). -->
   <div id="jornada-box" style="display:none;"></div>
 
+  <!-- SEGUIMIENTO DE ZONA (15/10/2026) — casos activos de mi mismo
+       polígono abiertos por otra dupla, para poder seguirlos. El cuadro
+       principal de la pantalla de inicio, pedido de Agustina: "el foco
+       está puesto en el seguimiento" — va primero, antes de KoBo
+       pendientes. Ver cargarCasosPaseTurno(). -->
+  <div id="pase-turno-box" style="display:none;"></div>
+
   <!-- KOBO PENDIENTES — envíos de KoBo del equipo (propio) con DNI que
        todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
   <div id="kobo-pend-box" style="display:none;"></div>
-
-  <!-- PASE DE TURNO (15/10/2026) — casos de hoy abiertos por otra dupla de
-       mi mismo polígono, en otro turno. Ver cargarCasosPaseTurno(). -->
-  <div id="pase-turno-box" style="display:none;"></div>
 
   <!-- Diagnóstico de KoBo (1/10/2026, pedido de Agustina: la Dupla E decía
        haber cargado casos HOY que no aparecían en ningún lado de esta
@@ -2588,26 +2591,27 @@ function legibleKobo(s){
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 }
 
-// ── PASE DE TURNO (15/10/2026) ───────────────────────────────────────
-// Pedido de Agustina: dentro del mismo polígono, las duplas rotan en
-// turnos durante el día — si la dupla de la mañana abre un caso, la que
-// entra en el turno siguiente en esa misma zona tiene que poder tomarlo
-// sin tener que acordarse de buscarlo por DNI. Usa las RPC
-// casos_pase_turno()/tomar_caso_pase_turno() (ver schema-ajustes.sql) —
-// mismo mecanismo de personas_compartido que ya usa "🔗 Asociar un envío
-// de KoBo"/"Compartir este caso conmigo", solo que automático: aparece
-// solo, no hay que buscar nada.
+// ── SEGUIMIENTO DE ZONA (15/10/2026) ─────────────────────────────────
+// Empezó como "pase de turno" (solo casos de hoy) y se amplió el mismo
+// día, pedido de Agustina: "el foco está puesto en el seguimiento" — una
+// dupla tiene que poder ver TODOS los casos activos de su polígono que
+// no son suyos, sin importar qué día se abrieron, para hacerles
+// seguimiento sin tener que acordarse de buscar a nadie por DNI. Usa
+// casos_seguimiento_zona()/tomar_caso_pase_turno() (ver schema-ajustes.sql)
+// — mismo mecanismo de personas_compartido que ya usaba "🔗 Compartir
+// este caso conmigo", solo que automático: aparece solo, ordenado por
+// hace cuánto no se contacta a esa persona (el más urgente primero).
 let casosPaseTurnoActuales = [];
 async function cargarCasosPaseTurno(){
   if(!miPerfil || miPerfil.rol !== 'dupla' || !miPerfil.dupla_id) return;
   try{
     const client = await SupabaseClient.getClient();
-    const { data, error } = await client.rpc('casos_pase_turno');
+    const { data, error } = await client.rpc('casos_seguimiento_zona');
     if(error) throw error;
     casosPaseTurnoActuales = data || [];
     mostrarCasosPaseTurno();
   }catch(e){
-    console.error('No se pudo traer el pase de turno', e);
+    console.error('No se pudo traer el seguimiento de zona', e);
     // falla en silencio — no es un dato crítico para poder seguir trabajando
   }
 }
@@ -2617,13 +2621,13 @@ function mostrarCasosPaseTurno(){
   box.style.display = 'block';
   box.innerHTML = `
     <div class="kobo-pend">
-      <div class="kobo-pend-head">🔁 ${casosPaseTurnoActuales.length} caso${casosPaseTurnoActuales.length===1?'':'s'} de hoy en tu zona, de otro turno</div>
-      <div class="section-hint" style="margin:-4px 0 8px;">Abiertos hoy por otra dupla de tu mismo polígono. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
+      <div class="kobo-pend-head">🔁 ${casosPaseTurnoActuales.length} caso${casosPaseTurnoActuales.length===1?'':'s'} en seguimiento en tu zona</div>
+      <div class="section-hint" style="margin:-4px 0 8px;">De otras duplas de tu mismo polígono, ordenados por el que hace más tiempo no tiene contacto. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
       ${casosPaseTurnoActuales.map((c, i) => `
         <div class="kobo-pend-card">
           <div class="kobo-pend-txt">
             <strong>${esc(nombreDisplay(c))}</strong>${c.dni ? ' · DNI ' + esc(c.dni) : ''}
-            <div class="meta">Dupla ${esc(c.dupla_origen)}${c.punto_contacto ? ' · ' + esc(c.punto_contacto) : ''}</div>
+            <div class="meta">Dupla ${esc(c.dupla_origen)} · ${c.dias_sin_contacto > 0 ? `hace ${c.dias_sin_contacto} día${c.dias_sin_contacto===1?'':'s'} sin contacto` : 'contacto hoy'}${c.punto_contacto ? ' · ' + esc(c.punto_contacto) : ''}</div>
           </div>
           <button class="btn btn-green btn-sm" onclick="tomarCasoPaseTurno('${escAttr(c.id)}', ${i})">🤝 Tomar este caso</button>
         </div>
@@ -2644,33 +2648,23 @@ async function tomarCasoPaseTurno(personaId, idx){
   }
 }
 
+// Simplificado (15/10/2026, pedido de Agustina: "simplifica las
+// pantallas... eso confunde mucho a las duplas") — antes esto apilaba
+// hasta 4 cajas con su propio título grande cada una (altas, posibles
+// continuaciones, sin identificar, validado-sin-intervención — esta
+// última, además, se renderizaba DOS veces por un bug viejo). Ahora las
+// tres variantes de "esto es un caso para confirmar" van juntas bajo un
+// solo título con el total, y el diagnóstico de "operadores no
+// matcheados" (útil para debuguear, no para que lo lea la dupla) dejó de
+// mostrarse acá — sigue calculándose por si hace falta en el futuro.
 function mostrarKoboPendientes(){
   const box = document.getElementById('kobo-pend-box');
   const hayAltas = koboPendientesActuales.length > 0;
   const hayContinuaciones = koboPosiblesContinuacionesActuales.length > 0;
   const haySinIdentificar = koboSinIdentificarActuales.length > 0;
   const hayValidadoSinIntervencion = koboValidadoSinIntervencionActuales.length > 0;
+  const totalParaConfirmar = koboPendientesActuales.length + koboPosiblesContinuacionesActuales.length + koboSinIdentificarActuales.length;
   if(!hayAltas && !hayContinuaciones && !haySinIdentificar && !hayValidadoSinIntervencion){
-    // Nada pendiente — pero si hay operadores "parecidos" a los de esta
-    // dupla que no matchearon en los últimos 7 días, probablemente sea
-    // justo por eso (nombre mal cargado acá o tipeado distinto en KoBo),
-    // no porque no haya actividad real. Avisar en vez de mostrar un
-    // cuadro vacío/ausente sin pistas (pedido de Agustina, 1/10/2026).
-    if(koboOperadoresNoMatcheadosActuales.length){
-      box.style.display = 'block';
-      box.innerHTML = `
-        <div class="kobo-pend">
-          <div class="kobo-pend-card" style="background:#fffbeb;border-color:#fcd34d;">
-            <div class="kobo-pend-txt">
-              ⚠️ No encontramos envíos de KoBo para tu dupla, pero en los últimos 7 días vimos en KoBo a alguien con un nombre parecido al de tu equipo que no matcheó exacto. Si cargaste algo y no te aparece, puede ser que tu nombre esté mal escrito acá o en KoBo:
-              ${koboOperadoresNoMatcheadosActuales.map(o => `<div class="meta" style="margin-top:4px;">· "${esc(o.operador)}" (${o.fecha ? new Date(o.fecha).toLocaleDateString('es-AR') : ''})</div>`).join('')}
-              <div class="meta" style="margin-top:6px;">Avisale a Agustina para que lo corrija.</div>
-            </div>
-          </div>
-        </div>
-      `;
-      return;
-    }
     box.style.display = 'none';
     return;
   }
@@ -2691,10 +2685,10 @@ function mostrarKoboPendientes(){
         `).join('')}
       </div>
     ` : ''}
-    ${hayAltas ? `
+    ${totalParaConfirmar ? `
       <div class="kobo-pend">
-        <div class="kobo-pend-head">📥 ${koboPendientesActuales.length} envío${koboPendientesActuales.length===1?'':'s'} de KoBo con DNI que todavía no ${koboPendientesActuales.length===1?'tiene':'tienen'} caso cargado acá</div>
-        ${koboPendientesActuales.map((p, idx) => `
+        <div class="kobo-pend-head">📥 ${totalParaConfirmar} caso${totalParaConfirmar===1?'':'s'} de KoBo para confirmar</div>
+        ${hayAltas ? koboPendientesActuales.map((p, idx) => `
           <div class="kobo-pend-card">
             <div class="kobo-pend-txt">
               <strong>${esc(`${p.persona.nombre||''} ${p.persona.apellido||''}`.trim() || '(sin nombre en KoBo)')}</strong> · DNI ${esc(p.persona.dni)}
@@ -2702,13 +2696,8 @@ function mostrarKoboPendientes(){
             </div>
             <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboPendiente(${idx})">✅ Confirmar y cargar caso</button>
           </div>
-        `).join('')}
-      </div>
-    ` : ''}
-    ${hayContinuaciones ? `
-      <div class="kobo-pend">
-        <div class="kobo-pend-head">🔗 ${koboPosiblesContinuacionesActuales.length} envío${koboPosiblesContinuacionesActuales.length===1?'':'s'} de KoBo sin DNI que podría${koboPosiblesContinuacionesActuales.length===1?'':'n'} ser un caso que ya tenés cargado</div>
-        ${koboPosiblesContinuacionesActuales.map((c, idx) => `
+        `).join('') : ''}
+        ${hayContinuaciones ? koboPosiblesContinuacionesActuales.map((c, idx) => `
           <div class="kobo-pend-card kobo-pend-continuacion">
             <div class="kobo-pend-txt">
               <strong>${esc(`${(c.envio.persona.nombre||'')} ${(c.envio.persona.apellido||'')}`.trim())}</strong>
@@ -2719,37 +2708,16 @@ function mostrarKoboPendientes(){
               <button class="btn btn-outline btn-sm" onclick="Casos.descartarContinuacionKobo(${idx})">No es ella</button>
             </div>
           </div>
-        `).join('')}
-      </div>
-    ` : ''}
-    ${haySinIdentificar ? `
-      <div class="kobo-pend">
-        <div class="kobo-pend-head">🙈 ${koboSinIdentificarActuales.length} envío${koboSinIdentificarActuales.length===1?'':'s'} de KoBo sin nombre ni DNI — todavía sin caso cargado</div>
-        <div class="section-hint" style="margin:-4px 0 8px;">La persona no quiso identificarse — no es un error, pero igual hay que dejar el contacto registrado para poder hacerle seguimiento.</div>
-        ${koboSinIdentificarActuales.map((p, idx) => `
+        `).join('') : ''}
+        ${haySinIdentificar ? koboSinIdentificarActuales.map((p, idx) => `
           <div class="kobo-pend-card">
             <div class="kobo-pend-txt">
-              <strong>${esc(p.tipo||'Intervención')}</strong>
+              <strong>${esc(p.tipo||'Intervención')} (sin nombre ni DNI)</strong>
               <div class="meta">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}${p.persona.caracteristicas ? ' · ' + esc(p.persona.caracteristicas) : ''}${(p.lat!=null && p.lng!=null) ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Ver ubicación</a>` : ''}</div>
             </div>
             <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboSinIdentificar(${idx})">➕ Cargar como "Sin identificar"</button>
           </div>
-        `).join('')}
-      </div>
-    ` : ''}
-    ${hayValidadoSinIntervencion ? `
-      <div class="kobo-pend">
-        <div class="kobo-pend-head">📝 ${koboValidadoSinIntervencionActuales.length} caso${koboValidadoSinIntervencionActuales.length===1?'':'s'} validado${koboValidadoSinIntervencionActuales.length===1?'':'s'} al que${koboValidadoSinIntervencionActuales.length===1?'':'s'} todavía le${koboValidadoSinIntervencionActuales.length===1?'':'s'} falta registrar la intervención</div>
-        <div class="section-hint" style="margin:-4px 0 8px;">Ya validaste el envío de KoBo, pero falta el paso de "Registrar tu intervención" en la ficha — por eso esa visita todavía no está contada.</div>
-        ${koboValidadoSinIntervencionActuales.map(v => `
-          <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${v.persona.id}')">
-            <div class="kobo-pend-txt">
-              <strong>${esc(nombreDisplay(v.persona))}</strong>
-              <div class="meta">Validado el ${v.fecha ? new Date(v.fecha).toLocaleDateString('es-AR') : ''} — falta registrar la intervención</div>
-            </div>
-            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${v.persona.id}')">Ver caso →</button>
-          </div>
-        `).join('')}
+        `).join('') : ''}
       </div>
     ` : ''}
   `;

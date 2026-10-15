@@ -1137,3 +1137,103 @@ $$;
 
 revoke all on function public.tomar_caso_pase_turno(uuid) from public;
 grant execute on function public.tomar_caso_pase_turno(uuid) to authenticated;
+
+-- Ampliación de "pase de turno" a "seguimiento de zona" (15/10/2026,
+-- mismo día, pedido de Agustina tras ver que "solo hoy" era insuficiente:
+-- "el foco está puesto en el seguimiento"). casos_seguimiento_zona()
+-- reemplaza a casos_pase_turno() del lado del cliente: deja de filtrar
+-- por "creado hoy" y devuelve TODOS los casos activos de mi polígono que
+-- no son míos, ordenados por hace cuánto no se los contacta — el más
+-- urgente primero. Es una función NUEVA (no un reemplazo in-place de
+-- casos_pase_turno(), porque cambia el tipo de retorno y el DROP
+-- necesario quedó pendiente de confirmación interactiva) — esa queda sin
+-- usar, se puede borrar más adelante.
+create or replace function public.casos_seguimiento_zona()
+returns table(
+  id uuid, nombre text, apellido text, dni text, punto_contacto text,
+  dupla_origen text, ultimo_contacto timestamptz, dias_sin_contacto int
+)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_dupla_id uuid;
+  v_poligono text;
+begin
+  if mi_rol() <> 'dupla' then
+    raise exception 'Solo cuentas de dupla pueden ver el seguimiento de zona';
+  end if;
+  v_dupla_id := mi_dupla_id();
+  if v_dupla_id is null then
+    raise exception 'Esta cuenta no tiene dupla asignada';
+  end if;
+  select poligono into v_poligono from duplas where id = v_dupla_id;
+  if v_poligono is null then
+    return;
+  end if;
+
+  return query
+  select p.id, p.nombre, p.apellido, p.dni, p.punto_contacto, d.codigo,
+    gre.ultimo,
+    floor(extract(epoch from (now() - gre.ultimo)) / 86400)::int as dias_sin_contacto
+  from personas p
+  join duplas d on d.id = p.dupla_id
+  cross join lateral (
+    select greatest(p.created_at, coalesce(max(i.created_at), p.created_at)) as ultimo
+    from intervenciones i where i.persona_id = p.id
+  ) gre
+  where d.poligono = v_poligono
+    and p.dupla_id <> v_dupla_id
+    and coalesce(p.oculto, false) = false
+    and coalesce(p.estado, 'activo') <> 'egresado'
+    and not exists (
+      select 1 from personas_compartido pc
+      where pc.persona_id = p.id and pc.dupla_id = v_dupla_id
+    )
+  order by gre.ultimo asc
+  limit 40;
+end;
+$$;
+
+revoke all on function public.casos_seguimiento_zona() from public;
+grant execute on function public.casos_seguimiento_zona() to authenticated;
+
+-- tomar_caso_pase_turno() se actualizó el mismo día: ya no exige que el
+-- caso sea de hoy, solo que sea de mi misma zona, activo, y no mío.
+create or replace function public.tomar_caso_pase_turno(p_persona_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_dupla_id uuid;
+  v_poligono text;
+  v_ok boolean;
+begin
+  if mi_rol() <> 'dupla' then
+    raise exception 'Solo cuentas de dupla pueden tomar un caso';
+  end if;
+  v_dupla_id := mi_dupla_id();
+  if v_dupla_id is null then
+    raise exception 'Esta cuenta no tiene dupla asignada';
+  end if;
+  select poligono into v_poligono from duplas where id = v_dupla_id;
+
+  select exists(
+    select 1 from personas p
+    join duplas d on d.id = p.dupla_id
+    where p.id = p_persona_id
+      and d.poligono = v_poligono
+      and p.dupla_id <> v_dupla_id
+      and coalesce(p.oculto, false) = false
+      and coalesce(p.estado, 'activo') <> 'egresado'
+  ) into v_ok;
+
+  if not v_ok then
+    raise exception 'Este caso no está disponible (no es de tu zona, está egresado, o ya es tuyo)';
+  end if;
+
+  insert into personas_compartido (persona_id, dupla_id, compartido_por)
+  values (p_persona_id, v_dupla_id, auth.uid())
+  on conflict (persona_id, dupla_id) do nothing;
+end;
+$$;
+
+revoke all on function public.tomar_caso_pase_turno(uuid) from public;
+grant execute on function public.tomar_caso_pase_turno(uuid) to authenticated;
