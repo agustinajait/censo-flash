@@ -3425,15 +3425,19 @@ async function calcularResumenTodasLasDuplas(){
 
     const duplaIdPorPersonaId = {};
     (personasTodasRes.data||[]).forEach(p => duplaIdPorPersonaId[p.id] = p.dupla_id);
-    const idsPersonas = Object.keys(duplaIdPorPersonaId);
-    let derivData = [];
-    if(idsPersonas.length){
-      const derivRes = await client.from('derivaciones').select('id, persona_id')
-        .in('persona_id', idsPersonas)
-        .gte('fecha_solicitud', desdeUtc).lt('fecha_solicitud', hastaUtc);
-      if(derivRes.error) throw derivRes.error;
-      derivData = derivRes.data || [];
-    }
+    // Bug real (16/10/2026, reportado por Agustina: "está fallando el
+    // cálculo diario de duplas" — "Error calculando el resumen: Bad
+    // Request"): con 941 personas no ocultas, el filtro .in('persona_id',
+    // idsPersonas) de abajo arma una URL de ~35.000 caracteres — superó
+    // el límite de longitud de URL en algún punto de la cadena (proxy/
+    // CDN/Supabase) y empezó a devolver 400. No hace falta ese filtro:
+    // alcanza con pedir las derivaciones del rango de fechas y descartar
+    // en memoria las que no están en duplaIdPorPersonaId (oculto=true) —
+    // el `if(duplaId)` de más abajo ya las excluye solo.
+    const derivRes = await client.from('derivaciones').select('id, persona_id')
+      .gte('fecha_solicitud', desdeUtc).lt('fecha_solicitud', hastaUtc);
+    if(derivRes.error) throw derivRes.error;
+    const derivData = derivRes.data || [];
 
     const contarPor = (rows, key) => {
       const m = {};
