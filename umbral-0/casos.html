@@ -1161,6 +1161,16 @@ function esDniPlaceholderDup(dni){
   // nunca matcheaba, así que el caso volvía a aparecer como alta nueva
   // para siempre).
   if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde|tiene|quiere (dar|decir|brindar|compartir)\w*)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  // DNI "de relleno" que anota la dupla cuando la persona no lo quiere dar
+  // (todo el mismo dígito repetido, ej. "99999999" o "00000000") — un DNI
+  // real nunca es así. Sin esto, el PRIMER caso cargado con ese relleno
+  // "ocupa" ese valor como si fuera un DNI real, y cada envío de KoBo
+  // siguiente que usa el mismo relleno se trata como "ya es este caso" y
+  // desaparece en silencio: no aparece como pendiente de confirmar ni como
+  // "sin identificar", nada (reportado por la dupla L, 16/10/2026: 6
+  // envíos de Sergio Ferreyra/Luis Cari con DNI "99999999" no aparecían
+  // en ningún lado de la plataforma).
+  if(/^(\d)\1+$/.test(s)) return true;
   return false;
 }
 
