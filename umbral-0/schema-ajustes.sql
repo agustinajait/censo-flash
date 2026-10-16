@@ -1255,6 +1255,62 @@ $$;
 revoke all on function public.casos_seguimiento_zona() from public;
 grant execute on function public.casos_seguimiento_zona() to authenticated;
 
+-- Pedido de Agustina (16/10/2026): sacar del listado de "seguimiento de
+-- zona" los casos sin DNI real — no sirven para que otra dupla los
+-- identifique en el territorio sin buscar nada. "Sin DNI" no es solo
+-- null/vacío: hay placeholders de texto libre ("No responde", "No quiere
+-- darlo", etc., ver esDniPlaceholderDup() en casos.html) que tampoco
+-- sirven. Se exige que parezca un DNI real (6 a 9 dígitos) — mismo
+-- criterio que ya usa buscarPersonas() (pareceDni) en el frontend.
+create or replace function public.casos_seguimiento_zona()
+returns table(
+  id uuid, nombre text, apellido text, dni text, punto_contacto text,
+  dupla_origen text, ultimo_contacto timestamptz, dias_sin_contacto int
+)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_dupla_id uuid;
+  v_poligono text;
+begin
+  if mi_rol() <> 'dupla' then
+    raise exception 'Solo cuentas de dupla pueden ver el seguimiento de zona';
+  end if;
+  v_dupla_id := mi_dupla_id();
+  if v_dupla_id is null then
+    raise exception 'Esta cuenta no tiene dupla asignada';
+  end if;
+  select d.poligono into v_poligono from duplas d where d.id = v_dupla_id;
+  if v_poligono is null then
+    return;
+  end if;
+
+  return query
+  select p.id, p.nombre, p.apellido, p.dni, p.punto_contacto, d.codigo,
+    gre.ultimo,
+    floor(extract(epoch from (now() - gre.ultimo)) / 86400)::int as dias_sin_contacto
+  from personas p
+  join duplas d on d.id = p.dupla_id
+  cross join lateral (
+    select greatest(p.created_at, coalesce(max(i.created_at), p.created_at)) as ultimo
+    from intervenciones i where i.persona_id = p.id
+  ) gre
+  where d.poligono = v_poligono
+    and p.dupla_id <> v_dupla_id
+    and coalesce(p.oculto, false) = false
+    and coalesce(p.estado, 'activo') <> 'egresado'
+    and trim(p.dni) ~ '^[0-9]{6,9}$'
+    and not exists (
+      select 1 from personas_compartido pc
+      where pc.persona_id = p.id and pc.dupla_id = v_dupla_id
+    )
+  order by gre.ultimo asc
+  limit 40;
+end;
+$$;
+
+revoke all on function public.casos_seguimiento_zona() from public;
+grant execute on function public.casos_seguimiento_zona() to authenticated;
+
 -- tomar_caso_pase_turno() se actualizó el mismo día: ya no exige que el
 -- caso sea de hoy, solo que sea de mi misma zona, activo, y no mío.
 create or replace function public.tomar_caso_pase_turno(p_persona_id uuid)

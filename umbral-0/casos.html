@@ -333,6 +333,16 @@
     <div class="topbar-right">
       <a href="./index.html" class="btn btn-ghost">← Portal de duplas</a>
       <a href="#" id="link-kobo-form" class="btn btn-ghost" target="_blank" rel="noopener" style="display:none;background:#fee2e2;color:#991b1b;border-color:#fca5a5;">📝 Cargar KoBo</a>
+      <!-- Mis casos (16/10/2026, pedido de Agustina: "las duplas tienen que
+           poder ver sus casos" — ya existía como comportamiento por
+           defecto de la búsqueda vacía (buscarPersonas('')), pero no había
+           ningún botón que lo dejara explícito; con el cuadro de
+           "seguimiento de zona" mostrando casos de OTRAS duplas en la
+           misma pantalla, hacía falta un acceso directo bien visible a
+           "los míos" para no confundirlos. Reusa volverABuscar(), que ya
+           limpia el buscador y lista los propios casos (RLS scopea
+           `personas_actividad` a la dupla). -->
+      <a href="#" id="link-mis-casos" class="btn btn-ghost" style="display:none;background:#dbeafe;color:#1e3a8a;border-color:#93c5fd;" onclick="event.preventDefault(); Casos.volverABuscar();">📋 Mis casos</a>
       <!-- Trámites de DNI pendientes (21/9/2026, pedido de Agustina: "una
            pestaña o botón de color para que los operadores entren a
            revisar y hagan el seguimiento" — de las derivaciones "Hacer
@@ -1092,6 +1102,7 @@ async function entrarAlApp(){
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-dashboard').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
+  document.getElementById('link-mis-casos').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
   document.getElementById('link-dni-pendientes').style.display = 'inline-flex';
   document.getElementById('link-sin-identificar').style.display = 'inline-flex';
   document.getElementById('link-mi-actividad').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
