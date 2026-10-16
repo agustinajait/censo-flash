@@ -2758,15 +2758,27 @@ function mostrarKoboPendientes(){
             </div>
           </div>
         `).join('') : ''}
-        ${haySinIdentificar ? koboSinIdentificarActuales.map((p, idx) => `
+        ${haySinIdentificar ? koboSinIdentificarActuales.map((p, idx) => {
+          // Bug real (16/10/2026, reportado por Agustina: "Mayra Quito
+          // hizo un envío de KoBo y no aparece el caso" — sí aparecía,
+          // pero esta tarjeta mostraba siempre "sin nombre ni DNI" aunque
+          // KoBo sí haya traído un nombre de pila (falta DNI/apellido es
+          // lo que manda acá, no necesariamente falta de nombre — mismo
+          // caso que ya se había arreglado para el prefill del alta, ver
+          // _prefillDesdeKobo, pero nunca se arregló en esta tarjeta) —
+          // la dupla no reconocía cuál caso era el que había cargado.
+          const nombrePila = (p.persona && (p.persona.nombre || p.persona.alias)) || '';
+          const titulo = nombrePila ? `${esc(nombrePila)} (sin apellido ni DNI)` : `${esc(p.tipo||'Intervención')} (sin nombre ni DNI)`;
+          return `
           <div class="kobo-pend-card">
             <div class="kobo-pend-txt">
-              <strong>${esc(p.tipo||'Intervención')} (sin nombre ni DNI)</strong>
-              <div class="meta">${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}${p.persona.caracteristicas ? ' · ' + esc(p.persona.caracteristicas) : ''}${(p.lat!=null && p.lng!=null) ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Ver ubicación</a>` : ''}</div>
+              <strong>${titulo}</strong>
+              <div class="meta">${esc(p.tipo||'Intervención')} · ${p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(p.operador||'—')}${p.persona.caracteristicas ? ' · ' + esc(p.persona.caracteristicas) : ''}${(p.lat!=null && p.lng!=null) ? ` · <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🗺️ Ver ubicación</a>` : ''}</div>
             </div>
             <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboSinIdentificar(${idx})">➕ Cargar como "Sin identificar"</button>
           </div>
-        `).join('') : ''}
+        `;
+        }).join('') : ''}
         </details>
       </div>
     ` : ''}
