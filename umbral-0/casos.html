@@ -2532,10 +2532,16 @@ async function cargarKoboPendientes(){
       sinIdentificar.set(subId, p);
     });
 
-    koboPendientesActuales = [...porDni.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+    // Orden ascendente (más viejo primero) — pedido de Agustina (16/10/2026):
+    // la dupla los procesa en el mismo orden en que fue encontrando a cada
+    // persona durante la jornada, no al revés. Ojo: NO es el mismo criterio
+    // que "casos en seguimiento en tu zona" (mostrarCasosPaseTurno, más
+    // abajo), que a propósito muestra los más recientes primero — ver
+    // pedido de Agustina del 15/10/2026 para esa otra sección.
+    koboPendientesActuales = [...porDni.values()].sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
     koboPosiblesContinuacionesActuales = [...posiblesContinuaciones.values()]
-      .sort((a,b) => (b.envio.fecha||'').localeCompare(a.envio.fecha||''));
-    koboSinIdentificarActuales = [...sinIdentificar.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+      .sort((a,b) => (a.envio.fecha||'').localeCompare(b.envio.fecha||''));
+    koboSinIdentificarActuales = [...sinIdentificar.values()].sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
     mostrarKoboPendientes();
     renderAccionesPendientes();
   }catch(e){
