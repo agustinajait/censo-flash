@@ -4816,6 +4816,7 @@ const Casos = {
           <button class="btn btn-blue" onclick="Casos.abrirModalIntervencion()">➕ Registrar tu intervención</button>
           <button class="btn btn-green" onclick="Casos.abrirModalSeguimiento()">💬 Agregar un comentario</button>
           <button class="btn btn-green" onclick="Casos._compartirCasoWhatsapp('${escAttr(personaActual.id)}')">📱 Compartir por WhatsApp</button>
+          <button class="btn btn-blue" id="btn-copiar-caso-wa" onclick="Casos._copiarMensajeCaso(this)">📋 Copiar</button>
           <button class="btn btn-outline" onclick="closeModal()">No, ya terminé</button>
         </div>
       </div>
@@ -4919,6 +4920,7 @@ const Casos = {
         <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Caso guardado. ¿Lo compartís con el grupo de WhatsApp?</div>
         <div style="display:flex;flex-direction:column;gap:10px;">
           <button class="btn btn-green" onclick="Casos._compartirCasoWhatsapp('${escAttr(persona.id)}')">📱 Compartir por WhatsApp</button>
+          <button class="btn btn-blue" id="btn-copiar-caso-wa" onclick="Casos._copiarMensajeCaso(this)">📋 Copiar</button>
           <button class="btn btn-outline" onclick="closeModal();Casos.abrirFicha('${escAttr(persona.id)}');">Listo</button>
         </div>
       </div>
@@ -4929,6 +4931,28 @@ const Casos = {
     window.open(waLinkSinDestino(_mensajeCompartirCasoActual), '_blank');
     closeModal();
     Casos.abrirFicha(personaId);
+  },
+  // Pedido de Agustina (16/10/2026): "agrega la opción de copiar y pegar
+  // también" — mismo mecanismo que ya existía para el mensaje de cierre
+  // de jornada (copiarMensajeCierre()), acá sin textarea visible: copia
+  // directo _mensajeCompartirCasoActual (el mismo texto que arma el
+  // botón de WhatsApp). No cierra el modal — la dupla puede copiar y
+  // después igual tocar "Compartir por WhatsApp" o "Listo".
+  async _copiarMensajeCaso(btn){
+    try{ await navigator.clipboard.writeText(_mensajeCompartirCasoActual); }
+    catch(e){
+      const ta = document.createElement('textarea');
+      ta.value = _mensajeCompartirCasoActual;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    if(btn){
+      const original = btn.textContent;
+      btn.textContent = '✅ Copiado';
+      setTimeout(() => { btn.textContent = original; }, 1600);
+    }
   },
 
   // ── PEDIR DERIVACIÓN ─────────────────────────────────────────────────
