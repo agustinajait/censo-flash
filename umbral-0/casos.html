@@ -2669,13 +2669,17 @@ function filtrarCasosPaseTurno(){
   const lista = casosPaseTurnoActuales
     .map((c, i) => ({ ...c, _idx: i }))
     .filter(c => coincidenciaBusquedaPersona(c, q));
+  // Tarjeta clickeable entera en vez de un botón aparte (16/10/2026,
+  // pedido de Agustina: "que se abran los casos si el operador hace clic
+  // ... sino ocupa mucho lugar") — un solo toque toma el caso (RPC
+  // tomar_caso_pase_turno) y abre la ficha, mismo criterio que ya usan
+  // las tarjetas de "validado sin intervención" más arriba.
   cont.innerHTML = lista.length ? lista.map(c => `
-    <div class="kobo-pend-card">
+    <div class="kobo-pend-card" style="cursor:pointer;" onclick="tomarCasoPaseTurno('${escAttr(c.id)}', ${c._idx})">
       <div class="kobo-pend-txt">
         <strong>${esc(nombreDisplay(c))}</strong>${c.dni ? ' · DNI ' + esc(c.dni) : ''}
         <div class="meta">Dupla ${esc(c.dupla_origen)} · ${c.dias_sin_contacto > 0 ? `hace ${c.dias_sin_contacto} día${c.dias_sin_contacto===1?'':'s'} sin contacto` : 'contacto hoy'}${c.punto_contacto ? ' · ' + esc(c.punto_contacto) : ''}</div>
       </div>
-      <button class="btn btn-green btn-sm" onclick="tomarCasoPaseTurno('${escAttr(c.id)}', ${c._idx})">🤝 Tomar este caso</button>
     </div>
   `).join('') : '<div class="empty-msg">Ningún caso coincide con la búsqueda.</div>';
 }
