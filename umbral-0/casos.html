@@ -3118,13 +3118,17 @@ const Casos = {
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-cierres-jornada').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
-    // Los widgets de "home" (turno, jornada, KoBo pendientes, acciones
-    // pendientes) se ocultan al entrar a cualquier otra vista — mismo
-    // patrón de arreglo, ver §10.1.53/§10.1.54/§10.1.55 en DISENO-CASOS.md.
-    // Solo aparecen acá, al volver a la búsqueda.
+    // Los widgets de "home" (turno, jornada, KoBo pendientes, seguimiento
+    // de zona, acciones pendientes) se ocultan al entrar a cualquier otra
+    // vista — mismo patrón de arreglo, ver §10.1.53/§10.1.54/§10.1.55 en
+    // DISENO-CASOS.md. Solo aparecen acá, al volver a la búsqueda. Bug
+    // real (16/10/2026): faltaba mostrarCasosPaseTurno() acá — "Mis
+    // casos" lo oculta (mostrarMisCasos()) y como nada lo volvía a
+    // mostrar, quedaba escondido para siempre hasta recargar la página.
     mostrarMiTurno();
     mostrarJornada();
     mostrarKoboPendientes();
+    mostrarCasosPaseTurno();
     renderAccionesPendientes();
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
