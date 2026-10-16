@@ -342,7 +342,7 @@
            "los míos" para no confundirlos. Reusa volverABuscar(), que ya
            limpia el buscador y lista los propios casos (RLS scopea
            `personas_actividad` a la dupla). -->
-      <a href="#" id="link-mis-casos" class="btn btn-ghost" style="display:none;background:#dbeafe;color:#1e3a8a;border-color:#93c5fd;" onclick="event.preventDefault(); Casos.volverABuscar();">📋 Mis casos</a>
+      <a href="#" id="link-mis-casos" class="btn btn-ghost" style="display:none;background:#dbeafe;color:#1e3a8a;border-color:#93c5fd;" onclick="event.preventDefault(); Casos.mostrarMisCasos();">📋 Mis casos</a>
       <!-- Trámites de DNI pendientes (21/9/2026, pedido de Agustina: "una
            pestaña o botón de color para que los operadores entren a
            revisar y hagan el seguimiento" — de las derivaciones "Hacer
@@ -3130,6 +3130,33 @@ const Casos = {
     mostrarJornada();
     mostrarKoboPendientes();
     renderAccionesPendientes();
+    document.getElementById('buscar-input').value = '';
+    Casos.buscarPersonas('');
+  },
+
+  // "Mis casos" (16/10/2026, pedido de Agustina) — a diferencia de
+  // volverABuscar() (que SÍ muestra los widgets de "home": turno,
+  // jornada, KoBo pendientes, seguimiento de zona — es el camino de
+  // vuelta normal desde una ficha), esto es un acceso directo a "solo mis
+  // casos, nada más": "cuando la dupla hace clic en Mis casos deben verse
+  // solo sus casos, no los pendientes de KoBo, duplicados y todo lo que
+  // mostrás". Oculta todos los cuadros de la home y el aviso de
+  // duplicados (que vive dentro de la propia vista de búsqueda), deja
+  // solo el buscador y la lista de resultados.
+  mostrarMisCasos(){
+    personaActual = null;
+    document.getElementById('mi-turno-box').style.display = 'none';
+    document.getElementById('acciones-box').style.display = 'none';
+    document.getElementById('jornada-box').style.display = 'none';
+    document.getElementById('pase-turno-box').style.display = 'none';
+    document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('duplicados-casos-box').style.display = 'none';
+    document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-sin-identificar').style.display = 'none';
+    document.getElementById('view-mi-actividad').style.display = 'none';
+    document.getElementById('view-cierres-jornada').style.display = 'none';
+    document.getElementById('view-buscar').style.display = 'block';
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
   },
