@@ -2735,7 +2735,8 @@ function mostrarKoboPendientes(){
     ` : ''}
     ${totalParaConfirmar ? `
       <div class="kobo-pend">
-        <div class="kobo-pend-head">📥 ${totalParaConfirmar} caso${totalParaConfirmar===1?'':'s'} de KoBo para confirmar</div>
+        <details class="form-section">
+        <summary>📥 ${totalParaConfirmar} caso${totalParaConfirmar===1?'':'s'} de KoBo para confirmar</summary>
         ${hayAltas ? koboPendientesActuales.map((p, idx) => `
           <div class="kobo-pend-card">
             <div class="kobo-pend-txt">
@@ -2766,6 +2767,7 @@ function mostrarKoboPendientes(){
             <button class="btn btn-green btn-sm" onclick="Casos.confirmarKoboSinIdentificar(${idx})">➕ Cargar como "Sin identificar"</button>
           </div>
         `).join('') : ''}
+        </details>
       </div>
     ` : ''}
   `;
