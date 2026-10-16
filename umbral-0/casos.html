@@ -2630,16 +2630,26 @@ async function cargarCasosPaseTurno(){
     // falla en silencio — no es un dato crítico para poder seguir trabajando
   }
 }
+// Revertido (16/10/2026): la tarjeta clickeable-entera-toma-el-caso era un
+// malentendido mío — Agustina se encontró con que mirar la lista "eliminaba"
+// casos sin querer (cada clic tomaba el caso en el momento). Lo que pidió en
+// realidad es más simple: un botón "Casos en seguimiento" que DESPLIEGA la
+// lista (colapsada por defecto, para no ocupar lugar en la pantalla de
+// inicio) — <details>/<summary> nativo, sin JS para el toggle. Tomar un caso
+// sigue siendo una acción explícita (botón "🤝 Tomar este caso" por tarjeta),
+// nunca una consecuencia de solo mirar la lista.
 function mostrarCasosPaseTurno(){
   const box = document.getElementById('pase-turno-box');
   if(!casosPaseTurnoActuales.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
   box.style.display = 'block';
   box.innerHTML = `
     <div class="kobo-pend">
-      <div class="kobo-pend-head">🔁 ${casosPaseTurnoActuales.length} caso${casosPaseTurnoActuales.length===1?'':'s'} en seguimiento en tu zona</div>
-      <div class="section-hint" style="margin:-4px 0 8px;">De otras duplas de tu mismo polígono, ordenados por el que hace más tiempo no tiene contacto. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
-      <input type="text" id="buscar-zona-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="filtrarCasosPaseTurno()" style="margin-bottom:10px;width:100%;">
-      <div id="lista-casos-pase-turno"></div>
+      <details class="form-section">
+        <summary>🔁 ${casosPaseTurnoActuales.length} caso${casosPaseTurnoActuales.length===1?'':'s'} en seguimiento en tu zona</summary>
+        <div class="section-hint" style="margin:8px 0 8px;">De otras duplas de tu mismo polígono, ordenados por el que hace más tiempo no tiene contacto. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
+        <input type="text" id="buscar-zona-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="filtrarCasosPaseTurno()" style="margin-bottom:10px;width:100%;">
+        <div id="lista-casos-pase-turno"></div>
+      </details>
     </div>
   `;
   filtrarCasosPaseTurno();
