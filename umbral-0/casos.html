@@ -2646,7 +2646,7 @@ function mostrarCasosPaseTurno(){
     <div class="kobo-pend">
       <details class="form-section">
         <summary>🔁 ${casosPaseTurnoActuales.length} caso${casosPaseTurnoActuales.length===1?'':'s'} en seguimiento en tu zona</summary>
-        <div class="section-hint" style="margin:8px 0 8px;">De otras duplas de tu mismo polígono, ordenados por el que hace más tiempo no tiene contacto. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
+        <div class="section-hint" style="margin:8px 0 8px;">De otras duplas de tu mismo polígono, el más reciente primero — para que los tengas a mano si te toca seguirlos en tu turno. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
         <input type="text" id="buscar-zona-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="filtrarCasosPaseTurno()" style="margin-bottom:10px;width:100%;">
         <div id="lista-casos-pase-turno"></div>
       </details>
