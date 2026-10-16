@@ -2630,16 +2630,26 @@ async function cargarCasosPaseTurno(){
     // falla en silencio — no es un dato crítico para poder seguir trabajando
   }
 }
+// Revertido (16/10/2026): la tarjeta clickeable-entera-toma-el-caso era un
+// malentendido mío — Agustina se encontró con que mirar la lista "eliminaba"
+// casos sin querer (cada clic tomaba el caso en el momento). Lo que pidió en
+// realidad es más simple: un botón "Casos en seguimiento" que DESPLIEGA la
+// lista (colapsada por defecto, para no ocupar lugar en la pantalla de
+// inicio) — <details>/<summary> nativo, sin JS para el toggle. Tomar un caso
+// sigue siendo una acción explícita (botón "🤝 Tomar este caso" por tarjeta),
+// nunca una consecuencia de solo mirar la lista.
 function mostrarCasosPaseTurno(){
   const box = document.getElementById('pase-turno-box');
   if(!casosPaseTurnoActuales.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
   box.style.display = 'block';
   box.innerHTML = `
     <div class="kobo-pend">
-      <div class="kobo-pend-head">🔁 ${casosPaseTurnoActuales.length} caso${casosPaseTurnoActuales.length===1?'':'s'} en seguimiento en tu zona</div>
-      <div class="section-hint" style="margin:-4px 0 8px;">De otras duplas de tu mismo polígono, ordenados por el que hace más tiempo no tiene contacto. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
-      <input type="text" id="buscar-zona-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="filtrarCasosPaseTurno()" style="margin-bottom:10px;width:100%;">
-      <div id="lista-casos-pase-turno"></div>
+      <details class="form-section">
+        <summary>🔁 ${casosPaseTurnoActuales.length} caso${casosPaseTurnoActuales.length===1?'':'s'} en seguimiento en tu zona</summary>
+        <div class="section-hint" style="margin:8px 0 8px;">De otras duplas de tu mismo polígono, ordenados por el que hace más tiempo no tiene contacto. Tomalo si te cruzás con la persona — no hace falta que lo busques por DNI.</div>
+        <input type="text" id="buscar-zona-input" placeholder="Buscar por nombre, apellido o DNI…" oninput="filtrarCasosPaseTurno()" style="margin-bottom:10px;width:100%;">
+        <div id="lista-casos-pase-turno"></div>
+      </details>
     </div>
   `;
   filtrarCasosPaseTurno();
@@ -2659,17 +2669,13 @@ function filtrarCasosPaseTurno(){
   const lista = casosPaseTurnoActuales
     .map((c, i) => ({ ...c, _idx: i }))
     .filter(c => coincidenciaBusquedaPersona(c, q));
-  // Tarjeta clickeable entera en vez de un botón aparte (16/10/2026,
-  // pedido de Agustina: "que se abran los casos si el operador hace clic
-  // ... sino ocupa mucho lugar") — un solo toque toma el caso (RPC
-  // tomar_caso_pase_turno) y abre la ficha, mismo criterio que ya usan
-  // las tarjetas de "validado sin intervención" más arriba.
   cont.innerHTML = lista.length ? lista.map(c => `
-    <div class="kobo-pend-card" style="cursor:pointer;" onclick="tomarCasoPaseTurno('${escAttr(c.id)}', ${c._idx})">
+    <div class="kobo-pend-card">
       <div class="kobo-pend-txt">
         <strong>${esc(nombreDisplay(c))}</strong>${c.dni ? ' · DNI ' + esc(c.dni) : ''}
         <div class="meta">Dupla ${esc(c.dupla_origen)} · ${c.dias_sin_contacto > 0 ? `hace ${c.dias_sin_contacto} día${c.dias_sin_contacto===1?'':'s'} sin contacto` : 'contacto hoy'}${c.punto_contacto ? ' · ' + esc(c.punto_contacto) : ''}</div>
       </div>
+      <button class="btn btn-green btn-sm" onclick="tomarCasoPaseTurno('${escAttr(c.id)}', ${c._idx})">🤝 Tomar este caso</button>
     </div>
   `).join('') : '<div class="empty-msg">Ningún caso coincide con la búsqueda.</div>';
 }
