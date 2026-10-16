@@ -595,6 +595,7 @@ let koboSubIdSinIdentificarPendiente = null;
 let koboAccionesPendientesParaAlta = null;
 let _guardandoPersona = false; // traba contra doble-tap / doble-click que dispara dos guardados en paralelo
 let _mensajeCompartirCasoActual = ''; // texto armado para "Compartir por WhatsApp" de un caso puntual (ver _ofrecerCompartirCasoWhatsapp())
+let _prefillKoboSaludInformeActual = {}; // salud/informe social que trajo KoBo, para no perderlo aunque el formulario ya no lo muestre (ver _renderFormPersona())
 
 // ── CONFIG DE FORMULARIOS DINÁMICOS (DISENO-CASOS.md §5) ─────────────────
 
@@ -619,13 +620,16 @@ const CAMPOS_PERSONA_UBICACION = [
   { key:'zona', label:'Zona', type:'select', options: () => window.PROJECT_CONFIG.zonasOpciones || [] },
   { key:'comuna', label:'Comuna' },
 ];
+// "Criticidad" y "Nivel de vínculo" se sacaron del formulario (15/10/2026,
+// pedido de Agustina: "a gobierno lo único que le importa es la acción
+// del operador y lo que cargan en KoBo") — ninguno de los dos es un dato
+// que gobierno pida, y nivel de vínculo era el único de los dos que
+// alimentaba algo (la distribución por nivel del panel de admin), pero
+// ahora que la plataforma es sobre todo seguimiento, no vale la pena
+// pedírselo a la dupla en cada alta. Las columnas `personas.criticidad`/
+// `personas.nivel_actual` siguen existiendo (con su valor por defecto),
+// no hizo falta tocar la base.
 const CAMPOS_PERSONA_CASO = [
-  { key:'criticidad', label:'Criticidad', type:'select', options: () => window.PROJECT_CONFIG.criticidadOpciones || [] },
-  // Nivel de vínculo (documento institucional Umbral Cero, 27/07/2026) —
-  // alimenta "evolución de casos" en el reporte semanal. Detalle de cada
-  // nivel en el glosario (instructivo.html).
-  { key:'nivel_actual', label:'Nivel de vínculo (1 a 5)', type:'select', options:()=>['1','2','3','4','5'],
-    hint:'1=Identificación · 2=Construcción del vínculo · 3=Monitoreo territorial · 4=Anclaje comunitario · 5=Proyecto de inclusión. Detalle de cada nivel en el glosario.' },
   { key:'consumo_activo', label:'Consumo activo', type:'checkbox', checkLabel:'La persona presenta consumo activo' },
   // Indicador propio del Nivel 2 (Construcción del vínculo — ver glosario):
   // "acepta una entrevista" es uno de los pasos que marca ese nivel.
@@ -3767,18 +3771,22 @@ const Casos = {
     koboAccionesPendientesParaAlta = null;
     const esEdicion = !!persona;
     const v = persona || prefill || {};
-    // Si viene precargado desde KoBo, esas secciones arrancan abiertas —
-    // si no se abren solas, es fácil no darse cuenta de que ya hay texto
-    // cargado ahí adentro (quedan colapsadas por defecto en una edición
-    // normal, donde sí tiene sentido no abrumar con todo a la vista).
-    const tieneDatos = campos => campos.some(c => v[c.key]);
-    const abrirSalud = tieneDatos(CAMPOS_PERSONA_SALUD) ? ' open' : '';
-    // "Informe social" (sept/2026, pedido de Agustina/GOPA: "esto tiene
-    // que ser en el primer contacto") — dejó de ser opcional, así que
-    // arranca siempre abierto (antes solo se abría solo si ya tenía
-    // datos cargados, y en un alta nueva eso significaba arrancar
-    // colapsado — justo la sección que menos se estaba completando).
-    const abrirInforme = ' open';
+    // Salud y antecedentes / Informe social dejaron de pedirse en el alta
+    // (15/10/2026, pedido de Agustina: "a gobierno lo único que le
+    // importa es la acción del operador y lo que cargan en KoBo... que
+    // [esto] solo se tenga que activar si se deriva a un CIS") — ya no se
+    // muestran acá. El formulario de derivación a CIS/Casa Vincular/ASA
+    // sigue teniendo sus propios campos para esto (TIPOS_DERIVACION_CONFIG),
+    // se completan ahí si hace falta. Lo que ya vino prellenado de KoBo
+    // para estos campos (ver _prefillDesdeKobo) igual se guarda, sin
+    // mostrarlo — es dato que KoBo ya relevó gratis, no hay que perderlo
+    // solo porque no se le pide a la dupla que lo mire. Ver guardarPersona().
+    _prefillKoboSaludInformeActual = {};
+    if(prefill && !persona){
+      [...CAMPOS_PERSONA_SALUD, ...CAMPOS_PERSONA_INFORME].forEach(c => {
+        if(prefill[c.key] != null && prefill[c.key] !== '') _prefillKoboSaludInformeActual[c.key] = prefill[c.key];
+      });
+    }
     const body = `
       <form id="form-persona" onsubmit="return false;">
         <fieldset>
@@ -3793,14 +3801,6 @@ const Casos = {
           <legend>Datos del caso</legend>
           ${CAMPOS_PERSONA_CASO.map(c => renderCampo(c, v[c.key])).join('')}
         </fieldset>
-        <details class="form-section"${abrirSalud}>
-          <summary>Salud y antecedentes (completar cuando corresponda — precarga el formulario de CIS)</summary>
-          ${CAMPOS_PERSONA_SALUD.map(c => renderCampo(c, v[c.key])).join('')}
-        </details>
-        <details class="form-section"${abrirInforme}>
-          <summary>Informe social — situación habitacional, económica, educativa y redes de contención (se releva en el primer contacto, GOPA lo pide para cada caso)</summary>
-          ${CAMPOS_PERSONA_INFORME.map(c => renderCampo(c, v[c.key])).join('')}
-        </details>
         <div class="form-field">
           <label>Foto</label>
           <div class="file-row"><input type="file" id="f_foto" accept="image/*"></div>
@@ -3869,13 +3869,6 @@ const Casos = {
       _guardandoPersona = false;
       return;
     }
-    // nivel_actual es smallint en la base — recolectarCampos siempre
-    // devuelve string (o null). Si quedó vacío, se saca la clave: en un
-    // alta nueva usa el default (1) de la base; en una edición no toca el
-    // valor que ya tenía (mandar null rompería el check 1..5 / not null).
-    if(campos.nivel_actual) campos.nivel_actual = parseInt(campos.nivel_actual, 10);
-    else delete campos.nivel_actual;
-
     // Aviso preventivo de DNI duplicado en altas nuevas (sept/2026,
     // pedido de Agustina tras encontrar decenas de casos reales
     // duplicados en producción — mismo DNI cargado más de una vez por
@@ -3941,9 +3934,11 @@ const Casos = {
         // dupla_id queda fijo en el alta (quién dio de alta el caso) — la
         // política de RLS de personas ahora exige que coincida con la
         // propia dupla para las cuentas de dupla (ver schema-ajustes.sql,
-        // "cada dupla ve solo sus propios casos").
+        // "cada dupla ve solo sus propios casos"). _prefillKoboSaludInformeActual
+        // suma lo que KoBo ya trajo de salud/informe social, aunque el
+        // formulario ya no lo muestre — ver _renderFormPersona().
         const { data, error } = await client.from('personas')
-          .insert({ ...campos, estado:'activo', dupla_id: miPerfil.dupla_id || null })
+          .insert({ ...campos, ..._prefillKoboSaludInformeActual, estado:'activo', dupla_id: miPerfil.dupla_id || null })
           .select().single();
         if(error) throw error;
         persona = data;
