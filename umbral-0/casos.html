@@ -2216,9 +2216,23 @@ function coincidenciaBusquedaPersona(p, q){
 // (22/9/2026): "Yesica Cuenca es un caso de ayer que no lo estamos viendo
 // en la plataforma, y está en KoBo". Confirmado: 8 de los integrantes
 // activos tienen nombre compuesto, todos con el mismo riesgo.
+// Tokens "de relleno" que las duplas agregan a veces al campo operador de
+// KoBo para anotar su propia dupla y la parte del turno (ej. "Luis Alberto
+// Cari L p1", "brisa corrado J p1", "Cecilia De Angeli HP1") — nunca son
+// parte del nombre real de nadie: una sola letra, o letras+dígitos tipo
+// "p1"/"t2"/"hp1". Sin filtrarlos, un integrante con nombre compuesto (ej.
+// "Sergio JOSE Ferreyra") deja de matchear en cuanto la dupla agrega este
+// tipo de sufijo, porque entonces NINGUNA de las dos listas de tokens queda
+// contenida en la otra — reportado por la dupla L (16/10/2026): "Sergio
+// Ferreyra L p1" nunca matcheaba contra el integrante "Sergio Jose
+// Ferreyra", y esos envíos desaparecían sin dejar ningún rastro.
+function esTokenRellenoOperadorKobo(t){
+  return t.length === 1 || /^[a-z]{0,3}\d+$/.test(t);
+}
 function nombresCoincidenKobo(a, b){
-  const ta = normalizarNombreKobo(a).split(' ').filter(Boolean);
-  const tb = normalizarNombreKobo(b).split(' ').filter(Boolean);
+  const limpiar = ts => ts.filter(t => !esTokenRellenoOperadorKobo(t));
+  const ta = limpiar(normalizarNombreKobo(a).split(' ').filter(Boolean));
+  const tb = limpiar(normalizarNombreKobo(b).split(' ').filter(Boolean));
   if(!ta.length || !tb.length) return false;
   const setA = new Set(ta), setB = new Set(tb);
   return ta.every(t => setB.has(t)) || tb.every(t => setA.has(t));
