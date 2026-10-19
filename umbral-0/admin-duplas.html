@@ -3261,8 +3261,11 @@ function renderCoberturaGeografica(puntos, zonas){
   puntos.forEach(p => {
     const z = p.dupla && zonas.porDupla && zonas.porDupla[p.dupla];
     if(!z) return; // dupla no reconocida en el esquema vigente (ej. choferes, o esquema histórico)
-    const key = `${z.turno}|${z.poligono}`;
-    if(!grupos[key]) grupos[key] = { turno: z.turno, poligono: z.poligono, en_zona:0, en_otra_subzona:0, fuera_corredor:0, iglesia:0, sin_clasificar:0 };
+    // z.poligono puede ser un array (18/10/2026: Dupla J cubre dos
+    // sub-zonas propias a la vez) — se muestra unido con " + ".
+    const poligonoTxt = Array.isArray(z.poligono) ? z.poligono.join(' + ') : z.poligono;
+    const key = `${z.turno}|${poligonoTxt}`;
+    if(!grupos[key]) grupos[key] = { turno: z.turno, poligono: poligonoTxt, en_zona:0, en_otra_subzona:0, fuera_corredor:0, iglesia:0, sin_clasificar:0 };
     const clase = clasificarPuntoVsZonas(p.dupla, p.lat, p.lng, zonas);
     if(clase) grupos[key][clase]++;
     else grupos[key].sin_clasificar++;

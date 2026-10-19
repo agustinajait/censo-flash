@@ -144,13 +144,17 @@ function clasificarPuntoVsZonas(dupla, lat, lng, zonas){
   for(const igl of todasIglesias){
     if(igl.poly && _anillosDe(igl.poly).some(an => _puntoDentroPoligono(lat, lng, an))) return 'iglesia';
   }
-  const poligonoAsignado = dupla && zonas.porDupla && zonas.porDupla[dupla] ? zonas.porDupla[dupla].poligono : null;
-  if(poligonoAsignado && zonas.subzonas[poligonoAsignado]){
-    const propio = zonas.subzonas[poligonoAsignado];
-    if(propio.poly && _anillosDe(propio.poly).some(an => _dentroConMargen(lat, lng, an, MARGEN_SUBZONA_METROS))) return 'en_zona';
+  // poligono puede ser un string (una sola sub-zona propia, el caso de
+  // siempre) o un array (18/10/2026: la Dupla J pasó a cubrir P1 oeste +
+  // P2 este — dos sub-zonas propias a la vez — ver config/umbral-0.js).
+  const poligonoAsignadoRaw = dupla && zonas.porDupla && zonas.porDupla[dupla] ? zonas.porDupla[dupla].poligono : null;
+  const poligonosPropios = Array.isArray(poligonoAsignadoRaw) ? poligonoAsignadoRaw : (poligonoAsignadoRaw ? [poligonoAsignadoRaw] : []);
+  for(const nombrePoligono of poligonosPropios){
+    const propio = zonas.subzonas[nombrePoligono];
+    if(propio && propio.poly && _anillosDe(propio.poly).some(an => _dentroConMargen(lat, lng, an, MARGEN_SUBZONA_METROS))) return 'en_zona';
   }
   for(const [nombrePoligono, sub] of Object.entries(zonas.subzonas)){
-    if(nombrePoligono === poligonoAsignado) continue;
+    if(poligonosPropios.includes(nombrePoligono)) continue;
     if(sub.poly && _anillosDe(sub.poly).some(an => _dentroConMargen(lat, lng, an, MARGEN_SUBZONA_METROS))) return 'en_otra_subzona';
   }
   return 'fuera_corredor';
