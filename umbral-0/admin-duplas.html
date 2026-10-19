@@ -261,6 +261,7 @@
       <span>👥 Duplas territoriales <span style="font-weight:400;font-size:0.78rem;color:#94a3b8;">(turno, zona, presencia de hoy e integrantes — tocá una dupla para editarla)</span></span>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-outline btn-sm" onclick="cargarDuplas()">🔄 Actualizar</button>
+        <button class="btn btn-outline" onclick="descargarNominaIntegrantes()">⬇️ Descargar nómina</button>
         <button class="btn btn-outline" id="btn-accesos-faltantes" onclick="crearAccesosFaltantes()">⚡ Crear accesos faltantes</button>
         <button class="btn btn-green" onclick="crearDupla()">+ Nueva dupla</button>
       </div>
@@ -1369,6 +1370,7 @@ async function cargarPerfilesPorDupla(){
 }
 
 // ── DUPLAS ──────────────────────────────────────────────────────────────
+let _duplasConIntegrantes = []; // última data de cargarDuplas() (incluye integrantes anidados) — para descargarNominaIntegrantes()
 // Trae duplas + integrantes + jornada de HOY en un solo viaje — antes
 // jornada e integrantes vivían en dos secciones de solo lectura aparte
 // ("🕒 Jornada de hoy", "👥 Operadores por turno") que duplicaban lo que
@@ -1394,6 +1396,7 @@ async function cargarDuplas(){
   ]);
   if(error){ cont.innerHTML = '<div class="empty-msg">Error cargando duplas: '+esc(error.message)+'</div>'; return; }
   if(!data || !data.length){ cont.innerHTML = '<div class="empty-msg">Todavía no hay duplas cargadas. Usá "+ Nueva dupla".</div>'; return; }
+  _duplasConIntegrantes = data;
   const jornadaPorDupla = {};
   if(!errJ) (jornadas||[]).forEach(j => { jornadaPorDupla[j.dupla_id] = j; });
   const totalCasosPorDupla = {};
@@ -2431,6 +2434,35 @@ function _renderConteoReemplazos(filas){
         <tbody>${filasHtml}</tbody>
       </table>
     </div>`;
+}
+
+// Nómina de integrantes de las duplas de Umbral 0 (18/10/2026, pedido de
+// Agustina) — un CSV con un renglón por integrante (no por dupla), para
+// poder filtrar/ordenar en Excel. Usa la data que ya trajo cargarDuplas()
+// (data.integrantes anidado) en vez de pedirla de nuevo.
+function descargarNominaIntegrantes(){
+  if(!_duplasConIntegrantes.length){ alert('Todavía no se cargaron las duplas — esperá a que termine de cargar y probá de nuevo.'); return; }
+  const encabezado = ['Dupla','Zona','Turno','Nombre','Apellido','Rol','Teléfono','DNI','Activo'];
+  const filas = [];
+  _duplasConIntegrantes.forEach(d => {
+    const integrantes = d.integrantes || [];
+    if(!integrantes.length){
+      filas.push([d.codigo, d.zona, d.turno, '', '', '', '', '', '']);
+      return;
+    }
+    integrantes.forEach(i => {
+      filas.push([d.codigo, d.zona, d.turno, i.nombre, i.apellido, i.rol, i.telefono, i.dni, i.activo ? 'Sí' : 'No']);
+    });
+  });
+  const filaCsv = vals => vals.map(v => `"${String(v||'').replace(/"/g, '""')}"`).join(',');
+  const csv = [encabezado.join(','), ...filas.map(filaCsv)].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `nomina_integrantes_umbral0_${hoyStr(0)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function descargarCsvAsistencia(){
