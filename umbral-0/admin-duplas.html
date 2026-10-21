@@ -1243,6 +1243,9 @@ function esDniPlaceholderDup(dni){
   if(!s) return true;
   if(!/[a-z0-9]/i.test(s)) return true;
   if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  // Mismo fix que casos.html (16/10/2026): un DNI "de relleno" con el
+  // mismo dígito repetido (ej. "99999999") no es un DNI real.
+  if(/^(\d)\1+$/.test(s)) return true;
   return false;
 }
 
@@ -2805,6 +2808,64 @@ async function koboSinValidarPorDupla(fecha){
   return conteo;
 }
 
+// DNI identificados y entrevistas logradas por KoBo, por dupla, para un
+// día puntual (21/10/2026, pedido de Agustina: "agrega al resumen diario
+// la cantidad de dnis y entrevista que logro la dupla") — mismo criterio
+// de matcheo operador→dupla que koboSinValidarPorDupla() de arriba
+// (nombre + desambiguación por turno si el nombre coincide con más de
+// una dupla). "Entrevista lograda" = aceptaEntrevistaProlongada o
+// tieneEntrevista en 'si' (ver nota en parseUmbral0(), config/umbral-0.js)
+// — cubre tanto la rama de Seguimiento como la de Primer Acercamiento que
+// terminó en una entrevista en profundidad.
+async function koboDniEntrevistasPorDupla(fecha){
+  const project = window.PROJECT_CONFIG;
+  const form = project && project.kobo && (project.kobo.forms||[])[0];
+  if(!form) return { dniPorDupla: {}, entrevPorDupla: {} };
+  const client = await SupabaseClient.getClient();
+  const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, koboRowsRaw] = await Promise.all([
+    client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+    client.from('duplas').select('id, codigo, turno'),
+    fetchKoboProxyAll(project, form.id),
+  ]);
+  if(errI) throw errI;
+  if(errD) throw errD;
+  const codigoPorDuplaId = {};
+  const turnoPorDuplaId = {};
+  (duplasRows||[]).forEach(d => { codigoPorDuplaId[d.id] = d.codigo; turnoPorDuplaId[d.id] = d.turno; });
+  const duplaPorNombreKobo = (integrantes||[])
+    .filter(i => i.dupla_id)
+    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null, turno: turnoPorDuplaId[i.dupla_id] }))
+    .filter(r => r.nombre.trim());
+
+  const dnisPorDupla = {}; // codigo -> Set de DNI (para no contar la misma persona dos veces en el día)
+  const entrevPorDupla = {}; // codigo -> cantidad
+  koboRowsRaw.forEach(r => {
+    const p = form.parseRow(r);
+    if(!p) return;
+    const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
+    if(fechaSolo !== fecha) return;
+    const matches = duplaPorNombreKobo.filter(m => nombresCoincidenKobo(m.nombre, p.operador));
+    let match = matches.length === 1 ? matches[0] : null;
+    if(matches.length > 1){
+      const porHorario = matches.filter(m => horaEnTurno(p.hora, m.turno));
+      match = porHorario.length === 1 ? porHorario[0] : matches[0];
+    }
+    const codigoDupla = match ? match.codigo : null;
+    if(!codigoDupla) return;
+    const dni = p.persona && p.persona.dni;
+    if(dni && !esDniPlaceholderDup(dni)){
+      if(!dnisPorDupla[codigoDupla]) dnisPorDupla[codigoDupla] = new Set();
+      dnisPorDupla[codigoDupla].add(String(dni).trim());
+    }
+    if(p.persona && (p.persona.aceptaEntrevistaProlongada || p.persona.tieneEntrevista)){
+      entrevPorDupla[codigoDupla] = (entrevPorDupla[codigoDupla] || 0) + 1;
+    }
+  });
+  const dniPorDupla = {};
+  Object.entries(dnisPorDupla).forEach(([k, set]) => { dniPorDupla[k] = set.size; });
+  return { dniPorDupla, entrevPorDupla };
+}
+
 // ── f. Qué hicieron las duplas — confirmado en la plataforma ───────────
 // Complementa "e." (respuesta cruda de KoBo): esto es lo que la propia
 // dupla tildó en "¿Qué hiciste con este caso?" al validar un envío de
@@ -3435,7 +3496,7 @@ async function calcularResumenTodasLasDuplas(){
     const client = await SupabaseClient.getClient();
     const { desdeUtc, hastaUtc } = _rangoUtcDelDia(fecha);
 
-    const [duplasRes, nuevasRes, personasTodasRes, intervRes, seguRes, jornadasRes, koboSinValidar] = await Promise.all([
+    const [duplasRes, nuevasRes, personasTodasRes, intervRes, seguRes, jornadasRes, koboSinValidar, koboDniEntrev] = await Promise.all([
       client.from('duplas').select('id, codigo').order('codigo'),
       client.from('personas').select('id, dupla_id').eq('oculto', false)
         .gte('created_at', desdeUtc).lt('created_at', hastaUtc),
@@ -3450,6 +3511,7 @@ async function calcularResumenTodasLasDuplas(){
       // servicio caído) — mejor mostrar todo lo demás con esta columna
       // en 0 que romper el resumen entero por esto.
       koboSinValidarPorDupla(fecha).catch(e => { console.error('No se pudo calcular KoBo sin validar', e); return {}; }),
+      koboDniEntrevistasPorDupla(fecha).catch(e => { console.error('No se pudo calcular DNI/entrevistas de KoBo', e); return { dniPorDupla: {}, entrevPorDupla: {} }; }),
     ]);
     if(duplasRes.error) throw duplasRes.error;
     if(nuevasRes.error) throw nuevasRes.error;
@@ -3492,6 +3554,7 @@ async function calcularResumenTodasLasDuplas(){
 
     _renderResumenTodasLasDuplas(duplasRes.data||[], {
       nuevasPorDupla, intervPorDupla, seguPorDupla, derivPorDupla, jornadaPorDupla, koboSinValidar,
+      dniKoboPorDupla: koboDniEntrev.dniPorDupla || {}, entrevKoboPorDupla: koboDniEntrev.entrevPorDupla || {},
     }, fecha);
     estadoEl.textContent = 'Listo.';
   }catch(e){
@@ -3531,6 +3594,11 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
     // la fila (acá el 0 es lo bueno, no lo malo).
     const sinValidar = (datos.koboSinValidar && datos.koboSinValidar[d.codigo]) || 0;
     const sinValidarCelda = `<td class="num"${sinValidar>0 ? ' style="color:#dc2626;font-weight:700;"' : ''}>${sinValidar}</td>`;
+    // DNI identificados y entrevistas logradas, según KoBo (21/10/2026,
+    // pedido de Agustina) — mismo criterio de matcheo operador→dupla que
+    // "KoBo sin validar", ver koboDniEntrevistasPorDupla().
+    const dniKobo = (datos.dniKoboPorDupla && datos.dniKoboPorDupla[d.codigo]) || 0;
+    const entrevKobo = (datos.entrevKoboPorDupla && datos.entrevKoboPorDupla[d.codigo]) || 0;
     // Nota del admin (cambio de dupla, turno de más, etc. — pedido de
     // Agustina, 1/10/2026: "para que el admin pueda acotar si hubo cambio
     // de dupla o si una dupla hizo un turno de más"). Reusa la misma
@@ -3551,11 +3619,13 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
         ${numCelda(deriv)}
         ${numCelda(segu)}
         ${sinValidarCelda}
+        ${numCelda(dniKobo)}
+        ${numCelda(entrevKobo)}
         <td style="min-width:150px;">${notaCelda}</td>
         <td style="white-space:nowrap;"><button class="btn btn-outline btn-sm" style="white-space:nowrap;" id="btn-detalle-${d.id}" onclick="Casos_toggleDetalleDiario('${d.id}','${fecha}')">Ver detalle →</button></td>
       </tr>
       <tr class="fila-detalle-diario" id="detalle-fila-${d.id}" style="display:none;">
-        <td colspan="9" style="background:#f8fafc;padding:12px;"><div id="detalle-cont-${d.id}"></div></td>
+        <td colspan="11" style="background:#f8fafc;padding:12px;"><div id="detalle-cont-${d.id}"></div></td>
       </tr>
     `;
   }).join('');
@@ -3569,6 +3639,12 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
   const totalInterv = sumarPor(datos.intervPorDupla);
   const totalDeriv = sumarPor(datos.derivPorDupla);
   const totalSegu = sumarPor(datos.seguPorDupla);
+  // dniKoboPorDupla/entrevKoboPorDupla vienen de KoBo, no de Supabase —
+  // están indexados por código de dupla (letra), no por dupla_id (UUID),
+  // así que se suman distinto del resto.
+  const sumarValores = mapa => Object.values(mapa||{}).reduce((a,b) => a+b, 0);
+  const totalDniKobo = sumarValores(datos.dniKoboPorDupla);
+  const totalEntrevKobo = sumarValores(datos.entrevKoboPorDupla);
   const prom = n => (n / totalDuplas).toFixed(1);
 
   cont.innerHTML = `
@@ -3578,9 +3654,11 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
           <thead><tr>
             <th>Dupla</th><th>Jornada</th><th style="text-align:right;">Casos nuevos</th>
             <th style="text-align:right;">Intervenciones</th><th style="text-align:right;">Derivaciones</th>
-            <th style="text-align:right;">Seguimientos</th><th style="text-align:right;">KoBo sin validar</th><th>Nota</th><th style="width:1%;white-space:nowrap;"></th>
+            <th style="text-align:right;">Seguimientos</th><th style="text-align:right;">KoBo sin validar</th>
+            <th style="text-align:right;">DNI (KoBo)</th><th style="text-align:right;">Entrevistas (KoBo)</th>
+            <th>Nota</th><th style="width:1%;white-space:nowrap;"></th>
           </tr></thead>
-          <tbody>${filas || '<tr><td colspan="9" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
+          <tbody>${filas || '<tr><td colspan="11" style="text-align:center;color:#94a3b8;">Sin duplas cargadas.</td></tr>'}</tbody>
           ${duplas.length ? `<tfoot><tr style="font-weight:700;background:#f1f5f9;">
             <td colspan="2">Promedio por dupla (${totalDuplas})</td>
             <td class="num">${prom(totalNuevas)}</td>
@@ -3588,12 +3666,14 @@ function _renderResumenTodasLasDuplas(duplas, datos, fecha){
             <td class="num">${prom(totalDeriv)}</td>
             <td class="num">${prom(totalSegu)}</td>
             <td></td>
+            <td class="num">${prom(totalDniKobo)}</td>
+            <td class="num">${prom(totalEntrevKobo)}</td>
             <td></td>
             <td></td>
           </tr></tfoot>` : ''}
         </table>
       </div>
-      <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero (excepto "KoBo sin validar", donde en rojo es que SÍ hay algo pendiente). KoBo sin validar: envíos de ese día que la dupla todavía no vio/validó desde su cuenta — un envío ya validado no cuenta acá aunque todavía le falte registrar la intervención (eso se ve adentro de la ficha de la persona). Nota: para anotar cambios de dupla, turnos de más, etc. — se guarda sola al salir del campo.</div>
+      <div class="section-hint" style="margin-top:10px;">🔴 Fondo rojo: no marcaron inicio de jornada ese día. 🟡 Fondo amarillo: marcaron jornada pero no cargaron ningún caso/intervención/derivación/seguimiento. Números en rojo: en cero (excepto "KoBo sin validar", donde en rojo es que SÍ hay algo pendiente). KoBo sin validar: envíos de ese día que la dupla todavía no vio/validó desde su cuenta — un envío ya validado no cuenta acá aunque todavía le falte registrar la intervención (eso se ve adentro de la ficha de la persona). DNI (KoBo): documentos distintos identificados ese día, según los envíos de KoBo de esa dupla (no depende de que ya se haya validado/cargado el caso en la plataforma). Entrevistas (KoBo): envíos de ese día marcados como entrevista en profundidad/prolongada. Nota: para anotar cambios de dupla, turnos de más, etc. — se guarda sola al salir del campo.</div>
     </div>
   `;
 }
