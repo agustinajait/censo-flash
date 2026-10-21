@@ -109,7 +109,7 @@ function opcionesCrudas(row, sufijo){
 // obligatorio. Etiquetas propias (no legible() genérico) para que se
 // lean bien en el reporte semanal.
 const TERMINO_INTERVENCION_LABELS = {
-  entrevista_persona: 'Entrevista con la persona',
+  entrevista_persona: 'Diálogo con la persona',
   derivacion_ciudadania_portena: 'Derivación a Ciudadanía Porteña',
   acompanamiento_afeccion_fisica: 'Acompañamiento por afección física',
   llamado_same_emergencia_medica: 'Llamado a SAME (emergencia médica)',
@@ -140,7 +140,14 @@ const TERMINO_INTERVENCION_LABELS = {
 // la usan para mostrar los conteos agregados del reporte semanal — ver
 // calcularAccionesPlataforma() en admin-duplas.html.
 const ACCIONES_INTERVENCION = [
-  { key:'entrevista', label:'Entrevista con la persona' },
+  // Pedido de Agustina (21/10/2026): este tilde simple (sin preguntas
+  // asociadas) se confundía con "entrevista en profundidad" (el campo
+  // acepta_entrevista_prolongada/tiene_entrevista de KoBo, que SÍ
+  // dispara un bloque largo de preguntas) — se renombra a "Diálogo con
+  // la persona" para que quede claro que son dos cosas distintas. La
+  // `key` ('entrevista') no cambia: ya hay datos guardados con ese
+  // código en intervenciones.acciones/kobo_validaciones.acciones.
+  { key:'entrevista', label:'Diálogo con la persona' },
   { key:'rechazo_entrevista', label:'Se acercó, pero no aceptó hablar / se negó a la entrevista' },
   { key:'llamado_same_medica', label:'Llamado a SAME (emergencia médica)' },
   { key:'llamado_same_salud_mental', label:'Llamado a SAME (emergencia de salud mental)' },
