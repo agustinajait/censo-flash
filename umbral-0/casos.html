@@ -1174,6 +1174,24 @@ function esDniPlaceholderDup(dni){
   return false;
 }
 
+// Nombre "de relleno" (ej. "Sin identificar", "Nc", "Ns/Nc") que la dupla
+// tipea en KoBo cuando no consiguió el nombre real de la persona — no
+// sirve como base para matchear "¿es la misma persona que ya tenés
+// cargada?" en cargarKoboPendientes(). Sin esto, cualquier envío con ese
+// mismo texto "matchea" contra el PRIMER caso "Sin identificar" que haya
+// en la base de esta dupla, sea quien sea en realidad (reportado por la
+// dupla E, 21/10/2026: dos envíos de hoy con nombre="Sin identificar" se
+// ofrecían como posible continuación de un caso de otro día, sin ninguna
+// relación real — la dupla E ya tiene 8 casos distintos con ese mismo
+// nombre literal).
+function esNombrePlaceholder(nombre){
+  const s = String(nombre||'').trim().toLowerCase();
+  if(!s) return true;
+  if(!/[a-z0-9]/i.test(s)) return true;
+  if(/^(sin identificar|sin datos?|nn|nc|s\/?d|ns\/?nc|no (sabe|contesta|responde)|desconocid[oa])$/.test(s.replace(/\s+/g,' '))) return true;
+  return false;
+}
+
 async function revisarDuplicadosCasos(){
   const box = document.getElementById('duplicados-casos-box');
   try{
@@ -2460,7 +2478,9 @@ async function cargarKoboPendientes(){
     // ningún nombre cargado (nom vacío) — sea sin_identificar o no.
     const personasPorNombre = new Map();
     (personasPropias||[]).forEach(p => {
-      const nom = normalizarNombreKobo(`${p.nombre||''} ${p.apellido||''}`);
+      const nombreCrudo = `${p.nombre||''} ${p.apellido||''}`.trim();
+      if(esNombrePlaceholder(nombreCrudo)) return; // "Sin identificar"/"Nc"/etc. — ver esNombrePlaceholder()
+      const nom = normalizarNombreKobo(nombreCrudo);
       if(nom) personasPorNombre.set(nom, p);
     });
 
@@ -2514,7 +2534,8 @@ async function cargarKoboPendientes(){
       // NO se asocia solo, se le pregunta a la dupla, ver confirmarContinuacionKobo()).
       const subId = koboSubmissionId(p);
       if(!subId || idsYaValidados.has(subId) || koboContinuacionesDescartadas.has(subId)) return;
-      const nom = normalizarNombreKobo(`${(p.persona&&p.persona.nombre)||''} ${(p.persona&&p.persona.apellido)||''}`);
+      const nombreCrudoEnvio = `${(p.persona&&p.persona.nombre)||''} ${(p.persona&&p.persona.apellido)||''}`.trim();
+      const nom = !esNombrePlaceholder(nombreCrudoEnvio) && normalizarNombreKobo(nombreCrudoEnvio);
       const personaMatch = nom && personasPorNombre.get(nom);
       if(personaMatch){
         const previo = posiblesContinuaciones.get(subId);
