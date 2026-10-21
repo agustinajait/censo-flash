@@ -319,6 +319,14 @@ function parseUmbral0(row){
       observacionPersona: campoSufijo(row, 'observacion_persona'),
       caracteristicas: campoSufijo(row, 'nivel1_caracteristicas'), // descripción física — útil antes de tener foto
       aceptaEntrevistaProlongada: campoSufijoBool(row, 'acepta_entrevista_prolongada'),
+      // 'tiene_entrevista' es el equivalente de 'acepta_entrevista_prolongada'
+      // pero del lado de la rama de Seguimiento (confirmado contra datos
+      // reales: ambas preguntas solo se completan cuando tipo_intervencion
+      // es 'seguimiento', nunca en Primer Acercamiento) — juntas arman
+      // "¿esta visita terminó en una entrevista en profundidad?" sin
+      // importar si la persona ya estaba en seguimiento o no. 21/10/2026,
+      // pedido de Agustina: sumar esto al resumen diario del admin.
+      tieneEntrevista: campoSufijoBool(row, 'tiene_entrevista'),
       identificoConsumosProblematicos: campoSufijoBool(row, 'identifico_consumos_problematicos'),
       consumosCuales: campoSufijo(row, 'consumos_cuales'),
       motivoCalle: opcionesMultiples(row, 'motivo_calle'),
