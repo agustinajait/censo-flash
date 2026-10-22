@@ -640,13 +640,14 @@ const CAMPOS_PERSONA_CASO = [
   // Indicador propio del Nivel 2 (Construcción del vínculo — ver glosario):
   // "acepta una entrevista" es uno de los pasos que marca ese nivel.
   { key:'acepta_entrevista', label:'¿Acepta entrevista?', type:'checkbox', checkLabel:'La persona acepta ser entrevistada' },
-  // hint (22/10/2026, pedido de Agustina a partir de la planilla de
-  // "Devoluciones" que le pasa gobierno de ejemplo): ese texto se usa tal
-  // cual como párrafo de "Devolución" en el mensaje de WhatsApp del caso
-  // (ver _armarMensajeCasoWhatsapp) — no se genera solo, así que se le dice
-  // a la dupla exactamente qué poner, en el mismo orden que los ejemplos
-  // de gobierno, en vez de una guía corta/genérica ("contá bien").
-  { key:'historia_breve', label:'Historia breve', type:'textarea', hint:'Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden: 1) motivo de la situación de calle; 2) estado de salud (con diagnóstico si tiene) y medicación; 3) cómo se sostiene económicamente (trabaja o no, de qué); 4) si tiene redes familiares o sociales; 5) cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.); 6) qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió.' },
+  // (22/10/2026) El formulario de alta YA NO renderiza este campo como un
+  // único textarea — ver _renderFormPersona(), que arma "Datos del caso"
+  // con los casilleros de _renderCasillerosDevolucion() en su lugar y
+  // combina lo cargado en ellos al guardar. Sigue en este array porque
+  // `historia_breve` sigue siendo la columna real donde se guarda ese
+  // texto combinado, y _renderLegajo() (vista de solo lectura) todavía
+  // la recorre genéricamente para mostrarla.
+  { key:'historia_breve', label:'Historia breve', type:'textarea' },
 ];
 // Salud y antecedentes — sección opcional, precarga el formulario de CIS
 // (§5.1) cuando ya está cargada acá.
@@ -3177,6 +3178,56 @@ function recolectarCampos(container){
   return out;
 }
 
+// ── CASILLEROS DE "DEVOLUCIÓN" (22/10/2026) ───────────────────────────────
+// Pedido de Agustina al ver la guía de texto debajo de "Historia breve":
+// "no pero construir la historia breve tenes que generar casilleros que al
+// completarlos se arme el msj no estas guias" — en vez de un solo textarea
+// con instrucciones de qué escribir, un campo chico por cada dato que pide
+// la planilla de "Devoluciones" de gobierno; el texto final (historia_breve/
+// resumen/nota, según el formulario) se arma solo concatenando lo que la
+// dupla cargó en cada casillero, con su etiqueta. Dos juegos de campos:
+// primer contacto pide el relato completo; seguimiento solo la novedad
+// (mismo criterio por el que antes se mostraba una guía de texto distinta
+// para cada caso — ver _ofrecerCompartirCasoWhatsapp()/abrirModalValidarKobo()).
+const CASILLEROS_DEVOLUCION_PRIMER_CONTACTO = [
+  { key:'motivo', label:'Motivo de la situación de calle' },
+  { key:'salud', label:'Estado de salud y medicación' },
+  { key:'economia', label:'Cómo se sostiene económicamente (trabaja o no, de qué)' },
+  { key:'redes', label:'Redes familiares o sociales' },
+  { key:'dialogo', label:'Cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.)' },
+  { key:'oferta', label:'Qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió' },
+];
+const CASILLEROS_DEVOLUCION_SEGUIMIENTO = [
+  { key:'encontro', label:'¿La encontraron esta vez? (si no, qué hicieron y cuándo reintentan)' },
+  { key:'cambios', label:'Cambios en salud o situación desde el último contacto' },
+  { key:'dialogo', label:'Cómo fue el diálogo esta vez' },
+  { key:'oferta', label:'Qué se le ofreció/acordó y qué respondió' },
+];
+// `prefix` distingue los 3 formularios que usan esto (alta: 'hb',
+// intervención: 'interv', validación de KoBo: 'val') para que los ids no
+// choquen si en algún momento hay más de uno en pantalla a la vez.
+function _renderCasillerosDevolucion(prefix, esPrimerContacto){
+  const set = esPrimerContacto ? CASILLEROS_DEVOLUCION_PRIMER_CONTACTO : CASILLEROS_DEVOLUCION_SEGUIMIENTO;
+  return set.map(c => `
+    <div class="form-field">
+      <label>${esc(c.label)}</label>
+      <textarea id="f_${prefix}_${c.key}"></textarea>
+    </div>
+  `).join('');
+}
+// Lee los casilleros actualmente en pantalla (mismo `prefix`/juego que se
+// usó para renderizarlos) y arma el texto final uniendo "Etiqueta: valor"
+// por cada uno que la dupla completó — los que quedaron vacíos no
+// aparecen. Devuelve '' si no completó ninguno.
+function _combinarCasillerosDevolucion(prefix, esPrimerContacto){
+  const set = esPrimerContacto ? CASILLEROS_DEVOLUCION_PRIMER_CONTACTO : CASILLEROS_DEVOLUCION_SEGUIMIENTO;
+  return set.map(c => {
+    const el = document.getElementById(`f_${prefix}_${c.key}`);
+    const v = el ? el.value.trim() : '';
+    return v ? `${c.label}: ${v}` : null;
+  }).filter(Boolean).join('\n');
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Casos — namespace con toda la lógica de ingreso/ficha/derivación/seguimiento
 // ═══════════════════════════════════════════════════════════════════════
@@ -3941,7 +3992,10 @@ const Casos = {
         </fieldset>
         <fieldset>
           <legend>Datos del caso</legend>
-          ${CAMPOS_PERSONA_CASO.map(c => renderCampo(c, v[c.key])).join('')}
+          ${CAMPOS_PERSONA_CASO.filter(c => c.key !== 'historia_breve').map(c => renderCampo(c, v[c.key])).join('')}
+          ${esEdicion && v.historia_breve ? `<div class="form-field"><label>Historia breve (ya cargada)</label><div class="hint" style="white-space:pre-wrap;">${esc(v.historia_breve)}</div></div>` : ''}
+          <div class="form-field"><label>Devolución</label></div>
+          ${_renderCasillerosDevolucion('hb', true)}
         </fieldset>
         <div class="form-field">
           <label>Foto</label>
@@ -4001,6 +4055,13 @@ const Casos = {
     }
 
     const campos = recolectarCampos(form);
+    // historia_breve ya no tiene data-f (se arma sola desde los
+    // casilleros de Devolución, ver _renderFormPersona/_renderCasillerosDevolucion)
+    // — si la dupla no completó ninguno en una EDICIÓN, no se manda esa
+    // clave en el update para no pisar con null lo que ya estaba cargado.
+    const historiaCombinada = _combinarCasillerosDevolucion('hb', true);
+    if(historiaCombinada) campos.historia_breve = historiaCombinada;
+    else if(!personaExistente) campos.historia_breve = null;
     if(!campos.sin_identificar && (!campos.nombre || !campos.apellido)){
       modalError('Nombre y apellido son obligatorios (o tildá "Sin identificar" si la persona no quiso darlos).');
       _guardandoPersona = false;
@@ -4775,9 +4836,9 @@ const Casos = {
       });
     }
     // tipo_intervencion ('primer_acercamiento'/'seguimiento'/'recontacto')
-    // decide cuál guía de "Devolución" mostrar (ver _guiaDevolucionHtml) —
-    // pedido de Agustina (22/10/2026): "diferencias cuando es un caso de
-    // seguimiento?".
+    // decide cuál juego de casilleros de "Devolución" mostrar (ver
+    // _renderCasillerosDevolucion) — pedido de Agustina (22/10/2026):
+    // "diferencias cuando es un caso de seguimiento?".
     const esPrimerContactoKobo = koboItem && koboItem.tipo === 'primer_acercamiento';
     const body = `
       <form id="form-validar-kobo" onsubmit="return false;">
@@ -4790,23 +4851,23 @@ const Casos = {
             `).join('')}
           </div>
         </div>
-        <div class="form-field">
-          <label>Nota (opcional)</label>
-          <div class="hint">${Casos._guiaDevolucionHtml(esPrimerContactoKobo)}</div>
-          <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
-        </div>
+        <div class="form-field"><label>Devolución (opcional — si KoBo ya cubrió algo de esto no hace falta repetirlo)</label></div>
+        ${notaActual ? `<div class="form-field"><label>Nota ya cargada</label><div class="hint" style="white-space:pre-wrap;">${esc(notaActual)}</div></div>` : ''}
+        <div id="casilleros-val">${_renderCasillerosDevolucion('val', esPrimerContactoKobo)}</div>
         <div class="modal-foot">
           <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-          <button type="button" class="btn btn-green" id="btn-guardar-validacion-kobo" onclick="Casos.guardarValidacionKobo('${escAttr(subId)}')">✅ Validar</button>
+          <button type="button" class="btn btn-green" id="btn-guardar-validacion-kobo" onclick="Casos.guardarValidacionKobo('${escAttr(subId)}', ${esPrimerContactoKobo ? 'true' : 'false'})">✅ Validar</button>
         </div>
       </form>
     `;
     openModal('Validar envío de KoBo', body);
   },
 
-  async guardarValidacionKobo(subId){
+  async guardarValidacionKobo(subId, esPrimerContactoKobo){
     const btn = document.getElementById('btn-guardar-validacion-kobo');
-    const nota = document.getElementById('f_nota_validacion_kobo').value.trim();
+    const notaPrevia = (koboValidacionesActuales[subId] && koboValidacionesActuales[subId].nota) || '';
+    const notaCombinada = _combinarCasillerosDevolucion('val', esPrimerContactoKobo);
+    const nota = notaCombinada || notaPrevia || null;
     const acciones = [...document.querySelectorAll('.val-accion-check:checked')].map(el => el.dataset.code);
     btn.disabled = true;
     try{
@@ -4895,7 +4956,7 @@ const Casos = {
       <form id="form-intervencion" onsubmit="return false;">
         <div class="form-field">
           <label>Tipo</label>
-          <select id="f_tipo_interv" data-f="tipo" onchange="Casos._actualizarGuiaDevolucionInterv(this.value)">
+          <select id="f_tipo_interv" data-f="tipo" onchange="Casos._actualizarCasillerosInterv(this.value)">
             <option value="seguimiento">Seguimiento en territorio</option>
             <option value="contacto_espontaneo">Primer contacto</option>
           </select>
@@ -4913,11 +4974,8 @@ const Casos = {
             `).join('')}
           </div>
         </div>
-        <div class="form-field">
-          <label>Descripción</label>
-          <div class="hint" id="hint-desc-interv">${Casos._guiaDevolucionHtml(false)}</div>
-          <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
-        </div>
+        <div class="form-field"><label>Devolución</label></div>
+        <div id="casilleros-interv">${_renderCasillerosDevolucion('interv', false)}</div>
         <div class="modal-foot">
           <button type="button" class="btn btn-blue" id="btn-guardar-interv">💾 Guardar</button>
           <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -4928,9 +4986,9 @@ const Casos = {
     document.getElementById('btn-guardar-interv').onclick = Casos.guardarIntervencion;
   },
 
-  _actualizarGuiaDevolucionInterv(tipo){
-    const el = document.getElementById('hint-desc-interv');
-    if(el) el.innerHTML = Casos._guiaDevolucionHtml(tipo === 'contacto_espontaneo');
+  _actualizarCasillerosInterv(tipo){
+    const el = document.getElementById('casilleros-interv');
+    if(el) el.innerHTML = _renderCasillerosDevolucion('interv', tipo === 'contacto_espontaneo');
   },
 
   async guardarIntervencion(){
@@ -4938,6 +4996,7 @@ const Casos = {
     const btn = document.getElementById('btn-guardar-interv');
     const campos = recolectarCampos(form);
     const acciones = [...form.querySelectorAll('.interv-accion-check:checked')].map(el => el.dataset.code);
+    const resumen = _combinarCasillerosDevolucion('interv', campos.tipo === 'contacto_espontaneo');
     btn.disabled = true; btn.textContent = 'Guardando…';
     try{
       const client = await SupabaseClient.getClient();
@@ -4946,13 +5005,13 @@ const Casos = {
         dupla_id: miPerfil.dupla_id || null,
         tipo: campos.tipo || 'seguimiento',
         ubicacion: campos.ubicacion || null,
-        resumen: campos.resumen || '',
+        resumen: resumen || '',
         acciones,
       });
       if(error) throw error;
       await Casos._reactivarSiEgresado();
       const tipoLabel = campos.tipo === 'contacto_espontaneo' ? 'Primer contacto' : 'Seguimiento en territorio';
-      Casos._ofrecerCompartirCasoWhatsapp(personaActual, tipoLabel, campos.resumen || '', acciones);
+      Casos._ofrecerCompartirCasoWhatsapp(personaActual, tipoLabel, resumen || '', acciones);
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
@@ -4968,28 +5027,6 @@ const Casos = {
   // con esa persona, no recién al cierre de la jornada. Mismo patrón: abre
   // WhatsApp con el texto ya armado, la dupla elige el chat y lo manda
   // ella misma — no es un envío automático ni queda registrado en el caso.
-  // Guía de "Devolución" (22/10/2026, pedido de Agustina: "diferencias
-  // cuando es un caso de seguimiento?") — un primer contacto necesita
-  // contar todo (motivo, salud, economía, redes, diálogo, oferta); un
-  // seguimiento ya tiene casi todo eso cargado de antes, así que pedirle
-  // lo mismo hace que la dupla repita o invente relleno. Ahí gobierno
-  // quiere la NOVEDAD: si la encontraron esta vez o no, y qué cambió.
-  _guiaDevolucionHtml(esPrimerContacto){
-    if(esPrimerContacto){
-      return 'Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden:<br>'
-        + '1) Motivo de la situación de calle<br>'
-        + '2) Estado de salud (con diagnóstico si tiene) y medicación<br>'
-        + '3) Cómo se sostiene económicamente (trabaja o no, de qué)<br>'
-        + '4) Si tiene redes familiares o sociales<br>'
-        + '5) Cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.)<br>'
-        + '6) Qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió';
-    }
-    return 'Esto se comparte como "Devolución" por WhatsApp. Es un seguimiento — no repitas lo que ya se sabe de la persona, contá solo la novedad, en este orden:<br>'
-      + '1) Si la encontraron esta vez o no (si no, qué hicieron para buscarla y cuándo reintentan)<br>'
-      + '2) Si la encontraron: algún cambio en su salud o situación desde el último contacto<br>'
-      + '3) Cómo fue el diálogo esta vez<br>'
-      + '4) Qué se le ofreció/acordó y qué respondió';
-  },
   // Arma el texto del mensaje con los campos estructurados que pide
   // gobierno en sus planillas de "Devolución" (Fecha, Dupla interviniente,
   // Ubicación, Nombre y Apellido, DNI, Fecha de nacimiento, Edad — ver
