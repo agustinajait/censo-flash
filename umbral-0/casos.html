@@ -640,7 +640,13 @@ const CAMPOS_PERSONA_CASO = [
   // Indicador propio del Nivel 2 (Construcción del vínculo — ver glosario):
   // "acepta una entrevista" es uno de los pasos que marca ese nivel.
   { key:'acepta_entrevista', label:'¿Acepta entrevista?', type:'checkbox', checkLabel:'La persona acepta ser entrevistada' },
-  { key:'historia_breve', label:'Historia breve', type:'textarea' },
+  // hint (22/10/2026, pedido de Agustina a partir de la planilla de
+  // "Devoluciones" que le pasa gobierno de ejemplo): ese texto se usa tal
+  // cual como párrafo de "Devolución" en el mensaje de WhatsApp del caso
+  // (ver _armarMensajeCasoWhatsapp) — no se genera solo, así que cuanto
+  // más completo lo escriba la dupla acá, más se parece a los ejemplos de
+  // gobierno sin pedirle un formulario nuevo.
+  { key:'historia_breve', label:'Historia breve', type:'textarea', hint:'Para que quede como la devolución que pide gobierno, contá: motivo de la situación de calle, estado de salud, cómo se sostiene económicamente, si tiene redes familiares/sociales, cómo fue el diálogo y qué se le ofreció (CIS, DNI, etc.) y cómo respondió.' },
 ];
 // Salud y antecedentes — sección opcional, precarga el formulario de CIS
 // (§5.1) cuando ya está cargada acá.
@@ -4781,6 +4787,7 @@ const Casos = {
         </div>
         <div class="form-field">
           <label>Nota (opcional)</label>
+          <div class="hint">Esta nota se usa como "Devolución" al compartir el caso — si KoBo ya cubrió motivo/salud/diálogo, alcanza con lo que falte o un resumen corto.</div>
           <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
         </div>
         <div class="modal-foot">
@@ -4810,7 +4817,7 @@ const Casos = {
       if(error) throw error;
       await cargarKoboDePersona(personaActual);
       Casos._renderTimeline();
-      Casos._mostrarSiguientePasoValidacion(acciones);
+      Casos._mostrarSiguientePasoValidacion(acciones, nota);
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
@@ -4836,7 +4843,7 @@ const Casos = {
   // opciones genéricas, porque es el que tiene los campos obligatorios
   // por tipo y el que alimenta el reporte semanal — tildar la casilla
   // sola no reemplaza pedirla de verdad.
-  _mostrarSiguientePasoValidacion(acciones){
+  _mostrarSiguientePasoValidacion(acciones, nota){
     const mapeo = window.PROJECT_CONFIG.accionATipoDerivacion || {};
     const tiposSugeridos = [...new Set((acciones||[]).map(a => mapeo[a]).filter(Boolean))];
     const sugerencias = tiposSugeridos.map(tipo => `
@@ -4850,14 +4857,7 @@ const Casos = {
     // el camino más común del día a día y se había quedado afuera.
     // Reutiliza _mensajeCompartirCasoActual/_compartirCasoWhatsapp, mismo
     // mecanismo que las otras dos.
-    const duplaCod = (miPerfil && duplasMap[miPerfil.dupla_id]) || 'mi dupla';
-    const accionesTxt = (acciones||[]).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod).join(', ');
-    _mensajeCompartirCasoActual = [
-      `📋 Umbral 0 — Dupla ${duplaCod}`,
-      `${nombreDisplay(personaActual)}${personaActual.dni ? ' · DNI ' + personaActual.dni : ''}`,
-      `Seguimiento validado de KoBo`,
-      accionesTxt ? `Acciones: ${accionesTxt}` : null,
-    ].filter(Boolean).join('\n');
+    _mensajeCompartirCasoActual = Casos._armarMensajeCasoWhatsapp(personaActual, 'Seguimiento validado de KoBo', nota, acciones);
     const body = `
       <div style="text-align:center;padding:6px 0 4px;">
         <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Envío validado. ¿Querés agregar algo más sobre esta visita?</div>
@@ -4910,6 +4910,7 @@ const Casos = {
         </div>
         <div class="form-field">
           <label>Descripción</label>
+          <div class="hint">Este texto se usa como "Devolución" al compartir el caso — contá motivo de calle, estado de salud, situación económica, redes, cómo fue el diálogo y qué se ofreció/respondió.</div>
           <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
         </div>
         <div class="modal-foot">
@@ -4957,15 +4958,37 @@ const Casos = {
   // con esa persona, no recién al cierre de la jornada. Mismo patrón: abre
   // WhatsApp con el texto ya armado, la dupla elige el chat y lo manda
   // ella misma — no es un envío automático ni queda registrado en el caso.
-  _ofrecerCompartirCasoWhatsapp(persona, tipoLabel, resumen, acciones){
+  // Arma el texto del mensaje con los campos estructurados que pide
+  // gobierno en sus planillas de "Devolución" (Fecha, Dupla interviniente,
+  // Ubicación, Nombre y Apellido, DNI, Fecha de nacimiento, Edad — ver
+  // Plantillas_de_formatos_de_devoluciones.pdf, 22/10/2026, pedido de
+  // Agustina: "necesito que... el mensaje tenga mas informacion"). El
+  // párrafo de "Devolución" en sí NO se genera solo: es el texto que ya
+  // escribe la dupla (resumen de la intervención, historia breve del alta,
+  // o nota de la validación de KoBo) — se decidió así porque auto-armarlo
+  // quedaba más pobre que dejar que la dupla cuente lo que pasó; en cambio
+  // se la guía para que lo escriba más completo (ver hints en los
+  // textarea de "Historia breve"/"Descripción"/"Nota").
+  _armarMensajeCasoWhatsapp(persona, tipoLabel, resumen, acciones){
     const duplaCod = (miPerfil && duplasMap[miPerfil.dupla_id]) || 'mi dupla';
     const accionesTxt = (acciones||[]).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod).join(', ');
-    _mensajeCompartirCasoActual = [
-      `📋 Umbral 0 — Dupla ${duplaCod}`,
-      `${nombreDisplay(persona)}${persona.dni ? ' · DNI ' + persona.dni : ''}`,
-      `${tipoLabel}${resumen ? ': ' + resumen : ''}`,
+    const edad = calcEdad(persona.fecha_nacimiento);
+    return [
+      `📋 Umbral 0 — Devolución`,
+      `Fecha: ${fmtFechaSolo(new Date().toISOString())}`,
+      `Dupla interviniente: ${duplaCod}`,
+      `Ubicación: ${persona.punto_contacto || 'Sin dato'}`,
+      `Nombre y Apellido: ${nombreDisplay(persona)}`,
+      `DNI: ${persona.dni || 'Sin DNI'}`,
+      `Fecha de nacimiento: ${persona.fecha_nacimiento ? fmtFechaSolo(persona.fecha_nacimiento) : 'Sin dato'}`,
+      `Edad: ${edad || 'Sin dato'}`,
+      `Tipo: ${tipoLabel}`,
       accionesTxt ? `Acciones: ${accionesTxt}` : null,
+      `Devolución: ${resumen || '(sin descripción — completar antes de compartir)'}`,
     ].filter(Boolean).join('\n');
+  },
+  _ofrecerCompartirCasoWhatsapp(persona, tipoLabel, resumen, acciones){
+    _mensajeCompartirCasoActual = Casos._armarMensajeCasoWhatsapp(persona, tipoLabel, resumen, acciones);
     const body = `
       <div style="text-align:center;padding:6px 0 4px;">
         <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Caso guardado. ¿Lo compartís con el grupo de WhatsApp?</div>
