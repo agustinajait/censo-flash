@@ -643,10 +643,10 @@ const CAMPOS_PERSONA_CASO = [
   // hint (22/10/2026, pedido de Agustina a partir de la planilla de
   // "Devoluciones" que le pasa gobierno de ejemplo): ese texto se usa tal
   // cual como párrafo de "Devolución" en el mensaje de WhatsApp del caso
-  // (ver _armarMensajeCasoWhatsapp) — no se genera solo, así que cuanto
-  // más completo lo escriba la dupla acá, más se parece a los ejemplos de
-  // gobierno sin pedirle un formulario nuevo.
-  { key:'historia_breve', label:'Historia breve', type:'textarea', hint:'Para que quede como la devolución que pide gobierno, contá: motivo de la situación de calle, estado de salud, cómo se sostiene económicamente, si tiene redes familiares/sociales, cómo fue el diálogo y qué se le ofreció (CIS, DNI, etc.) y cómo respondió.' },
+  // (ver _armarMensajeCasoWhatsapp) — no se genera solo, así que se le dice
+  // a la dupla exactamente qué poner, en el mismo orden que los ejemplos
+  // de gobierno, en vez de una guía corta/genérica ("contá bien").
+  { key:'historia_breve', label:'Historia breve', type:'textarea', hint:'Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden: 1) motivo de la situación de calle; 2) estado de salud (con diagnóstico si tiene) y medicación; 3) cómo se sostiene económicamente (trabaja o no, de qué); 4) si tiene redes familiares o sociales; 5) cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.); 6) qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió.' },
 ];
 // Salud y antecedentes — sección opcional, precarga el formulario de CIS
 // (§5.1) cuando ya está cargada acá.
@@ -4787,7 +4787,7 @@ const Casos = {
         </div>
         <div class="form-field">
           <label>Nota (opcional)</label>
-          <div class="hint">Esta nota se usa como "Devolución" al compartir el caso — si KoBo ya cubrió motivo/salud/diálogo, alcanza con lo que falte o un resumen corto.</div>
+          <div class="hint">Esta nota se comparte como "Devolución" por WhatsApp. Si KoBo ya cubrió algo de esto, no hace falta repetirlo — completá lo que falte, en este orden:<br>1) Motivo de la situación de calle<br>2) Estado de salud (con diagnóstico si tiene) y medicación<br>3) Cómo se sostiene económicamente (trabaja o no, de qué)<br>4) Si tiene redes familiares o sociales<br>5) Cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.)<br>6) Qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió</div>
           <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
         </div>
         <div class="modal-foot">
@@ -4910,7 +4910,7 @@ const Casos = {
         </div>
         <div class="form-field">
           <label>Descripción</label>
-          <div class="hint">Este texto se usa como "Devolución" al compartir el caso — contá motivo de calle, estado de salud, situación económica, redes, cómo fue el diálogo y qué se ofreció/respondió.</div>
+          <div class="hint">Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden:<br>1) Motivo de la situación de calle<br>2) Estado de salud (con diagnóstico si tiene) y medicación<br>3) Cómo se sostiene económicamente (trabaja o no, de qué)<br>4) Si tiene redes familiares o sociales<br>5) Cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.)<br>6) Qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió</div>
           <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
         </div>
         <div class="modal-foot">
