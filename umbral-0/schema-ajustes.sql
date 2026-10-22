@@ -1366,6 +1366,55 @@ $$;
 revoke all on function public.casos_seguimiento_zona() from public;
 grant execute on function public.casos_seguimiento_zona() to authenticated;
 
+-- "Direcciones priorizadas" (22/10/2026, pedido de Agustina): gobierno le
+-- manda cada semana, por comuna, un top de direcciones con mayor
+-- concentración de personas en situación de calle ("puntos de dolor"), con
+-- una tendencia (nuevo/empeora/mejora/igual) respecto de la semana
+-- anterior — mismo patrón que la planilla de Flash: Agustina lo recibe
+-- como captura/planilla y lo carga a mano en admin-duplas.html. Se muestra
+-- a TODAS las duplas (no hay mapeo comuna→zona/dupla en la plataforma
+-- todavía), como referencia de dónde priorizar el recorrido esa semana.
+--
+-- Cargar una comuna de nuevo REEMPLAZA su lista anterior entera (no se
+-- acumula historial) — ver guardarDireccionesPriorizadas() en
+-- admin-duplas.html: borra las filas viejas de esa comuna e inserta las
+-- nuevas en la misma operación. Ya corrido en producción.
+create table public.direcciones_priorizadas (
+  id uuid primary key default gen_random_uuid(),
+  comuna text not null,
+  ranking smallint not null check (ranking between 1 and 10),
+  direccion text not null,
+  tendencia text not null check (tendencia in ('nuevo','empeora','mejora','igual')),
+  -- Nota general de la comuna en esa actualización (ej. "El punto 3 se
+  -- ubicó en la mitad de la cuadra. Direcciones ubicadas con Georef.") —
+  -- se repite en cada fila de la misma comuna/actualización a propósito
+  -- (dataset chico, mantenido a mano por un admin) para no sumar otra
+  -- tabla solo por esto.
+  nota_comuna text,
+  actualizado_en timestamptz not null default now(),
+  creado_por uuid references public.perfiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.direcciones_priorizadas enable row level security;
+
+-- Visible para cualquier perfil con rol asignado (duplas incluidas) —
+-- pedido explícito de Agustina: "todas las duplas, todas las comunas".
+create policy direcciones_priorizadas_select on public.direcciones_priorizadas
+  for select using (mi_rol() = any (array['admin','coordinacion','cliente','dupla']));
+
+-- Solo admin/coordinación cargan esto (mismo criterio que reportes_semanales).
+create policy direcciones_priorizadas_insert on public.direcciones_priorizadas
+  for insert with check (mi_rol() = any (array['admin','coordinacion']));
+
+create policy direcciones_priorizadas_update on public.direcciones_priorizadas
+  for update using (mi_rol() = any (array['admin','coordinacion']));
+
+create policy direcciones_priorizadas_delete on public.direcciones_priorizadas
+  for delete using (mi_rol() = any (array['admin','coordinacion']));
+
+create index direcciones_priorizadas_comuna_idx on public.direcciones_priorizadas (comuna, ranking);
+
 -- tomar_caso_pase_turno() se actualizó el mismo día: ya no exige que el
 -- caso sea de hoy, solo que sea de mi misma zona, activo, y no mío.
 create or replace function public.tomar_caso_pase_turno(p_persona_id uuid)

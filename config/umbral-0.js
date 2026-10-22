@@ -191,6 +191,18 @@ const TIPO_INTERVENCION_LABELS = {
   seguimiento: 'Seguimiento en territorio',
 };
 
+// "Direcciones priorizadas" (22/10/2026) — tendencia de cada dirección en
+// la planilla semanal de gobierno (tabla direcciones_priorizadas, ver
+// schema-ajustes.sql). Mismo diccionario usado por admin-duplas.html (para
+// cargarlas) y casos.html (para mostrárselas a las duplas), así los dos
+// quedan sincronizados si se agrega/cambia una tendencia.
+const TENDENCIA_DIRECCION = {
+  nuevo:   { label:'Nuevo',   color:'#1a56db' },
+  empeora: { label:'Empeora', color:'#ef4444' },
+  mejora:  { label:'Mejora',  color:'#10b981' },
+  igual:   { label:'Igual',   color:'#64748b' },
+};
+
 // Puente KoBo → plataforma (sept/2026, pedido de Agustina): al validar un
 // envío, la casilla "¿Qué hiciste con este caso?" arrancaba siempre en
 // blanco aunque KoBo ya había preguntado algo muy parecido
@@ -536,6 +548,7 @@ window.PROJECT_CONFIG_UMBRAL_0.tipoIntervencionLabels = TIPO_INTERVENCION_LABELS
 // _mostrarSiguientePasoValidacion), ver los mapeos arriba.
 window.PROJECT_CONFIG_UMBRAL_0.koboTerminoAAccion = KOBO_TERMINO_A_ACCION;
 window.PROJECT_CONFIG_UMBRAL_0.accionATipoDerivacion = ACCION_A_TIPO_DERIVACION;
+window.PROJECT_CONFIG_UMBRAL_0.tendenciaDireccion = TENDENCIA_DIRECCION;
 
 // Zonas operativas — ESQUEMA HISTÓRICO (vigente 5/10/2026 al 11/10/2026,
 // polígonos P1-P4). Reemplazado el 12/10/2026 por ZONAS_OPERATIVAS_UMBRAL_0

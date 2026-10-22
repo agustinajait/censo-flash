@@ -416,6 +416,15 @@
        todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
   <div id="kobo-pend-box" style="display:none;"></div>
 
+  <!-- DIRECCIONES PRIORIZADAS (22/10/2026, pedido de Agustina) — top de
+       direcciones por comuna que manda gobierno cada semana ("puntos de
+       dolor"), con la tendencia respecto de la semana anterior. Se carga a
+       mano desde admin-duplas.html (tabla direcciones_priorizadas) y se le
+       muestra a TODAS las duplas acá, sin filtrar por zona/comuna (no hay
+       ese mapeo en la plataforma todavía) — pedido explícito: "todas las
+       duplas, todas las comunas". Ver cargarDireccionesPriorizadas(). -->
+  <div id="direcciones-priorizadas-box" style="display:none;"></div>
+
   <!-- Diagnóstico de KoBo (1/10/2026, pedido de Agustina: la Dupla E decía
        haber cargado casos HOY que no aparecían en ningún lado de esta
        pantalla, ni siquiera en "sin identificar" — a diferencia de envíos
@@ -558,7 +567,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-12"></script>
+<script src="../config/umbral-0.js?v=2026-10-22"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
@@ -1127,6 +1136,7 @@ async function entrarAlApp(){
   mostrarJornada();
   cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
   cargarCasosPaseTurno(); // no se espera, mismo motivo
+  cargarDireccionesPriorizadas(); // no se espera, mismo motivo
   revisarDuplicadosCasos(); // no se espera, mismo motivo
   cargarDniPendientesCount(); // no se espera, mismo motivo — solo actualiza el contador del botón
   cargarSinIdentificarCount(); // no se espera, mismo motivo
@@ -2753,6 +2763,70 @@ async function tomarCasoPaseTurno(personaId, idx){
   }
 }
 
+// ── DIRECCIONES PRIORIZADAS (22/10/2026) ─────────────────────────────────
+// Top de direcciones por comuna que manda gobierno cada semana, con la
+// tendencia respecto de la semana anterior — Agustina lo carga a mano en
+// admin-duplas.html (tabla direcciones_priorizadas, ver schema-ajustes.sql).
+// Se muestra a TODAS las duplas, sin filtrar por zona (pedido explícito:
+// "todas las duplas, todas las comunas" — no hay mapeo comuna→zona hoy).
+let direccionesPriorizadasActuales = {}; // comuna -> { filas:[...], nota_comuna, actualizado_en }
+async function cargarDireccionesPriorizadas(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('direcciones_priorizadas')
+      .select('*').order('comuna').order('ranking');
+    if(error) throw error;
+    direccionesPriorizadasActuales = {};
+    (data || []).forEach(f => {
+      if(!direccionesPriorizadasActuales[f.comuna]) direccionesPriorizadasActuales[f.comuna] = { filas: [], nota_comuna: f.nota_comuna, actualizado_en: f.actualizado_en };
+      direccionesPriorizadasActuales[f.comuna].filas.push(f);
+    });
+  }catch(e){
+    console.error('No se pudieron cargar las direcciones priorizadas', e);
+    direccionesPriorizadasActuales = {};
+  }
+  mostrarDireccionesPriorizadas();
+}
+// Colapsado detrás de un <details> por defecto, mismo criterio que
+// "Casos en seguimiento en tu zona" (mostrarCasosPaseTurno) — es
+// información de referencia, no algo que tape la pantalla de inicio.
+function mostrarDireccionesPriorizadas(){
+  const box = document.getElementById('direcciones-priorizadas-box');
+  const comunas = Object.keys(direccionesPriorizadasActuales).sort();
+  if(!comunas.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const tendencias = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.tendenciaDireccion) || {};
+  const totalDirecciones = comunas.reduce((n, c) => n + direccionesPriorizadasActuales[c].filas.length, 0);
+  const bloques = comunas.map(comuna => {
+    const c = direccionesPriorizadasActuales[comuna];
+    const filas = c.filas.map(f => {
+      const t = tendencias[f.tendencia] || { label: f.tendencia, color:'#64748b' };
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;font-size:0.84rem;">
+          <span>${f.ranking}. ${esc(f.direccion)}</span>
+          <span class="badge" style="background:${esc(t.color)};color:white;flex:none;">${esc(t.label)}</span>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
+        <div style="font-family:'Sora',sans-serif;font-weight:700;color:#1e293b;">${esc(comuna)}</div>
+        ${filas}
+        ${c.nota_comuna ? `<div class="meta" style="margin-top:4px;">${esc(c.nota_comuna)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="kobo-pend">
+      <details class="form-section">
+        <summary>📍 Direcciones priorizadas (${totalDirecciones})</summary>
+        <div class="section-hint" style="margin:8px 0 8px;">Top de direcciones por comuna que manda gobierno cada semana — referencia de dónde priorizar el recorrido.</div>
+        ${bloques}
+      </details>
+    </div>
+  `;
+}
+
 // Simplificado (15/10/2026, pedido de Agustina: "simplifica las
 // pantallas... eso confunde mucho a las duplas") — antes esto apilaba
 // hasta 4 cajas con su propio título grande cada una (altas, posibles
@@ -3204,6 +3278,7 @@ const Casos = {
     mostrarJornada();
     mostrarKoboPendientes();
     mostrarCasosPaseTurno();
+    mostrarDireccionesPriorizadas();
     renderAccionesPendientes();
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
@@ -3226,6 +3301,7 @@ const Casos = {
     document.getElementById('pase-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('duplicados-casos-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
@@ -3240,6 +3316,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3259,6 +3336,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3287,6 +3365,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3366,6 +3445,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -4313,6 +4393,7 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
