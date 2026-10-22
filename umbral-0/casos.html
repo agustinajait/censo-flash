@@ -4766,14 +4766,19 @@ const Casos = {
     // celular. Si ya está validado, se respeta lo que la dupla eligió la
     // vez anterior (no se vuelve a pre-tildar encima).
     let preTildadoDeKobo = false;
+    const koboItem = koboEventosActuales.find(p => koboSubmissionId(p) === subId);
     if(!validacionActual){
-      const koboItem = koboEventosActuales.find(p => koboSubmissionId(p) === subId);
       const mapeo = window.PROJECT_CONFIG.koboTerminoAAccion || {};
       (koboItem && koboItem.terminoIntervencionDiaria || []).forEach(codigo => {
         const accion = mapeo[codigo];
         if(accion){ accionesActuales.add(accion); preTildadoDeKobo = true; }
       });
     }
+    // tipo_intervencion ('primer_acercamiento'/'seguimiento'/'recontacto')
+    // decide cuál guía de "Devolución" mostrar (ver _guiaDevolucionHtml) —
+    // pedido de Agustina (22/10/2026): "diferencias cuando es un caso de
+    // seguimiento?".
+    const esPrimerContactoKobo = koboItem && koboItem.tipo === 'primer_acercamiento';
     const body = `
       <form id="form-validar-kobo" onsubmit="return false;">
         <div class="form-field">
@@ -4787,7 +4792,7 @@ const Casos = {
         </div>
         <div class="form-field">
           <label>Nota (opcional)</label>
-          <div class="hint">Esta nota se comparte como "Devolución" por WhatsApp. Si KoBo ya cubrió algo de esto, no hace falta repetirlo — completá lo que falte, en este orden:<br>1) Motivo de la situación de calle<br>2) Estado de salud (con diagnóstico si tiene) y medicación<br>3) Cómo se sostiene económicamente (trabaja o no, de qué)<br>4) Si tiene redes familiares o sociales<br>5) Cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.)<br>6) Qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió</div>
+          <div class="hint">${Casos._guiaDevolucionHtml(esPrimerContactoKobo)}</div>
           <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
         </div>
         <div class="modal-foot">
@@ -4890,7 +4895,7 @@ const Casos = {
       <form id="form-intervencion" onsubmit="return false;">
         <div class="form-field">
           <label>Tipo</label>
-          <select id="f_tipo_interv" data-f="tipo">
+          <select id="f_tipo_interv" data-f="tipo" onchange="Casos._actualizarGuiaDevolucionInterv(this.value)">
             <option value="seguimiento">Seguimiento en territorio</option>
             <option value="contacto_espontaneo">Primer contacto</option>
           </select>
@@ -4910,7 +4915,7 @@ const Casos = {
         </div>
         <div class="form-field">
           <label>Descripción</label>
-          <div class="hint">Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden:<br>1) Motivo de la situación de calle<br>2) Estado de salud (con diagnóstico si tiene) y medicación<br>3) Cómo se sostiene económicamente (trabaja o no, de qué)<br>4) Si tiene redes familiares o sociales<br>5) Cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.)<br>6) Qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió</div>
+          <div class="hint" id="hint-desc-interv">${Casos._guiaDevolucionHtml(false)}</div>
           <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
         </div>
         <div class="modal-foot">
@@ -4921,6 +4926,11 @@ const Casos = {
     `;
     openModal('➕ Registrar intervención', body);
     document.getElementById('btn-guardar-interv').onclick = Casos.guardarIntervencion;
+  },
+
+  _actualizarGuiaDevolucionInterv(tipo){
+    const el = document.getElementById('hint-desc-interv');
+    if(el) el.innerHTML = Casos._guiaDevolucionHtml(tipo === 'contacto_espontaneo');
   },
 
   async guardarIntervencion(){
@@ -4958,6 +4968,28 @@ const Casos = {
   // con esa persona, no recién al cierre de la jornada. Mismo patrón: abre
   // WhatsApp con el texto ya armado, la dupla elige el chat y lo manda
   // ella misma — no es un envío automático ni queda registrado en el caso.
+  // Guía de "Devolución" (22/10/2026, pedido de Agustina: "diferencias
+  // cuando es un caso de seguimiento?") — un primer contacto necesita
+  // contar todo (motivo, salud, economía, redes, diálogo, oferta); un
+  // seguimiento ya tiene casi todo eso cargado de antes, así que pedirle
+  // lo mismo hace que la dupla repita o invente relleno. Ahí gobierno
+  // quiere la NOVEDAD: si la encontraron esta vez o no, y qué cambió.
+  _guiaDevolucionHtml(esPrimerContacto){
+    if(esPrimerContacto){
+      return 'Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden:<br>'
+        + '1) Motivo de la situación de calle<br>'
+        + '2) Estado de salud (con diagnóstico si tiene) y medicación<br>'
+        + '3) Cómo se sostiene económicamente (trabaja o no, de qué)<br>'
+        + '4) Si tiene redes familiares o sociales<br>'
+        + '5) Cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.)<br>'
+        + '6) Qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió';
+    }
+    return 'Esto se comparte como "Devolución" por WhatsApp. Es un seguimiento — no repitas lo que ya se sabe de la persona, contá solo la novedad, en este orden:<br>'
+      + '1) Si la encontraron esta vez o no (si no, qué hicieron para buscarla y cuándo reintentan)<br>'
+      + '2) Si la encontraron: algún cambio en su salud o situación desde el último contacto<br>'
+      + '3) Cómo fue el diálogo esta vez<br>'
+      + '4) Qué se le ofreció/acordó y qué respondió';
+  },
   // Arma el texto del mensaje con los campos estructurados que pide
   // gobierno en sus planillas de "Devolución" (Fecha, Dupla interviniente,
   // Ubicación, Nombre y Apellido, DNI, Fecha de nacimiento, Edad — ver
