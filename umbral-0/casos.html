@@ -343,6 +343,15 @@
            limpia el buscador y lista los propios casos (RLS scopea
            `personas_actividad` a la dupla). -->
       <a href="#" id="link-mis-casos" class="btn btn-ghost" style="display:none;background:#dbeafe;color:#1e3a8a;border-color:#93c5fd;" onclick="event.preventDefault(); Casos.mostrarMisCasos();">📋 Mis casos</a>
+      <!-- Recursero (23/10/2026, pedido de Agustina: "ubica el recursero
+           como botón al lado de mis casos") — antes era un cuadro
+           colapsado más en la pantalla de inicio (mismo patrón que
+           Direcciones priorizadas); se saca de ahí y pasa a ser una
+           pantalla propia con acceso directo desde la barra superior,
+           visible para cualquier cuenta logueada (no solo duplas, a
+           diferencia de "Mis casos" — admin/coordinación también lo usan
+           como referencia). Ver Casos.mostrarRecursero(). -->
+      <a href="#" id="link-recursero" class="btn btn-ghost" style="display:none;background:#ede9fe;color:#5b21b6;border-color:#ddd6fe;" onclick="event.preventDefault(); Casos.mostrarRecursero();">🧰 Recursero</a>
       <!-- Trámites de DNI pendientes (21/9/2026, pedido de Agustina: "una
            pestaña o botón de color para que los operadores entren a
            revisar y hagan el seguimiento" — de las derivaciones "Hacer
@@ -424,12 +433,6 @@
        ese mapeo en la plataforma todavía) — pedido explícito: "todas las
        duplas, todas las comunas". Ver cargarDireccionesPriorizadas(). -->
   <div id="direcciones-priorizadas-box" style="display:none;"></div>
-
-  <!-- RECURSERO (23/10/2026, pedido de Agustina) — lugares donde
-       recomendarle a una persona bañarse, desayunar, cortarse el pelo,
-       etc. Cargado a mano en admin-duplas.html (tabla `recursos`). Ver
-       cargarRecursos(). -->
-  <div id="recursero-box" style="display:none;"></div>
 
   <!-- Diagnóstico de KoBo (1/10/2026, pedido de Agustina: la Dupla E decía
        haber cargado casos HOY que no aparecían en ningún lado de esta
@@ -530,6 +533,17 @@
       <div class="section-label">🙈 Casos sin identificar</div>
       <div class="section-hint">Casos ya cargados sin nombre ni DNI — entrá para completar lo que se pueda (características, punto de contacto) o para hacerles seguimiento.</div>
       <div id="sin-identificar-list"></div>
+    </div>
+
+    <!-- VISTA: RECURSERO (23/10/2026) — dónde recomendarle a una persona
+         bañarse, desayunar, cortarse el pelo, etc. Cargado a mano en
+         admin-duplas.html (tabla `recursos`). Ver Casos.mostrarRecursero(). -->
+    <div id="view-recursero" style="display:none;">
+      <button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="Casos.volverABuscar()">← Volver a la búsqueda</button>
+      <div class="section-label">🧰 Recursero</div>
+      <div class="section-hint">Dónde recomendarle a una persona bañarse, comer, cortarse el pelo, etc. — agrupado por tipo de recurso.</div>
+      <input type="text" id="buscar-recursero-input" placeholder="Buscar por lugar, dirección o tipo de recurso…" oninput="Casos._renderRecursero()" style="margin-bottom:14px;width:100%;">
+      <div id="recursero-list"></div>
     </div>
 
     <!-- VISTA: MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) — dos pestañas,
@@ -1124,6 +1138,7 @@ async function entrarAlApp(){
   document.getElementById('link-dashboard').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-mis-casos').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
+  document.getElementById('link-recursero').style.display = 'inline-flex';
   document.getElementById('link-dni-pendientes').style.display = 'inline-flex';
   document.getElementById('link-sin-identificar').style.display = 'inline-flex';
   document.getElementById('link-mi-actividad').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
@@ -2840,6 +2855,10 @@ function mostrarDireccionesPriorizadas(){
 // ver schema-ajustes.sql). Agrupado por CATEGORÍA acá (al revés que en el
 // admin, que agrupa por lugar) porque así es como una dupla lo busca:
 // "necesito dónde bañarse", no "qué ofrece tal lugar".
+// Empezó como un cuadro colapsado en la pantalla de inicio (mismo patrón
+// que Direcciones priorizadas) y pasó a ser pantalla propia (23/10/2026,
+// pedido de Agustina: "ubica el recursero como botón al lado de mis
+// casos") — visible para cualquier cuenta logueada, no solo duplas.
 let recurseroActual = []; // filas crudas de `recursos`, una por (lugar, categoría)
 async function cargarRecursero(){
   try{
@@ -2851,42 +2870,9 @@ async function cargarRecursero(){
     console.error('No se pudo cargar el recursero', e);
     recurseroActual = [];
   }
-  mostrarRecursero();
-}
-function mostrarRecursero(){
-  const box = document.getElementById('recursero-box');
-  if(!recurseroActual.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
-  const porCategoria = {};
-  recurseroActual.forEach(f => {
-    if(!porCategoria[f.categoria]) porCategoria[f.categoria] = [];
-    porCategoria[f.categoria].push(f);
-  });
-  const categorias = Object.keys(porCategoria).sort();
-  const bloques = categorias.map(cat => {
-    const lugares = porCategoria[cat].map(f => `
-      <div style="padding:6px 0;border-top:1px solid var(--border);font-size:0.84rem;">
-        <b>${esc(f.lugar)}</b>
-        <div class="meta">${esc(f.direccion || 'Sin dirección cargada')}${f.horario ? ' · ' + esc(f.horario) : ' · horario sin cargar'}</div>
-        ${f.nota ? `<div class="meta">${esc(f.nota)}</div>` : ''}
-      </div>
-    `).join('');
-    return `
-      <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
-        <div style="font-family:'Sora',sans-serif;font-weight:700;color:#1e293b;">${esc(cat)}</div>
-        ${lugares}
-      </div>
-    `;
-  }).join('');
-  box.style.display = 'block';
-  box.innerHTML = `
-    <div class="kobo-pend">
-      <details class="form-section">
-        <summary>🧰 Recursero (${recurseroActual.length})</summary>
-        <div class="section-hint" style="margin:8px 0 8px;">Dónde recomendarle a una persona bañarse, desayunar, cortarse el pelo, etc. — agrupado por tipo de recurso.</div>
-        ${bloques}
-      </details>
-    </div>
-  `;
+  const link = document.getElementById('link-recursero');
+  if(link) link.textContent = `🧰 Recursero${recurseroActual.length ? ' (' + recurseroActual.length + ')' : ''}`;
+  if(document.getElementById('view-recursero').style.display !== 'none') Casos._renderRecursero();
 }
 
 // Simplificado (15/10/2026, pedido de Agustina: "simplifica las
@@ -3328,6 +3314,7 @@ const Casos = {
     document.getElementById('view-sin-identificar').style.display = 'none';
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-cierres-jornada').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
     // Los widgets de "home" (turno, jornada, KoBo pendientes, seguimiento
     // de zona, acciones pendientes) se ocultan al entrar a cualquier otra
@@ -3341,7 +3328,6 @@ const Casos = {
     mostrarKoboPendientes();
     mostrarCasosPaseTurno();
     mostrarDireccionesPriorizadas();
-    mostrarRecursero();
     renderAccionesPendientes();
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
@@ -3365,7 +3351,7 @@ const Casos = {
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('duplicados-casos-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
-    document.getElementById('recursero-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
@@ -3381,7 +3367,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
-    document.getElementById('recursero-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3402,7 +3388,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
-    document.getElementById('recursero-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3423,6 +3409,66 @@ const Casos = {
     sinIdentificarActuales.forEach(p => box.appendChild(Casos.renderPersonaCard(p)));
   },
 
+  // ── RECURSERO (23/10/2026) ───────────────────────────────────────────────
+  // Ver recurseroActual/cargarRecursero() más arriba (fuera de este
+  // namespace, junto al resto de los widgets de inicio que ya existían
+  // antes de este). Visible para cualquier cuenta logueada, no solo
+  // duplas — a diferencia de "Mis casos", acá no hay nada propio de una
+  // dupla en particular.
+  mostrarRecursero(){
+    document.getElementById('jornada-box').style.display = 'none';
+    document.getElementById('mi-turno-box').style.display = 'none';
+    document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('acciones-box').style.display = 'none';
+    document.getElementById('view-buscar').style.display = 'none';
+    document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-sin-identificar').style.display = 'none';
+    document.getElementById('view-mi-actividad').style.display = 'none';
+    document.getElementById('view-cierres-jornada').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'block';
+    document.getElementById('buscar-recursero-input').value = '';
+    Casos._renderRecursero();
+  },
+
+  // Agrupa por CATEGORÍA (no por lugar, ver comentario de cargarRecursero())
+  // y filtra en memoria por lo tipeado en el buscador — mismo criterio
+  // simple que filtrarCasosPaseTurno() (ya son pocas filas, no hace falta
+  // volver a pedirle nada al servidor).
+  _renderRecursero(){
+    const box = document.getElementById('recursero-list');
+    const normalizar = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const q = normalizar((document.getElementById('buscar-recursero-input')||{}).value || '');
+    const filas = q
+      ? recurseroActual.filter(f => normalizar(`${f.categoria} ${f.lugar} ${f.direccion||''} ${f.nota||''}`).includes(q))
+      : recurseroActual;
+    if(!filas.length){
+      box.innerHTML = `<div class="empty-msg">${q ? 'Ningún recurso coincide con la búsqueda.' : 'Todavía no hay recursos cargados.'}</div>`;
+      return;
+    }
+    const porCategoria = {};
+    filas.forEach(f => {
+      if(!porCategoria[f.categoria]) porCategoria[f.categoria] = [];
+      porCategoria[f.categoria].push(f);
+    });
+    box.innerHTML = Object.keys(porCategoria).sort().map(cat => {
+      const lugares = porCategoria[cat].map(f => `
+        <div style="padding:6px 0;border-top:1px solid var(--border);font-size:0.84rem;">
+          <b>${esc(f.lugar)}</b>
+          <div class="meta">${esc(f.direccion || 'Sin dirección cargada')}${f.horario ? ' · ' + esc(f.horario) : ' · horario sin cargar'}</div>
+          ${f.nota ? `<div class="meta">${esc(f.nota)}</div>` : ''}
+        </div>
+      `).join('');
+      return `
+        <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
+          <div style="font-family:'Sora',sans-serif;font-weight:700;color:#1e293b;">${esc(cat)}</div>
+          ${lugares}
+        </div>
+      `;
+    }).join('');
+  },
+
   // ── MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) ──────────────────────────
   // RLS ya scopea derivaciones/seguimientos a la propia dupla (mismo
   // criterio que §10.1.22/§10.1.23) — no hace falta filtrar por dupla_id
@@ -3432,7 +3478,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
-    document.getElementById('recursero-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3513,7 +3559,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
-    document.getElementById('recursero-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -4462,7 +4508,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
-    document.getElementById('recursero-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
