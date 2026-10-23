@@ -674,7 +674,14 @@ const CAMPOS_PERSONA_CASO = [
   // le interesaría participar de algún curso socioproductivo, de
   // orientación laboral, oficios, etc") — se pregunta en el alta (acá) y
   // se suma al mensaje de WhatsApp en _armarMensajeCasoWhatsapp().
-  { key:'interes_curso_laboral', label:'¿Le interesaría un curso socioproductivo/orientación laboral/oficios?', type:'checkbox', checkLabel:'Sí, le interesaría participar' },
+  // checkLabel autocontenido (23/10/2026, fix tras sacar capturas reales
+  // para el instructivo): renderCampo() para type:'checkbox' SOLO
+  // muestra `checkLabel` al lado del tilde — nunca `label` por separado
+  // (mismo criterio que acepta_entrevista/consumo_activo, arriba). Con
+  // "Sí, le interesaría participar" sola, sin la pregunta al lado, no se
+  // entendía de qué — Agustina: "no veo la pregunta del taller socio
+  // productivo tampoco".
+  { key:'interes_curso_laboral', label:'¿Le interesaría un curso socioproductivo/orientación laboral/oficios?', type:'checkbox', checkLabel:'Le interesaría participar de un curso socioproductivo/orientación laboral/oficios' },
   // hint (22/10/2026, pedido de Agustina a partir de la planilla de
   // "Devoluciones" que le pasa gobierno de ejemplo): ese texto se usa tal
   // cual como párrafo de "Devolución" en el mensaje de WhatsApp del caso
