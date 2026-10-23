@@ -4416,20 +4416,36 @@ const Casos = {
       // porque cada duplicado tiene un persona_id distinto. Refrescar acá
       // saca el envío ya confirmado de la lista en memoria.
       if(eraKoboSinIdentificar) cargarKoboPendientes(); // no se espera, mismo motivo
-      // Antes (15/10/2026) esto solo se ofrecía en un alta nueva — "en una
-      // edición de un caso ya existente no hay nada nuevo que compartir".
-      // Dejó de ser cierto (23/10/2026, reportado por Agustina: "no veo
-      // el compartir el caso por whatsapp, lo probé con un caso viejo")
-      // desde que "Editar" también es donde se completa/actualiza la
-      // Historia breve (con guía + "✨ Completar con IA") y se contesta la
-      // pregunta de interés en curso laboral — ambas pensadas para viajar
-      // al mensaje de Devolución. Se ofrece siempre, alta o edición.
-      Casos._ofrecerCompartirCasoWhatsapp(
-        persona,
-        personaExistente ? 'Actualización de datos' : 'Primer contacto',
-        campos.historia_breve || '',
-        accionesAltaParaCompartir
-      );
+      // Antes (15/10/2026) esto solo se ofrecía en un alta nueva. Pasó a
+      // ofrecerse también al editar (23/10/2026, "no veo el compartir el
+      // caso por whatsapp, lo probé con un caso viejo") porque "Editar" es
+      // donde se completa la Historia breve y se contesta el interés en
+      // curso laboral. Pero ESO rompió otra cosa (24/10/2026, reportado:
+      // "armó un mensaje de devolución... y después cuando compartió le
+      // salió la devolución del día anterior") — "Historia breve" viene
+      // PRE-CARGADA con lo que ya estaba guardado de una visita anterior
+      // (ver v.historia_breve en _renderFormPersona). Si la dupla editaba
+      // solo otro campo (el teléfono, el checkbox nuevo) sin tocar esa
+      // historia, el botón ofrecía compartir igual, y lo que salía era
+      // literalmente el texto viejo con la fecha de HOY — la dupla lo
+      // mandaba pensando que era la devolución de la visita de hoy.
+      // Ahora solo se ofrece compartir en una edición si la Historia breve
+      // o la respuesta de interés en curso laboral cambiaron de verdad —
+      // es decir, si hay algo nuevo para esa Devolución.
+      const huboCambioDevolucion = !personaExistente
+        || String(campos.historia_breve || '').trim() !== String(personaExistente.historia_breve || '').trim()
+        || !!campos.interes_curso_laboral !== !!personaExistente.interes_curso_laboral;
+      if(huboCambioDevolucion){
+        Casos._ofrecerCompartirCasoWhatsapp(
+          persona,
+          personaExistente ? 'Actualización de datos' : 'Primer contacto',
+          campos.historia_breve || '',
+          accionesAltaParaCompartir
+        );
+      }else{
+        closeModal();
+        await Casos.abrirFicha(persona.id);
+      }
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
