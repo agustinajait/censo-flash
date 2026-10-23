@@ -599,6 +599,24 @@
 
 const ROLES_PERMITIDOS = ['admin', 'coordinacion', 'dupla'];
 
+// "✨ Completar con IA" DESACTIVADO (24/10/2026, pedido de Agustina) —
+// reportado por una dupla: armó la Devolución, compartió por WhatsApp, y
+// lo que mandó era el informe anterior — lo que había escrito hoy no se
+// guardó. Agustina señaló puntualmente esta implementación como la
+// causa ("te estoy hablando de la implementación que hiciste para
+// corregir o mejorar el texto con IA") y pidió desactivarla hasta
+// encontrar la causa exacta ("si no lo puedes resolver, desactivalo
+// porque estamos perdiendo casos"). No se identificó con certeza el
+// mecanismo (no se pudo reproducir en este sandbox, sin acceso al sitio
+// en vivo), así que se apaga el botón en los 3 lugares donde aparece
+// (Historia breve del alta, Descripción de intervención, Nota de
+// validación de KoBo) en vez de arriesgar otro envío con datos
+// incorrectos. El código queda entero (serverless function incluida) —
+// para reactivarlo, esta constante vuelve a `true`. El corrector de
+// redacción más viejo ("✨ Corregir redacción", corregir-texto.js) NO se
+// tocó: es una función distinta, ya probada, y no es la que señaló.
+const COMPLETAR_IA_HABILITADO = false;
+
 let miPerfil = null;
 let duplasMap = {}; // id -> codigo, para mostrar quién cargó cada evento
 let duplasPorId = {}; // id -> fila completa de `duplas` (turno/zona/mapa/detalle), para "Mi turno de hoy"
@@ -3315,7 +3333,7 @@ function renderCampo(campo, valor){
     // historia_breve por ahora (el campo que alimenta la Devolución del
     // alta); Descripción/Nota de intervención y validación de KoBo tienen
     // su propio botón hardcodeado, no pasan por renderCampo().
-    const completarBtn = campo.completable
+    const completarBtn = (campo.completable && COMPLETAR_IA_HABILITADO)
       ? `<button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('${id}', this)">✨ Completar con IA</button>`
       : '';
     return `<div class="form-field">${label}${hint}<textarea id="${id}" data-f="${campo.key}">${esc(valor||'')}</textarea>${corregirBtn}${completarBtn}</div>`;
@@ -4873,6 +4891,7 @@ const Casos = {
   // el texto del campo con lo que devuelve la IA — la dupla puede seguir
   // editando a mano después, o volver a tocar el botón si agrega algo más.
   async completarDevolucionIA(fieldId, btnEl){
+    if(!COMPLETAR_IA_HABILITADO) return; // desactivado — ver comentario junto a COMPLETAR_IA_HABILITADO
     const ta = document.getElementById(fieldId);
     const original = ta.value.trim();
     if(!original){ alert('Escribí algo primero (aunque sea breve) — la IA completa a partir de eso, no inventa desde cero.'); return; }
@@ -5081,7 +5100,7 @@ const Casos = {
           <label>Nota (opcional)</label>
           <div class="hint">${Casos._guiaDevolucionHtml(esPrimerContactoKobo)}</div>
           <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
-          <button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('f_nota_validacion_kobo', this)">✨ Completar con IA</button>
+          ${COMPLETAR_IA_HABILITADO ? `<button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('f_nota_validacion_kobo', this)">✨ Completar con IA</button>` : ''}
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -5205,7 +5224,7 @@ const Casos = {
           <label>Descripción</label>
           <div class="hint" id="hint-desc-interv">${Casos._guiaDevolucionHtml(false)}</div>
           <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
-          <button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('f_desc_interv', this)">✨ Completar con IA</button>
+          ${COMPLETAR_IA_HABILITADO ? `<button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('f_desc_interv', this)">✨ Completar con IA</button>` : ''}
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-blue" id="btn-guardar-interv">💾 Guardar</button>
