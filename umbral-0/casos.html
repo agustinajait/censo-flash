@@ -681,7 +681,12 @@ const CAMPOS_PERSONA_CASO = [
   // (ver _armarMensajeCasoWhatsapp) — no se genera solo, así que se le dice
   // a la dupla exactamente qué poner, en el mismo orden que los ejemplos
   // de gobierno, en vez de una guía corta/genérica ("contá bien").
-  { key:'historia_breve', label:'Historia breve', type:'textarea', hint:'Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden: 1) motivo de la situación de calle; 2) estado de salud (con diagnóstico si tiene) y medicación; 3) cómo se sostiene económicamente (trabaja o no, de qué); 4) si tiene redes familiares o sociales; 5) cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.); 6) qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió.' },
+  // completable (23/10/2026): además de la guía, un botón de IA que toma
+  // lo que la dupla ya escribió (aunque sea breve/desordenado) y lo
+  // reescribe como párrafo siguiendo esa misma estructura — ver
+  // Casos.completarDevolucionIA(). No reemplaza escribir: sigue haciendo
+  // falta algo de texto para completar sobre eso.
+  { key:'historia_breve', label:'Historia breve', type:'textarea', completable:true, hint:'Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden: 1) motivo de la situación de calle; 2) estado de salud (con diagnóstico si tiene) y medicación; 3) cómo se sostiene económicamente (trabaja o no, de qué); 4) si tiene redes familiares o sociales; 5) cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.); 6) qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió.' },
 ];
 // Salud y antecedentes — sección opcional, precarga el formulario de CIS
 // (§5.1) cuando ya está cargada acá.
@@ -3216,6 +3221,27 @@ async function pedirCorreccionIA(texto){
   return data.texto_corregido;
 }
 
+// "Completar con IA" (23/10/2026, pedido de Agustina: "ya que la
+// devolucion es tan importante... podes agregar un editor de texto de IA
+// para que ellos escriban y la IA lo complete tomando la referencia de la
+// plantilla?") — a diferencia de pedirCorreccionIA() (solo corrige
+// redacción sin tocar el contenido), esto reescribe/estructura el texto
+// como un párrafo de Devolución siguiendo la planilla de gobierno (ver
+// netlify/functions/completar-devolucion.js, que tiene la regla de no
+// inventar datos). La dupla siempre escribe algo primero — esto no
+// genera un párrafo de la nada, lo completa a partir de eso.
+async function pedirCompletarDevolucionIA(texto){
+  const resp = await fetch('/.netlify/functions/completar-devolucion', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto }),
+  });
+  let data = {};
+  try{ data = await resp.json(); }catch(e){ /* respuesta no-JSON, cae al error genérico de abajo */ }
+  if(!resp.ok) throw new Error(data.error || `Error del servidor (${resp.status})`);
+  return data.texto_completado;
+}
+
 async function subirArchivo(file, carpeta){
   const client = await SupabaseClient.getClient();
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -3275,7 +3301,17 @@ function renderCampo(campo, valor){
     const corregirBtn = campo.corregible
       ? `<button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.corregirTexto('${id}', this)">✨ Corregir redacción</button>`
       : '';
-    return `<div class="form-field">${label}${hint}<textarea id="${id}" data-f="${campo.key}">${esc(valor||'')}</textarea>${corregirBtn}</div>`;
+    // `completable` (23/10/2026): a diferencia de "Corregir redacción"
+    // (arregla ortografía/gramática sin tocar el contenido), este botón
+    // reescribe el texto como un párrafo de Devolución siguiendo la
+    // plantilla de gobierno — ver pedirCompletarDevolucionIA(). Solo en
+    // historia_breve por ahora (el campo que alimenta la Devolución del
+    // alta); Descripción/Nota de intervención y validación de KoBo tienen
+    // su propio botón hardcodeado, no pasan por renderCampo().
+    const completarBtn = campo.completable
+      ? `<button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('${id}', this)">✨ Completar con IA</button>`
+      : '';
+    return `<div class="form-field">${label}${hint}<textarea id="${id}" data-f="${campo.key}">${esc(valor||'')}</textarea>${corregirBtn}${completarBtn}</div>`;
   }
   if(campo.type === 'select'){
     const opts = (typeof campo.options === 'function' ? campo.options() : campo.options) || [];
@@ -4804,6 +4840,27 @@ const Casos = {
     }
   },
 
+  // Botón "✨ Completar con IA" (23/10/2026) — reescribe lo que la dupla ya
+  // tipeó como párrafo de Devolución siguiendo la plantilla de gobierno
+  // (ver pedirCompletarDevolucionIA()/completar-devolucion.js). Reemplaza
+  // el texto del campo con lo que devuelve la IA — la dupla puede seguir
+  // editando a mano después, o volver a tocar el botón si agrega algo más.
+  async completarDevolucionIA(fieldId, btnEl){
+    const ta = document.getElementById(fieldId);
+    const original = ta.value.trim();
+    if(!original){ alert('Escribí algo primero (aunque sea breve) — la IA completa a partir de eso, no inventa desde cero.'); return; }
+    const textoOriginalBtn = btnEl.textContent;
+    btnEl.disabled = true; btnEl.textContent = '✨ Completando…';
+    try{
+      const completado = await pedirCompletarDevolucionIA(original);
+      if(completado) ta.value = completado;
+    }catch(e){
+      alert('No se pudo completar el texto: ' + e.message);
+    }finally{
+      btnEl.disabled = false; btnEl.textContent = textoOriginalBtn;
+    }
+  },
+
   _renderTimeline(){
     const cont = document.getElementById('timeline-list');
     const items = [];
@@ -4997,6 +5054,7 @@ const Casos = {
           <label>Nota (opcional)</label>
           <div class="hint">${Casos._guiaDevolucionHtml(esPrimerContactoKobo)}</div>
           <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
+          <button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('f_nota_validacion_kobo', this)">✨ Completar con IA</button>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -5120,6 +5178,7 @@ const Casos = {
           <label>Descripción</label>
           <div class="hint" id="hint-desc-interv">${Casos._guiaDevolucionHtml(false)}</div>
           <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
+          <button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('f_desc_interv', this)">✨ Completar con IA</button>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-blue" id="btn-guardar-interv">💾 Guardar</button>

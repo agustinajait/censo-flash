@@ -757,9 +757,26 @@ ortografía/gramática/claridad sin inventar datos, y reemplaza el texto del
 campo por la versión corregida. La clave de la API vive únicamente como
 variable de entorno de Netlify (`ANTHROPIC_API_KEY`), nunca en el código —
 sin esa variable configurada, el botón muestra un error claro en vez de
-fallar en silencio. Por ahora solo está en este informe; sumarlo a otros
-campos de texto libre (historia breve, resumen de intervención de CIS,
-comentarios de seguimiento) es extender la misma función, no rehacer nada.
+fallar en silencio.
+
+**"Completar con IA" para la Devolución (23/10/2026, ya construido):**
+pedido de Agustina — "ya que la devolucion es tan importante... podes
+agregar un editor de texto de IA para que ellos escriban y la IA lo
+complete tomando la referencia de la plantilla?". A diferencia de
+"Corregir redacción" (que solo mejora ortografía/gramática sin cambiar el
+contenido), este botón **reescribe/estructura** lo que la dupla ya
+escribió como un párrafo de "Devolución" siguiendo el orden de la planilla
+de gobierno (motivo de calle → salud → situación económica → redes →
+diálogo → oferta/respuesta) — misma función serverless, pero una función
+aparte (`netlify/functions/completar-devolucion.js`, mismo
+`ANTHROPIC_API_KEY`) porque el prompt es distinto y la regla de "no
+inventar datos" pesa más acá (si la dupla no mencionó alguno de los 6
+puntos, la IA lo omite en vez de rellenarlo con una frase genérica). Está
+en los 3 campos que alimentan el mensaje de WhatsApp de Devolución:
+"Historia breve" del alta (vía `completable:true` en `renderCampo()`),
+"Descripción" de Registrar intervención, y "Nota" de Validar envío de
+KoBo. Nunca genera un párrafo de la nada — la dupla tiene que escribir
+algo primero (aunque sea breve), el botón completa a partir de eso.
 
 **ASA (ex Centro de Admisión, Evaluación y Derivación) usa el mismo
 informe social** — el documento lo dice explícitamente ("con el mismo
