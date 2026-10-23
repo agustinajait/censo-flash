@@ -1499,3 +1499,13 @@ $$;
 
 revoke all on function public.tomar_caso_pase_turno(uuid) from public;
 grant execute on function public.tomar_caso_pase_turno(uuid) to authenticated;
+
+-- "¿Le interesaría un curso socioproductivo/orientación laboral/oficios?"
+-- (23/10/2026, pedido de Agustina): se pregunta en el alta del caso y se
+-- suma al mensaje de WhatsApp antes de compartir al grupo — ver
+-- CAMPOS_PERSONA_CASO/_armarMensajeCasoWhatsapp() en casos.html. Mismo
+-- patrón boolean que acepta_entrevista/consumo_activo (checkbox simple,
+-- sin tercer estado explícito para "no se le preguntó"). Ya corrido en
+-- producción. No se agrega a personas_listado_publico (vista anónima)
+-- a propósito — no hace falta exponerlo ahí.
+alter table public.personas add column interes_curso_laboral boolean;

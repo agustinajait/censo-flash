@@ -669,6 +669,12 @@ const CAMPOS_PERSONA_CASO = [
   // Indicador propio del Nivel 2 (Construcción del vínculo — ver glosario):
   // "acepta una entrevista" es uno de los pasos que marca ese nivel.
   { key:'acepta_entrevista', label:'¿Acepta entrevista?', type:'checkbox', checkLabel:'La persona acepta ser entrevistada' },
+  // (23/10/2026, pedido de Agustina: "agrega el momento del alta de caso
+  // y antes de compartir al grupo de whatsapp la pregunta si la persona
+  // le interesaría participar de algún curso socioproductivo, de
+  // orientación laboral, oficios, etc") — se pregunta en el alta (acá) y
+  // se suma al mensaje de WhatsApp en _armarMensajeCasoWhatsapp().
+  { key:'interes_curso_laboral', label:'¿Le interesaría un curso socioproductivo/orientación laboral/oficios?', type:'checkbox', checkLabel:'Sí, le interesaría participar' },
   // hint (22/10/2026, pedido de Agustina a partir de la planilla de
   // "Devoluciones" que le pasa gobierno de ejemplo): ese texto se usa tal
   // cual como párrafo de "Devolución" en el mensaje de WhatsApp del caso
@@ -4568,6 +4574,7 @@ const Casos = {
     if(p.criticidad) badges.push(`<span class="badge badge-amber">criticidad: ${esc(p.criticidad)}</span>`);
     if(p.consumo_activo) badges.push('<span class="badge badge-red">consumo activo</span>');
     if(p.acepta_entrevista) badges.push('<span class="badge badge-green">acepta entrevista</span>');
+    if(p.interes_curso_laboral) badges.push('<span class="badge badge-blue">interesado en curso laboral</span>');
     if(p.sin_identificar) badges.push('<span class="badge badge-gray">sin identificar</span>');
     badges.push(Casos.esSeguimiento() ? '<span class="badge badge-gray">seguimiento</span>' : '<span class="badge badge-gray">contacto espontáneo</span>');
     document.getElementById('ficha-badges').innerHTML = badges.join('');
@@ -5201,6 +5208,13 @@ const Casos = {
     const duplaCod = (miPerfil && duplasMap[miPerfil.dupla_id]) || 'mi dupla';
     const accionesTxt = (acciones||[]).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod).join(', ');
     const edad = calcEdad(persona.fecha_nacimiento);
+    // (23/10/2026, pedido de Agustina) — se pregunta en el alta
+    // (CAMPOS_PERSONA_CASO.interes_curso_laboral) y se suma acá antes de
+    // compartir. `null`/`undefined` (casos de antes de que existiera el
+    // campo, o el checkbox nunca llegó a guardarse) no muestra la línea —
+    // solo cuando hay una respuesta real cargada.
+    const interesCurso = persona.interes_curso_laboral === true ? 'Sí'
+      : persona.interes_curso_laboral === false ? 'No' : null;
     return [
       `📋 Umbral 0 — Devolución`,
       `Fecha: ${fmtFechaSolo(new Date().toISOString())}`,
@@ -5212,6 +5226,7 @@ const Casos = {
       `Edad: ${edad || 'Sin dato'}`,
       `Tipo: ${tipoLabel}`,
       accionesTxt ? `Acciones: ${accionesTxt}` : null,
+      interesCurso ? `¿Interesado en curso socioproductivo/laboral/oficios?: ${interesCurso}` : null,
       `Devolución: ${resumen || '(sin descripción — completar antes de compartir)'}`,
     ].filter(Boolean).join('\n');
   },
