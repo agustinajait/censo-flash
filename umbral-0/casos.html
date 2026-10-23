@@ -4409,16 +4409,20 @@ const Casos = {
       // porque cada duplicado tiene un persona_id distinto. Refrescar acá
       // saca el envío ya confirmado de la lista en memoria.
       if(eraKoboSinIdentificar) cargarKoboPendientes(); // no se espera, mismo motivo
-      // Solo se ofrece compartir por WhatsApp en un alta nueva (pedido de
-      // Agustina, 15/10/2026: "cada caso que cargan, compartirlo en un
-      // grupo de WhatsApp además del cierre del día") — en una edición de
-      // un caso ya existente no hay nada nuevo que compartir acá.
-      if(personaExistente){
-        closeModal();
-        await Casos.abrirFicha(persona.id);
-      }else{
-        Casos._ofrecerCompartirCasoWhatsapp(persona, 'Primer contacto', campos.historia_breve || '', accionesAltaParaCompartir);
-      }
+      // Antes (15/10/2026) esto solo se ofrecía en un alta nueva — "en una
+      // edición de un caso ya existente no hay nada nuevo que compartir".
+      // Dejó de ser cierto (23/10/2026, reportado por Agustina: "no veo
+      // el compartir el caso por whatsapp, lo probé con un caso viejo")
+      // desde que "Editar" también es donde se completa/actualiza la
+      // Historia breve (con guía + "✨ Completar con IA") y se contesta la
+      // pregunta de interés en curso laboral — ambas pensadas para viajar
+      // al mensaje de Devolución. Se ofrece siempre, alta o edición.
+      Casos._ofrecerCompartirCasoWhatsapp(
+        persona,
+        personaExistente ? 'Actualización de datos' : 'Primer contacto',
+        campos.historia_breve || '',
+        accionesAltaParaCompartir
+      );
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
