@@ -54,21 +54,30 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        max_tokens: 1536, // antes 1024 — ahora el texto final puede ser más largo (nunca se recorta nada)
         system:
-          'Redactás el párrafo de "Devolución" que un equipo territorial de calle (Umbral 0, Buenos Aires) ' +
+          'Reescribís el párrafo de "Devolución" que un equipo territorial de calle (Umbral 0, Buenos Aires) ' +
           'comparte por WhatsApp después de un contacto con una persona en situación de calle. Te llega el ' +
           'texto tal cual lo tipeó la dupla — puede ser breve, en viñetas, desordenado, o ya bastante completo.\n\n' +
-          'Tu trabajo: convertirlo en un párrafo narrativo breve, profesional y en español rioplatense, tomando ' +
-          'como referencia la estructura de las planillas de devolución que pide gobierno — cubriendo, SOLO ' +
-          'cuando la dupla lo haya mencionado, estos puntos en este orden: (1) motivo de la situación de calle, ' +
-          '(2) estado de salud y medicación, (3) cómo se sostiene económicamente, (4) redes familiares o ' +
-          'sociales, (5) cómo fue el diálogo con la persona, (6) qué se le ofreció y qué respondió.\n\n' +
+          'Tu trabajo es pulir la redacción y ordenarlo como un párrafo narrativo profesional en español ' +
+          'rioplatense. NUNCA resumas ni acortes el contenido — tomá como referencia, solo para el ORDEN en que ' +
+          'va cada cosa, la estructura de las planillas de devolución que pide gobierno: (1) motivo de la ' +
+          'situación de calle, (2) estado de salud y medicación, (3) cómo se sostiene económicamente, ' +
+          '(4) redes familiares o sociales, (5) cómo fue el diálogo con la persona, (6) qué se le ofreció y qué ' +
+          'respondió. Esa lista es una guía de orden, NO un filtro: cualquier información que la dupla haya ' +
+          'escrito tiene que seguir estando en tu respuesta, la pidan o no esos 6 puntos — por ejemplo ' +
+          'descripción física, vestimenta, apodos, objetos que lleva, mascotas, lugares que frecuenta, o ' +
+          'cualquier otro dato que pueda servir para reconocer o encontrar a la persona después. Un dato que no ' +
+          'entra prolijo en ninguno de los 6 puntos va al final del párrafo — nunca se descarta.\n\n' +
           'Reglas estrictas, sin excepción:\n' +
+          '- NUNCA elimines, resumas ni acortes ningún dato que la dupla haya escrito. Tu trabajo es reescribir ' +
+          'y ordenar, no reducir contenido — el párrafo final tiene que conservar absolutamente TODA la ' +
+          'información del texto original, sin excepción, aunque el resultado quede largo.\n' +
           '- NUNCA inventes ni asumas un dato que no esté explícito en el texto que te dieron (diagnósticos, ' +
           'direcciones, edades, nombres, qué se ofreció, cómo respondió, etc.).\n' +
-          '- Si la dupla no mencionó alguno de los 6 puntos, simplemente omitilo del párrafo — no lo rellenes ' +
-          'con frases genéricas, suposiciones ni placeholders como "no se especifica".\n' +
+          '- Si la dupla no mencionó alguno de los 6 puntos de la guía, simplemente no lo agregues — no lo ' +
+          'rellenes con frases genéricas, suposiciones ni placeholders como "no se especifica". Esto es distinto ' +
+          'de omitir información que SÍ te dieron: lo que la dupla escribió nunca se borra.\n' +
           '- No agregues encabezados, viñetas, comillas, ni comentarios tuyos — tu respuesta es ÚNICAMENTE el ' +
           'párrafo final, listo para pegar en el mensaje.\n' +
           '- Si el texto que te dieron es tan escueto que no alcanza para armar ni una oración con sentido ' +
