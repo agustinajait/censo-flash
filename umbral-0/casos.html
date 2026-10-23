@@ -343,6 +343,15 @@
            limpia el buscador y lista los propios casos (RLS scopea
            `personas_actividad` a la dupla). -->
       <a href="#" id="link-mis-casos" class="btn btn-ghost" style="display:none;background:#dbeafe;color:#1e3a8a;border-color:#93c5fd;" onclick="event.preventDefault(); Casos.mostrarMisCasos();">📋 Mis casos</a>
+      <!-- Recursero (23/10/2026, pedido de Agustina: "ubica el recursero
+           como botón al lado de mis casos") — antes era un cuadro
+           colapsado más en la pantalla de inicio (mismo patrón que
+           Direcciones priorizadas); se saca de ahí y pasa a ser una
+           pantalla propia con acceso directo desde la barra superior,
+           visible para cualquier cuenta logueada (no solo duplas, a
+           diferencia de "Mis casos" — admin/coordinación también lo usan
+           como referencia). Ver Casos.mostrarRecursero(). -->
+      <a href="#" id="link-recursero" class="btn btn-ghost" style="display:none;background:#ede9fe;color:#5b21b6;border-color:#ddd6fe;" onclick="event.preventDefault(); Casos.mostrarRecursero();">🧰 Recursero</a>
       <!-- Trámites de DNI pendientes (21/9/2026, pedido de Agustina: "una
            pestaña o botón de color para que los operadores entren a
            revisar y hagan el seguimiento" — de las derivaciones "Hacer
@@ -415,6 +424,15 @@
   <!-- KOBO PENDIENTES — envíos de KoBo del equipo (propio) con DNI que
        todavía no tienen caso cargado acá. Ver cargarKoboPendientes(). -->
   <div id="kobo-pend-box" style="display:none;"></div>
+
+  <!-- DIRECCIONES PRIORIZADAS (22/10/2026, pedido de Agustina) — top de
+       direcciones por comuna que manda gobierno cada semana ("puntos de
+       dolor"), con la tendencia respecto de la semana anterior. Se carga a
+       mano desde admin-duplas.html (tabla direcciones_priorizadas) y se le
+       muestra a TODAS las duplas acá, sin filtrar por zona/comuna (no hay
+       ese mapeo en la plataforma todavía) — pedido explícito: "todas las
+       duplas, todas las comunas". Ver cargarDireccionesPriorizadas(). -->
+  <div id="direcciones-priorizadas-box" style="display:none;"></div>
 
   <!-- Diagnóstico de KoBo (1/10/2026, pedido de Agustina: la Dupla E decía
        haber cargado casos HOY que no aparecían en ningún lado de esta
@@ -517,6 +535,17 @@
       <div id="sin-identificar-list"></div>
     </div>
 
+    <!-- VISTA: RECURSERO (23/10/2026) — dónde recomendarle a una persona
+         bañarse, desayunar, cortarse el pelo, etc. Cargado a mano en
+         admin-duplas.html (tabla `recursos`). Ver Casos.mostrarRecursero(). -->
+    <div id="view-recursero" style="display:none;">
+      <button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="Casos.volverABuscar()">← Volver a la búsqueda</button>
+      <div class="section-label">🧰 Recursero</div>
+      <div class="section-hint">Dónde recomendarle a una persona bañarse, comer, cortarse el pelo, etc. — agrupado por tipo de recurso.</div>
+      <input type="text" id="buscar-recursero-input" placeholder="Buscar por lugar, dirección o tipo de recurso…" oninput="Casos._renderRecursero()" style="margin-bottom:14px;width:100%;">
+      <div id="recursero-list"></div>
+    </div>
+
     <!-- VISTA: MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) — dos pestañas,
          una sola visible a la vez (§10.1.53: "si quiero ver mis
          derivaciones que me muestre eso, no [también] los seguimientos"). -->
@@ -558,7 +587,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-12"></script>
+<script src="../config/umbral-0.js?v=2026-10-23b"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
@@ -640,7 +669,24 @@ const CAMPOS_PERSONA_CASO = [
   // Indicador propio del Nivel 2 (Construcción del vínculo — ver glosario):
   // "acepta una entrevista" es uno de los pasos que marca ese nivel.
   { key:'acepta_entrevista', label:'¿Acepta entrevista?', type:'checkbox', checkLabel:'La persona acepta ser entrevistada' },
-  { key:'historia_breve', label:'Historia breve', type:'textarea' },
+  // (23/10/2026, pedido de Agustina: "agrega el momento del alta de caso
+  // y antes de compartir al grupo de whatsapp la pregunta si la persona
+  // le interesaría participar de algún curso socioproductivo, de
+  // orientación laboral, oficios, etc") — se pregunta en el alta (acá) y
+  // se suma al mensaje de WhatsApp en _armarMensajeCasoWhatsapp().
+  { key:'interes_curso_laboral', label:'¿Le interesaría un curso socioproductivo/orientación laboral/oficios?', type:'checkbox', checkLabel:'Sí, le interesaría participar' },
+  // hint (22/10/2026, pedido de Agustina a partir de la planilla de
+  // "Devoluciones" que le pasa gobierno de ejemplo): ese texto se usa tal
+  // cual como párrafo de "Devolución" en el mensaje de WhatsApp del caso
+  // (ver _armarMensajeCasoWhatsapp) — no se genera solo, así que se le dice
+  // a la dupla exactamente qué poner, en el mismo orden que los ejemplos
+  // de gobierno, en vez de una guía corta/genérica ("contá bien").
+  // completable (23/10/2026): además de la guía, un botón de IA que toma
+  // lo que la dupla ya escribió (aunque sea breve/desordenado) y lo
+  // reescribe como párrafo siguiendo esa misma estructura — ver
+  // Casos.completarDevolucionIA(). No reemplaza escribir: sigue haciendo
+  // falta algo de texto para completar sobre eso.
+  { key:'historia_breve', label:'Historia breve', type:'textarea', completable:true, hint:'Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden: 1) motivo de la situación de calle; 2) estado de salud (con diagnóstico si tiene) y medicación; 3) cómo se sostiene económicamente (trabaja o no, de qué); 4) si tiene redes familiares o sociales; 5) cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.); 6) qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió.' },
 ];
 // Salud y antecedentes — sección opcional, precarga el formulario de CIS
 // (§5.1) cuando ya está cargada acá.
@@ -1103,6 +1149,7 @@ async function entrarAlApp(){
   document.getElementById('link-dashboard').style.display =
     ['admin','coordinacion'].includes(miPerfil.rol) ? 'inline-flex' : 'none';
   document.getElementById('link-mis-casos').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
+  document.getElementById('link-recursero').style.display = 'inline-flex';
   document.getElementById('link-dni-pendientes').style.display = 'inline-flex';
   document.getElementById('link-sin-identificar').style.display = 'inline-flex';
   document.getElementById('link-mi-actividad').style.display = miPerfil.rol === 'dupla' ? 'inline-flex' : 'none';
@@ -1121,6 +1168,8 @@ async function entrarAlApp(){
   mostrarJornada();
   cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
   cargarCasosPaseTurno(); // no se espera, mismo motivo
+  cargarDireccionesPriorizadas(); // no se espera, mismo motivo
+  cargarRecursero(); // no se espera, mismo motivo
   revisarDuplicadosCasos(); // no se espera, mismo motivo
   cargarDniPendientesCount(); // no se espera, mismo motivo — solo actualiza el contador del botón
   cargarSinIdentificarCount(); // no se espera, mismo motivo
@@ -2747,6 +2796,96 @@ async function tomarCasoPaseTurno(personaId, idx){
   }
 }
 
+// ── DIRECCIONES PRIORIZADAS (22/10/2026) ─────────────────────────────────
+// Top de direcciones por comuna que manda gobierno cada semana, con la
+// tendencia respecto de la semana anterior — Agustina lo carga a mano en
+// admin-duplas.html (tabla direcciones_priorizadas, ver schema-ajustes.sql).
+// Se muestra a TODAS las duplas, sin filtrar por zona (pedido explícito:
+// "todas las duplas, todas las comunas" — no hay mapeo comuna→zona hoy).
+let direccionesPriorizadasActuales = {}; // comuna -> { filas:[...], nota_comuna, actualizado_en }
+async function cargarDireccionesPriorizadas(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('direcciones_priorizadas')
+      .select('*').order('comuna').order('ranking');
+    if(error) throw error;
+    direccionesPriorizadasActuales = {};
+    (data || []).forEach(f => {
+      if(!direccionesPriorizadasActuales[f.comuna]) direccionesPriorizadasActuales[f.comuna] = { filas: [], nota_comuna: f.nota_comuna, actualizado_en: f.actualizado_en };
+      direccionesPriorizadasActuales[f.comuna].filas.push(f);
+    });
+  }catch(e){
+    console.error('No se pudieron cargar las direcciones priorizadas', e);
+    direccionesPriorizadasActuales = {};
+  }
+  mostrarDireccionesPriorizadas();
+}
+// Colapsado detrás de un <details> por defecto, mismo criterio que
+// "Casos en seguimiento en tu zona" (mostrarCasosPaseTurno) — es
+// información de referencia, no algo que tape la pantalla de inicio.
+function mostrarDireccionesPriorizadas(){
+  const box = document.getElementById('direcciones-priorizadas-box');
+  const comunas = Object.keys(direccionesPriorizadasActuales).sort();
+  if(!comunas.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const tendencias = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.tendenciaDireccion) || {};
+  const totalDirecciones = comunas.reduce((n, c) => n + direccionesPriorizadasActuales[c].filas.length, 0);
+  const bloques = comunas.map(comuna => {
+    const c = direccionesPriorizadasActuales[comuna];
+    const filas = c.filas.map(f => {
+      const t = tendencias[f.tendencia] || { label: f.tendencia, color:'#64748b' };
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;font-size:0.84rem;">
+          <span>${f.ranking}. ${esc(f.direccion)}</span>
+          <span class="badge" style="background:${esc(t.color)};color:white;flex:none;">${esc(t.label)}</span>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
+        <div style="font-family:'Sora',sans-serif;font-weight:700;color:#1e293b;">${esc(comuna)}</div>
+        ${filas}
+        ${c.nota_comuna ? `<div class="meta" style="margin-top:4px;">${esc(c.nota_comuna)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="kobo-pend">
+      <details class="form-section">
+        <summary>📍 Direcciones priorizadas (${totalDirecciones})</summary>
+        <div class="section-hint" style="margin:8px 0 8px;">Top de direcciones por comuna que manda gobierno cada semana — referencia de dónde priorizar el recorrido.</div>
+        ${bloques}
+      </details>
+    </div>
+  `;
+}
+
+// ── RECURSERO (23/10/2026) ───────────────────────────────────────────────
+// Lugares donde recomendarle a una persona bañarse, desayunar, cortarse
+// el pelo, etc. — cargado a mano en admin-duplas.html (tabla `recursos`,
+// ver schema-ajustes.sql). Agrupado por CATEGORÍA acá (al revés que en el
+// admin, que agrupa por lugar) porque así es como una dupla lo busca:
+// "necesito dónde bañarse", no "qué ofrece tal lugar".
+// Empezó como un cuadro colapsado en la pantalla de inicio (mismo patrón
+// que Direcciones priorizadas) y pasó a ser pantalla propia (23/10/2026,
+// pedido de Agustina: "ubica el recursero como botón al lado de mis
+// casos") — visible para cualquier cuenta logueada, no solo duplas.
+let recurseroActual = []; // filas crudas de `recursos`, una por (lugar, categoría)
+async function cargarRecursero(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('recursos').select('*').order('categoria').order('lugar');
+    if(error) throw error;
+    recurseroActual = data || [];
+  }catch(e){
+    console.error('No se pudo cargar el recursero', e);
+    recurseroActual = [];
+  }
+  const link = document.getElementById('link-recursero');
+  if(link) link.textContent = `🧰 Recursero${recurseroActual.length ? ' (' + recurseroActual.length + ')' : ''}`;
+  if(document.getElementById('view-recursero').style.display !== 'none') Casos._renderRecursero();
+}
+
 // Simplificado (15/10/2026, pedido de Agustina: "simplifica las
 // pantallas... eso confunde mucho a las duplas") — antes esto apilaba
 // hasta 4 cajas con su propio título grande cada una (altas, posibles
@@ -3082,6 +3221,27 @@ async function pedirCorreccionIA(texto){
   return data.texto_corregido;
 }
 
+// "Completar con IA" (23/10/2026, pedido de Agustina: "ya que la
+// devolucion es tan importante... podes agregar un editor de texto de IA
+// para que ellos escriban y la IA lo complete tomando la referencia de la
+// plantilla?") — a diferencia de pedirCorreccionIA() (solo corrige
+// redacción sin tocar el contenido), esto reescribe/estructura el texto
+// como un párrafo de Devolución siguiendo la planilla de gobierno (ver
+// netlify/functions/completar-devolucion.js, que tiene la regla de no
+// inventar datos). La dupla siempre escribe algo primero — esto no
+// genera un párrafo de la nada, lo completa a partir de eso.
+async function pedirCompletarDevolucionIA(texto){
+  const resp = await fetch('/.netlify/functions/completar-devolucion', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto }),
+  });
+  let data = {};
+  try{ data = await resp.json(); }catch(e){ /* respuesta no-JSON, cae al error genérico de abajo */ }
+  if(!resp.ok) throw new Error(data.error || `Error del servidor (${resp.status})`);
+  return data.texto_completado;
+}
+
 async function subirArchivo(file, carpeta){
   const client = await SupabaseClient.getClient();
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -3141,7 +3301,17 @@ function renderCampo(campo, valor){
     const corregirBtn = campo.corregible
       ? `<button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.corregirTexto('${id}', this)">✨ Corregir redacción</button>`
       : '';
-    return `<div class="form-field">${label}${hint}<textarea id="${id}" data-f="${campo.key}">${esc(valor||'')}</textarea>${corregirBtn}</div>`;
+    // `completable` (23/10/2026): a diferencia de "Corregir redacción"
+    // (arregla ortografía/gramática sin tocar el contenido), este botón
+    // reescribe el texto como un párrafo de Devolución siguiendo la
+    // plantilla de gobierno — ver pedirCompletarDevolucionIA(). Solo en
+    // historia_breve por ahora (el campo que alimenta la Devolución del
+    // alta); Descripción/Nota de intervención y validación de KoBo tienen
+    // su propio botón hardcodeado, no pasan por renderCampo().
+    const completarBtn = campo.completable
+      ? `<button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('${id}', this)">✨ Completar con IA</button>`
+      : '';
+    return `<div class="form-field">${label}${hint}<textarea id="${id}" data-f="${campo.key}">${esc(valor||'')}</textarea>${corregirBtn}${completarBtn}</div>`;
   }
   if(campo.type === 'select'){
     const opts = (typeof campo.options === 'function' ? campo.options() : campo.options) || [];
@@ -3186,6 +3356,7 @@ const Casos = {
     document.getElementById('view-sin-identificar').style.display = 'none';
     document.getElementById('view-mi-actividad').style.display = 'none';
     document.getElementById('view-cierres-jornada').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'block';
     // Los widgets de "home" (turno, jornada, KoBo pendientes, seguimiento
     // de zona, acciones pendientes) se ocultan al entrar a cualquier otra
@@ -3198,6 +3369,7 @@ const Casos = {
     mostrarJornada();
     mostrarKoboPendientes();
     mostrarCasosPaseTurno();
+    mostrarDireccionesPriorizadas();
     renderAccionesPendientes();
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
@@ -3220,6 +3392,8 @@ const Casos = {
     document.getElementById('pase-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('duplicados-casos-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
@@ -3234,6 +3408,8 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3253,6 +3429,8 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3273,6 +3451,66 @@ const Casos = {
     sinIdentificarActuales.forEach(p => box.appendChild(Casos.renderPersonaCard(p)));
   },
 
+  // ── RECURSERO (23/10/2026) ───────────────────────────────────────────────
+  // Ver recurseroActual/cargarRecursero() más arriba (fuera de este
+  // namespace, junto al resto de los widgets de inicio que ya existían
+  // antes de este). Visible para cualquier cuenta logueada, no solo
+  // duplas — a diferencia de "Mis casos", acá no hay nada propio de una
+  // dupla en particular.
+  mostrarRecursero(){
+    document.getElementById('jornada-box').style.display = 'none';
+    document.getElementById('mi-turno-box').style.display = 'none';
+    document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('acciones-box').style.display = 'none';
+    document.getElementById('view-buscar').style.display = 'none';
+    document.getElementById('view-ficha').style.display = 'none';
+    document.getElementById('view-dni-pendientes').style.display = 'none';
+    document.getElementById('view-sin-identificar').style.display = 'none';
+    document.getElementById('view-mi-actividad').style.display = 'none';
+    document.getElementById('view-cierres-jornada').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'block';
+    document.getElementById('buscar-recursero-input').value = '';
+    Casos._renderRecursero();
+  },
+
+  // Agrupa por CATEGORÍA (no por lugar, ver comentario de cargarRecursero())
+  // y filtra en memoria por lo tipeado en el buscador — mismo criterio
+  // simple que filtrarCasosPaseTurno() (ya son pocas filas, no hace falta
+  // volver a pedirle nada al servidor).
+  _renderRecursero(){
+    const box = document.getElementById('recursero-list');
+    const normalizar = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const q = normalizar((document.getElementById('buscar-recursero-input')||{}).value || '');
+    const filas = q
+      ? recurseroActual.filter(f => normalizar(`${f.categoria} ${f.lugar} ${f.direccion||''} ${f.nota||''}`).includes(q))
+      : recurseroActual;
+    if(!filas.length){
+      box.innerHTML = `<div class="empty-msg">${q ? 'Ningún recurso coincide con la búsqueda.' : 'Todavía no hay recursos cargados.'}</div>`;
+      return;
+    }
+    const porCategoria = {};
+    filas.forEach(f => {
+      if(!porCategoria[f.categoria]) porCategoria[f.categoria] = [];
+      porCategoria[f.categoria].push(f);
+    });
+    box.innerHTML = Object.keys(porCategoria).sort().map(cat => {
+      const lugares = porCategoria[cat].map(f => `
+        <div style="padding:6px 0;border-top:1px solid var(--border);font-size:0.84rem;">
+          <b>${esc(f.lugar)}</b>
+          <div class="meta">${esc(f.direccion || 'Sin dirección cargada')}${f.horario ? ' · ' + esc(f.horario) : ' · horario sin cargar'}</div>
+          ${f.nota ? `<div class="meta">${esc(f.nota)}</div>` : ''}
+        </div>
+      `).join('');
+      return `
+        <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
+          <div style="font-family:'Sora',sans-serif;font-weight:700;color:#1e293b;">${esc(cat)}</div>
+          ${lugares}
+        </div>
+      `;
+    }).join('');
+  },
+
   // ── MIS DERIVACIONES Y SEGUIMIENTOS (§10.1.30) ──────────────────────────
   // RLS ya scopea derivaciones/seguimientos a la propia dupla (mismo
   // criterio que §10.1.22/§10.1.23) — no hace falta filtrar por dupla_id
@@ -3281,6 +3519,8 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3360,6 +3600,8 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -4307,6 +4549,8 @@ const Casos = {
     document.getElementById('jornada-box').style.display = 'none';
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
+    document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('view-recursero').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
@@ -4366,6 +4610,7 @@ const Casos = {
     if(p.criticidad) badges.push(`<span class="badge badge-amber">criticidad: ${esc(p.criticidad)}</span>`);
     if(p.consumo_activo) badges.push('<span class="badge badge-red">consumo activo</span>');
     if(p.acepta_entrevista) badges.push('<span class="badge badge-green">acepta entrevista</span>');
+    if(p.interes_curso_laboral) badges.push('<span class="badge badge-blue">interesado en curso laboral</span>');
     if(p.sin_identificar) badges.push('<span class="badge badge-gray">sin identificar</span>');
     badges.push(Casos.esSeguimiento() ? '<span class="badge badge-gray">seguimiento</span>' : '<span class="badge badge-gray">contacto espontáneo</span>');
     document.getElementById('ficha-badges').innerHTML = badges.join('');
@@ -4595,6 +4840,27 @@ const Casos = {
     }
   },
 
+  // Botón "✨ Completar con IA" (23/10/2026) — reescribe lo que la dupla ya
+  // tipeó como párrafo de Devolución siguiendo la plantilla de gobierno
+  // (ver pedirCompletarDevolucionIA()/completar-devolucion.js). Reemplaza
+  // el texto del campo con lo que devuelve la IA — la dupla puede seguir
+  // editando a mano después, o volver a tocar el botón si agrega algo más.
+  async completarDevolucionIA(fieldId, btnEl){
+    const ta = document.getElementById(fieldId);
+    const original = ta.value.trim();
+    if(!original){ alert('Escribí algo primero (aunque sea breve) — la IA completa a partir de eso, no inventa desde cero.'); return; }
+    const textoOriginalBtn = btnEl.textContent;
+    btnEl.disabled = true; btnEl.textContent = '✨ Completando…';
+    try{
+      const completado = await pedirCompletarDevolucionIA(original);
+      if(completado) ta.value = completado;
+    }catch(e){
+      alert('No se pudo completar el texto: ' + e.message);
+    }finally{
+      btnEl.disabled = false; btnEl.textContent = textoOriginalBtn;
+    }
+  },
+
   _renderTimeline(){
     const cont = document.getElementById('timeline-list');
     const items = [];
@@ -4760,14 +5026,19 @@ const Casos = {
     // celular. Si ya está validado, se respeta lo que la dupla eligió la
     // vez anterior (no se vuelve a pre-tildar encima).
     let preTildadoDeKobo = false;
+    const koboItem = koboEventosActuales.find(p => koboSubmissionId(p) === subId);
     if(!validacionActual){
-      const koboItem = koboEventosActuales.find(p => koboSubmissionId(p) === subId);
       const mapeo = window.PROJECT_CONFIG.koboTerminoAAccion || {};
       (koboItem && koboItem.terminoIntervencionDiaria || []).forEach(codigo => {
         const accion = mapeo[codigo];
         if(accion){ accionesActuales.add(accion); preTildadoDeKobo = true; }
       });
     }
+    // tipo_intervencion ('primer_acercamiento'/'seguimiento'/'recontacto')
+    // decide cuál guía de "Devolución" mostrar (ver _guiaDevolucionHtml) —
+    // pedido de Agustina (22/10/2026): "diferencias cuando es un caso de
+    // seguimiento?".
+    const esPrimerContactoKobo = koboItem && koboItem.tipo === 'primer_acercamiento';
     const body = `
       <form id="form-validar-kobo" onsubmit="return false;">
         <div class="form-field">
@@ -4781,7 +5052,9 @@ const Casos = {
         </div>
         <div class="form-field">
           <label>Nota (opcional)</label>
+          <div class="hint">${Casos._guiaDevolucionHtml(esPrimerContactoKobo)}</div>
           <textarea id="f_nota_validacion_kobo" placeholder="Alguna aclaración sobre este envío que KoBo no preguntó…">${esc(notaActual)}</textarea>
+          <button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('f_nota_validacion_kobo', this)">✨ Completar con IA</button>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -4810,7 +5083,7 @@ const Casos = {
       if(error) throw error;
       await cargarKoboDePersona(personaActual);
       Casos._renderTimeline();
-      Casos._mostrarSiguientePasoValidacion(acciones);
+      Casos._mostrarSiguientePasoValidacion(acciones, nota);
     }catch(e){
       modalError('No se pudo guardar: ' + e.message);
     }finally{
@@ -4836,7 +5109,7 @@ const Casos = {
   // opciones genéricas, porque es el que tiene los campos obligatorios
   // por tipo y el que alimenta el reporte semanal — tildar la casilla
   // sola no reemplaza pedirla de verdad.
-  _mostrarSiguientePasoValidacion(acciones){
+  _mostrarSiguientePasoValidacion(acciones, nota){
     const mapeo = window.PROJECT_CONFIG.accionATipoDerivacion || {};
     const tiposSugeridos = [...new Set((acciones||[]).map(a => mapeo[a]).filter(Boolean))];
     const sugerencias = tiposSugeridos.map(tipo => `
@@ -4850,14 +5123,7 @@ const Casos = {
     // el camino más común del día a día y se había quedado afuera.
     // Reutiliza _mensajeCompartirCasoActual/_compartirCasoWhatsapp, mismo
     // mecanismo que las otras dos.
-    const duplaCod = (miPerfil && duplasMap[miPerfil.dupla_id]) || 'mi dupla';
-    const accionesTxt = (acciones||[]).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod).join(', ');
-    _mensajeCompartirCasoActual = [
-      `📋 Umbral 0 — Dupla ${duplaCod}`,
-      `${nombreDisplay(personaActual)}${personaActual.dni ? ' · DNI ' + personaActual.dni : ''}`,
-      `Seguimiento validado de KoBo`,
-      accionesTxt ? `Acciones: ${accionesTxt}` : null,
-    ].filter(Boolean).join('\n');
+    _mensajeCompartirCasoActual = Casos._armarMensajeCasoWhatsapp(personaActual, 'Seguimiento validado de KoBo', nota, acciones);
     const body = `
       <div style="text-align:center;padding:6px 0 4px;">
         <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Envío validado. ¿Querés agregar algo más sobre esta visita?</div>
@@ -4890,7 +5156,7 @@ const Casos = {
       <form id="form-intervencion" onsubmit="return false;">
         <div class="form-field">
           <label>Tipo</label>
-          <select id="f_tipo_interv" data-f="tipo">
+          <select id="f_tipo_interv" data-f="tipo" onchange="Casos._actualizarGuiaDevolucionInterv(this.value)">
             <option value="seguimiento">Seguimiento en territorio</option>
             <option value="contacto_espontaneo">Primer contacto</option>
           </select>
@@ -4910,7 +5176,9 @@ const Casos = {
         </div>
         <div class="form-field">
           <label>Descripción</label>
+          <div class="hint" id="hint-desc-interv">${Casos._guiaDevolucionHtml(false)}</div>
           <textarea id="f_desc_interv" data-f="resumen" placeholder="Qué pasó en este contacto…"></textarea>
+          <button type="button" class="mini-btn btn-outline" style="margin-top:5px;" onclick="Casos.completarDevolucionIA('f_desc_interv', this)">✨ Completar con IA</button>
         </div>
         <div class="modal-foot">
           <button type="button" class="btn btn-blue" id="btn-guardar-interv">💾 Guardar</button>
@@ -4920,6 +5188,11 @@ const Casos = {
     `;
     openModal('➕ Registrar intervención', body);
     document.getElementById('btn-guardar-interv').onclick = Casos.guardarIntervencion;
+  },
+
+  _actualizarGuiaDevolucionInterv(tipo){
+    const el = document.getElementById('hint-desc-interv');
+    if(el) el.innerHTML = Casos._guiaDevolucionHtml(tipo === 'contacto_espontaneo');
   },
 
   async guardarIntervencion(){
@@ -4957,15 +5230,67 @@ const Casos = {
   // con esa persona, no recién al cierre de la jornada. Mismo patrón: abre
   // WhatsApp con el texto ya armado, la dupla elige el chat y lo manda
   // ella misma — no es un envío automático ni queda registrado en el caso.
-  _ofrecerCompartirCasoWhatsapp(persona, tipoLabel, resumen, acciones){
+  // Guía de "Devolución" (22/10/2026, pedido de Agustina: "diferencias
+  // cuando es un caso de seguimiento?") — un primer contacto necesita
+  // contar todo (motivo, salud, economía, redes, diálogo, oferta); un
+  // seguimiento ya tiene casi todo eso cargado de antes, así que pedirle
+  // lo mismo hace que la dupla repita o invente relleno. Ahí gobierno
+  // quiere la NOVEDAD: si la encontraron esta vez o no, y qué cambió.
+  _guiaDevolucionHtml(esPrimerContacto){
+    if(esPrimerContacto){
+      return 'Esto se comparte como "Devolución" por WhatsApp. Escribí, en este orden:<br>'
+        + '1) Motivo de la situación de calle<br>'
+        + '2) Estado de salud (con diagnóstico si tiene) y medicación<br>'
+        + '3) Cómo se sostiene económicamente (trabaja o no, de qué)<br>'
+        + '4) Si tiene redes familiares o sociales<br>'
+        + '5) Cómo fue el diálogo (predispuesto, no quiso hablar, agresivo, etc.)<br>'
+        + '6) Qué se le ofreció (CIS, hacer el DNI, entrevista) y qué respondió';
+    }
+    return 'Esto se comparte como "Devolución" por WhatsApp. Es un seguimiento — no repitas lo que ya se sabe de la persona, contá solo la novedad, en este orden:<br>'
+      + '1) Si la encontraron esta vez o no (si no, qué hicieron para buscarla y cuándo reintentan)<br>'
+      + '2) Si la encontraron: algún cambio en su salud o situación desde el último contacto<br>'
+      + '3) Cómo fue el diálogo esta vez<br>'
+      + '4) Qué se le ofreció/acordó y qué respondió';
+  },
+  // Arma el texto del mensaje con los campos estructurados que pide
+  // gobierno en sus planillas de "Devolución" (Fecha, Dupla interviniente,
+  // Ubicación, Nombre y Apellido, DNI, Fecha de nacimiento, Edad — ver
+  // Plantillas_de_formatos_de_devoluciones.pdf, 22/10/2026, pedido de
+  // Agustina: "necesito que... el mensaje tenga mas informacion"). El
+  // párrafo de "Devolución" en sí NO se genera solo: es el texto que ya
+  // escribe la dupla (resumen de la intervención, historia breve del alta,
+  // o nota de la validación de KoBo) — se decidió así porque auto-armarlo
+  // quedaba más pobre que dejar que la dupla cuente lo que pasó; en cambio
+  // se la guía para que lo escriba más completo (ver hints en los
+  // textarea de "Historia breve"/"Descripción"/"Nota").
+  _armarMensajeCasoWhatsapp(persona, tipoLabel, resumen, acciones){
     const duplaCod = (miPerfil && duplasMap[miPerfil.dupla_id]) || 'mi dupla';
     const accionesTxt = (acciones||[]).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod).join(', ');
-    _mensajeCompartirCasoActual = [
-      `📋 Umbral 0 — Dupla ${duplaCod}`,
-      `${nombreDisplay(persona)}${persona.dni ? ' · DNI ' + persona.dni : ''}`,
-      `${tipoLabel}${resumen ? ': ' + resumen : ''}`,
+    const edad = calcEdad(persona.fecha_nacimiento);
+    // (23/10/2026, pedido de Agustina) — se pregunta en el alta
+    // (CAMPOS_PERSONA_CASO.interes_curso_laboral) y se suma acá antes de
+    // compartir. `null`/`undefined` (casos de antes de que existiera el
+    // campo, o el checkbox nunca llegó a guardarse) no muestra la línea —
+    // solo cuando hay una respuesta real cargada.
+    const interesCurso = persona.interes_curso_laboral === true ? 'Sí'
+      : persona.interes_curso_laboral === false ? 'No' : null;
+    return [
+      `📋 Umbral 0 — Devolución`,
+      `Fecha: ${fmtFechaSolo(new Date().toISOString())}`,
+      `Dupla interviniente: ${duplaCod}`,
+      `Ubicación: ${persona.punto_contacto || 'Sin dato'}`,
+      `Nombre y Apellido: ${nombreDisplay(persona)}`,
+      `DNI: ${persona.dni || 'Sin DNI'}`,
+      `Fecha de nacimiento: ${persona.fecha_nacimiento ? fmtFechaSolo(persona.fecha_nacimiento) : 'Sin dato'}`,
+      `Edad: ${edad || 'Sin dato'}`,
+      `Tipo: ${tipoLabel}`,
       accionesTxt ? `Acciones: ${accionesTxt}` : null,
+      interesCurso ? `¿Interesado en curso socioproductivo/laboral/oficios?: ${interesCurso}` : null,
+      `Devolución: ${resumen || '(sin descripción — completar antes de compartir)'}`,
     ].filter(Boolean).join('\n');
+  },
+  _ofrecerCompartirCasoWhatsapp(persona, tipoLabel, resumen, acciones){
+    _mensajeCompartirCasoActual = Casos._armarMensajeCasoWhatsapp(persona, tipoLabel, resumen, acciones);
     const body = `
       <div style="text-align:center;padding:6px 0 4px;">
         <div style="font-size:0.92rem;color:#334155;margin-bottom:18px;">✅ Caso guardado. ¿Lo compartís con el grupo de WhatsApp?</div>

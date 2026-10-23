@@ -1366,6 +1366,98 @@ $$;
 revoke all on function public.casos_seguimiento_zona() from public;
 grant execute on function public.casos_seguimiento_zona() to authenticated;
 
+-- "Direcciones priorizadas" (22/10/2026, pedido de Agustina): gobierno le
+-- manda cada semana, por comuna, un top de direcciones con mayor
+-- concentración de personas en situación de calle ("puntos de dolor"), con
+-- una tendencia (nuevo/empeora/mejora/igual) respecto de la semana
+-- anterior — mismo patrón que la planilla de Flash: Agustina lo recibe
+-- como captura/planilla y lo carga a mano en admin-duplas.html. Se muestra
+-- a TODAS las duplas (no hay mapeo comuna→zona/dupla en la plataforma
+-- todavía), como referencia de dónde priorizar el recorrido esa semana.
+--
+-- Cargar una comuna de nuevo REEMPLAZA su lista anterior entera (no se
+-- acumula historial) — ver guardarDireccionesPriorizadas() en
+-- admin-duplas.html: borra las filas viejas de esa comuna e inserta las
+-- nuevas en la misma operación. Ya corrido en producción.
+create table public.direcciones_priorizadas (
+  id uuid primary key default gen_random_uuid(),
+  comuna text not null,
+  ranking smallint not null check (ranking between 1 and 10),
+  direccion text not null,
+  tendencia text not null check (tendencia in ('nuevo','empeora','mejora','igual')),
+  -- Nota general de la comuna en esa actualización (ej. "El punto 3 se
+  -- ubicó en la mitad de la cuadra. Direcciones ubicadas con Georef.") —
+  -- se repite en cada fila de la misma comuna/actualización a propósito
+  -- (dataset chico, mantenido a mano por un admin) para no sumar otra
+  -- tabla solo por esto.
+  nota_comuna text,
+  actualizado_en timestamptz not null default now(),
+  creado_por uuid references public.perfiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.direcciones_priorizadas enable row level security;
+
+-- Visible para cualquier perfil con rol asignado (duplas incluidas) —
+-- pedido explícito de Agustina: "todas las duplas, todas las comunas".
+create policy direcciones_priorizadas_select on public.direcciones_priorizadas
+  for select using (mi_rol() = any (array['admin','coordinacion','cliente','dupla']));
+
+-- Solo admin/coordinación cargan esto (mismo criterio que reportes_semanales).
+create policy direcciones_priorizadas_insert on public.direcciones_priorizadas
+  for insert with check (mi_rol() = any (array['admin','coordinacion']));
+
+create policy direcciones_priorizadas_update on public.direcciones_priorizadas
+  for update using (mi_rol() = any (array['admin','coordinacion']));
+
+create policy direcciones_priorizadas_delete on public.direcciones_priorizadas
+  for delete using (mi_rol() = any (array['admin','coordinacion']));
+
+create index direcciones_priorizadas_comuna_idx on public.direcciones_priorizadas (comuna, ranking);
+
+-- "Recursero" (23/10/2026, pedido de Agustina): lugares donde las
+-- personas en situación de calle pueden bañarse, desayunar, cortarse el
+-- pelo, etc. — "quiero que armes un recursero de opciones para que las
+-- duplas vayan sabiendo que recomendarle a las personas". Cargado a mano
+-- por un admin en admin-duplas.html, visible a todas las duplas en
+-- casos.html. Un mismo `lugar` puede ofrecer varias categorías (ej.
+-- Parroquia San José: bañarse + desayuno + corte de pelo, mismo horario)
+-- — una fila por (lugar, categoría) para poder filtrar/agrupar por
+-- categoría del lado de la dupla, mismo criterio de desnormalización que
+-- direcciones_priorizadas. Cargar un lugar de nuevo reemplaza sus
+-- categorías/datos anteriores (ver guardarRecurso() en admin-duplas.html).
+-- Ya corrido en producción.
+create table public.recursos (
+  id uuid primary key default gen_random_uuid(),
+  categoria text not null,
+  lugar text not null,
+  direccion text,
+  horario text,
+  nota text,
+  creado_por uuid references public.perfiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.recursos enable row level security;
+
+-- Visible para cualquier perfil con rol asignado (duplas incluidas) —
+-- mismo criterio que direcciones_priorizadas.
+create policy recursos_select on public.recursos
+  for select using (mi_rol() = any (array['admin','coordinacion','cliente','dupla']));
+
+create policy recursos_insert on public.recursos
+  for insert with check (mi_rol() = any (array['admin','coordinacion']));
+
+create policy recursos_update on public.recursos
+  for update using (mi_rol() = any (array['admin','coordinacion']));
+
+create policy recursos_delete on public.recursos
+  for delete using (mi_rol() = any (array['admin','coordinacion']));
+
+create index recursos_categoria_idx on public.recursos (categoria);
+create index recursos_lugar_idx on public.recursos (lugar);
+
 -- tomar_caso_pase_turno() se actualizó el mismo día: ya no exige que el
 -- caso sea de hoy, solo que sea de mi misma zona, activo, y no mío.
 create or replace function public.tomar_caso_pase_turno(p_persona_id uuid)
@@ -1407,3 +1499,13 @@ $$;
 
 revoke all on function public.tomar_caso_pase_turno(uuid) from public;
 grant execute on function public.tomar_caso_pase_turno(uuid) to authenticated;
+
+-- "¿Le interesaría un curso socioproductivo/orientación laboral/oficios?"
+-- (23/10/2026, pedido de Agustina): se pregunta en el alta del caso y se
+-- suma al mensaje de WhatsApp antes de compartir al grupo — ver
+-- CAMPOS_PERSONA_CASO/_armarMensajeCasoWhatsapp() en casos.html. Mismo
+-- patrón boolean que acepta_entrevista/consumo_activo (checkbox simple,
+-- sin tercer estado explícito para "no se le preguntó"). Ya corrido en
+-- producción. No se agrega a personas_listado_publico (vista anónima)
+-- a propósito — no hace falta exponerlo ahí.
+alter table public.personas add column interes_curso_laboral boolean;

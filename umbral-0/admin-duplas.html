@@ -241,6 +241,8 @@
     <button class="admin-tab" data-tab="diario" onclick="switchTab('diario')">📅 Resumen diario</button>
     <button class="admin-tab" data-tab="asistencia" onclick="switchTab('asistencia')">🗓️ Asistencia</button>
     <button class="admin-tab" data-tab="cobertura" onclick="switchTab('cobertura')">🗺️ Cobertura</button>
+    <button class="admin-tab" data-tab="direcciones" onclick="switchTab('direcciones')">📍 Direcciones priorizadas</button>
+    <button class="admin-tab" data-tab="recursero" onclick="switchTab('recursero')">🧰 Recursero</button>
   </div>
 
   <!-- PESTAÑA: DUPLAS Y EQUIPO -->
@@ -517,6 +519,90 @@
 
   </div>
 
+  <!-- PESTAÑA: DIRECCIONES PRIORIZADAS (22/10/2026, pedido de Agustina) —
+       gobierno manda cada semana, por comuna, un top de direcciones con
+       mayor concentración de personas en situación de calle ("puntos de
+       dolor"), con una tendencia respecto de la semana anterior. Mismo
+       patrón que Flash: llega como captura/planilla, se carga acá a mano.
+       Cargar una comuna de nuevo reemplaza su lista anterior entera (ver
+       guardarDireccionesPriorizadas()). Se muestra a TODAS las duplas en
+       casos.html, sin filtrar por zona (no hay ese mapeo todavía). -->
+  <div class="wrap" id="tab-direcciones" style="display:none;">
+
+    <div class="section-title" style="margin-top:0;">Direcciones priorizadas</div>
+    <div class="section-hint">Lo que manda gobierno cada semana — top de direcciones por comuna, con la tendencia respecto de la semana anterior. Se les muestra a todas las duplas como referencia de dónde priorizar el recorrido. Cargar una comuna de nuevo reemplaza su lista anterior completa (no se acumula historial).</div>
+
+    <div class="card">
+      <div class="form-field">
+        <label>Comuna</label>
+        <input type="text" id="dp-comuna" placeholder="Ej: Comuna 1A">
+      </div>
+      <div class="form-field">
+        <label>Nota (opcional)</label>
+        <input type="text" id="dp-nota" placeholder="Ej: El punto 3 se ubicó en la mitad de la cuadra.">
+      </div>
+      <div id="dp-filas"></div>
+      <div style="margin:10px 0;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="agregarFilaDireccion()">+ Agregar dirección</button>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-blue" id="btn-guardar-direcciones" onclick="guardarDireccionesPriorizadas()">💾 Guardar comuna</button>
+        <button type="button" class="btn btn-outline" id="btn-cancelar-edicion-direcciones" style="display:none;" onclick="cancelarEdicionDireccion()">Cancelar edición</button>
+      </div>
+    </div>
+
+    <div id="dp-lista-comunas"></div>
+
+  </div>
+
+  <!-- PESTAÑA: RECURSERO (23/10/2026, pedido de Agustina) — "armá un
+       recursero de opciones para que las duplas vayan sabiendo que
+       recomendarle a las personas": lugares donde bañarse, desayunar,
+       cortarse el pelo, etc. Un lugar puede ofrecer varias categorías
+       (checkboxes) — guardarRecurso() crea una fila por categoría
+       tildada, todas con el mismo lugar/dirección/horario/nota. Cargar un
+       lugar de nuevo reemplaza sus datos anteriores (mismo criterio que
+       Direcciones priorizadas). -->
+  <div class="wrap" id="tab-recursero" style="display:none;">
+
+    <div class="section-title" style="margin-top:0;">Recursero</div>
+    <div class="section-hint">Lugares donde las personas en situación de calle pueden bañarse, comer, cortarse el pelo, etc. — para que las duplas sepan qué recomendar. Cargar un lugar de nuevo reemplaza sus datos anteriores.</div>
+
+    <div class="card">
+      <div class="form-field">
+        <label>Lugar</label>
+        <input type="text" id="rc-lugar" placeholder="Ej: Parroquia San José">
+      </div>
+      <div class="form-field">
+        <label>Dirección</label>
+        <input type="text" id="rc-direccion" placeholder="Ej: Moreno y Alberdi">
+      </div>
+      <div class="form-field">
+        <label>Horario</label>
+        <input type="text" id="rc-horario" placeholder="Ej: 07 a 10hs">
+      </div>
+      <div class="form-field">
+        <label>Nota (opcional)</label>
+        <input type="text" id="rc-nota" placeholder="Alguna aclaración extra">
+      </div>
+      <div class="form-field">
+        <label>¿Qué ofrece?</label>
+        <div id="rc-categorias-checks" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input type="text" id="rc-categoria-otra" placeholder="Otra categoría…" style="flex:1;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="agregarCategoriaRecursoCustom()">+ Agregar</button>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button type="button" class="btn btn-blue" id="btn-guardar-recurso" onclick="guardarRecurso()">💾 Guardar lugar</button>
+        <button type="button" class="btn btn-outline" id="btn-cancelar-edicion-recurso" style="display:none;" onclick="cancelarEdicionRecurso()">Cancelar edición</button>
+      </div>
+    </div>
+
+    <div id="rc-lista-lugares"></div>
+
+  </div>
+
   <div class="huehaci-credit">
     <img src="../assets/huehaci-logo.png" alt="Huehaci">
     <span>Huehaci — Desarrolladora de sistemas y contenidos digitales de innovación local sustentable</span>
@@ -528,7 +614,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-12"></script>
+<script src="../config/umbral-0.js?v=2026-10-23b"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script src="../shared/js/mapa-puntos.js?v=2026-10-12"></script>
@@ -622,6 +708,8 @@ let _reporteCargado = false;
 let _diarioCargado = false;
 let _asistenciaCargada = false;
 let _coberturaCargada = false;
+let _direccionesCargadas = false;
+let _recurseroCargado = false;
 function switchTab(nombre){
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === nombre));
   document.getElementById('tab-duplas').style.display = nombre === 'duplas' ? 'block' : 'none';
@@ -629,6 +717,8 @@ function switchTab(nombre){
   document.getElementById('tab-diario').style.display = nombre === 'diario' ? 'block' : 'none';
   document.getElementById('tab-asistencia').style.display = nombre === 'asistencia' ? 'block' : 'none';
   document.getElementById('tab-cobertura').style.display = nombre === 'cobertura' ? 'block' : 'none';
+  document.getElementById('tab-direcciones').style.display = nombre === 'direcciones' ? 'block' : 'none';
+  document.getElementById('tab-recursero').style.display = nombre === 'recursero' ? 'block' : 'none';
   history.replaceState(null, '', nombre === 'duplas' ? '#duplas' : '#' + nombre);
   if(nombre === 'reporte' && !_reporteCargado){
     _reporteCargado = true;
@@ -662,6 +752,16 @@ function switchTab(nombre){
   if(nombre === 'cobertura' && !_coberturaCargada){
     _coberturaCargada = true;
     renderTabCobertura();
+  }
+  if(nombre === 'direcciones' && !_direccionesCargadas){
+    _direccionesCargadas = true;
+    cancelarEdicionDireccion(); // arranca con 5 filas en blanco
+    cargarDireccionesPriorizadas();
+  }
+  if(nombre === 'recursero' && !_recurseroCargado){
+    _recurseroCargado = true;
+    cancelarEdicionRecurso(); // arranca el checklist de categorías en blanco
+    cargarRecursos();
   }
 }
 
@@ -698,6 +798,320 @@ async function renderTabCobertura(){
     </tr>
   `).join('');
   await renderMapaPuntos('cobertura-map', [], zonas);
+}
+
+// ── DIRECCIONES PRIORIZADAS (22/10/2026) ──────────────────────────────────
+// Ver comentario de la pestaña en el HTML y la tabla direcciones_priorizadas
+// en schema-ajustes.sql. _dpComunasActuales guarda lo último leído de la
+// base (agrupado por comuna) para no tener que volver a pedirlo al
+// servidor al editar/eliminar una comuna.
+let _dpComunasActuales = {}; // comuna -> { filas:[...], nota_comuna, actualizado_en }
+
+function filaDireccionHtml(direccion, tendencia){
+  const opciones = window.PROJECT_CONFIG.tendenciaDireccion || {};
+  return `
+    <div class="card-row dp-fila" style="grid-template-columns:1fr 150px 34px;align-items:end;margin-bottom:8px;">
+      <div class="form-field"><label>Dirección</label><input type="text" class="dp-direccion" value="${escAttr(direccion||'')}" placeholder="Ej: Av. Córdoba 1315"></div>
+      <div class="form-field"><label>Tendencia</label>
+        <select class="dp-tendencia">
+          ${Object.entries(opciones).map(([k,v]) => `<option value="${escAttr(k)}" ${k===tendencia?'selected':''}>${esc(v.label)}</option>`).join('')}
+        </select>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" style="padding:8px;" onclick="this.closest('.dp-fila').remove()" title="Sacar esta dirección">🗑️</button>
+    </div>
+  `;
+}
+function agregarFilaDireccion(direccion, tendencia){
+  document.getElementById('dp-filas').insertAdjacentHTML('beforeend', filaDireccionHtml(direccion, tendencia || 'nuevo'));
+}
+// Vuelve el formulario a "cargar una comuna nueva": comuna/nota en blanco,
+// 5 filas vacías (el tamaño más común de la planilla que manda gobierno —
+// se puede agregar o sacar filas igual con los botones).
+function cancelarEdicionDireccion(){
+  document.getElementById('dp-comuna').value = '';
+  document.getElementById('dp-comuna').disabled = false;
+  document.getElementById('dp-nota').value = '';
+  document.getElementById('dp-filas').innerHTML = '';
+  for(let i = 0; i < 5; i++) agregarFilaDireccion('', 'nuevo');
+  document.getElementById('btn-cancelar-edicion-direcciones').style.display = 'none';
+  document.getElementById('btn-guardar-direcciones').textContent = '💾 Guardar comuna';
+}
+
+async function cargarDireccionesPriorizadas(){
+  const box = document.getElementById('dp-lista-comunas');
+  box.innerHTML = '<div class="empty-msg">Cargando…</div>';
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('direcciones_priorizadas')
+      .select('*').order('comuna').order('ranking');
+    if(error) throw error;
+    _dpComunasActuales = {};
+    (data || []).forEach(f => {
+      if(!_dpComunasActuales[f.comuna]) _dpComunasActuales[f.comuna] = { filas: [], nota_comuna: f.nota_comuna, actualizado_en: f.actualizado_en };
+      _dpComunasActuales[f.comuna].filas.push(f);
+    });
+    renderListaComunasDirecciones();
+  }catch(e){
+    box.innerHTML = `<div class="empty-msg">Error cargando: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderListaComunasDirecciones(){
+  const box = document.getElementById('dp-lista-comunas');
+  const comunas = Object.keys(_dpComunasActuales).sort();
+  if(!comunas.length){
+    box.innerHTML = '<div class="empty-msg">Todavía no cargaste ninguna comuna.</div>';
+    return;
+  }
+  const tendencias = window.PROJECT_CONFIG.tendenciaDireccion || {};
+  box.innerHTML = comunas.map(comuna => {
+    const c = _dpComunasActuales[comuna];
+    const fecha = c.actualizado_en ? new Date(c.actualizado_en).toLocaleDateString('es-AR') : '—';
+    const filas = c.filas.map(f => {
+      const t = tendencias[f.tendencia] || { label: f.tendencia, color:'#64748b' };
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border);font-size:0.86rem;">
+          <span>${f.ranking}. ${esc(f.direccion)}</span>
+          <span class="badge" style="background:${esc(t.color)};color:white;flex:none;">${esc(t.label)}</span>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-family:'Sora',sans-serif;font-weight:800;color:var(--navy);">${esc(comuna)}</div>
+          <div style="font-size:0.74rem;color:#94a3b8;">actualizado el ${esc(fecha)}</div>
+        </div>
+        ${filas}
+        ${c.nota_comuna ? `<div class="section-hint" style="margin-top:8px;">${esc(c.nota_comuna)}</div>` : ''}
+        <div class="card-actions" style="margin-top:10px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="editarDireccionesComuna('${escAttr(comuna)}')">✏️ Editar</button>
+          <button type="button" class="btn btn-red btn-sm" onclick="eliminarDireccionesComuna('${escAttr(comuna)}')">🗑️ Eliminar comuna</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function editarDireccionesComuna(comuna){
+  const c = _dpComunasActuales[comuna];
+  if(!c) return;
+  document.getElementById('dp-comuna').value = comuna;
+  // La comuna queda fija mientras se edita (es la clave con la que se
+  // borran las filas viejas al guardar) — para "renombrarla" hay que
+  // eliminarla y cargarla de nuevo con el nombre correcto.
+  document.getElementById('dp-comuna').disabled = true;
+  document.getElementById('dp-nota').value = c.nota_comuna || '';
+  document.getElementById('dp-filas').innerHTML = '';
+  c.filas.forEach(f => agregarFilaDireccion(f.direccion, f.tendencia));
+  document.getElementById('btn-cancelar-edicion-direcciones').style.display = 'inline-block';
+  document.getElementById('btn-guardar-direcciones').textContent = '💾 Guardar cambios';
+  document.getElementById('tab-direcciones').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+async function eliminarDireccionesComuna(comuna){
+  if(!confirm(`¿Eliminar "${comuna}" y sus ${(_dpComunasActuales[comuna]||{filas:[]}).filas.length} direcciones? Las duplas van a dejar de verla.`)) return;
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('direcciones_priorizadas').delete().eq('comuna', comuna);
+    if(error) throw error;
+    if(document.getElementById('dp-comuna').value === comuna) cancelarEdicionDireccion();
+    await cargarDireccionesPriorizadas();
+  }catch(e){
+    alert('No se pudo eliminar: ' + e.message);
+  }
+}
+
+async function guardarDireccionesPriorizadas(){
+  const btn = document.getElementById('btn-guardar-direcciones');
+  const comuna = document.getElementById('dp-comuna').value.trim();
+  const nota = document.getElementById('dp-nota').value.trim();
+  if(!comuna){ alert('Completá el nombre de la comuna.'); return; }
+  const filas = [...document.querySelectorAll('#dp-filas .dp-fila')]
+    .map(row => ({
+      direccion: row.querySelector('.dp-direccion').value.trim(),
+      tendencia: row.querySelector('.dp-tendencia').value,
+    }))
+    .filter(f => f.direccion);
+  if(!filas.length){ alert('Cargá al menos una dirección.'); return; }
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    const client = await SupabaseClient.getClient();
+    const ahora = new Date().toISOString();
+    // Reemplaza la comuna entera: borra lo viejo e inserta la lista nueva
+    // (no se acumula historial — ver comentario de la tabla).
+    const { error: errDel } = await client.from('direcciones_priorizadas').delete().eq('comuna', comuna);
+    if(errDel) throw errDel;
+    const { error: errIns } = await client.from('direcciones_priorizadas').insert(
+      filas.map((f, i) => ({
+        comuna,
+        ranking: i + 1,
+        direccion: f.direccion,
+        tendencia: f.tendencia,
+        nota_comuna: nota || null,
+        actualizado_en: ahora,
+        creado_por: miPerfil.id,
+      }))
+    );
+    if(errIns) throw errIns;
+    cancelarEdicionDireccion();
+    await cargarDireccionesPriorizadas();
+  }catch(e){
+    alert('No se pudo guardar: ' + e.message);
+  }finally{
+    btn.disabled = false; btn.textContent = '💾 Guardar comuna';
+  }
+}
+
+// ── RECURSERO (23/10/2026) ─────────────────────────────────────────────
+// Ver comentario de la pestaña en el HTML y la tabla `recursos` en
+// schema-ajustes.sql. Mismo patrón que Direcciones priorizadas: cargar un
+// lugar de nuevo reemplaza sus filas (una por categoría) anteriores.
+let _rcLugaresActuales = {}; // lugar -> { categorias:[...], direccion, horario, nota, id_por_categoria:{cat:id} }
+
+function renderCategoriasRecursoChecks(seleccionadas){
+  const sugeridas = window.PROJECT_CONFIG.categoriasRecurso || [];
+  const todas = [...new Set([...sugeridas, ...(seleccionadas||[])])];
+  document.getElementById('rc-categorias-checks').innerHTML = todas.map(c => `
+    <label style="display:flex;align-items:center;gap:5px;background:#f8faff;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:0.82rem;cursor:pointer;">
+      <input type="checkbox" class="rc-cat-check" value="${escAttr(c)}" ${(seleccionadas||[]).includes(c) ? 'checked' : ''}> ${esc(c)}
+    </label>
+  `).join('');
+}
+// "+ Agregar" al lado del campo de texto libre — suma la categoría tipeada
+// al checklist (ya tildada) en vez de depender de que esté en la lista
+// sugerida. No la guarda sola: sigue haciendo falta tocar "Guardar lugar".
+function agregarCategoriaRecursoCustom(){
+  const input = document.getElementById('rc-categoria-otra');
+  const valor = input.value.trim();
+  if(!valor) return;
+  const yaExiste = [...document.querySelectorAll('.rc-cat-check')].some(c => c.value.toLowerCase() === valor.toLowerCase());
+  if(!yaExiste){
+    document.getElementById('rc-categorias-checks').insertAdjacentHTML('beforeend', `
+      <label style="display:flex;align-items:center;gap:5px;background:#f8faff;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:0.82rem;cursor:pointer;">
+        <input type="checkbox" class="rc-cat-check" value="${escAttr(valor)}" checked> ${esc(valor)}
+      </label>
+    `);
+  }
+  input.value = '';
+}
+function cancelarEdicionRecurso(){
+  document.getElementById('rc-lugar').value = '';
+  document.getElementById('rc-lugar').disabled = false;
+  document.getElementById('rc-direccion').value = '';
+  document.getElementById('rc-horario').value = '';
+  document.getElementById('rc-nota').value = '';
+  renderCategoriasRecursoChecks([]);
+  document.getElementById('btn-cancelar-edicion-recurso').style.display = 'none';
+  document.getElementById('btn-guardar-recurso').textContent = '💾 Guardar lugar';
+}
+
+async function cargarRecursos(){
+  const box = document.getElementById('rc-lista-lugares');
+  box.innerHTML = '<div class="empty-msg">Cargando…</div>';
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('recursos').select('*').order('lugar').order('categoria');
+    if(error) throw error;
+    _rcLugaresActuales = {};
+    (data || []).forEach(f => {
+      if(!_rcLugaresActuales[f.lugar]) _rcLugaresActuales[f.lugar] = { categorias: [], direccion: f.direccion, horario: f.horario, nota: f.nota };
+      _rcLugaresActuales[f.lugar].categorias.push(f.categoria);
+    });
+    renderListaRecursos();
+  }catch(e){
+    box.innerHTML = `<div class="empty-msg">Error cargando: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderListaRecursos(){
+  const box = document.getElementById('rc-lista-lugares');
+  const lugares = Object.keys(_rcLugaresActuales).sort();
+  if(!lugares.length){
+    box.innerHTML = '<div class="empty-msg">Todavía no cargaste ningún lugar.</div>';
+    return;
+  }
+  box.innerHTML = lugares.map(lugar => {
+    const l = _rcLugaresActuales[lugar];
+    const badges = l.categorias.map(c => `<span class="badge badge-gray">${esc(c)}</span>`).join(' ');
+    return `
+      <div class="card">
+        <div style="font-family:'Sora',sans-serif;font-weight:800;color:var(--navy);margin-bottom:4px;">${esc(lugar)}</div>
+        <div style="margin-bottom:6px;">${badges}</div>
+        <div style="font-size:0.84rem;color:#475569;">${esc(l.direccion || 'Sin dirección cargada')}${l.horario ? ' · ' + esc(l.horario) : ' · horario sin cargar'}</div>
+        ${l.nota ? `<div class="section-hint" style="margin-top:6px;">${esc(l.nota)}</div>` : ''}
+        <div class="card-actions" style="margin-top:10px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="editarRecurso('${escAttr(lugar)}')">✏️ Editar</button>
+          <button type="button" class="btn btn-red btn-sm" onclick="eliminarRecurso('${escAttr(lugar)}')">🗑️ Eliminar</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function editarRecurso(lugar){
+  const l = _rcLugaresActuales[lugar];
+  if(!l) return;
+  document.getElementById('rc-lugar').value = lugar;
+  // Igual que Direcciones priorizadas: el lugar queda fijo mientras se
+  // edita (es la clave con la que se borran las filas viejas al guardar).
+  document.getElementById('rc-lugar').disabled = true;
+  document.getElementById('rc-direccion').value = l.direccion || '';
+  document.getElementById('rc-horario').value = l.horario || '';
+  document.getElementById('rc-nota').value = l.nota || '';
+  renderCategoriasRecursoChecks(l.categorias);
+  document.getElementById('btn-cancelar-edicion-recurso').style.display = 'inline-block';
+  document.getElementById('btn-guardar-recurso').textContent = '💾 Guardar cambios';
+  document.getElementById('tab-recursero').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+async function eliminarRecurso(lugar){
+  if(!confirm(`¿Eliminar "${lugar}" del recursero? Las duplas van a dejar de verlo.`)) return;
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('recursos').delete().eq('lugar', lugar);
+    if(error) throw error;
+    if(document.getElementById('rc-lugar').value === lugar) cancelarEdicionRecurso();
+    await cargarRecursos();
+  }catch(e){
+    alert('No se pudo eliminar: ' + e.message);
+  }
+}
+
+async function guardarRecurso(){
+  const btn = document.getElementById('btn-guardar-recurso');
+  const lugar = document.getElementById('rc-lugar').value.trim();
+  const direccion = document.getElementById('rc-direccion').value.trim();
+  const horario = document.getElementById('rc-horario').value.trim();
+  const nota = document.getElementById('rc-nota').value.trim();
+  const categorias = [...document.querySelectorAll('.rc-cat-check:checked')].map(c => c.value);
+  if(!lugar){ alert('Completá el nombre del lugar.'); return; }
+  if(!categorias.length){ alert('Tildá al menos una categoría (qué ofrece este lugar).'); return; }
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    const client = await SupabaseClient.getClient();
+    // Reemplaza el lugar entero: borra lo viejo e inserta la lista nueva
+    // de categorías (mismo criterio que Direcciones priorizadas).
+    const { error: errDel } = await client.from('recursos').delete().eq('lugar', lugar);
+    if(errDel) throw errDel;
+    const { error: errIns } = await client.from('recursos').insert(
+      categorias.map(categoria => ({
+        categoria,
+        lugar,
+        direccion: direccion || null,
+        horario: horario || null,
+        nota: nota || null,
+        creado_por: miPerfil.id,
+      }))
+    );
+    if(errIns) throw errIns;
+    cancelarEdicionRecurso();
+    await cargarRecursos();
+  }catch(e){
+    alert('No se pudo guardar: ' + e.message);
+  }finally{
+    btn.disabled = false; btn.textContent = '💾 Guardar lugar';
+  }
 }
 
 async function cargarTodo(){
