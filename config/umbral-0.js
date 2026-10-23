@@ -203,6 +203,16 @@ const TENDENCIA_DIRECCION = {
   igual:   { label:'Igual',   color:'#64748b' },
 };
 
+// "Recursero" (23/10/2026, pedido de Agustina): lista sugerida de
+// categorías al cargar un lugar en admin-duplas.html — no es una lista
+// cerrada (el formulario deja agregar otra a mano), solo evita que cada
+// lugar se escriba la misma categoría con variantes distintas ("Bañarse"
+// vs "Ducha" vs "Baño").
+const CATEGORIAS_RECURSO_SUGERIDAS = [
+  'Bañarse', 'Desayuno', 'Comida', 'Corte de pelo', 'Ropa',
+  'Pernocte', 'Atención médica', 'Documentación',
+];
+
 // Puente KoBo → plataforma (sept/2026, pedido de Agustina): al validar un
 // envío, la casilla "¿Qué hiciste con este caso?" arrancaba siempre en
 // blanco aunque KoBo ya había preguntado algo muy parecido
@@ -549,6 +559,7 @@ window.PROJECT_CONFIG_UMBRAL_0.tipoIntervencionLabels = TIPO_INTERVENCION_LABELS
 window.PROJECT_CONFIG_UMBRAL_0.koboTerminoAAccion = KOBO_TERMINO_A_ACCION;
 window.PROJECT_CONFIG_UMBRAL_0.accionATipoDerivacion = ACCION_A_TIPO_DERIVACION;
 window.PROJECT_CONFIG_UMBRAL_0.tendenciaDireccion = TENDENCIA_DIRECCION;
+window.PROJECT_CONFIG_UMBRAL_0.categoriasRecurso = CATEGORIAS_RECURSO_SUGERIDAS;
 
 // Zonas operativas — ESQUEMA HISTÓRICO (vigente 5/10/2026 al 11/10/2026,
 // polígonos P1-P4). Reemplazado el 12/10/2026 por ZONAS_OPERATIVAS_UMBRAL_0

@@ -1415,6 +1415,49 @@ create policy direcciones_priorizadas_delete on public.direcciones_priorizadas
 
 create index direcciones_priorizadas_comuna_idx on public.direcciones_priorizadas (comuna, ranking);
 
+-- "Recursero" (23/10/2026, pedido de Agustina): lugares donde las
+-- personas en situación de calle pueden bañarse, desayunar, cortarse el
+-- pelo, etc. — "quiero que armes un recursero de opciones para que las
+-- duplas vayan sabiendo que recomendarle a las personas". Cargado a mano
+-- por un admin en admin-duplas.html, visible a todas las duplas en
+-- casos.html. Un mismo `lugar` puede ofrecer varias categorías (ej.
+-- Parroquia San José: bañarse + desayuno + corte de pelo, mismo horario)
+-- — una fila por (lugar, categoría) para poder filtrar/agrupar por
+-- categoría del lado de la dupla, mismo criterio de desnormalización que
+-- direcciones_priorizadas. Cargar un lugar de nuevo reemplaza sus
+-- categorías/datos anteriores (ver guardarRecurso() en admin-duplas.html).
+-- Ya corrido en producción.
+create table public.recursos (
+  id uuid primary key default gen_random_uuid(),
+  categoria text not null,
+  lugar text not null,
+  direccion text,
+  horario text,
+  nota text,
+  creado_por uuid references public.perfiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.recursos enable row level security;
+
+-- Visible para cualquier perfil con rol asignado (duplas incluidas) —
+-- mismo criterio que direcciones_priorizadas.
+create policy recursos_select on public.recursos
+  for select using (mi_rol() = any (array['admin','coordinacion','cliente','dupla']));
+
+create policy recursos_insert on public.recursos
+  for insert with check (mi_rol() = any (array['admin','coordinacion']));
+
+create policy recursos_update on public.recursos
+  for update using (mi_rol() = any (array['admin','coordinacion']));
+
+create policy recursos_delete on public.recursos
+  for delete using (mi_rol() = any (array['admin','coordinacion']));
+
+create index recursos_categoria_idx on public.recursos (categoria);
+create index recursos_lugar_idx on public.recursos (lugar);
+
 -- tomar_caso_pase_turno() se actualizó el mismo día: ya no exige que el
 -- caso sea de hoy, solo que sea de mi misma zona, activo, y no mío.
 create or replace function public.tomar_caso_pase_turno(p_persona_id uuid)

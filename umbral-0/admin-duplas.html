@@ -242,6 +242,7 @@
     <button class="admin-tab" data-tab="asistencia" onclick="switchTab('asistencia')">🗓️ Asistencia</button>
     <button class="admin-tab" data-tab="cobertura" onclick="switchTab('cobertura')">🗺️ Cobertura</button>
     <button class="admin-tab" data-tab="direcciones" onclick="switchTab('direcciones')">📍 Direcciones priorizadas</button>
+    <button class="admin-tab" data-tab="recursero" onclick="switchTab('recursero')">🧰 Recursero</button>
   </div>
 
   <!-- PESTAÑA: DUPLAS Y EQUIPO -->
@@ -554,6 +555,54 @@
 
   </div>
 
+  <!-- PESTAÑA: RECURSERO (23/10/2026, pedido de Agustina) — "armá un
+       recursero de opciones para que las duplas vayan sabiendo que
+       recomendarle a las personas": lugares donde bañarse, desayunar,
+       cortarse el pelo, etc. Un lugar puede ofrecer varias categorías
+       (checkboxes) — guardarRecurso() crea una fila por categoría
+       tildada, todas con el mismo lugar/dirección/horario/nota. Cargar un
+       lugar de nuevo reemplaza sus datos anteriores (mismo criterio que
+       Direcciones priorizadas). -->
+  <div class="wrap" id="tab-recursero" style="display:none;">
+
+    <div class="section-title" style="margin-top:0;">Recursero</div>
+    <div class="section-hint">Lugares donde las personas en situación de calle pueden bañarse, comer, cortarse el pelo, etc. — para que las duplas sepan qué recomendar. Cargar un lugar de nuevo reemplaza sus datos anteriores.</div>
+
+    <div class="card">
+      <div class="form-field">
+        <label>Lugar</label>
+        <input type="text" id="rc-lugar" placeholder="Ej: Parroquia San José">
+      </div>
+      <div class="form-field">
+        <label>Dirección</label>
+        <input type="text" id="rc-direccion" placeholder="Ej: Moreno y Alberdi">
+      </div>
+      <div class="form-field">
+        <label>Horario</label>
+        <input type="text" id="rc-horario" placeholder="Ej: 07 a 10hs">
+      </div>
+      <div class="form-field">
+        <label>Nota (opcional)</label>
+        <input type="text" id="rc-nota" placeholder="Alguna aclaración extra">
+      </div>
+      <div class="form-field">
+        <label>¿Qué ofrece?</label>
+        <div id="rc-categorias-checks" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input type="text" id="rc-categoria-otra" placeholder="Otra categoría…" style="flex:1;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="agregarCategoriaRecursoCustom()">+ Agregar</button>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button type="button" class="btn btn-blue" id="btn-guardar-recurso" onclick="guardarRecurso()">💾 Guardar lugar</button>
+        <button type="button" class="btn btn-outline" id="btn-cancelar-edicion-recurso" style="display:none;" onclick="cancelarEdicionRecurso()">Cancelar edición</button>
+      </div>
+    </div>
+
+    <div id="rc-lista-lugares"></div>
+
+  </div>
+
   <div class="huehaci-credit">
     <img src="../assets/huehaci-logo.png" alt="Huehaci">
     <span>Huehaci — Desarrolladora de sistemas y contenidos digitales de innovación local sustentable</span>
@@ -565,7 +614,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-22"></script>
+<script src="../config/umbral-0.js?v=2026-10-23"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script src="../shared/js/mapa-puntos.js?v=2026-10-12"></script>
@@ -660,6 +709,7 @@ let _diarioCargado = false;
 let _asistenciaCargada = false;
 let _coberturaCargada = false;
 let _direccionesCargadas = false;
+let _recurseroCargado = false;
 function switchTab(nombre){
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === nombre));
   document.getElementById('tab-duplas').style.display = nombre === 'duplas' ? 'block' : 'none';
@@ -668,6 +718,7 @@ function switchTab(nombre){
   document.getElementById('tab-asistencia').style.display = nombre === 'asistencia' ? 'block' : 'none';
   document.getElementById('tab-cobertura').style.display = nombre === 'cobertura' ? 'block' : 'none';
   document.getElementById('tab-direcciones').style.display = nombre === 'direcciones' ? 'block' : 'none';
+  document.getElementById('tab-recursero').style.display = nombre === 'recursero' ? 'block' : 'none';
   history.replaceState(null, '', nombre === 'duplas' ? '#duplas' : '#' + nombre);
   if(nombre === 'reporte' && !_reporteCargado){
     _reporteCargado = true;
@@ -706,6 +757,11 @@ function switchTab(nombre){
     _direccionesCargadas = true;
     cancelarEdicionDireccion(); // arranca con 5 filas en blanco
     cargarDireccionesPriorizadas();
+  }
+  if(nombre === 'recursero' && !_recurseroCargado){
+    _recurseroCargado = true;
+    cancelarEdicionRecurso(); // arranca el checklist de categorías en blanco
+    cargarRecursos();
   }
 }
 
@@ -904,6 +960,157 @@ async function guardarDireccionesPriorizadas(){
     alert('No se pudo guardar: ' + e.message);
   }finally{
     btn.disabled = false; btn.textContent = '💾 Guardar comuna';
+  }
+}
+
+// ── RECURSERO (23/10/2026) ─────────────────────────────────────────────
+// Ver comentario de la pestaña en el HTML y la tabla `recursos` en
+// schema-ajustes.sql. Mismo patrón que Direcciones priorizadas: cargar un
+// lugar de nuevo reemplaza sus filas (una por categoría) anteriores.
+let _rcLugaresActuales = {}; // lugar -> { categorias:[...], direccion, horario, nota, id_por_categoria:{cat:id} }
+
+function renderCategoriasRecursoChecks(seleccionadas){
+  const sugeridas = window.PROJECT_CONFIG.categoriasRecurso || [];
+  const todas = [...new Set([...sugeridas, ...(seleccionadas||[])])];
+  document.getElementById('rc-categorias-checks').innerHTML = todas.map(c => `
+    <label style="display:flex;align-items:center;gap:5px;background:#f8faff;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:0.82rem;cursor:pointer;">
+      <input type="checkbox" class="rc-cat-check" value="${escAttr(c)}" ${(seleccionadas||[]).includes(c) ? 'checked' : ''}> ${esc(c)}
+    </label>
+  `).join('');
+}
+// "+ Agregar" al lado del campo de texto libre — suma la categoría tipeada
+// al checklist (ya tildada) en vez de depender de que esté en la lista
+// sugerida. No la guarda sola: sigue haciendo falta tocar "Guardar lugar".
+function agregarCategoriaRecursoCustom(){
+  const input = document.getElementById('rc-categoria-otra');
+  const valor = input.value.trim();
+  if(!valor) return;
+  const yaExiste = [...document.querySelectorAll('.rc-cat-check')].some(c => c.value.toLowerCase() === valor.toLowerCase());
+  if(!yaExiste){
+    document.getElementById('rc-categorias-checks').insertAdjacentHTML('beforeend', `
+      <label style="display:flex;align-items:center;gap:5px;background:#f8faff;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:0.82rem;cursor:pointer;">
+        <input type="checkbox" class="rc-cat-check" value="${escAttr(valor)}" checked> ${esc(valor)}
+      </label>
+    `);
+  }
+  input.value = '';
+}
+function cancelarEdicionRecurso(){
+  document.getElementById('rc-lugar').value = '';
+  document.getElementById('rc-lugar').disabled = false;
+  document.getElementById('rc-direccion').value = '';
+  document.getElementById('rc-horario').value = '';
+  document.getElementById('rc-nota').value = '';
+  renderCategoriasRecursoChecks([]);
+  document.getElementById('btn-cancelar-edicion-recurso').style.display = 'none';
+  document.getElementById('btn-guardar-recurso').textContent = '💾 Guardar lugar';
+}
+
+async function cargarRecursos(){
+  const box = document.getElementById('rc-lista-lugares');
+  box.innerHTML = '<div class="empty-msg">Cargando…</div>';
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('recursos').select('*').order('lugar').order('categoria');
+    if(error) throw error;
+    _rcLugaresActuales = {};
+    (data || []).forEach(f => {
+      if(!_rcLugaresActuales[f.lugar]) _rcLugaresActuales[f.lugar] = { categorias: [], direccion: f.direccion, horario: f.horario, nota: f.nota };
+      _rcLugaresActuales[f.lugar].categorias.push(f.categoria);
+    });
+    renderListaRecursos();
+  }catch(e){
+    box.innerHTML = `<div class="empty-msg">Error cargando: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderListaRecursos(){
+  const box = document.getElementById('rc-lista-lugares');
+  const lugares = Object.keys(_rcLugaresActuales).sort();
+  if(!lugares.length){
+    box.innerHTML = '<div class="empty-msg">Todavía no cargaste ningún lugar.</div>';
+    return;
+  }
+  box.innerHTML = lugares.map(lugar => {
+    const l = _rcLugaresActuales[lugar];
+    const badges = l.categorias.map(c => `<span class="badge badge-gray">${esc(c)}</span>`).join(' ');
+    return `
+      <div class="card">
+        <div style="font-family:'Sora',sans-serif;font-weight:800;color:var(--navy);margin-bottom:4px;">${esc(lugar)}</div>
+        <div style="margin-bottom:6px;">${badges}</div>
+        <div style="font-size:0.84rem;color:#475569;">${esc(l.direccion || 'Sin dirección cargada')}${l.horario ? ' · ' + esc(l.horario) : ' · horario sin cargar'}</div>
+        ${l.nota ? `<div class="section-hint" style="margin-top:6px;">${esc(l.nota)}</div>` : ''}
+        <div class="card-actions" style="margin-top:10px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="editarRecurso('${escAttr(lugar)}')">✏️ Editar</button>
+          <button type="button" class="btn btn-red btn-sm" onclick="eliminarRecurso('${escAttr(lugar)}')">🗑️ Eliminar</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function editarRecurso(lugar){
+  const l = _rcLugaresActuales[lugar];
+  if(!l) return;
+  document.getElementById('rc-lugar').value = lugar;
+  // Igual que Direcciones priorizadas: el lugar queda fijo mientras se
+  // edita (es la clave con la que se borran las filas viejas al guardar).
+  document.getElementById('rc-lugar').disabled = true;
+  document.getElementById('rc-direccion').value = l.direccion || '';
+  document.getElementById('rc-horario').value = l.horario || '';
+  document.getElementById('rc-nota').value = l.nota || '';
+  renderCategoriasRecursoChecks(l.categorias);
+  document.getElementById('btn-cancelar-edicion-recurso').style.display = 'inline-block';
+  document.getElementById('btn-guardar-recurso').textContent = '💾 Guardar cambios';
+  document.getElementById('tab-recursero').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+async function eliminarRecurso(lugar){
+  if(!confirm(`¿Eliminar "${lugar}" del recursero? Las duplas van a dejar de verlo.`)) return;
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('recursos').delete().eq('lugar', lugar);
+    if(error) throw error;
+    if(document.getElementById('rc-lugar').value === lugar) cancelarEdicionRecurso();
+    await cargarRecursos();
+  }catch(e){
+    alert('No se pudo eliminar: ' + e.message);
+  }
+}
+
+async function guardarRecurso(){
+  const btn = document.getElementById('btn-guardar-recurso');
+  const lugar = document.getElementById('rc-lugar').value.trim();
+  const direccion = document.getElementById('rc-direccion').value.trim();
+  const horario = document.getElementById('rc-horario').value.trim();
+  const nota = document.getElementById('rc-nota').value.trim();
+  const categorias = [...document.querySelectorAll('.rc-cat-check:checked')].map(c => c.value);
+  if(!lugar){ alert('Completá el nombre del lugar.'); return; }
+  if(!categorias.length){ alert('Tildá al menos una categoría (qué ofrece este lugar).'); return; }
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    const client = await SupabaseClient.getClient();
+    // Reemplaza el lugar entero: borra lo viejo e inserta la lista nueva
+    // de categorías (mismo criterio que Direcciones priorizadas).
+    const { error: errDel } = await client.from('recursos').delete().eq('lugar', lugar);
+    if(errDel) throw errDel;
+    const { error: errIns } = await client.from('recursos').insert(
+      categorias.map(categoria => ({
+        categoria,
+        lugar,
+        direccion: direccion || null,
+        horario: horario || null,
+        nota: nota || null,
+        creado_por: miPerfil.id,
+      }))
+    );
+    if(errIns) throw errIns;
+    cancelarEdicionRecurso();
+    await cargarRecursos();
+  }catch(e){
+    alert('No se pudo guardar: ' + e.message);
+  }finally{
+    btn.disabled = false; btn.textContent = '💾 Guardar lugar';
   }
 }
 

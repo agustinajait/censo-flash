@@ -425,6 +425,12 @@
        duplas, todas las comunas". Ver cargarDireccionesPriorizadas(). -->
   <div id="direcciones-priorizadas-box" style="display:none;"></div>
 
+  <!-- RECURSERO (23/10/2026, pedido de Agustina) — lugares donde
+       recomendarle a una persona bañarse, desayunar, cortarse el pelo,
+       etc. Cargado a mano en admin-duplas.html (tabla `recursos`). Ver
+       cargarRecursos(). -->
+  <div id="recursero-box" style="display:none;"></div>
+
   <!-- Diagnóstico de KoBo (1/10/2026, pedido de Agustina: la Dupla E decía
        haber cargado casos HOY que no aparecían en ningún lado de esta
        pantalla, ni siquiera en "sin identificar" — a diferencia de envíos
@@ -567,7 +573,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-22"></script>
+<script src="../config/umbral-0.js?v=2026-10-23"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
@@ -1137,6 +1143,7 @@ async function entrarAlApp(){
   cargarKoboPendientes(); // no se espera: si KoBo tarda o falla, no bloquea entrar a la app
   cargarCasosPaseTurno(); // no se espera, mismo motivo
   cargarDireccionesPriorizadas(); // no se espera, mismo motivo
+  cargarRecursero(); // no se espera, mismo motivo
   revisarDuplicadosCasos(); // no se espera, mismo motivo
   cargarDniPendientesCount(); // no se espera, mismo motivo — solo actualiza el contador del botón
   cargarSinIdentificarCount(); // no se espera, mismo motivo
@@ -2827,6 +2834,61 @@ function mostrarDireccionesPriorizadas(){
   `;
 }
 
+// ── RECURSERO (23/10/2026) ───────────────────────────────────────────────
+// Lugares donde recomendarle a una persona bañarse, desayunar, cortarse
+// el pelo, etc. — cargado a mano en admin-duplas.html (tabla `recursos`,
+// ver schema-ajustes.sql). Agrupado por CATEGORÍA acá (al revés que en el
+// admin, que agrupa por lugar) porque así es como una dupla lo busca:
+// "necesito dónde bañarse", no "qué ofrece tal lugar".
+let recurseroActual = []; // filas crudas de `recursos`, una por (lugar, categoría)
+async function cargarRecursero(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('recursos').select('*').order('categoria').order('lugar');
+    if(error) throw error;
+    recurseroActual = data || [];
+  }catch(e){
+    console.error('No se pudo cargar el recursero', e);
+    recurseroActual = [];
+  }
+  mostrarRecursero();
+}
+function mostrarRecursero(){
+  const box = document.getElementById('recursero-box');
+  if(!recurseroActual.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const porCategoria = {};
+  recurseroActual.forEach(f => {
+    if(!porCategoria[f.categoria]) porCategoria[f.categoria] = [];
+    porCategoria[f.categoria].push(f);
+  });
+  const categorias = Object.keys(porCategoria).sort();
+  const bloques = categorias.map(cat => {
+    const lugares = porCategoria[cat].map(f => `
+      <div style="padding:6px 0;border-top:1px solid var(--border);font-size:0.84rem;">
+        <b>${esc(f.lugar)}</b>
+        <div class="meta">${esc(f.direccion || 'Sin dirección cargada')}${f.horario ? ' · ' + esc(f.horario) : ' · horario sin cargar'}</div>
+        ${f.nota ? `<div class="meta">${esc(f.nota)}</div>` : ''}
+      </div>
+    `).join('');
+    return `
+      <div class="kobo-pend-card" style="flex-direction:column;align-items:stretch;">
+        <div style="font-family:'Sora',sans-serif;font-weight:700;color:#1e293b;">${esc(cat)}</div>
+        ${lugares}
+      </div>
+    `;
+  }).join('');
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div class="kobo-pend">
+      <details class="form-section">
+        <summary>🧰 Recursero (${recurseroActual.length})</summary>
+        <div class="section-hint" style="margin:8px 0 8px;">Dónde recomendarle a una persona bañarse, desayunar, cortarse el pelo, etc. — agrupado por tipo de recurso.</div>
+        ${bloques}
+      </details>
+    </div>
+  `;
+}
+
 // Simplificado (15/10/2026, pedido de Agustina: "simplifica las
 // pantallas... eso confunde mucho a las duplas") — antes esto apilaba
 // hasta 4 cajas con su propio título grande cada una (altas, posibles
@@ -3279,6 +3341,7 @@ const Casos = {
     mostrarKoboPendientes();
     mostrarCasosPaseTurno();
     mostrarDireccionesPriorizadas();
+    mostrarRecursero();
     renderAccionesPendientes();
     document.getElementById('buscar-input').value = '';
     Casos.buscarPersonas('');
@@ -3302,6 +3365,7 @@ const Casos = {
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('duplicados-casos-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('recursero-box').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
     document.getElementById('view-sin-identificar').style.display = 'none';
@@ -3317,6 +3381,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('recursero-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3337,6 +3402,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('recursero-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3366,6 +3432,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('recursero-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -3446,6 +3513,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('recursero-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-ficha').style.display = 'none';
@@ -4394,6 +4462,7 @@ const Casos = {
     document.getElementById('mi-turno-box').style.display = 'none';
     document.getElementById('kobo-pend-box').style.display = 'none';
     document.getElementById('direcciones-priorizadas-box').style.display = 'none';
+    document.getElementById('recursero-box').style.display = 'none';
     document.getElementById('acciones-box').style.display = 'none';
     document.getElementById('view-buscar').style.display = 'none';
     document.getElementById('view-dni-pendientes').style.display = 'none';
