@@ -209,8 +209,8 @@ const TENDENCIA_DIRECCION = {
 // lugar se escriba la misma categoría con variantes distintas ("Bañarse"
 // vs "Ducha" vs "Baño").
 const CATEGORIAS_RECURSO_SUGERIDAS = [
-  'Bañarse', 'Desayuno', 'Comida', 'Corte de pelo', 'Ropa',
-  'Pernocte', 'Atención médica', 'Documentación',
+  'Bañarse', 'Desayuno', 'Merienda', 'Comida', 'Cena', 'Corte de pelo', 'Ropa',
+  'Pernocte', 'Atención médica', 'Asistente social', 'Documentación',
 ];
 
 // Puente KoBo → plataforma (sept/2026, pedido de Agustina): al validar un
