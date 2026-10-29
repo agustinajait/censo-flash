@@ -2029,7 +2029,24 @@ async function _crearJornadaConPresentes(idsPresentes){
     const { data: jornada, error } = await client.from('jornadas')
       .insert({ dupla_id: miPerfil.dupla_id, fecha: hoyStr(), inicio: new Date().toISOString() })
       .select().single();
-    if(error) throw error;
+    if(error){
+      // Es la cuenta compartida de la dupla (pedido de Agustina,
+      // 13/10/2026) — los dos integrantes pueden tener la app abierta en
+      // sus propios teléfonos al mismo tiempo. Si los dos tocan "Marcar
+      // inicio" casi juntos, el segundo pisa el constraint único
+      // jornadas_dupla_id_fecha_key porque el primero ya creó la jornada
+      // de hoy entre que este cargó la pantalla y tocó el botón. Reportado
+      // 29/10/2026 (caso real: Mayra Quito + Mercedes Apellido). No es un
+      // error real — la jornada de hoy quedó iniciada igual, por el otro
+      // integrante — así que se recupera solo en vez de mostrar el error.
+      if(error.code === '23505' && /jornadas_dupla_id_fecha_key/.test(error.message||'')){
+        closeModal();
+        await cargarJornadaHoy();
+        mostrarJornada();
+        return;
+      }
+      throw error;
+    }
     if(idsPresentes.length){
       const { error: errP } = await client.from('jornadas_presentes')
         .insert(idsPresentes.map(integrante_id => ({ jornada_id: jornada.id, integrante_id })));
