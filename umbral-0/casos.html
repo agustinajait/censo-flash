@@ -1729,12 +1729,14 @@ function mostrarJornada(){
       ${jornadaHoy.reemplazo ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>👥 Reemplazo:</b> ${esc(jornadaHoy.reemplazo)}</div>` : ''}
       <button class="btn btn-outline btn-sm" id="btn-toggle-resumen-dia" style="margin-top:8px;" onclick="Casos.toggleResumenDia()">🔽 Ver detalle del día</button>
       <div id="resumen-dia-box" style="display:none;"></div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="editarPresentesHoy()">✏️ Editar presentes</button>
       <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="reabrirJornada()">↩️ Reabrir jornada</button>`;
   } else if(jornadaHoy && jornadaHoy.inicio){
     estado = 'en-curso';
     html = `<div class="jornada-txt">🌤️ <strong>Jornada en curso</strong> — inicio ${fmtHora(jornadaHoy.inicio)}</div>
       ${presentesHoy.length ? `<div class="jornada-txt" style="margin-top:6px;font-size:0.82rem;"><b>✅ Presentes:</b> ${presentesHoy.map(esc).join(', ')}</div>` : ''}
-      <button class="btn btn-blue" onclick="abrirModalCierreJornada()">⏹️ Marcar fin de jornada</button>`;
+      <button class="btn btn-blue" onclick="abrirModalCierreJornada()">⏹️ Marcar fin de jornada</button>
+      <button class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="editarPresentesHoy()">✏️ Editar presentes</button>`;
   } else {
     estado = 'pendiente';
     html = `<div class="jornada-txt">☀️ Todavía no marcaste el <strong>inicio de la jornada de hoy</strong>.</div>
@@ -1972,52 +1974,147 @@ async function marcarInicioJornada(){
   // los dos tocara el botón desde la cuenta compartida, sin quedar
   // registrado quién de los dos vino. Antes de crear la jornada, se pide
   // tildar presente a cada integrante activo (ver jornadas_presentes en
-  // schema-ajustes.sql). Si alguno falta, igual se puede arrancar la
-  // jornada — el reemplazo puntual se sigue anotando en texto libre al
-  // cerrar (abrirModalCierreJornada()), esto es la asistencia del roster
-  // habitual, no el reemplazo.
+  // schema-ajustes.sql). Si alguno falta, se puede agregar un reemplazo
+  // de cualquier otra dupla (ver _cargarIntegrantesTodos) para que quede
+  // contabilizado en Asistencia como cualquier otro día trabajado.
   try{
     const client = await SupabaseClient.getClient();
     const { data: integrantesDupla, error: errI } = await client.from('integrantes')
       .select('id, nombre, apellido').eq('dupla_id', miPerfil.dupla_id).eq('activo', true).neq('rol', 'chofer')
       .order('nombre');
     if(errI) throw errI;
+    const todosLosIntegrantes = await _cargarIntegrantesTodos();
     if(!integrantesDupla || !integrantesDupla.length){
       // Sin integrantes cargados (raro, pero posible) — no bloquea el
       // inicio de jornada, solo no pide el checklist.
       await _crearJornadaConPresentes([]);
       return;
     }
-    _abrirModalPresentes(integrantesDupla);
+    _abrirModalPresentes(integrantesDupla, todosLosIntegrantes, {
+      tituloModal: 'Presentes hoy',
+      tituloBoton: '▶️ Marcar inicio de jornada',
+      onConfirmar: _crearJornadaConPresentes,
+    });
   }catch(e){
     alert('No se pudo revisar los integrantes de la dupla: ' + e.message);
   }
 }
 
-function _abrirModalPresentes(integrantesDupla){
+// Pedido de Agustina (29/10/2026): "que la dupla que toma el reemplazo
+// seleccione de todos los operadores ya cargados quién es el que toma el
+// reemplazo... y que el sistema lo contabilice en asistencias" — antes el
+// reemplazo solo se anotaba como texto libre al cerrar la jornada
+// (jornadas.reemplazo), así que no sumaba en el conteo de "días
+// trabajados por persona" de admin-duplas.html (pestaña Asistencia, que
+// cuenta filas reales de jornadas_presentes). Se resuelve agregando a la
+// persona reemplazante como una fila más de jornadas_presentes — el
+// conteo de admin-duplas.html ya agrupa por integrante_id sin asumir que
+// pertenece a la dupla de la jornada (ver diasPorIntegranteId), así que
+// no hizo falta tocar nada ahí. Se usa `integrantes_publico` (vista
+// pública sin RLS, ver schema-ajustes.sql) para poder listar integrantes
+// de OTRAS duplas — `integrantes` a secas está scopeado por RLS a la
+// propia dupla.
+let _integrantesTodosCache = null;
+async function _cargarIntegrantesTodos(){
+  if(_integrantesTodosCache) return _integrantesTodosCache;
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('integrantes_publico').select('id, nombre, apellido, dupla_codigo').order('dupla_codigo').order('nombre');
+    if(error) throw error;
+    _integrantesTodosCache = data || [];
+  }catch(e){
+    console.error('No se pudo cargar la lista de todos los integrantes (para reemplazos)', e);
+    _integrantesTodosCache = [];
+  }
+  return _integrantesTodosCache;
+}
+
+// `integrantesDupla`: roster habitual de la dupla logueada (checkboxes).
+// `todosLosIntegrantes`: filas de integrantes_publico, para el selector
+// de reemplazo (cualquier dupla).
+// `opts.idsPreseleccionados`: si se pasa, define qué queda tildado/
+// agregado al abrir (edición de una jornada ya creada); si no, arranca
+// todo el roster tildado (jornada nueva, comportamiento de siempre).
+function _abrirModalPresentes(integrantesDupla, todosLosIntegrantes, opts){
+  const idsRoster = new Set(integrantesDupla.map(i => i.id));
+  const idsPre = opts.idsPreseleccionados ? new Set(opts.idsPreseleccionados) : null;
   const filas = integrantesDupla.map(i => `
     <div class="form-check">
-      <input type="checkbox" id="presente-${escAttr(i.id)}" value="${escAttr(i.id)}" checked>
+      <input type="checkbox" id="presente-${escAttr(i.id)}" value="${escAttr(i.id)}" ${(!idsPre || idsPre.has(i.id)) ? 'checked' : ''}>
       <label for="presente-${escAttr(i.id)}">${esc(`${i.nombre||''} ${i.apellido||''}`.trim() || 'Sin nombre')}</label>
     </div>
   `).join('');
+
+  // Reemplazos ya elegidos al abrir (modo edición): cualquier id
+  // preseleccionado que NO sea del roster habitual.
+  const reemplazosIniciales = new Map();
+  if(idsPre){
+    idsPre.forEach(id => {
+      if(idsRoster.has(id)) return;
+      const persona = todosLosIntegrantes.find(t => t.id === id);
+      reemplazosIniciales.set(id, persona ? `${persona.nombre||''} ${persona.apellido||''}`.trim() + (persona.dupla_codigo ? ` (Dupla ${persona.dupla_codigo})` : '') : 'Integrante');
+    });
+  }
+
+  const disponiblesParaAgregar = todosLosIntegrantes.filter(t => !idsRoster.has(t.id));
+  const porDupla = {};
+  disponiblesParaAgregar.forEach(t => { (porDupla[t.dupla_codigo || '—'] = porDupla[t.dupla_codigo || '—'] || []).push(t); });
+  const optgroups = Object.keys(porDupla).sort().map(cod => `
+    <optgroup label="Dupla ${esc(cod)}">
+      ${porDupla[cod].map(t => `<option value="${escAttr(t.id)}">${esc(`${t.nombre||''} ${t.apellido||''}`.trim() || 'Sin nombre')}</option>`).join('')}
+    </optgroup>
+  `).join('');
+
   const body = `
     <form id="form-presentes" onsubmit="return false;">
       <div class="form-field">
         <label>¿Quiénes de la dupla están hoy? *</label>
-        <div class="hint">Destildá a quien no vino. Si los reemplazó alguien que no es del roster habitual, eso se anota aparte al cerrar la jornada.</div>
+        <div class="hint">Destildá a quien no vino.</div>
         ${filas}
       </div>
+      <div class="form-field" style="margin-top:14px;">
+        <label>¿Hoy la cubre alguien que no es del roster de arriba?</label>
+        <div class="hint">Elegilo de la lista — así cuenta bien en Asistencia, en vez de quedar solo como una nota de texto.</div>
+        <select id="reemplazo-agregar">
+          <option value="">+ Agregar un reemplazo…</option>
+          ${optgroups}
+        </select>
+        <div id="reemplazos-chips" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;"></div>
+      </div>
       <div class="modal-foot">
-        <button type="button" class="btn btn-green" id="btn-confirmar-presentes">▶️ Marcar inicio de jornada</button>
+        <button type="button" class="btn btn-green" id="btn-confirmar-presentes">${esc(opts.tituloBoton)}</button>
         <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
       </div>
     </form>
   `;
-  openModal('Presentes hoy', body);
+  openModal(opts.tituloModal, body);
+
+  const reemplazosElegidos = reemplazosIniciales; // Map id -> texto a mostrar
+  const renderChips = () => {
+    document.getElementById('reemplazos-chips').innerHTML = [...reemplazosElegidos.entries()].map(([id, texto]) => `
+      <span style="display:inline-flex; align-items:center; gap:4px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:14px; padding:3px 6px 3px 10px; font-size:0.78rem;">
+        ${esc(texto)}
+        <button type="button" data-quitar="${escAttr(id)}" style="border:none; background:none; cursor:pointer; font-size:0.9rem; line-height:1; color:#4338ca;" aria-label="Quitar">×</button>
+      </span>
+    `).join('');
+    document.getElementById('reemplazos-chips').querySelectorAll('[data-quitar]').forEach(btn => {
+      btn.onclick = () => { reemplazosElegidos.delete(btn.dataset.quitar); renderChips(); };
+    });
+  };
+  renderChips();
+  document.getElementById('reemplazo-agregar').onchange = (ev) => {
+    const id = ev.target.value;
+    if(!id) return;
+    const opt = ev.target.selectedOptions[0];
+    reemplazosElegidos.set(id, `${opt.textContent} (${opt.parentElement.label || ''})`.replace(' ()', ''));
+    ev.target.value = '';
+    renderChips();
+  };
+
   document.getElementById('btn-confirmar-presentes').onclick = () => {
     const idsPresentes = integrantesDupla.map(i => i.id).filter(id => document.getElementById(`presente-${id}`).checked);
-    _crearJornadaConPresentes(idsPresentes);
+    [...reemplazosElegidos.keys()].forEach(id => { if(!idsPresentes.includes(id)) idsPresentes.push(id); });
+    opts.onConfirmar(idsPresentes);
   };
 }
 
@@ -2058,6 +2155,58 @@ async function _crearJornadaConPresentes(idsPresentes){
   }catch(e){
     if(btn){ modalError('No se pudo marcar el inicio: ' + e.message); btn.disabled = false; btn.textContent = '▶️ Marcar inicio de jornada'; }
     else alert('No se pudo marcar el inicio: ' + e.message);
+    return;
+  }
+  await cargarJornadaHoy();
+  mostrarJornada();
+}
+
+// Editar quiénes están presentes en la jornada de hoy, ya iniciada o ya
+// cerrada (pedido de Agustina, 29/10/2026) — para cuando el reemplazo se
+// resuelve a mitad de turno, o para corregir una carga. Reutiliza el
+// mismo modal de _abrirModalPresentes, pre-tildado con lo que ya hay en
+// jornadas_presentes (en vez de todo el roster tildado por default).
+async function editarPresentesHoy(){
+  if(!jornadaHoy){ alert('Todavía no hay una jornada de hoy para editar.'); return; }
+  try{
+    const client = await SupabaseClient.getClient();
+    const [{ data: integrantesDupla, error: errI }, todosLosIntegrantes, { data: presentesActuales, error: errP }] = await Promise.all([
+      client.from('integrantes').select('id, nombre, apellido').eq('dupla_id', miPerfil.dupla_id).eq('activo', true).neq('rol', 'chofer').order('nombre'),
+      _cargarIntegrantesTodos(),
+      client.from('jornadas_presentes').select('integrante_id').eq('jornada_id', jornadaHoy.id),
+    ]);
+    if(errI) throw errI;
+    if(errP) throw errP;
+    _abrirModalPresentes(integrantesDupla || [], todosLosIntegrantes, {
+      tituloModal: 'Editar presentes de hoy',
+      tituloBoton: '💾 Guardar presentes',
+      idsPreseleccionados: (presentesActuales || []).map(p => p.integrante_id),
+      onConfirmar: _guardarPresentesEditados,
+    });
+  }catch(e){
+    alert('No se pudieron cargar los presentes de hoy: ' + e.message);
+  }
+}
+
+async function _guardarPresentesEditados(idsPresentes){
+  const btn = document.getElementById('btn-confirmar-presentes');
+  if(btn){ btn.disabled = true; btn.textContent = 'Guardando…'; }
+  try{
+    const client = await SupabaseClient.getClient();
+    // Reemplazo completo en vez de diff — jornadas_presentes no guarda
+    // nada más que jornada_id/integrante_id, así que no hay riesgo de
+    // perder datos al borrar y volver a insertar.
+    const { error: errDel } = await client.from('jornadas_presentes').delete().eq('jornada_id', jornadaHoy.id);
+    if(errDel) throw errDel;
+    if(idsPresentes.length){
+      const { error: errIns } = await client.from('jornadas_presentes')
+        .insert(idsPresentes.map(integrante_id => ({ jornada_id: jornadaHoy.id, integrante_id })));
+      if(errIns) throw errIns;
+    }
+    closeModal();
+  }catch(e){
+    if(btn){ modalError('No se pudieron guardar los presentes: ' + e.message); btn.disabled = false; btn.textContent = '💾 Guardar presentes'; }
+    else alert('No se pudieron guardar los presentes: ' + e.message);
     return;
   }
   await cargarJornadaHoy();

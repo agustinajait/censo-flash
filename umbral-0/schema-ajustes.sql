@@ -1040,6 +1040,46 @@ create policy "jornadas_presentes_propia_dupla" on public.jornadas_presentes
     )
   );
 
+-- 29/10/2026, pedido de Agustina: "que la dupla que toma el reemplazo
+-- seleccione de todos los operadores ya cargados quién es el que toma el
+-- reemplazo... y que el sistema lo contabilice en asistencias". El
+-- `with check` de arriba (13/10) exigía que el integrante marcado
+-- presente fuera de la MISMA dupla que la jornada — bloqueaba agregar a
+-- alguien de OTRA dupla como reemplazo estructurado (antes solo se podía
+-- anotar como texto libre en jornadas.reemplazo, que no contabiliza en
+-- el conteo de "días trabajados por persona" de admin-duplas.html, ver
+-- diasPorIntegranteId). Se relaja esa condición (ya no exige
+-- i.dupla_id = j.dupla_id) pero se mantiene todo lo demás: solo se puede
+-- tocar la jornada de LA PROPIA dupla logueada, y el integrante elegido
+-- no puede ser un chofer. El nivel de confianza es el mismo que ya
+-- existía para el texto libre de reemplazo — ahora estructurado en vez
+-- de un campo de texto que no contaba. UI: casos.html,
+-- _abrirModalPresentes()/editarPresentesHoy(), usa `integrantes_publico`
+-- para poder listar integrantes de otras duplas (RLS de `integrantes` a
+-- secas sigue scopeada a la propia dupla, sin cambios).
+drop policy if exists "jornadas_presentes_propia_dupla" on public.jornadas_presentes;
+
+create policy "jornadas_presentes_propia_dupla" on public.jornadas_presentes
+  for all
+  using (
+    public.mi_rol() in ('admin', 'coordinacion')
+    or exists (
+      select 1 from public.jornadas j
+      where j.id = jornadas_presentes.jornada_id
+        and j.dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
+    )
+  )
+  with check (
+    public.mi_rol() in ('admin', 'coordinacion')
+    or exists (
+      select 1 from public.jornadas j
+      join public.integrantes i on i.id = jornadas_presentes.integrante_id
+      where j.id = jornadas_presentes.jornada_id
+        and j.dupla_id = (select dupla_id from public.perfiles where id = auth.uid())
+        and i.rol <> 'chofer'
+    )
+  );
+
 -- Pase de turno (15/10/2026, pedido de Agustina): dentro del mismo
 -- polígono, las duplas rotan en turnos T1-T4 durante el día — si la dupla
 -- de la mañana abre un caso, la dupla que entra en el turno siguiente en
