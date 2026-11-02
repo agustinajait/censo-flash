@@ -1549,3 +1549,42 @@ grant execute on function public.tomar_caso_pase_turno(uuid) to authenticated;
 -- producción. No se agrega a personas_listado_publico (vista anónima)
 -- a propósito — no hace falta exponerlo ahí.
 alter table public.personas add column interes_curso_laboral boolean;
+
+-- Evaluaciones de desempeño de coordinación sobre cada dupla (2/11/2026,
+-- pedido de Agustina: que Yesi pueda marcar el desempeño de la dupla y
+-- dejar comentarios en las visitas de seguimiento de entrevistas). Solo
+-- admin/coordinación la ven y la escriben — la dupla evaluada NO tiene
+-- acceso (decisión explícita de Agustina, no es devolución directa).
+create table if not exists evaluaciones_dupla (
+  id uuid primary key default gen_random_uuid(),
+  dupla_id uuid not null references duplas(id) on delete cascade,
+  fecha date not null default current_date,
+  -- Semáforo simple (decisión de Agustina, no puntaje 1-5 ni texto libre
+  -- sin clasificar) — rápido de marcar en una visita, fácil de leer en
+  -- un listado después.
+  nivel text not null check (nivel in ('a_reforzar','en_proceso','bien')),
+  -- Tema de la visita/evaluación (ej. "Entrevistas") — texto libre, no un
+  -- enum cerrado: esta ronda es sobre entrevistas pero el campo tiene que
+  -- servir para rondas futuras sobre otros temas sin migrar nada.
+  area text,
+  comentario text,
+  evaluador_id uuid not null references perfiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table evaluaciones_dupla enable row level security;
+
+create policy evaluaciones_dupla_select on evaluaciones_dupla
+  for select using (mi_rol() in ('admin','coordinacion'));
+
+create policy evaluaciones_dupla_insert on evaluaciones_dupla
+  for insert with check (mi_rol() in ('admin','coordinacion') and evaluador_id = auth.uid());
+
+create policy evaluaciones_dupla_update on evaluaciones_dupla
+  for update using (mi_rol() in ('admin','coordinacion'))
+  with check (mi_rol() in ('admin','coordinacion'));
+
+create policy evaluaciones_dupla_delete on evaluaciones_dupla
+  for delete using (mi_rol() in ('admin','coordinacion'));
+
+create index if not exists evaluaciones_dupla_dupla_id_idx on evaluaciones_dupla(dupla_id, fecha desc);
