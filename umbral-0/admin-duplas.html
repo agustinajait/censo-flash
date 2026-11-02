@@ -240,6 +240,7 @@
     <button class="admin-tab" data-tab="reporte" onclick="switchTab('reporte')">📊 Reporte semanal</button>
     <button class="admin-tab" data-tab="diario" onclick="switchTab('diario')">📅 Resumen diario</button>
     <button class="admin-tab" data-tab="asistencia" onclick="switchTab('asistencia')">🗓️ Asistencia</button>
+    <button class="admin-tab" data-tab="desempeno" onclick="switchTab('desempeno')">📋 Desempeño</button>
     <button class="admin-tab" data-tab="cobertura" onclick="switchTab('cobertura')">🗺️ Cobertura</button>
     <button class="admin-tab" data-tab="direcciones" onclick="switchTab('direcciones')">📍 Direcciones priorizadas</button>
     <button class="admin-tab" data-tab="recursero" onclick="switchTab('recursero')">🧰 Recursero</button>
@@ -494,6 +495,59 @@
 
   </div>
 
+  <!-- PESTAÑA: DESEMPEÑO (2/11/2026, pedido de Agustina: que Yesi, en las
+       visitas de seguimiento de entrevistas, pueda marcar el desempeño de
+       cada dupla y dejar comentarios). Solo admin/coordinación ven esta
+       pestaña y sus datos — la dupla evaluada NO tiene acceso (decisión
+       explícita de Agustina, 2/11/2026: queda entre coordinación y admin,
+       no es devolución directa a la dupla). Semáforo de 3 niveles, no
+       puntaje 1-5 ni texto libre sin clasificar (mismo pedido explícito).
+       El campo "Área" es texto libre a propósito: esta ronda es sobre
+       entrevistas pero tiene que servir para rondas futuras sobre otros
+       temas. -->
+  <div class="wrap" id="tab-desempeno" style="display:none;">
+
+    <div class="section-title" style="margin-top:0;">Desempeño por dupla</div>
+    <div class="section-hint">Para que coordinación registre cómo vio a cada dupla en una visita y deje comentarios — solo lo ven admin y coordinación, no las duplas.</div>
+
+    <div class="card">
+      <div class="form-field">
+        <label>Dupla</label>
+        <select id="ed-dupla"></select>
+      </div>
+      <div class="form-field">
+        <label>Fecha</label>
+        <input type="date" id="ed-fecha">
+      </div>
+      <div class="form-field">
+        <label>Desempeño</label>
+        <div id="ed-nivel-chips" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:5px;background:#f8faff;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:0.82rem;cursor:pointer;"><input type="radio" name="ed-nivel" value="a_reforzar"> 🔴 A reforzar</label>
+          <label style="display:flex;align-items:center;gap:5px;background:#f8faff;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:0.82rem;cursor:pointer;"><input type="radio" name="ed-nivel" value="en_proceso"> 🟡 En proceso</label>
+          <label style="display:flex;align-items:center;gap:5px;background:#f8faff;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:0.82rem;cursor:pointer;"><input type="radio" name="ed-nivel" value="bien"> 🟢 Bien</label>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Área (opcional)</label>
+        <input type="text" id="ed-area" placeholder="Ej: Entrevistas">
+      </div>
+      <div class="form-field">
+        <label>Comentario</label>
+        <textarea id="ed-comentario" rows="3" placeholder="Qué observó en la visita, qué reforzar…"></textarea>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-blue" id="btn-guardar-evaluacion" onclick="guardarEvaluacion()">💾 Guardar evaluación</button>
+      </div>
+    </div>
+
+    <div class="form-field" style="max-width:260px;">
+      <label>Filtrar historial por dupla</label>
+      <select id="ed-filtro-dupla" onchange="renderListaEvaluaciones()"><option value="">Todas</option></select>
+    </div>
+    <div id="ed-lista"></div>
+
+  </div>
+
   <!-- PESTAÑA: COBERTURA (28/9/2026, pedido de Agustina: "necesito ver
        acá" — viendo el mapa desde la misma cuenta donde ya ve reporte
        semanal/asistencia, en vez de un link público aparte. Muestra solo
@@ -707,6 +761,7 @@ async function boot(){
 let _reporteCargado = false;
 let _diarioCargado = false;
 let _asistenciaCargada = false;
+let _desempenoCargado = false;
 let _coberturaCargada = false;
 let _direccionesCargadas = false;
 let _recurseroCargado = false;
@@ -716,6 +771,7 @@ function switchTab(nombre){
   document.getElementById('tab-reporte').style.display = nombre === 'reporte' ? 'block' : 'none';
   document.getElementById('tab-diario').style.display = nombre === 'diario' ? 'block' : 'none';
   document.getElementById('tab-asistencia').style.display = nombre === 'asistencia' ? 'block' : 'none';
+  document.getElementById('tab-desempeno').style.display = nombre === 'desempeno' ? 'block' : 'none';
   document.getElementById('tab-cobertura').style.display = nombre === 'cobertura' ? 'block' : 'none';
   document.getElementById('tab-direcciones').style.display = nombre === 'direcciones' ? 'block' : 'none';
   document.getElementById('tab-recursero').style.display = nombre === 'recursero' ? 'block' : 'none';
@@ -748,6 +804,12 @@ function switchTab(nombre){
     _asistenciaCargada = true;
     cargarDuplasSelectAsistencia();
     setRangoAsistencia('mes');
+  }
+  if(nombre === 'desempeno' && !_desempenoCargado){
+    _desempenoCargado = true;
+    document.getElementById('ed-fecha').value = hoyStr(0);
+    cargarDuplasSelectDesempeno();
+    cargarEvaluaciones();
   }
   if(nombre === 'cobertura' && !_coberturaCargada){
     _coberturaCargada = true;
@@ -1073,6 +1135,117 @@ async function eliminarRecurso(lugar){
     if(error) throw error;
     if(document.getElementById('rc-lugar').value === lugar) cancelarEdicionRecurso();
     await cargarRecursos();
+  }catch(e){
+    alert('No se pudo eliminar: ' + e.message);
+  }
+}
+
+// ── PESTAÑA DESEMPEÑO (2/11/2026) ───────────────────────────────────────
+const NIVEL_DESEMPENO = {
+  a_reforzar: { emoji:'🔴', label:'A reforzar', bg:'#fee2e2', color:'#991b1b' },
+  en_proceso: { emoji:'🟡', label:'En proceso', bg:'#fef3c7', color:'#92400e' },
+  bien:       { emoji:'🟢', label:'Bien',        bg:'#d1fae5', color:'#047857' },
+};
+let _duplasPorIdDesempeno = {}; // id -> codigo, para el select y para mostrar el código en el historial
+let _evaluacionesActuales = [];
+
+async function cargarDuplasSelectDesempeno(){
+  const sel = document.getElementById('ed-dupla');
+  const filtro = document.getElementById('ed-filtro-dupla');
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('duplas').select('id, codigo').order('codigo');
+    if(error) throw error;
+    _duplasPorIdDesempeno = {};
+    (data||[]).forEach(d => { _duplasPorIdDesempeno[d.id] = d.codigo; });
+    sel.innerHTML = (data||[]).map(d => `<option value="${d.id}">${esc(d.codigo)}</option>`).join('');
+    filtro.innerHTML = '<option value="">Todas</option>' + (data||[]).map(d => `<option value="${d.id}">${esc(d.codigo)}</option>`).join('');
+  }catch(e){
+    console.error('No se pudieron traer las duplas para Desempeño', e);
+  }
+}
+
+async function guardarEvaluacion(){
+  const btn = document.getElementById('btn-guardar-evaluacion');
+  const dupla_id = document.getElementById('ed-dupla').value;
+  const fecha = document.getElementById('ed-fecha').value;
+  const nivelInput = document.querySelector('input[name="ed-nivel"]:checked');
+  const area = document.getElementById('ed-area').value.trim();
+  const comentario = document.getElementById('ed-comentario').value.trim();
+  if(!dupla_id){ alert('Elegí una dupla.'); return; }
+  if(!fecha){ alert('Completá la fecha.'); return; }
+  if(!nivelInput){ alert('Marcá un nivel de desempeño.'); return; }
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('evaluaciones_dupla').insert({
+      dupla_id, fecha, nivel: nivelInput.value,
+      area: area || null, comentario: comentario || null,
+      evaluador_id: miPerfil.id,
+    });
+    if(error) throw error;
+    document.getElementById('ed-area').value = '';
+    document.getElementById('ed-comentario').value = '';
+    nivelInput.checked = false;
+    await cargarEvaluaciones();
+  }catch(e){
+    alert('No se pudo guardar la evaluación: ' + e.message);
+  }finally{
+    btn.disabled = false; btn.textContent = '💾 Guardar evaluación';
+  }
+}
+
+async function cargarEvaluaciones(){
+  const box = document.getElementById('ed-lista');
+  box.innerHTML = '<div class="empty-msg">Cargando…</div>';
+  try{
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('evaluaciones_dupla')
+      .select('id, dupla_id, fecha, nivel, area, comentario, created_at, evaluador:perfiles(nombre)')
+      .order('fecha', { ascending:false }).order('created_at', { ascending:false });
+    if(error) throw error;
+    _evaluacionesActuales = data || [];
+    renderListaEvaluaciones();
+  }catch(e){
+    box.innerHTML = `<div class="empty-msg">Error cargando: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderListaEvaluaciones(){
+  const box = document.getElementById('ed-lista');
+  const filtroDupla = document.getElementById('ed-filtro-dupla').value;
+  const lista = filtroDupla ? _evaluacionesActuales.filter(e => e.dupla_id === filtroDupla) : _evaluacionesActuales;
+  if(!lista.length){
+    box.innerHTML = '<div class="empty-msg">Todavía no hay evaluaciones cargadas.</div>';
+    return;
+  }
+  box.innerHTML = lista.map(ev => {
+    const n = NIVEL_DESEMPENO[ev.nivel] || { emoji:'', label:ev.nivel, bg:'#f1f5f9', color:'#475569' };
+    const codigo = _duplasPorIdDesempeno[ev.dupla_id] || '?';
+    return `
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+          <span style="font-family:'Sora',sans-serif;font-weight:800;color:var(--navy);">Dupla ${esc(codigo)}</span>
+          <span class="badge badge-gray" style="background:${n.bg};color:${n.color};">${n.emoji} ${esc(n.label)}</span>
+          ${ev.area ? `<span class="badge badge-gray">${esc(ev.area)}</span>` : ''}
+          <span style="font-size:0.78rem;color:#64748b;">${esc(ev.fecha)} · ${esc((ev.evaluador && ev.evaluador.nombre) || 'sin nombre')}</span>
+        </div>
+        ${ev.comentario ? `<div style="font-size:0.86rem;color:#334155;white-space:pre-wrap;">${esc(ev.comentario)}</div>` : ''}
+        <div class="card-actions" style="margin-top:8px;">
+          <button type="button" class="btn btn-red btn-sm" onclick="eliminarEvaluacion('${escAttr(ev.id)}')">🗑️ Eliminar</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function eliminarEvaluacion(id){
+  if(!confirm('¿Eliminar esta evaluación?')) return;
+  try{
+    const client = await SupabaseClient.getClient();
+    const { error } = await client.from('evaluaciones_dupla').delete().eq('id', id);
+    if(error) throw error;
+    await cargarEvaluaciones();
   }catch(e){
     alert('No se pudo eliminar: ' + e.message);
   }
