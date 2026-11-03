@@ -2795,6 +2795,17 @@ async function calcularAsistencia(){
     (jornadas||[]).forEach(j => { (jornadasPorDupla[j.dupla_id] = jornadasPorDupla[j.dupla_id] || []).push(j); });
     const integrantesActivosDe = d => (d.integrantes||[]).filter(i => i.activo).map(i => `${i.nombre||''} ${i.apellido||''}`.trim()).filter(Boolean);
 
+    // Si no cerraron la jornada, el fin se estima con el último envío de
+    // KoBo de ese día (ver _finesEstimadosPorKobo) — para el pago no
+    // importa si tocaron el botón de cierre, importa si trabajaron. Se
+    // calcula ACÁ (antes del bloque de "quiénes vinieron") porque hace
+    // falta para sumar las horas de cada persona, no solo las de la
+    // dupla — ver horasPorJornadaId más abajo.
+    const finEstimadoPorDuplaFecha = await _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla);
+    const finDeJornada = (j) => j.fin || (finEstimadoPorDuplaFecha[j.dupla_id] || {})[j.fecha] || null;
+    const horasPorJornadaId = {};
+    (jornadas||[]).forEach(j => { if(j.inicio) horasPorJornadaId[j.id] = horasJornada(j.inicio, finDeJornada(j)) || 0; });
+
     // Quiénes se tildaron PRESENTE de verdad al marcar el inicio (pedido
     // de Agustina, 13/10/2026: "necesito que los dos miembros de la
     // dupla den el presente") — jornadas_presentes, ver schema-ajustes.sql.
@@ -2814,7 +2825,7 @@ async function calcularAsistencia(){
     // tal cual) para no mezclar a dos personas distintas que compartan
     // nombre de pila, y para que siga sumando bien aunque después se
     // edite el nombre.
-    const diasPorIntegranteId = {}; // integrante_id -> { nombre, duplaCodigo, activo, diasConfirmados, diasInferidos }
+    const diasPorIntegranteId = {}; // integrante_id -> { nombre, duplaCodigo, activo, diasConfirmados, diasInferidos, horas }
     const jornadaIdsConfirmadas = new Set(); // jornadas con al menos 1 fila real en jornadas_presentes
     const duplaIdACodigo = {};
     (duplas||[]).forEach(d => { duplaIdACodigo[d.id] = d.codigo; });
@@ -2829,9 +2840,10 @@ async function calcularAsistencia(){
         (presentesPorJornada[p.jornada_id] = presentesPorJornada[p.jornada_id] || []).push(nombre);
         const entry = diasPorIntegranteId[p.integrante_id] || {
           nombre, activo: p.integrantes?.activo !== false,
-          duplaCodigo: duplaIdACodigo[p.integrantes?.dupla_id] || '—', diasConfirmados: 0, diasInferidos: 0,
+          duplaCodigo: duplaIdACodigo[p.integrantes?.dupla_id] || '—', diasConfirmados: 0, diasInferidos: 0, horas: 0,
         };
         entry.diasConfirmados++;
+        entry.horas += horasPorJornadaId[p.jornada_id] || 0;
         diasPorIntegranteId[p.integrante_id] = entry;
       });
     }
@@ -2840,28 +2852,29 @@ async function calcularAsistencia(){
     // inferirPresentesPorKobo()). Puede ser lento (trae todo KoBo del
     // rango) — mismo costo que ya paga "e. Derivaciones según KoBo" más
     // abajo en este mismo cálculo, no es nuevo para esta pantalla.
-    const inferido = await inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas);
+    const inferido = await inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas, horasPorJornadaId);
     Object.entries(inferido.diasPorIntegranteId).forEach(([id, datos]) => {
-      const entry = diasPorIntegranteId[id] || { nombre: datos.nombre, activo: datos.activo, duplaCodigo: datos.duplaCodigo, diasConfirmados: 0, diasInferidos: 0 };
+      const entry = diasPorIntegranteId[id] || { nombre: datos.nombre, activo: datos.activo, duplaCodigo: datos.duplaCodigo, diasConfirmados: 0, diasInferidos: 0, horas: 0 };
       entry.diasInferidos += datos.dias;
+      entry.horas += datos.horas || 0;
       diasPorIntegranteId[id] = entry;
     });
     Object.entries(inferido.nombresPorJornada).forEach(([jornadaId, nombres]) => {
       presentesPorJornada[jornadaId] = nombres; // reemplaza el roster completo del fallback — ver filaDetalle más abajo
     });
+    // Monto a cobrar (2/11/2026, pedido de Agustina): horas trabajadas ×
+    // precio por hora del proyecto (config/umbral-0.js, precioHora) — un
+    // solo valor para todo el equipo. Si el proyecto no tiene ese dato
+    // cargado, el monto queda sin calcular (null) en vez de inventar un
+    // precio de 0.
+    const precioHora = window.PROJECT_CONFIG && window.PROJECT_CONFIG.precioHora;
     const diasPorIntegrante = Object.values(diasPorIntegranteId)
-      .map(p => ({ ...p, diasTotal: p.diasConfirmados + p.diasInferidos }))
+      .map(p => ({ ...p, diasTotal: p.diasConfirmados + p.diasInferidos, monto: precioHora ? p.horas * precioHora : null }))
       .sort((a,b) => b.diasTotal - a.diasTotal || a.nombre.localeCompare(b.nombre));
-
-    // Si no cerraron la jornada, el fin se estima con el último envío de
-    // KoBo de ese día (ver _finesEstimadosPorKobo) — para el pago no
-    // importa si tocaron el botón de cierre, importa si trabajaron.
-    const finEstimadoPorDuplaFecha = await _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla);
-    const finDeJornada = (d, j) => j.fin || (finEstimadoPorDuplaFecha[d.id] || {})[j.fecha] || null;
 
     const resumen = duplasAMostrar.map(d => {
       const propias = (jornadasPorDupla[d.id] || []).filter(j => j.inicio);
-      const totalHoras = propias.reduce((acc, j) => acc + (horasJornada(j.inicio, finDeJornada(d, j)) || 0), 0);
+      const totalHoras = propias.reduce((acc, j) => acc + (horasPorJornadaId[j.id] || 0), 0);
       return { dupla: d, integrantesActivos: integrantesActivosDe(d), cantidadJornadas: propias.length, totalHoras };
     });
 
@@ -2869,7 +2882,7 @@ async function calcularAsistencia(){
     duplasAMostrar.forEach(d => {
       const integrantesTxt = integrantesActivosDe(d).join(', ');
       (jornadasPorDupla[d.id]||[]).forEach(j => {
-        const fin = finDeJornada(d, j);
+        const fin = finDeJornada(j);
         const presentes = presentesPorJornada[j.id];
         const fuentePresentes = jornadaIdsConfirmadas.has(j.id) ? 'confirmado' : (presentes ? 'inferido' : 'sin_dato');
         filas.push({
@@ -2944,18 +2957,27 @@ function _renderDiasPorIntegrante(diasPorIntegrante){
   if(!diasPorIntegrante.length){
     return '<div class="section-hint">Sin datos en este rango — ni checklist de presentes ni envíos de KoBo identificables.</div>';
   }
+  const hayPrecio = diasPorIntegrante.some(p => p.monto != null);
   return `
     <div class="tbl-wrap">
       <table class="reporte-tabla">
-        <thead><tr><th>Persona</th><th>Dupla</th><th class="num">Días trabajados</th></tr></thead>
+        <thead><tr><th>Persona</th><th>Dupla</th><th class="num">Días trabajados</th><th class="num">Horas</th>${hayPrecio ? '<th class="num">Monto a cobrar</th>' : ''}</tr></thead>
         <tbody>${diasPorIntegrante.map(p => `
           <tr>
             <td>${esc(p.nombre)}${!p.activo ? ' <span class="badge badge-gray" title="Ya no está en el roster activo de la dupla — sigue contando sus días trabajados para poder pagarle.">dado de baja</span>' : ''}</td>
             <td>${esc(p.duplaCodigo)}</td>
             <td class="num"><b>${p.diasTotal}</b></td>
+            <td class="num">${p.horas.toFixed(1)} h</td>
+            ${hayPrecio ? `<td class="num"><b>${fmtMonedaAdmin(p.monto)}</b></td>` : ''}
           </tr>`).join('')}</tbody>
       </table>
     </div>`;
+}
+// $precioHora × horas trabajadas (2/11/2026) — formato con separador de
+// miles en es-AR, sin decimales (son pesos, no hace falta el centavo).
+function fmtMonedaAdmin(n){
+  if(n == null) return '—';
+  return '$' + Math.round(n).toLocaleString('es-AR');
 }
 
 function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorIntegrante){
@@ -2995,7 +3017,7 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorI
       </table>
     </div>
     <div class="section-title">Días trabajados por persona</div>
-    <div class="section-hint">Para liquidar aunque cambie quién integra la dupla a mitad de rango — elegí el "Desde/Hasta" que corresponda y contá los días de cada uno acá, en vez de en "Resumen por dupla" (que suma a los dos juntos). Alguien dado de baja del roster sigue apareciendo con sus días trabajados, no desaparece.</div>
+    <div class="section-hint">Para liquidar aunque cambie quién integra la dupla a mitad de rango — elegí el "Desde/Hasta" que corresponda y contá los días de cada uno acá, en vez de en "Resumen por dupla" (que suma a los dos juntos). Alguien dado de baja del roster sigue apareciendo con sus días trabajados, no desaparece. El monto a cobrar es horas trabajadas × $${window.PROJECT_CONFIG && window.PROJECT_CONFIG.precioHora || '—'} la hora.</div>
     ${_renderDiasPorIntegrante(diasPorIntegrante)}
     ${_renderConteoReemplazos(filas)}
     <div class="section-title">Detalle por jornada</div>
@@ -3083,9 +3105,10 @@ function descargarCsvAsistencia(){
 
   bloques.push('');
   bloques.push(['Días trabajados por persona'].map(v=>`"${v}"`).join(','));
-  bloques.push(_filaCsv(['Persona','Dupla','Activo','Días trabajados']));
+  bloques.push(_filaCsv(['Persona','Dupla','Activo','Días trabajados','Horas','Monto a cobrar']));
   _asistDiasPorIntegrante.forEach(p => bloques.push(_filaCsv([
-    p.nombre, p.duplaCodigo, p.activo ? 'Sí' : 'No (dado de baja)', p.diasTotal,
+    p.nombre, p.duplaCodigo, p.activo ? 'Sí' : 'No (dado de baja)',
+    p.diasTotal, p.horas.toFixed(1), p.monto != null ? Math.round(p.monto) : '',
   ])));
 
   const conteoReemplazos = _conteoReemplazos(_asistFilas);
@@ -3249,7 +3272,7 @@ async function generarReporte(){
 // tiene NINGÚN envío de KoBo matcheable esa jornada queda "sin dato" en
 // vez de inventar que trabajaron los dos. `jornadas` acá es la lista ya
 // filtrada por el rango de fechas elegido en el formulario.
-async function inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas){
+async function inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas, horasPorJornadaId){
   const porInferir = (jornadas||[]).filter(j => !jornadaIdsConfirmadas.has(j.id));
   const resultado = { diasPorIntegranteId: {}, nombresPorJornada: {} };
   if(!porInferir.length) return resultado;
@@ -3302,11 +3325,12 @@ async function inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas){
       vistoPorPersonaYFecha.add(clavePersonaFecha);
       const nombre = `${i.nombre||''} ${i.apellido||''}`.trim();
       const entry = resultado.diasPorIntegranteId[i.id] || {
-        nombre, activo: i.activo !== false, duplaCodigo: duplaIdACodigo[i.dupla_id] || '—', dias: 0,
+        nombre, activo: i.activo !== false, duplaCodigo: duplaIdACodigo[i.dupla_id] || '—', dias: 0, horas: 0,
       };
       entry.dias++;
-      resultado.diasPorIntegranteId[i.id] = entry;
       const jornada = pendientes.get(clave);
+      entry.horas += (horasPorJornadaId && horasPorJornadaId[jornada.id]) || 0;
+      resultado.diasPorIntegranteId[i.id] = entry;
       (resultado.nombresPorJornada[jornada.id] = resultado.nombresPorJornada[jornada.id] || new Set()).add(nombre);
     });
   });

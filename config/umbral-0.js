@@ -530,6 +530,12 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
     // TODO: sumar más opciones de derivación acá
   ],
 
+  // Precio por hora para liquidar a cada integrante (2/11/2026, pedido de
+  // Agustina) — usado en la pestaña Asistencia de admin-duplas.html para
+  // calcular el monto a cobrar de cada persona (horas trabajadas × este
+  // valor). Un solo número para todo el equipo, no varía por rol/dupla.
+  precioHora: 6500,
+
   // Misma cuenta de KoBo que Censo Flash (agustinajait@gmail.com) — por eso
   // el token es igual, no es un error de copiar/pegar.
   kobo: {
