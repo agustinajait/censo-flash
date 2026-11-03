@@ -2796,23 +2796,41 @@ async function calcularAsistencia(){
     const integrantesActivosDe = d => (d.integrantes||[]).filter(i => i.activo).map(i => `${i.nombre||''} ${i.apellido||''}`.trim()).filter(Boolean);
 
     // Si no cerraron la jornada, el fin se estima con el último envío de
-    // KoBo de ese día (ver _finesEstimadosPorKobo) — para el pago no
-    // importa si tocaron el botón de cierre, importa si trabajaron. Se
+    // KoBo de ese día (ver _finesEstimadosPorKobo) — para saber si
+    // trabajaron ese día, no importa si tocaron el botón de cierre. Se
     // calcula ACÁ (antes del bloque de "quiénes vinieron") porque hace
     // falta para sumar las horas de cada persona, no solo las de la
     // dupla — ver horasPorJornadaId más abajo.
     const finEstimadoPorDuplaFecha = await _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla);
     const finDeJornada = (j) => j.fin || (finEstimadoPorDuplaFecha[j.dupla_id] || {})[j.fecha] || null;
-    // Redondeo para arriba (2/11/2026, pedido de Agustina) — por JORNADA,
-    // no sobre el total: cada día con una fracción de hora cuenta como la
-    // hora completa siguiente (ej. 3.2h se paga como 4h), así que sumar
-    // los redondeos de cada día da un total más alto que redondear recién
-    // la suma final una sola vez. Se redondea acá, en la única fuente de
-    // horas por jornada que usan el resumen por dupla, el detalle y el
-    // cálculo de monto a cobrar por persona — para que las tres tablas
-    // siempre coincidan.
+    // Horas por jornada, para pagar (2/11/2026, pedido de Agustina):
+    //  - Si la dupla marcó inicio Y fin ella misma (cerró la jornada), no
+    //    importa la hora exacta que haya marcado — se paga el turno
+    //    completo fijo (TURNO_RANGO_HORAS, 4hs siempre en este proyecto).
+    //  - Si el fin NO lo marcó la dupla (quedó abierta y se estima por el
+    //    último envío de KoBo del día), ahí sí se calculan las horas
+    //    reales trabajadas, redondeadas para arriba (ej. 3.2h se paga
+    //    como 4h) — por jornada individual, no sobre el total, así que
+    //    sumar los redondeos de cada día da un total más alto que
+    //    redondear recién la suma final una sola vez.
+    // Es la única fuente de horas por jornada que usan el resumen por
+    // dupla, el detalle y el monto a cobrar por persona, para que las
+    // tres tablas siempre coincidan.
+    const turnoPorDuplaId = {};
+    (duplas||[]).forEach(d => { turnoPorDuplaId[d.id] = d.turno; });
+    const horasTurnoFijas = turno => {
+      const r = TURNO_RANGO_HORAS[turno];
+      return r ? r[1] - r[0] : null;
+    };
     const horasPorJornadaId = {};
-    (jornadas||[]).forEach(j => { if(j.inicio) horasPorJornadaId[j.id] = Math.ceil(horasJornada(j.inicio, finDeJornada(j)) || 0); });
+    (jornadas||[]).forEach(j => {
+      if(!j.inicio) return;
+      if(j.fin){
+        horasPorJornadaId[j.id] = horasTurnoFijas(turnoPorDuplaId[j.dupla_id]) ?? Math.ceil(horasJornada(j.inicio, j.fin) || 0);
+      } else {
+        horasPorJornadaId[j.id] = Math.ceil(horasJornada(j.inicio, finDeJornada(j)) || 0);
+      }
+    });
 
     // Quiénes se tildaron PRESENTE de verdad al marcar el inicio (pedido
     // de Agustina, 13/10/2026: "necesito que los dos miembros de la
@@ -2898,7 +2916,7 @@ async function calcularAsistencia(){
           integrantes: presentes ? presentes.join(', ') : integrantesTxt,
           fuentePresentes,
           fecha: j.fecha,
-          inicio: j.inicio, fin, estimado: !j.fin && !!fin, horas: horasJornada(j.inicio, fin),
+          inicio: j.inicio, fin, estimado: !j.fin && !!fin, horas: horasPorJornadaId[j.id] != null ? horasPorJornadaId[j.id] : horasJornada(j.inicio, fin),
           observaciones: j.observaciones || '', reemplazo: j.reemplazo || '', notaAdmin: j.nota_admin || '',
           llovio: null,
         });
