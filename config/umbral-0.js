@@ -534,7 +534,11 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
   // Agustina) — usado en la pestaña Asistencia de admin-duplas.html para
   // calcular el monto a cobrar de cada persona (horas trabajadas × este
   // valor). Un solo número para todo el equipo, no varía por rol/dupla.
-  precioHora: 6500,
+  // Calculado contra el valor por día que dio Agustina (2/11/2026):
+  // $26.200 por día ÷ 4hs = 6550. (Un total mensual aproximado de
+  // 530.000 para 20 días hubiera dado 6625 — se usa este valor por día,
+  // más directo.)
+  precioHora: 6550,
 
   // Misma cuenta de KoBo que Censo Flash (agustinajait@gmail.com) — por eso
   // el token es igual, no es un error de copiar/pegar.
