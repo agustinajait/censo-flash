@@ -481,7 +481,7 @@
         <select id="asist-dupla"><option value="">Todas</option></select>
       </div>
       <button class="btn btn-blue" id="btn-asist-calcular" onclick="calcularAsistencia()">📊 Calcular</button>
-      <button class="btn btn-outline" id="btn-asist-csv" onclick="descargarCsvAsistencia()" disabled>⬇️ Descargar CSV</button>
+      <button class="btn btn-outline" id="btn-asist-csv" onclick="descargarCsvAsistencia()" disabled>⬇️ Descargar informe completo (CSV)</button>
       <span id="asist-estado" style="font-size:0.8rem;color:#64748b;"></span>
       <div style="flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="setRangoAsistencia('semana')">Última semana</button>
@@ -2618,6 +2618,8 @@ function fmtHoraAdmin(iso){
 }
 
 let _asistFilas = []; // última tabla de detalle calculada, para el export a CSV
+let _asistResumen = []; // último "resumen por dupla" calculado, idem
+let _asistDiasPorIntegrante = []; // último "días trabajados por persona" calculado, idem
 
 // Para jornadas con `inicio` pero sin `fin` (se olvidaron de cerrarla),
 // calcula un fin estimado a partir del ÚLTIMO envío de KoBo de esa dupla
@@ -2892,6 +2894,8 @@ async function calcularAsistencia(){
     filas.forEach(f => { f.llovio = climaPorFecha[f.fecha] != null ? climaPorFecha[f.fecha] > 0.1 : null; });
 
     _asistFilas = filas;
+    _asistResumen = resumen;
+    _asistDiasPorIntegrante = diasPorIntegrante;
 
     cont.innerHTML = _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorIntegrante);
     estadoEl.textContent = `Listo — ${filas.length} jornada${filas.length===1?'':'s'} en el rango.`;
@@ -3055,23 +3059,62 @@ function descargarNominaIntegrantes(){
   URL.revokeObjectURL(url);
 }
 
+// Informe completo de asistencia para administración (2/11/2026, pedido de
+// Agustina: "necesito poder descargar el informe de asistencias con las
+// jornadas por dupla, por persona y reemplazos completo para que
+// administración pueda preparar las órdenes de pago"). Antes el CSV solo
+// tenía el detalle por jornada — las otras 3 tablas (resumen por dupla,
+// días por persona, días por reemplazante) solo existían en pantalla, así
+// que para liquidar había que copiarlas a mano. Ahora las 4 secciones van
+// en el mismo archivo, una abajo de la otra con su propio título y
+// encabezado — administración abre un solo CSV en Excel/Sheets en vez de
+// tener que armar el informe juntando capturas de pantalla.
+function _filaCsv(vals){
+  return vals.map(v => `"${String(v==null?'':v).replace(/"/g, '""')}"`).join(',');
+}
 function descargarCsvAsistencia(){
   if(!_asistFilas.length) return;
-  const encabezado = ['Dupla','Integrantes','Fecha','Inicio','Fin','Fin estimado por KoBo','Horas','Llovió','Observaciones','Reemplazo','Nota'];
-  const filaCsv = f => [
+  const bloques = [];
+
+  bloques.push(['Resumen por dupla'].map(v=>`"${v}"`).join(','));
+  bloques.push(_filaCsv(['Dupla','Turno','Integrantes','Jornadas','Horas totales']));
+  _asistResumen.forEach(r => bloques.push(_filaCsv([
+    r.dupla.codigo, r.dupla.turno || '', r.integrantesActivos.join(', '),
+    r.cantidadJornadas, r.totalHoras.toFixed(1),
+  ])));
+
+  bloques.push('');
+  bloques.push(['Días trabajados por persona'].map(v=>`"${v}"`).join(','));
+  bloques.push(_filaCsv(['Persona','Dupla','Activo','Confirmados','Inferidos (KoBo)','Total']));
+  _asistDiasPorIntegrante.forEach(p => bloques.push(_filaCsv([
+    p.nombre, p.duplaCodigo, p.activo ? 'Sí' : 'No (dado de baja)',
+    p.diasConfirmados || 0, p.diasInferidos || 0, p.diasTotal,
+  ])));
+
+  const conteoReemplazos = _conteoReemplazos(_asistFilas);
+  bloques.push('');
+  bloques.push(['Días por reemplazante'].map(v=>`"${v}"`).join(','));
+  bloques.push(_filaCsv(['Reemplazo','Días']));
+  conteoReemplazos.forEach(c => bloques.push(_filaCsv([c.texto, c.dias])));
+
+  bloques.push('');
+  bloques.push(['Detalle por jornada'].map(v=>`"${v}"`).join(','));
+  bloques.push(_filaCsv(['Dupla','Integrantes','Fecha','Inicio','Fin','Fin estimado por KoBo','Horas','Llovió','Observaciones','Reemplazo','Nota']));
+  _asistFilas.forEach(f => bloques.push(_filaCsv([
     f.duplaCodigo, f.integrantes, f.fecha,
     f.inicio ? fmtHoraAdmin(f.inicio) : '', f.fin ? fmtHoraAdmin(f.fin) : '',
     f.estimado ? 'Sí' : 'No',
     f.horas != null ? f.horas.toFixed(1) : '',
     f.llovio == null ? '' : (f.llovio ? 'Sí' : 'No'),
     f.observaciones, f.reemplazo, f.notaAdmin,
-  ].map(v => `"${String(v||'').replace(/"/g, '""')}"`).join(',');
-  const csv = [encabezado.join(','), ..._asistFilas.map(filaCsv)].join('\n');
+  ])));
+
+  const csv = bloques.join('\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `asistencia_${document.getElementById('asist-desde').value}_a_${document.getElementById('asist-hasta').value}.csv`;
+  a.download = `asistencia_completa_${document.getElementById('asist-desde').value}_a_${document.getElementById('asist-hasta').value}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
