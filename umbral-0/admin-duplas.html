@@ -2947,13 +2947,11 @@ function _renderDiasPorIntegrante(diasPorIntegrante){
   return `
     <div class="tbl-wrap">
       <table class="reporte-tabla">
-        <thead><tr><th>Persona</th><th>Dupla</th><th class="num">Confirmados</th><th class="num">Inferidos (KoBo)</th><th class="num">Total</th></tr></thead>
+        <thead><tr><th>Persona</th><th>Dupla</th><th class="num">Días trabajados</th></tr></thead>
         <tbody>${diasPorIntegrante.map(p => `
           <tr>
             <td>${esc(p.nombre)}${!p.activo ? ' <span class="badge badge-gray" title="Ya no está en el roster activo de la dupla — sigue contando sus días trabajados para poder pagarle.">dado de baja</span>' : ''}</td>
             <td>${esc(p.duplaCodigo)}</td>
-            <td class="num">${p.diasConfirmados || '—'}</td>
-            <td class="num">${p.diasInferidos ? `<span title="Deducido de quién cargó envíos de KoBo ese día, no es un checklist confirmado.">${p.diasInferidos}</span>` : '—'}</td>
             <td class="num"><b>${p.diasTotal}</b></td>
           </tr>`).join('')}</tbody>
       </table>
@@ -2997,7 +2995,7 @@ function _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorI
       </table>
     </div>
     <div class="section-title">Días trabajados por persona</div>
-    <div class="section-hint">Para liquidar aunque cambie quién integra la dupla a mitad de rango — elegí el "Desde/Hasta" que corresponda y contá los días de cada uno acá, en vez de en "Resumen por dupla" (que suma a los dos juntos). Alguien dado de baja del roster sigue apareciendo con sus días trabajados, no desaparece. "Confirmados": tildado en el checklist de presentes (desde el 13/10/2026). "Inferidos (KoBo)": de antes de esa fecha, deducido de quién cargó envíos de KoBo ese día — no es una confirmación, es la mejor reconstrucción posible con lo que hay.</div>
+    <div class="section-hint">Para liquidar aunque cambie quién integra la dupla a mitad de rango — elegí el "Desde/Hasta" que corresponda y contá los días de cada uno acá, en vez de en "Resumen por dupla" (que suma a los dos juntos). Alguien dado de baja del roster sigue apareciendo con sus días trabajados, no desaparece.</div>
     ${_renderDiasPorIntegrante(diasPorIntegrante)}
     ${_renderConteoReemplazos(filas)}
     <div class="section-title">Detalle por jornada</div>
@@ -3085,10 +3083,9 @@ function descargarCsvAsistencia(){
 
   bloques.push('');
   bloques.push(['Días trabajados por persona'].map(v=>`"${v}"`).join(','));
-  bloques.push(_filaCsv(['Persona','Dupla','Activo','Confirmados','Inferidos (KoBo)','Total']));
+  bloques.push(_filaCsv(['Persona','Dupla','Activo','Días trabajados']));
   _asistDiasPorIntegrante.forEach(p => bloques.push(_filaCsv([
-    p.nombre, p.duplaCodigo, p.activo ? 'Sí' : 'No (dado de baja)',
-    p.diasConfirmados || 0, p.diasInferidos || 0, p.diasTotal,
+    p.nombre, p.duplaCodigo, p.activo ? 'Sí' : 'No (dado de baja)', p.diasTotal,
   ])));
 
   const conteoReemplazos = _conteoReemplazos(_asistFilas);
