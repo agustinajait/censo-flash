@@ -2803,8 +2803,16 @@ async function calcularAsistencia(){
     // dupla — ver horasPorJornadaId más abajo.
     const finEstimadoPorDuplaFecha = await _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla);
     const finDeJornada = (j) => j.fin || (finEstimadoPorDuplaFecha[j.dupla_id] || {})[j.fecha] || null;
+    // Redondeo para arriba (2/11/2026, pedido de Agustina) — por JORNADA,
+    // no sobre el total: cada día con una fracción de hora cuenta como la
+    // hora completa siguiente (ej. 3.2h se paga como 4h), así que sumar
+    // los redondeos de cada día da un total más alto que redondear recién
+    // la suma final una sola vez. Se redondea acá, en la única fuente de
+    // horas por jornada que usan el resumen por dupla, el detalle y el
+    // cálculo de monto a cobrar por persona — para que las tres tablas
+    // siempre coincidan.
     const horasPorJornadaId = {};
-    (jornadas||[]).forEach(j => { if(j.inicio) horasPorJornadaId[j.id] = horasJornada(j.inicio, finDeJornada(j)) || 0; });
+    (jornadas||[]).forEach(j => { if(j.inicio) horasPorJornadaId[j.id] = Math.ceil(horasJornada(j.inicio, finDeJornada(j)) || 0); });
 
     // Quiénes se tildaron PRESENTE de verdad al marcar el inicio (pedido
     // de Agustina, 13/10/2026: "necesito que los dos miembros de la
