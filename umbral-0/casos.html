@@ -4045,6 +4045,27 @@ const Casos = {
           }
         }catch(e){ /* sigue al mensaje genérico de abajo si falla */ }
       }
+      // Mismo cruce que arriba, pero por NOMBRE (2/11/2026, pedido de
+      // Agustina tras encontrar varios duplicados reales entre duplas:
+      // "Mario Andrés Flores" y "Javier Palacio" se cargaron 2 y 3 veces
+      // cada uno porque al buscarlos por nombre — sin DNI todavía, lo más
+      // común en un primer contacto — nunca se cruzaba contra otras
+      // duplas, solo cuando el texto parecía un DNI). Trae un lote de
+      // personas_dni_index (ya filtra oculto=false) y lo filtra acá con
+      // el mismo coincidenciaBusquedaPersona() que ya usa la búsqueda
+      // propia — no hace falta un query de texto nuevo del lado del
+      // servidor.
+      if(!pareceDni && q.trim().length >= 3 && miPerfil && miPerfil.rol === 'dupla'){
+        cont.innerHTML = '<div class="empty-msg">Buscando en otras duplas…</div>';
+        try{
+          const { data: indicePorNombre } = await client.from('personas_dni_index').select('*').order('created_at', { ascending:false }).limit(1000);
+          const enOtraDuplaPorNombre = (indicePorNombre||[]).filter(p => coincidenciaBusquedaPersona(p, q));
+          if(enOtraDuplaPorNombre.length){
+            Casos._mostrarResultadoBusquedaOtraDuplaPorNombre(cont, enOtraDuplaPorNombre);
+            return;
+          }
+        }catch(e){ /* sigue al mensaje genérico de abajo si falla */ }
+      }
       cont.innerHTML = `<div class="empty-msg">${q || duplaId ? 'No se encontró ninguna persona con ese criterio.' : 'Todavía no hay casos cargados.'} Usá "➕ Ingresar nuevo caso" para dar de alta.</div>`;
       return;
     }
@@ -4446,9 +4467,19 @@ const Casos = {
     // otra ya cargó a la misma persona. Solo AVISA, no bloquea: puede
     // ser una coincidencia real (DNI mal tipeado antes, etc.) — la
     // dupla decide si sigue.
-    if(!personaExistente && !forzarDniDuplicado && !campos.sin_identificar){
-      const dniTrim = String(campos.dni||'').trim();
-      if(dniTrim){
+    //
+    // También corre en EDICIÓN (2/11/2026, pedido de Agustina tras
+    // encontrar casos duplicados reales — Javier Palacio, Mario Andrés
+    // Flores — que se habían cargado sin DNI al principio): antes este
+    // aviso solo se disparaba al CREAR un caso con el DNI ya tipeado, así
+    // que un caso cargado sin DNI (lo más común en un primer contacto) y
+    // completado recién en una visita siguiente nunca pasaba por este
+    // chequeo. Ahora corre también al editar, pero solo si el DNI
+    // cambió de verdad — si no, nagearía en cada guardado de un caso que
+    // ya tiene su DNI de siempre.
+    const dniTrim = String(campos.dni||'').trim();
+    const dniEsNuevo = !personaExistente || dniTrim !== String(personaExistente.dni||'').trim();
+    if(!forzarDniDuplicado && !campos.sin_identificar && dniTrim && dniEsNuevo){
         btn.disabled = true; btn.textContent = 'Revisando…';
         try{
           const client = await SupabaseClient.getClient();
@@ -4464,15 +4495,18 @@ const Casos = {
           // de Agustina, 6/10/2026: "todo el tiempo me dicen que no los
           // deja cargar de nuevo" un caso en seguimiento — el aviso ya
           // les decía que buscaran el caso existente, pero sin un link
-          // directo varias duplas no encontraban cómo).
+          // directo varias duplas no encontraban cómo). En edición se
+          // excluye la propia ficha que se está guardando.
+          let qPropia = client.from('personas').select('id').eq('dupla_id', miPerfil.dupla_id).eq('dni', dniTrim).eq('oculto', false).limit(1);
+          if(personaExistente) qPropia = qPropia.neq('id', personaExistente.id);
           const [{ data: coincidencias, error: errDni }, { data: propia }] = await Promise.all([
             client.from('personas_dni_index').select('*').eq('dni', dniTrim),
-            client.from('personas').select('id').eq('dupla_id', miPerfil.dupla_id).eq('dni', dniTrim).eq('oculto', false).limit(1).maybeSingle(),
+            qPropia.maybeSingle(),
           ]);
           if(errDni) throw errDni;
           if(coincidencias && coincidencias.length){
-            Casos._mostrarAvisoDniDuplicado(form, coincidencias, campos.dni, propia && propia.id);
-            btn.disabled = false; btn.textContent = '💾 Dar de alta';
+            Casos._mostrarAvisoDniDuplicado(form, coincidencias, campos.dni, propia && propia.id, personaExistente);
+            btn.disabled = false; btn.textContent = personaExistente ? '💾 Guardar cambios' : '💾 Dar de alta';
             _guardandoPersona = false;
             return;
           }
@@ -4482,11 +4516,10 @@ const Casos = {
           // fallo de red silenciaba justo la protección que se supone
           // que evita duplicados. Ahora frena y pide reintentar.
           modalError('No se pudo chequear si el DNI ya existe (' + e.message + '). Probá guardar de nuevo.');
-          btn.disabled = false; btn.textContent = '💾 Dar de alta';
+          btn.disabled = false; btn.textContent = personaExistente ? '💾 Guardar cambios' : '💾 Dar de alta';
           _guardandoPersona = false;
           return;
         }
-      }
     }
     document.getElementById('dni-dup-aviso')?.remove();
 
@@ -4653,7 +4686,13 @@ const Casos = {
   // compartir_caso_por_dni() (RPC, ver schema-ajustes.sql), que le da
   // acceso real a esta dupla sobre el caso y abre su ficha directo, en vez
   // de crear un alta duplicada o dejarla sin ninguna opción.
-  _mostrarAvisoDniDuplicado(form, coincidencias, dni, propiaFichaId){
+  // `personaExistente` (2/11/2026) — presente cuando este aviso salta al
+  // EDITAR un caso (se le agregó/cambió el DNI) y no al crearlo uno
+  // nuevo; se necesita para que "Guardar de todas formas" fuerce el
+  // guardado de ESTA ficha en vez de crear una alta nueva. Se pasa por
+  // closure (no por el string del onclick) porque es un objeto, no un
+  // valor serializable en HTML.
+  _mostrarAvisoDniDuplicado(form, coincidencias, dni, propiaFichaId, personaExistente){
     const filas = coincidencias.map(c => {
       const nombre = `${c.nombre||''} ${c.apellido||''}`.trim() || 'Persona sin identificar';
       const fecha = c.created_at ? new Date(c.created_at).toLocaleDateString('es-AR') : '—';
@@ -4674,6 +4713,7 @@ const Casos = {
     const botonVerFicha = propiaFichaId
       ? `<button type="button" class="btn btn-blue btn-sm" onclick="closeModal(); Casos.abrirFicha('${escAttr(propiaFichaId)}')">Ver esa ficha →</button>`
       : `<button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>`;
+    const textoBotonForzar = personaExistente ? 'Guardar de todas formas' : 'Crear de todas formas';
     cont.innerHTML = `
       <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ Ya hay ${coincidencias.length===1?'un caso':coincidencias.length+' casos'} con el DNI ${esc(dni)}</div>
       ${filas}
@@ -4685,9 +4725,10 @@ const Casos = {
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         ${botonVerFicha}
         <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('dni-dup-aviso').remove()">Volver a editar</button>
-        <button type="button" class="btn btn-amber btn-sm" id="btn-crear-dni-duplicado" disabled onclick="Casos.guardarPersona(null, true)">Crear de todas formas</button>
+        <button type="button" class="btn btn-amber btn-sm" id="btn-crear-dni-duplicado" disabled>${esc(textoBotonForzar)}</button>
       </div>
     `;
+    document.getElementById('btn-crear-dni-duplicado').onclick = () => Casos.guardarPersona(personaExistente || null, true);
     cont.scrollIntoView({ behavior:'smooth', block:'start' });
   },
 
@@ -4735,6 +4776,35 @@ const Casos = {
         ${filas}
         <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona (se mudó de zona y ahora la ven ustedes), tocá "🔗 Compartir este caso conmigo" para sumarte sin duplicarlo — vas a poder ver todo su historial y cargar la intervención o el seguimiento ahí mismo.</div>
         <button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>
+      </div>
+    `;
+  },
+
+  // Como _mostrarResultadoBusquedaOtraDupla(), pero para una búsqueda por
+  // NOMBRE (2/11/2026) — acá puede haber más de un DNI distinto entre los
+  // resultados (nombres parecidos de personas distintas, o la misma
+  // persona cargada con DNIs distintos por error), así que cada fila
+  // tiene su propio botón de compartir en vez de uno solo para todos.
+  // Sin DNI cargado en la coincidencia no hay nada que compartir —
+  // compartir_caso_por_dni() busca por ese campo — se muestra igual para
+  // que la dupla sepa que existe, con una nota en vez de botón.
+  _mostrarResultadoBusquedaOtraDuplaPorNombre(cont, coincidencias){
+    const filas = coincidencias.map(c => {
+      const nombre = `${c.nombre||''} ${c.apellido||''}`.trim() || 'Persona sin identificar';
+      const fecha = c.created_at ? new Date(c.created_at).toLocaleDateString('es-AR') : '—';
+      const dni = String(c.dni||'').trim();
+      return `<div style="padding:8px 0; border-top:1px solid #fed7aa; font-size:0.82rem; color:#78350f; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="flex:1; min-width:160px;"><b>${esc(nombre)}</b> — dupla ${esc(c.dupla_codigo||'—')}, cargado el ${esc(fecha)}${dni ? ' · DNI ' + esc(dni) : ''}</span>
+        ${dni
+          ? `<button type="button" class="btn btn-blue btn-sm" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir conmigo</button>`
+          : `<span style="font-size:0.76rem; color:#9a3412;">Sin DNI cargado — pedíselo para poder compartirlo</span>`}
+      </div>`;
+    }).join('');
+    cont.innerHTML = `
+      <div style="background:#fff7ed; border:1.5px solid #fdba74; border-radius:10px; padding:14px 16px;">
+        <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ Encontramos ${coincidencias.length===1?'una persona parecida':coincidencias.length+' personas parecidas'} cargada${coincidencias.length===1?'':'s'} en otra dupla</div>
+        ${filas}
+        <div style="font-size:0.8rem; color:#78350f; margin-top:8px;">Si es la misma persona, tocá "🔗 Compartir conmigo" en vez de cargarla de nuevo — vas a ver todo su historial y poder agregar la intervención o el seguimiento ahí mismo. Si es otra persona con un nombre parecido, seguí con "➕ Ingresar nuevo caso" normalmente.</div>
       </div>
     `;
   },
