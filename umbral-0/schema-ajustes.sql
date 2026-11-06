@@ -1588,3 +1588,48 @@ create policy evaluaciones_dupla_delete on evaluaciones_dupla
   for delete using (mi_rol() in ('admin','coordinacion'));
 
 create index if not exists evaluaciones_dupla_dupla_id_idx on evaluaciones_dupla(dupla_id, fecha desc);
+
+-- Resumen de asistencias con link para compartir (4/11/2026, pedido de
+-- Agustina: "quiero poder compartir el resumen de asistencias como
+-- link" — para que administración pueda prepararse las órdenes de pago
+-- sin necesitar una cuenta de la plataforma). Mismo patrón que
+-- reportes_semanales: snapshot inmutable del cálculo ya hecho en
+-- admin-duplas.html (pestaña Asistencia) — el link no se recalcula si
+-- después se cargan más jornadas, coincide siempre con lo que se
+-- publicó ese día.
+create table public.asistencia_publica (
+  id uuid primary key default gen_random_uuid(),
+  desde date not null,
+  hasta date not null,
+  datos jsonb not null,
+  creado_por uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.asistencia_publica enable row level security;
+
+create policy "asistencia_publica_insert" on public.asistencia_publica
+  for insert
+  with check (mi_rol() = any (array['admin','coordinacion']));
+
+create policy "asistencia_publica_select_admin" on public.asistencia_publica
+  for select
+  using (mi_rol() = any (array['admin','coordinacion']));
+
+create policy "asistencia_publica_delete" on public.asistencia_publica
+  for delete
+  using (mi_rol() = 'admin');
+
+-- Vista pública de solo lectura para el link compartido —
+-- asistencia-publica.html no tiene login de Supabase. `datos` SÍ incluye
+-- nombre de cada persona y el monto a cobrar (es justo el objetivo del
+-- link: que administración arme las órdenes de pago) — mismo criterio ya
+-- aceptado para reportes_semanales_publico.listadoCasos.
+create or replace view public.asistencia_publica_lectura as
+  select id, desde, hasta, datos, created_at
+  from public.asistencia_publica;
+
+grant select on public.asistencia_publica_lectura to anon;
+
+revoke insert, update, delete, truncate, references, trigger
+  on public.asistencia_publica_lectura from anon, authenticated;

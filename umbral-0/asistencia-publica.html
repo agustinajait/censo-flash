@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resumen de asistencia — Umbral Cero</title>
+<link rel="icon" type="image/png" href="../assets/huehaci-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0f1f3d; --blue:#1a56db; --green:#10b981; --amber:#f59e0b; --red:#ef4444; --border:#dbeafe; }
+  * { box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:#f4f8ff; color:#1e293b; margin:0; }
+  .topbar { background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,var(--blue) 100%); color:white; padding:22px 20px; }
+  .topbar h1 { font-family:'Sora',sans-serif; font-size:1.15rem; font-weight:800; margin:0 0 4px; }
+  .topbar .periodo { font-size:0.85rem; opacity:0.85; }
+  .wrap { max-width:760px; margin:0 auto; padding:18px 16px 50px; }
+  .section-title { font-family:'Sora',sans-serif; font-size:0.95rem; font-weight:800; color:var(--navy); margin:24px 0 10px; }
+  .section-hint { font-size:0.78rem; color:#94a3b8; margin:-6px 0 12px; }
+  .card { background:white; border-radius:14px; padding:18px; margin-bottom:14px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(15,31,61,0.06); }
+  table.reporte-tabla { width:100%; border-collapse:collapse; font-size:0.85rem; }
+  table.reporte-tabla th, table.reporte-tabla td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef2f7; }
+  table.reporte-tabla th { font-family:'Sora',sans-serif; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; }
+  table.reporte-tabla td.num { text-align:right; font-family:'Sora',sans-serif; font-weight:700; color:var(--navy); }
+  .tbl-wrap { overflow-x:auto; }
+  .badge-gray { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.68rem; font-weight:700; font-family:'Sora',sans-serif; background:#f1f5f9; color:#475569; margin-left:6px; }
+  .footer-nota { text-align:center; font-size:0.74rem; color:#94a3b8; margin-top:30px; }
+  .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
+  .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
+  .empty-msg { text-align:center; color:#94a3b8; padding:60px 20px; font-size:0.92rem; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+    <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:52px; width:auto; background:white; border-radius:6px; padding:4px 8px;">
+    <div style="font-size:0.68rem; color:rgba(255,255,255,0.6); line-height:1.25;">Reporte elaborado por<br><b style="color:rgba(255,255,255,0.85);">Huehaci</b> — Consultora de innovación<br>cívica y tecnológica</div>
+  </div>
+  <h1>🗓️ Resumen de asistencia — Umbral Cero</h1>
+  <div class="periodo" id="periodo">Cargando…</div>
+</div>
+
+<div class="wrap" id="cont">
+  <div class="empty-msg">Cargando el resumen…</div>
+</div>
+
+<script src="../config/umbral-0.js?v=2026-11-04"></script>
+<script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
+<script src="../shared/js/supabase-client.js"></script>
+<script>
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtFecha(iso){
+  if(!iso) return '';
+  const [y,m,d] = String(iso).slice(0,10).split('-');
+  return `${d}/${m}/${y}`;
+}
+function fmtMoneda(n){
+  if(n == null) return '—';
+  return '$' + Math.round(n).toLocaleString('es-AR');
+}
+
+async function cargar(){
+  const cont = document.getElementById('cont');
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if(!id){
+    cont.innerHTML = '<div class="empty-msg">Falta el link completo — pedí que te lo reenvíen.</div>';
+    return;
+  }
+  try{
+    // Este cliente NUNCA inicia sesión (la página no tiene login) — lee
+    // con la anon key, que solo puede ver `asistencia_publica_lectura`
+    // (RLS/grants, ver schema-ajustes.sql).
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('asistencia_publica_lectura').select('*').eq('id', id).single();
+    if(error || !data){
+      cont.innerHTML = '<div class="empty-msg">No se encontró este resumen — puede que el link esté mal copiado.</div>';
+      return;
+    }
+    render(data);
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">No se pudo cargar el resumen (${esc(e.message)}).</div>`;
+  }
+}
+
+function render(r){
+  const d = r.datos || {};
+  document.getElementById('periodo').textContent =
+    `Período: ${fmtFecha(r.desde)} al ${fmtFecha(r.hasta)} · publicado el ${fmtFecha(r.created_at)}`;
+
+  const resumen = d.resumen || [];
+  const diasPorIntegrante = d.diasPorIntegrante || [];
+  const conteoReemplazos = d.conteoReemplazos || [];
+
+  const filaResumen = x => `
+    <tr>
+      <td>${esc(x.duplaCodigo)}</td>
+      <td>${esc(x.duplaTurno || '—')}</td>
+      <td>${esc((x.integrantesActivos||[]).join(', ') || '—')}</td>
+      <td class="num">${x.cantidadJornadas}</td>
+      <td class="num">${x.totalHoras.toFixed(1)} h</td>
+    </tr>`;
+
+  const filaPersona = p => `
+    <tr>
+      <td>${esc(p.nombre)}${!p.activo ? '<span class="badge-gray">dado de baja</span>' : ''}</td>
+      <td>${esc(p.duplaCodigo)}</td>
+      <td class="num">${p.diasTotal}</td>
+      <td class="num">${p.horas.toFixed(1)} h</td>
+      <td class="num"><b>${fmtMoneda(p.monto)}</b></td>
+    </tr>`;
+
+  const filaReemplazo = x => `<tr><td>${esc(x.texto)}</td><td class="num">${x.dias} día${x.dias===1?'':'s'}</td></tr>`;
+
+  document.getElementById('cont').innerHTML = `
+    <div class="card">
+      <div class="section-title" style="margin-top:0;">Resumen por dupla</div>
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Dupla</th><th>Turno</th><th>Integrantes</th><th class="num">Jornadas</th><th class="num">Horas</th></tr></thead>
+          <tbody>${resumen.length ? resumen.map(filaResumen).join('') : '<tr><td colspan="5">Sin datos en el rango.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="margin-top:0;">Días trabajados y monto a cobrar por persona</div>
+      ${d.precioHora ? `<div class="section-hint">Monto = horas trabajadas × $${esc(d.precioHora)} la hora.</div>` : ''}
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Persona</th><th>Dupla</th><th class="num">Días</th><th class="num">Horas</th><th class="num">Monto a cobrar</th></tr></thead>
+          <tbody>${diasPorIntegrante.length ? diasPorIntegrante.map(filaPersona).join('') : '<tr><td colspan="5">Sin datos en el rango.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+
+    ${conteoReemplazos.length ? `
+    <div class="card">
+      <div class="section-title" style="margin-top:0;">Días por reemplazante</div>
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Reemplazo</th><th class="num">Días</th></tr></thead>
+          <tbody>${conteoReemplazos.map(filaReemplazo).join('')}</tbody>
+        </table>
+      </div>
+    </div>` : ''}
+
+    <div class="footer-nota">
+      Resumen fijo al momento de publicarse — no cambia si después se cargan más jornadas.
+      <div class="huehaci-credit"><img src="../assets/huehaci-logo.png" alt="Huehaci"> Umbral Cero · Huehaci</div>
+    </div>
+  `;
+}
+
+cargar();
+</script>
+</body>
+</html>

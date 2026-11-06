@@ -482,6 +482,7 @@
       </div>
       <button class="btn btn-blue" id="btn-asist-calcular" onclick="calcularAsistencia()">📊 Calcular</button>
       <button class="btn btn-outline" id="btn-asist-csv" onclick="descargarCsvAsistencia()" disabled>⬇️ Descargar informe completo (CSV)</button>
+      <button class="btn btn-amber" id="btn-asist-publicar" onclick="publicarAsistencia()" disabled>🔗 Compartir como link</button>
       <span id="asist-estado" style="font-size:0.8rem;color:#64748b;"></span>
       <div style="flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-outline btn-sm" onclick="setRangoAsistencia('semana')">Última semana</button>
@@ -490,6 +491,8 @@
         <button class="btn btn-outline btn-sm" onclick="setRangoAsistencia('mes_pasado')">Mes pasado</button>
       </div>
     </div>
+
+    <div id="asist-publico-resultado"></div>
 
     <div id="asist-cont"></div>
 
@@ -2772,9 +2775,11 @@ async function calcularAsistencia(){
   const estadoEl = document.getElementById('asist-estado');
   const cont = document.getElementById('asist-cont');
   const btnCsv = document.getElementById('btn-asist-csv');
+  const btnPublicar = document.getElementById('btn-asist-publicar');
   if(!desde || !hasta){ estadoEl.textContent = 'Elegí desde/hasta.'; return; }
   const btn = document.getElementById('btn-asist-calcular');
-  btn.disabled = true; estadoEl.textContent = 'Calculando… (si el rango incluye días de antes del 13/10, puede tardar más — reconstruye quién trabajó cada día desde KoBo)'; btnCsv.disabled = true;
+  btn.disabled = true; estadoEl.textContent = 'Calculando… (si el rango incluye días de antes del 13/10, puede tardar más — reconstruye quién trabajó cada día desde KoBo)'; btnCsv.disabled = true; btnPublicar.disabled = true;
+  document.getElementById('asist-publico-resultado').innerHTML = '';
   cont.innerHTML = '';
   try{
     const client = await SupabaseClient.getClient();
@@ -2939,6 +2944,7 @@ async function calcularAsistencia(){
     cont.innerHTML = _renderAsistencia(resumen, filas, climaPorFecha, desde, hasta, diasPorIntegrante);
     estadoEl.textContent = `Listo — ${filas.length} jornada${filas.length===1?'':'s'} en el rango.`;
     btnCsv.disabled = !filas.length;
+    btnPublicar.disabled = !filas.length;
   }catch(e){
     cont.innerHTML = `<div class="empty-msg">Error calculando asistencia: ${esc(e.message)}</div>`;
     estadoEl.textContent = '';
@@ -3163,6 +3169,54 @@ function descargarCsvAsistencia(){
   a.download = `asistencia_completa_${document.getElementById('asist-desde').value}_a_${document.getElementById('asist-hasta').value}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// Publicar el resumen de asistencia con link (4/11/2026, pedido de
+// Agustina: "quiero poder compartir el resumen de asistencias como
+// link" para que administración pueda armar las órdenes de pago sin
+// cuenta de la plataforma). Mismo patrón que publicarReporte(): guarda
+// una FOTO de lo ya calculado (no vuelve a consultar la base) en
+// asistencia_publica, y arma el link a asistencia-publica.html. El
+// snapshot queda fijo — si después se cargan más jornadas, el link ya
+// compartido no cambia.
+async function publicarAsistencia(){
+  if(!_asistFilas.length) return;
+  const btn = document.getElementById('btn-asist-publicar');
+  const cont = document.getElementById('asist-publico-resultado');
+  const desde = document.getElementById('asist-desde').value;
+  const hasta = document.getElementById('asist-hasta').value;
+  btn.disabled = true; btn.textContent = 'Publicando…';
+  try{
+    const datos = {
+      resumen: _asistResumen.map(r => ({
+        duplaCodigo: r.dupla.codigo, duplaTurno: r.dupla.turno || '',
+        integrantesActivos: r.integrantesActivos, cantidadJornadas: r.cantidadJornadas, totalHoras: r.totalHoras,
+      })),
+      diasPorIntegrante: _asistDiasPorIntegrante.map(p => ({
+        nombre: p.nombre, duplaCodigo: p.duplaCodigo, activo: p.activo,
+        diasTotal: p.diasTotal, horas: p.horas, monto: p.monto,
+      })),
+      conteoReemplazos: _conteoReemplazos(_asistFilas),
+      precioHora: window.PROJECT_CONFIG && window.PROJECT_CONFIG.precioHora || null,
+    };
+    const client = await SupabaseClient.getClient();
+    const { data, error } = await client.from('asistencia_publica')
+      .insert({ desde, hasta, datos })
+      .select('id').single();
+    if(error) throw error;
+
+    const link = `${location.origin}/umbral-0/asistencia-publica.html?id=${data.id}`;
+    cont.innerHTML = `
+      <div class="section-hint" style="margin-bottom:8px;">✅ Publicado. Este link queda fijo con los números de hoy:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="text" readonly value="${escAttr(link)}" style="flex:1;min-width:220px;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.82rem;" onclick="this.select()">
+      </div>
+    `;
+  }catch(e){
+    cont.innerHTML = `<div class="empty-msg">Error publicando: ${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = '🔗 Compartir como link';
+  }
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
