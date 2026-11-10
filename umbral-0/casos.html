@@ -563,6 +563,11 @@
       <div id="mia-tab-seguimientos" style="display:none;">
         <div class="section-label">📝 Mis seguimientos</div>
         <div class="section-hint">Todos los seguimientos que cargó mi dupla — tocá uno para ir al caso.</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+          <input type="text" id="mis-segu-buscar" placeholder="Buscar por nombre o DNI…" oninput="Casos.renderMisSeguimientos()" style="flex:1; min-width:180px;">
+          <input type="date" id="mis-segu-fecha" title="Filtrar por fecha del seguimiento" onchange="Casos.renderMisSeguimientos()" style="max-width:150px;">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-limpiar-mis-segu" onclick="document.getElementById('mis-segu-buscar').value=''; document.getElementById('mis-segu-fecha').value=''; Casos.renderMisSeguimientos();" style="display:none;">✕ Limpiar filtros</button>
+        </div>
         <div id="mis-seguimientos-list"></div>
       </div>
     </div>
@@ -2542,6 +2547,8 @@ let koboPendientesActuales = [];
 let asociarKoboCandidatosActuales = []; // ver Casos.abrirModalAsociarKobo()
 let koboOperadoresNoMatcheadosActuales = []; // ver cargarKoboPendientes() — diagnóstico de nombres que no matchean
 let koboValidadoSinIntervencionActuales = []; // ver cargarKoboPendientes() — validado pero sin intervención/seguimiento registrado
+let _misSeguimientosActuales = []; // ver mostrarMiActividad()/Casos.renderMisSeguimientos() — todos los seguimientos de mi dupla, sin filtrar
+let _misSeguimientosPersonaPorId = {}; // idem, para mostrar nombre/DNI sin pedirlo de nuevo en cada filtro
 
 // Diagnóstico (1/10/2026): busca en las filas CRUDAS de KoBo (ANTES de
 // parseUmbral0 — que descarta en silencio cualquier fila donde
@@ -3726,9 +3733,15 @@ const Casos = {
     boxSegu.innerHTML = '<div class="empty-msg">Cargando…</div>';
     try{
       const client = await SupabaseClient.getClient();
+      // Sin límite bajo para seguimientos (antes 100) — con los filtros
+      // de fecha/nombre/DNI de abajo, una dupla con mucho volumen podía
+      // tener el que busca fuera de los últimos 100 y nunca encontrarlo
+      // filtrando. El filtrado es client-side (mismo criterio que
+      // buscarPersonas()), no hace falta un query nuevo por cada letra
+      // tipeada.
       const [derivRes, seguRes, personasRes] = await Promise.all([
         client.from('derivaciones').select('id, tipo, estado, fecha_solicitud, persona_id').order('fecha_solicitud', { ascending: false }).limit(100),
-        client.from('seguimientos').select('id, fecha, contenido, persona_id').order('fecha', { ascending: false }).limit(100),
+        client.from('seguimientos').select('id, fecha, contenido, persona_id').order('fecha', { ascending: false }).limit(2000),
         client.from('personas').select('id, nombre, apellido, dni, sin_identificar').eq('oculto', false),
       ]);
       if(derivRes.error) throw derivRes.error;
@@ -3736,6 +3749,7 @@ const Casos = {
       if(personasRes.error) throw personasRes.error;
       const personaPorId = {};
       (personasRes.data||[]).forEach(p => personaPorId[p.id] = p);
+      _misSeguimientosPersonaPorId = personaPorId;
 
       const derivaciones = derivRes.data || [];
       boxDeriv.innerHTML = derivaciones.length ? derivaciones.map(d => {
@@ -3751,25 +3765,61 @@ const Casos = {
         `;
       }).join('') : '<div class="empty-msg">Todavía no hay derivaciones pedidas por tu dupla.</div>';
 
-      const seguimientos = seguRes.data || [];
-      boxSegu.innerHTML = seguimientos.length ? seguimientos.map(s => {
-        const p = personaPorId[s.persona_id];
-        const contenido = (s.contenido||'').trim();
-        return `
-          <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${s.persona_id}')">
-            <div class="kobo-pend-txt">
-              <strong>${p ? esc(nombreDisplay(p)) : '(caso no encontrado)'}</strong>
-              <div class="meta">${fmtFecha(s.fecha)}${contenido ? ' · ' + esc(contenido.length > 120 ? contenido.slice(0,120) + '…' : contenido) : ''}</div>
-            </div>
-            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${s.persona_id}')">Ver caso →</button>
-          </div>
-        `;
-      }).join('') : '<div class="empty-msg">Todavía no hay seguimientos cargados por tu dupla.</div>';
+      _misSeguimientosActuales = seguRes.data || [];
+      Casos.renderMisSeguimientos();
     }catch(e){
       boxDeriv.innerHTML = `<div class="empty-msg">Error cargando derivaciones: ${esc(e.message)}</div>`;
       boxSegu.innerHTML = '';
       console.error('No se pudo cargar "Mis derivaciones y seguimientos"', e);
     }
+  },
+
+  // Filtros de "Mis seguimientos" por fecha/nombre/DNI (10/11/2026,
+  // pedido de Agustina) — vuelve a renderizar sobre los datos ya traídos
+  // por mostrarMiActividad(), sin pedirle nada nuevo a la base en cada
+  // tecla. El filtro de nombre/DNI reutiliza coincidenciaBusquedaPersona()
+  // (mismo criterio que la búsqueda principal: sin acentos, por palabra
+  // suelta) sobre la persona de cada seguimiento. El de fecha compara
+  // contra el rango UTC del día LOCAL elegido (mismo criterio que el
+  // filtro de fecha de buscarPersonas() — comparar el string tal cual
+  // cuenta mal lo cargado entre las 21:00 y las 23:59 hora de Buenos
+  // Aires, ver DISENO-CASOS.md).
+  renderMisSeguimientos(){
+    const box = document.getElementById('mis-seguimientos-list');
+    const texto = (document.getElementById('mis-segu-buscar')||{}).value || '';
+    const fechaSel = (document.getElementById('mis-segu-fecha')||{}).value || '';
+    const btnLimpiar = document.getElementById('btn-limpiar-mis-segu');
+    if(btnLimpiar) btnLimpiar.style.display = (texto || fechaSel) ? '' : 'none';
+
+    let lista = _misSeguimientosActuales;
+    if(texto.trim()){
+      lista = lista.filter(s => {
+        const p = _misSeguimientosPersonaPorId[s.persona_id];
+        return p && coincidenciaBusquedaPersona(p, texto);
+      });
+    }
+    if(fechaSel){
+      const desdeUtc = new Date(fechaSel + 'T03:00:00.000Z');
+      const hastaUtc = new Date(desdeUtc.getTime() + 24*60*60*1000);
+      lista = lista.filter(s => {
+        const f = new Date(s.fecha);
+        return f >= desdeUtc && f < hastaUtc;
+      });
+    }
+
+    box.innerHTML = lista.length ? lista.map(s => {
+      const p = _misSeguimientosPersonaPorId[s.persona_id];
+      const contenido = (s.contenido||'').trim();
+      return `
+        <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${s.persona_id}')">
+          <div class="kobo-pend-txt">
+            <strong>${p ? esc(nombreDisplay(p)) : '(caso no encontrado)'}</strong>${p && p.dni ? ' · DNI ' + esc(p.dni) : ''}
+            <div class="meta">${fmtFecha(s.fecha)}${contenido ? ' · ' + esc(contenido.length > 120 ? contenido.slice(0,120) + '…' : contenido) : ''}</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${s.persona_id}')">Ver caso →</button>
+        </div>
+      `;
+    }).join('') : `<div class="empty-msg">${(texto||fechaSel) ? 'Ningún seguimiento coincide con ese filtro.' : 'Todavía no hay seguimientos cargados por tu dupla.'}</div>`;
   },
 
   mostrarTabMiActividad(tab){
