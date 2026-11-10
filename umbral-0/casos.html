@@ -4779,6 +4779,15 @@ const Casos = {
     }
   },
 
+  // Mezcla los 3 tipos de evento en una sola línea de tiempo cronológica
+  // (10/11/2026, pedido de Agustina: "el caso tiene que tener siempre en
+  // el historial lo último que pasó así la dupla que lo toma sabe qué
+  // pasó anteriormente" — antes esto mostraba 3 bloques separados por
+  // tipo, cada uno ordenado por su cuenta, así que lo más reciente de
+  // verdad podía estar escondido en cualquiera de los tres, no arriba de
+  // todo. Mismo criterio que ya usa el timeline de la ficha propia
+  // (cargarTimeline()/_renderTimelineItem() más arriba), acá en una
+  // versión de solo lectura).
   _renderHistorialSoloLectura(datos){
     const p = datos.persona || {};
     const nombre = `${p.nombre||''} ${p.apellido||''}`.trim() || 'Persona sin identificar';
@@ -4789,27 +4798,27 @@ const Casos = {
       ['Situación educativa', p.situacion_educativa], ['Redes de contención', p.redes_contencion],
     ].filter(([,v]) => v != null && v !== '');
 
-    const bloque = (titulo, color, items, render) => {
-      if(!items || !items.length) return '';
-      return `
-        <div class="section-title" style="margin-top:16px;">${esc(titulo)} (${items.length})</div>
-        ${items.map(it => `<div style="background:#f8fafc;border-left:3px solid ${color};border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:0.84rem;">${render(it)}</div>`).join('')}
-      `;
-    };
-
-    const intervenciones = bloque('Intervenciones', 'var(--blue)', datos.intervenciones, i => `
-      <div style="color:#64748b;font-size:0.76rem;margin-bottom:4px;">${fmtFecha(i.created_at)} · ${esc(TIPO_INTERVENCION_LABELS[i.tipo] || i.tipo || '')}</div>
+    const renderIntervencion = i => `
+      <div><b>🚶 Intervención</b> — ${esc(TIPO_INTERVENCION_LABELS[i.tipo] || i.tipo || '')}</div>
       ${(i.acciones||[]).length ? `<div><b>Qué se hizo:</b> ${(i.acciones||[]).map(cod => esc(ACCIONES_INTERVENCION_LABELS[cod]||cod)).join(' · ')}</div>` : ''}
       ${i.resumen ? `<div>${esc(i.resumen)}</div>` : ''}
-    `);
-    const seguimientos = bloque('Seguimientos', 'var(--green)', datos.seguimientos, s => `
-      <div style="color:#64748b;font-size:0.76rem;margin-bottom:4px;">${fmtFecha(s.created_at)}</div>
-      ${s.checklist_item ? esc(s.checklist_item) + (s.checklist_completado ? ' ✅' : ' ⬜') : esc(s.contenido || '')}
-    `);
-    const derivaciones = bloque('Derivaciones', 'var(--amber)', datos.derivaciones, d => `
-      <div style="color:#64748b;font-size:0.76rem;margin-bottom:4px;">${fmtFecha(d.created_at)} · ${esc(d.tipo||'')} · ${esc(d.estado||'')}</div>
+    `;
+    const renderSeguimiento = s => `
+      <div><b>📝 Seguimiento</b></div>
+      <div>${s.checklist_item ? esc(s.checklist_item) + (s.checklist_completado ? ' ✅' : ' ⬜') : esc(s.contenido || '')}</div>
+    `;
+    const renderDerivacion = d => `
+      <div><b>📋 Derivación</b> — ${esc(d.tipo||'')} · ${esc(d.estado||'')}</div>
       ${d.observaciones ? `<div>${esc(d.observaciones)}</div>` : ''}
-    `);
+    `;
+
+    const eventos = [
+      ...(datos.intervenciones||[]).map(i => ({ fecha:i.created_at, color:'var(--blue)', html:renderIntervencion(i) })),
+      ...(datos.seguimientos||[]).map(s => ({ fecha:s.created_at, color:'var(--green)', html:renderSeguimiento(s) })),
+      ...(datos.derivaciones||[]).map(d => ({ fecha:d.created_at, color:'var(--amber)', html:renderDerivacion(d) })),
+    ].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+    const ultimo = eventos[0];
 
     return `
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:0.8rem;color:#1e40af;margin-bottom:14px;">👁️ Solo lectura — este caso es de otra dupla. No podés editarlo ni agregar nada desde acá.</div>
@@ -4818,8 +4827,20 @@ const Casos = {
         ${datosBasicos.map(([lbl,v]) => `<div style="display:flex;gap:8px;padding:3px 0;"><dt style="flex:0 0 150px;color:#64748b;">${esc(lbl)}</dt><dd style="margin:0;">${esc(v)}</dd></div>`).join('')}
       </dl>
       ${p.historia_breve ? `<div class="section-title" style="margin-top:0;">Historia breve</div><div style="white-space:pre-wrap;font-size:0.84rem;">${esc(p.historia_breve)}</div>` : ''}
-      ${intervenciones}${seguimientos}${derivaciones}
-      ${!(datos.intervenciones||[]).length && !(datos.seguimientos||[]).length && !(datos.derivaciones||[]).length ? '<div class="empty-msg">Sin eventos cargados todavía.</div>' : ''}
+      ${ultimo ? `
+        <div class="section-title" style="margin-top:16px;">🕓 Lo último que pasó</div>
+        <div style="background:#fefce8;border:1.5px solid #fde047;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.84rem;">
+          <div style="color:#854d0e;font-size:0.76rem;font-weight:700;margin-bottom:4px;">${fmtFecha(ultimo.fecha)}</div>
+          ${ultimo.html}
+        </div>
+      ` : ''}
+      <div class="section-title">Historial completo (${eventos.length})</div>
+      ${eventos.length ? eventos.map(e => `
+        <div style="background:#f8fafc;border-left:3px solid ${e.color};border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:0.84rem;">
+          <div style="color:#64748b;font-size:0.76rem;margin-bottom:4px;">${fmtFecha(e.fecha)}</div>
+          ${e.html}
+        </div>
+      `).join('') : '<div class="empty-msg">Sin eventos cargados todavía.</div>'}
       <div class="modal-foot"><button type="button" class="btn btn-outline" onclick="closeModal()">Cerrar</button></div>
     `;
   },
