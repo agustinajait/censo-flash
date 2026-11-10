@@ -1633,3 +1633,60 @@ grant select on public.asistencia_publica_lectura to anon;
 
 revoke insert, update, delete, truncate, references, trigger
   on public.asistencia_publica_lectura from anon, authenticated;
+
+-- Ver el historial completo de un caso de OTRA dupla, SIN poder
+-- editarlo (10/11/2026, pedido de Agustina: "que puedan ver el
+-- historial completo pero sin editar" — a diferencia de
+-- compartir_caso_por_dni(), que da acceso real de lectura Y escritura
+-- vía personas_compartido, esta consulta no inserta nada: es una foto de
+-- solo lectura, sin otorgar ningún permiso nuevo sobre la fila).
+-- SECURITY DEFINER a propósito (mismo patrón que compartir_caso_por_dni),
+-- para poder leer el caso de otra dupla en este caso puntual y
+-- controlado, sin tocar la RLS general de `personas`.
+create or replace function public.ver_historial_por_dni(p_dni text)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_persona record;
+  v_result jsonb;
+begin
+  if mi_rol() <> 'dupla' then
+    raise exception 'Solo cuentas de dupla pueden usar esta consulta';
+  end if;
+  if trim(coalesce(p_dni,'')) = '' then
+    return null;
+  end if;
+
+  select p.* into v_persona from personas p
+  where trim(coalesce(p.dni,'')) = trim(p_dni)
+    and coalesce(p.oculto,false) = false
+  order by p.created_at asc
+  limit 1;
+
+  if not found then
+    return null;
+  end if;
+
+  select jsonb_build_object(
+    'persona', to_jsonb(v_persona) - 'id',
+    'dupla_codigo', (select codigo from duplas where id = v_persona.dupla_id),
+    'intervenciones', (
+      select coalesce(jsonb_agg(to_jsonb(i) - 'id' - 'persona_id' order by i.created_at desc), '[]'::jsonb)
+      from intervenciones i where i.persona_id = v_persona.id
+    ),
+    'seguimientos', (
+      select coalesce(jsonb_agg(to_jsonb(s) - 'id' - 'persona_id' order by s.created_at desc), '[]'::jsonb)
+      from seguimientos s where s.persona_id = v_persona.id
+    ),
+    'derivaciones', (
+      select coalesce(jsonb_agg(to_jsonb(d) - 'id' - 'persona_id' order by d.created_at desc), '[]'::jsonb)
+      from derivaciones d where d.persona_id = v_persona.id
+    )
+  ) into v_result;
+
+  return v_result;
+end;
+$$;
+
+revoke all on function public.ver_historial_por_dni(text) from public;
+grant execute on function public.ver_historial_por_dni(text) to authenticated;

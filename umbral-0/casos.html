@@ -4709,10 +4709,11 @@ const Casos = {
     }
     const textoGuia = propiaFichaId
       ? 'Ese caso ya está en TU listado — si es la misma persona (por ejemplo, un caso en seguimiento que volviste a visitar), no hace falta darla de alta de nuevo: abrí su ficha de abajo y usá "➕ Registrar intervención" o "📝 Agregar seguimiento" ahí adentro.'
-      : 'Esa carga es de otra dupla. Si es la misma persona (por ejemplo, se mudó de zona y ahora la atienden ustedes), tocá "🔗 Compartir este caso conmigo" para sumarte al caso sin duplicarlo — vas a poder ver todo su historial y cargar intervenciones ahí. Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.';
+      : 'Esa carga es de otra dupla. Podés ver su historial completo sin comprometerte a nada ("👁️ Ver historial"), o si es la misma persona y de ahora en más la van a atender ustedes (por ejemplo, se mudó de zona), tocá "🔗 Compartir este caso conmigo" para sumarte al caso sin duplicarlo y poder cargar intervenciones ahí. Si es otra persona (o ese DNI está mal cargado en el caso anterior), tildá la casilla de abajo para poder seguir.';
     const botonVerFicha = propiaFichaId
       ? `<button type="button" class="btn btn-blue btn-sm" onclick="closeModal(); Casos.abrirFicha('${escAttr(propiaFichaId)}')">Ver esa ficha →</button>`
-      : `<button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>`;
+      : `<button type="button" class="btn btn-outline btn-sm" onclick="Casos.verHistorialSoloLectura('${escAttr(dni)}')">👁️ Ver historial (solo lectura)</button>
+         <button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>`;
     const textoBotonForzar = personaExistente ? 'Guardar de todas formas' : 'Crear de todas formas';
     cont.innerHTML = `
       <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ Ya hay ${coincidencias.length===1?'un caso':coincidencias.length+' casos'} con el DNI ${esc(dni)}</div>
@@ -4757,6 +4758,72 @@ const Casos = {
     }
   },
 
+  // Ver el historial completo de un caso de OTRA dupla SIN poder
+  // editarlo (10/11/2026, pedido de Agustina: "que puedan ver el
+  // historial completo pero sin editar"). A diferencia de
+  // compartirCasoPorDni(), esto NO otorga ningún acceso nuevo — llama a
+  // ver_historial_por_dni() (RPC de solo lectura, ver schema-ajustes.sql)
+  // y muestra una foto en un modal sin ningún botón de editar/agregar.
+  async verHistorialSoloLectura(dni){
+    try{
+      const client = await SupabaseClient.getClient();
+      const { data, error } = await client.rpc('ver_historial_por_dni', { p_dni: dni });
+      if(error) throw error;
+      if(!data){
+        alert('No se encontró ningún caso con ese DNI (puede que ya lo hayan ocultado). Probá de nuevo desde el formulario.');
+        return;
+      }
+      openModal('👁️ Historial completo — solo lectura', Casos._renderHistorialSoloLectura(data));
+    }catch(e){
+      alert('No se pudo traer el historial: ' + e.message);
+    }
+  },
+
+  _renderHistorialSoloLectura(datos){
+    const p = datos.persona || {};
+    const nombre = `${p.nombre||''} ${p.apellido||''}`.trim() || 'Persona sin identificar';
+    const datosBasicos = [
+      ['DNI', p.dni], ['Dupla', datos.dupla_codigo], ['Zona', p.zona], ['Comuna', p.comuna],
+      ['Punto de contacto', p.punto_contacto], ['Teléfono', p.telefono_contacto],
+      ['Situación habitacional', p.situacion_habitacional], ['Situación económica', p.situacion_economica],
+      ['Situación educativa', p.situacion_educativa], ['Redes de contención', p.redes_contencion],
+    ].filter(([,v]) => v != null && v !== '');
+
+    const bloque = (titulo, color, items, render) => {
+      if(!items || !items.length) return '';
+      return `
+        <div class="section-title" style="margin-top:16px;">${esc(titulo)} (${items.length})</div>
+        ${items.map(it => `<div style="background:#f8fafc;border-left:3px solid ${color};border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:0.84rem;">${render(it)}</div>`).join('')}
+      `;
+    };
+
+    const intervenciones = bloque('Intervenciones', 'var(--blue)', datos.intervenciones, i => `
+      <div style="color:#64748b;font-size:0.76rem;margin-bottom:4px;">${fmtFecha(i.created_at)} · ${esc(TIPO_INTERVENCION_LABELS[i.tipo] || i.tipo || '')}</div>
+      ${(i.acciones||[]).length ? `<div><b>Qué se hizo:</b> ${(i.acciones||[]).map(cod => esc(ACCIONES_INTERVENCION_LABELS[cod]||cod)).join(' · ')}</div>` : ''}
+      ${i.resumen ? `<div>${esc(i.resumen)}</div>` : ''}
+    `);
+    const seguimientos = bloque('Seguimientos', 'var(--green)', datos.seguimientos, s => `
+      <div style="color:#64748b;font-size:0.76rem;margin-bottom:4px;">${fmtFecha(s.created_at)}</div>
+      ${s.checklist_item ? esc(s.checklist_item) + (s.checklist_completado ? ' ✅' : ' ⬜') : esc(s.contenido || '')}
+    `);
+    const derivaciones = bloque('Derivaciones', 'var(--amber)', datos.derivaciones, d => `
+      <div style="color:#64748b;font-size:0.76rem;margin-bottom:4px;">${fmtFecha(d.created_at)} · ${esc(d.tipo||'')} · ${esc(d.estado||'')}</div>
+      ${d.observaciones ? `<div>${esc(d.observaciones)}</div>` : ''}
+    `);
+
+    return `
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:0.8rem;color:#1e40af;margin-bottom:14px;">👁️ Solo lectura — este caso es de otra dupla. No podés editarlo ni agregar nada desde acá.</div>
+      <div style="font-family:'Sora',sans-serif;font-weight:800;color:var(--navy);font-size:1rem;margin-bottom:8px;">${esc(nombre)}</div>
+      <dl style="margin:0 0 10px;font-size:0.84rem;">
+        ${datosBasicos.map(([lbl,v]) => `<div style="display:flex;gap:8px;padding:3px 0;"><dt style="flex:0 0 150px;color:#64748b;">${esc(lbl)}</dt><dd style="margin:0;">${esc(v)}</dd></div>`).join('')}
+      </dl>
+      ${p.historia_breve ? `<div class="section-title" style="margin-top:0;">Historia breve</div><div style="white-space:pre-wrap;font-size:0.84rem;">${esc(p.historia_breve)}</div>` : ''}
+      ${intervenciones}${seguimientos}${derivaciones}
+      ${!(datos.intervenciones||[]).length && !(datos.seguimientos||[]).length && !(datos.derivaciones||[]).length ? '<div class="empty-msg">Sin eventos cargados todavía.</div>' : ''}
+      <div class="modal-foot"><button type="button" class="btn btn-outline" onclick="closeModal()">Cerrar</button></div>
+    `;
+  },
+
   // Buscaste un DNI, no tenés ningún caso propio con ese número, pero
   // existe en otra dupla — mismo texto/botón que _mostrarAvisoDniDuplicado()
   // pero en el resultado de la BÚSQUEDA, no en el formulario de alta (ver
@@ -4774,8 +4841,11 @@ const Casos = {
       <div style="background:#fff7ed; border:1.5px solid #fdba74; border-radius:10px; padding:14px 16px;">
         <div style="font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412;">⚠️ El DNI ${esc(dni)} ya está cargado, pero por otra dupla</div>
         ${filas}
-        <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Si es la misma persona (se mudó de zona y ahora la ven ustedes), tocá "🔗 Compartir este caso conmigo" para sumarte sin duplicarlo — vas a poder ver todo su historial y cargar la intervención o el seguimiento ahí mismo.</div>
-        <button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>
+        <div style="font-size:0.8rem; color:#78350f; margin:8px 0;">Podés ver su historial completo sin comprometerte a nada, o si es la misma persona (se mudó de zona y ahora la ven ustedes) tocá "🔗 Compartir este caso conmigo" para sumarte sin duplicarlo — vas a poder cargar la intervención o el seguimiento ahí mismo.</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="Casos.verHistorialSoloLectura('${escAttr(dni)}')">👁️ Ver historial (solo lectura)</button>
+          <button type="button" class="btn btn-blue btn-sm" id="btn-compartir-caso" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir este caso conmigo</button>
+        </div>
       </div>
     `;
   },
@@ -4796,8 +4866,9 @@ const Casos = {
       return `<div style="padding:8px 0; border-top:1px solid #fed7aa; font-size:0.82rem; color:#78350f; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <span style="flex:1; min-width:160px;"><b>${esc(nombre)}</b> — dupla ${esc(c.dupla_codigo||'—')}, cargado el ${esc(fecha)}${dni ? ' · DNI ' + esc(dni) : ''}</span>
         ${dni
-          ? `<button type="button" class="btn btn-blue btn-sm" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir conmigo</button>`
-          : `<span style="font-size:0.76rem; color:#9a3412;">Sin DNI cargado — pedíselo para poder compartirlo</span>`}
+          ? `<button type="button" class="btn btn-outline btn-sm" onclick="Casos.verHistorialSoloLectura('${escAttr(dni)}')">👁️ Ver historial</button>
+             <button type="button" class="btn btn-blue btn-sm" onclick="Casos.compartirCasoPorDni('${escAttr(dni)}')">🔗 Compartir conmigo</button>`
+          : `<span style="font-size:0.76rem; color:#9a3412;">Sin DNI cargado — pedíselo para poder verlo o compartirlo</span>`}
       </div>`;
     }).join('');
     cont.innerHTML = `
