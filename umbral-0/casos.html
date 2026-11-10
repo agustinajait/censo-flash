@@ -697,19 +697,12 @@ const CAMPOS_PERSONA_CASO = [
   // Indicador propio del Nivel 2 (Construcción del vínculo — ver glosario):
   // "acepta una entrevista" es uno de los pasos que marca ese nivel.
   { key:'acepta_entrevista', label:'¿Acepta entrevista?', type:'checkbox', checkLabel:'La persona acepta ser entrevistada' },
-  // (23/10/2026, pedido de Agustina: "agrega el momento del alta de caso
-  // y antes de compartir al grupo de whatsapp la pregunta si la persona
-  // le interesaría participar de algún curso socioproductivo, de
-  // orientación laboral, oficios, etc") — se pregunta en el alta (acá) y
-  // se suma al mensaje de WhatsApp en _armarMensajeCasoWhatsapp().
-  // checkLabel autocontenido (23/10/2026, fix tras sacar capturas reales
-  // para el instructivo): renderCampo() para type:'checkbox' SOLO
-  // muestra `checkLabel` al lado del tilde — nunca `label` por separado
-  // (mismo criterio que acepta_entrevista/consumo_activo, arriba). Con
-  // "Sí, le interesaría participar" sola, sin la pregunta al lado, no se
-  // entendía de qué — Agustina: "no veo la pregunta del taller socio
-  // productivo tampoco".
-  { key:'interes_curso_laboral', label:'¿Le interesaría un curso socioproductivo/orientación laboral/oficios?', type:'checkbox', checkLabel:'Le interesaría participar de un curso socioproductivo/orientación laboral/oficios' },
+  // La pregunta de interés en curso socioproductivo/laboral/oficios
+  // (`interes_curso_laboral`) se sacó del alta (10/11/2026, pedido de
+  // Agustina). La columna sigue existiendo en `personas` con lo que ya
+  // se había contestado antes — sigue mostrándose como badge en la ficha
+  // (ver renderFicha) y en el mensaje de WhatsApp si ya estaba contestada
+  // — pero no se vuelve a preguntar.
   // hint (22/10/2026, pedido de Agustina a partir de la planilla de
   // "Devoluciones" que le pasa gobierno de ejemplo): ese texto se usa tal
   // cual como párrafo de "Devolución" en el mensaje de WhatsApp del caso
@@ -4732,11 +4725,14 @@ const Casos = {
       // literalmente el texto viejo con la fecha de HOY — la dupla lo
       // mandaba pensando que era la devolución de la visita de hoy.
       // Ahora solo se ofrece compartir en una edición si la Historia breve
-      // o la respuesta de interés en curso laboral cambiaron de verdad —
-      // es decir, si hay algo nuevo para esa Devolución.
+      // cambió de verdad — es decir, si hay algo nuevo para esa Devolución.
+      // (La comparación también incluía `interes_curso_laboral`, pero esa
+      // pregunta ya no se hace en el formulario — 10/11/2026 — así que
+      // comparar solo contra `campos.historia_breve` evita ofrecer
+      // compartir "en falso" en cada edición de un caso que ya tenía esa
+      // respuesta guardada de antes.)
       const huboCambioDevolucion = !personaExistente
-        || String(campos.historia_breve || '').trim() !== String(personaExistente.historia_breve || '').trim()
-        || !!campos.interes_curso_laboral !== !!personaExistente.interes_curso_laboral;
+        || String(campos.historia_breve || '').trim() !== String(personaExistente.historia_breve || '').trim();
       if(huboCambioDevolucion){
         Casos._ofrecerCompartirCasoWhatsapp(
           persona,
@@ -5726,11 +5722,11 @@ const Casos = {
     const duplaCod = (miPerfil && duplasMap[miPerfil.dupla_id]) || 'mi dupla';
     const accionesTxt = (acciones||[]).map(cod => ACCIONES_INTERVENCION_LABELS[cod] || cod).join(', ');
     const edad = calcEdad(persona.fecha_nacimiento);
-    // (23/10/2026, pedido de Agustina) — se pregunta en el alta
-    // (CAMPOS_PERSONA_CASO.interes_curso_laboral) y se suma acá antes de
-    // compartir. `null`/`undefined` (casos de antes de que existiera el
-    // campo, o el checkbox nunca llegó a guardarse) no muestra la línea —
-    // solo cuando hay una respuesta real cargada.
+    // (23/10/2026, pedido de Agustina) — ya no se pregunta en el alta
+    // (se sacó 10/11/2026), pero si un caso viejo ya tiene una respuesta
+    // guardada de antes, se sigue sumando acá antes de compartir.
+    // `null`/`undefined` (caso nuevo, o nunca se contestó) no muestra la
+    // línea — solo cuando hay una respuesta real cargada.
     const interesCurso = persona.interes_curso_laboral === true ? 'Sí'
       : persona.interes_curso_laboral === false ? 'No' : null;
     return [
