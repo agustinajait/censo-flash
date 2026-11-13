@@ -3464,6 +3464,16 @@ async function calcularOutcomesKobo(desde, hasta){
   // público de reporte-publico.html.
   const puntos = [];
   let totalEnvios = 0;
+  // DNIs únicos y entrevistas en profundidad logradas, para TODO el
+  // período del reporte (13/11/2026, pedido de Agustina: "no está la
+  // nueva métrica de cantidad de dnis y entrevistas" — esto ya se
+  // calculaba por dupla y por un solo día en koboDniEntrevistasPorDupla(),
+  // acá se suma agregado para el período completo, en la misma pasada que
+  // ya recorre todo koboRowsRaw — no hace falta traer KoBo de nuevo).
+  // "Entrevista lograda" = aceptaEntrevistaProlongada o tieneEntrevista en
+  // 'si' (ver nota en parseUmbral0(), config/umbral-0.js).
+  const dnisUnicos = new Set();
+  let entrevistasLogradas = 0;
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
     const matches = duplaPorNombreKobo.filter(r => nombresCoincidenKobo(r.nombre, p.operador));
     let match = matches.length === 1 ? matches[0] : null;
@@ -3480,8 +3490,11 @@ async function calcularOutcomesKobo(desde, hasta){
       conteo[codigo] = (conteo[codigo] || 0) + 1;
     });
     if(p.lat != null && p.lng != null) puntos.push({ lat: p.lat, lng: p.lng, fecha: p.fecha, tipo: p.tipo || null, dupla: codigoDupla });
+    const dni = p.persona && p.persona.dni;
+    if(dni && !esDniPlaceholderDup(dni)) dnisUnicos.add(String(dni).trim());
+    if(p.persona && (p.persona.aceptaEntrevistaProlongada || p.persona.tieneEntrevista)) entrevistasLogradas++;
   });
-  return { totalEnvios, conteo, puntos };
+  return { totalEnvios, conteo, puntos, dnisUnicos: dnisUnicos.size, entrevistasLogradas };
 }
 
 // Envíos de KoBo de un día puntual que TODAVÍA NADIE VALIDÓ desde la
@@ -3976,6 +3989,10 @@ function renderReporte(cont, r){
             </tbody>
           </table>
           <div class="section-hint" style="margin-top:10px;">${r.koboOutcomes.totalEnvios} envíos de KoBo del equipo en este período (un mismo envío puede sumar en más de una fila, si marcaron varias cosas).</div>
+          <div class="kpi-grid" style="margin-top:14px;">
+            <div class="kpi"><div class="num">${r.koboOutcomes.dnisUnicos}</div><div class="lbl">DNIs únicos contactados (KoBo)</div></div>
+            <div class="kpi"><div class="num">${r.koboOutcomes.entrevistasLogradas}</div><div class="lbl">Entrevistas en profundidad logradas (KoBo)</div></div>
+          </div>
         `}
     </div>
 
@@ -4015,6 +4032,8 @@ function renderReporte(cont, r){
         <tbody>
           <tr><td>Cobertura</td><td>% de zonas prioritarias recorridas</td><td class="num">${r.cobertura.pctZonasCubiertas!=null?r.cobertura.pctZonasCubiertas+'%':'—'}</td></tr>
           <tr><td>Contacto</td><td>Personas nuevas identificadas</td><td class="num">${r.poblacion.nuevas}</td></tr>
+          <tr><td>Contacto</td><td>DNIs únicos contactados (según KoBo)</td><td class="num">${r.koboOutcomes ? r.koboOutcomes.dnisUnicos : '—'}</td></tr>
+          <tr><td>Vínculo</td><td>Entrevistas en profundidad logradas (según KoBo)</td><td class="num">${r.koboOutcomes ? r.koboOutcomes.entrevistasLogradas : '—'}</td></tr>
           <tr><td>Seguimiento</td><td>Contactos de rutina (sin gap de 15+ días)</td><td class="num">${r.poblacion.enSeguimientoContinuo}</td></tr>
           <tr><td>Revinculación</td><td>Personas recontactadas (15+ días sin contacto)</td><td class="num">${r.poblacion.recontactadas}</td></tr>
           <tr><td>Continuidad</td><td>Personas con seguimiento activo</td><td class="num">${r.poblacion.seguimientoActivo}</td></tr>
@@ -4151,12 +4170,14 @@ a. COBERTURA TERRITORIAL
 - Días con presencia territorial: ${r.cobertura.dias.size}
 - Puntos que requieren aumentar la frecuencia: ${puntosFrecuencia}
 
-b. POBLACIÓN ABORDADA
+b. POBLACIÓN ABORDADA${r.poblacion.rangoCubreTodoElProyecto ? '\n⚠️ El rango elegido cubre toda la historia del proyecto: TODAS las personas caen en "nuevas identificadas", por eso "Contactos de seguimiento" y "Recontactadas" dan 0 — no hay nadie "tocado pero no nuevo" si el rango incluye el día del alta de cada caso. No es un error de datos; para ver esos dos con sentido hay que elegir un rango más corto.' : ''}
 - Personas nuevas identificadas: ${r.poblacion.nuevas}
 - Contactos de seguimiento (rutina, sin gap): ${r.poblacion.enSeguimientoContinuo}
 - Personas recontactadas (15+ días sin contacto): ${r.poblacion.recontactadas}
 - Personas con seguimiento activo: ${r.poblacion.seguimientoActivo}
 - Personas que aceptan entrevista: ${r.poblacion.aceptaEntrevista}
+- DNIs únicos contactados (según KoBo): ${r.koboOutcomes ? r.koboOutcomes.dnisUnicos : '—'}
+- Entrevistas en profundidad logradas (según KoBo): ${r.koboOutcomes ? r.koboOutcomes.entrevistasLogradas : '—'}
 
 c. EVOLUCIÓN DE LOS CASOS (nivel de vínculo, personas con seguimiento activo)
 ${nivelesLinea}
