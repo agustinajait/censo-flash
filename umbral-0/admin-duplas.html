@@ -2107,6 +2107,9 @@ function renderDuplaCard(d, jornada, totalCasos){
       ${miniMapaHtml(d.codigo)}
       <span class="chev">▾</span>
     </div>
+    <div style="margin-top:8px;">
+      <a href="./casos-en-vivo.html?dupla=${encodeURIComponent(d.codigo||'')}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="text-decoration:none;display:inline-block;">👁️ Ver casos de esta dupla</a>
+    </div>
     <div data-role="body" style="display:none;margin-top:12px;">
     <div class="card-row">
       <div class="form-field"><label>Código</label><input data-f="codigo" value="${escAttr(d.codigo)}" placeholder="U01"></div>

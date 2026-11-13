@@ -78,8 +78,8 @@
     <img src="../assets/huehaci-logo.png" alt="Huehaci" style="height:44px; width:auto; background:white; border-radius:6px; padding:4px 8px;">
     <div style="font-size:0.66rem; color:rgba(255,255,255,0.6); line-height:1.25;">Huehaci — Consultora de<br>innovación cívica y tecnológica</div>
   </div>
-  <h1>📥 Casos cargados — Releva Umbral (en vivo)</h1>
-  <div class="sub">Esta página siempre muestra el estado actual de la plataforma — no es una foto fija como el reporte semanal.</div>
+  <h1 id="titulo">📥 Casos cargados — Releva Umbral (en vivo)</h1>
+  <div class="sub" id="subtitulo">Esta página siempre muestra el estado actual de la plataforma — no es una foto fija como el reporte semanal.</div>
 </div>
 
 <div class="wrap">
@@ -302,6 +302,20 @@ function setRango(tipo){
 let todosLosCasos = [];
 let duplicadosActuales = { grupos:[], idsDuplicados:new Set() };
 
+// Filtro opcional por una sola dupla (13/11/2026, pedido de Agustina:
+// "quiero desde admin poder ver los casos de cada dupla como si entrara
+// en su cuenta"). admin-duplas.html linkea acá con "?dupla=<código>"
+// desde cada tarjeta de dupla — en vez de armar una vista nueva, se
+// reusa esta misma página (ya es de solo lectura, sin login, pensada
+// para ver el estado real) filtrada a una dupla sola. Por default
+// muestra TODO lo de esa dupla (no solo la última semana) — la idea es
+// ver lo mismo que vería la dupla al entrar, no un recorte por fecha.
+const duplaFiltro = new URLSearchParams(location.search).get('dupla');
+if(duplaFiltro){
+  document.getElementById('titulo').textContent = `📥 Casos de la dupla ${duplaFiltro}`;
+  document.getElementById('subtitulo').textContent = 'Mismos casos que ve la dupla al entrar a su cuenta — de solo lectura. Dejá "Desde" vacío para ver todo su historial, o filtrá por fecha si hace falta.';
+}
+
 // Se pide TODO de una (sin filtrar en el pedido a Supabase) y se filtra
 // acá por fecha — la vista `personas_listado_publico` no trae tantas
 // filas como para que importe, y así cambiar de rango no vuelve a pedir
@@ -324,7 +338,8 @@ async function cargar(){
     // de fechas filtrado (la misma persona puede volver a aparecer días
     // después) — se recalcula acá, no en cada aplicarFiltro().
     duplicadosActuales = detectarDuplicados(todosLosCasos);
-    if(!document.getElementById('f-desde').value) setRango('semana');
+    if(duplaFiltro) aplicarFiltro();
+    else if(!document.getElementById('f-desde').value) setRango('semana');
     else aplicarFiltro();
   }catch(e){
     cont.innerHTML = `<div class="empty-msg">No se pudo cargar (${esc(e.message)}).</div>`;
@@ -346,7 +361,8 @@ function aplicarFiltro(){
   const desde = document.getElementById('f-desde').value;
   const hasta = document.getElementById('f-hasta').value;
   const { desdeUtc, hastaUtc } = rangoUtcLocal(desde, hasta);
-  const filtrados = todosLosCasos.filter(p => {
+  const baseCasos = duplaFiltro ? todosLosCasos.filter(p => p.dupla_codigo === duplaFiltro) : todosLosCasos;
+  const filtrados = baseCasos.filter(p => {
     // ultima_actividad (alta + cualquier intervención/seguimiento/
     // derivación, lo que sea más reciente) en vez de created_at — si no,
     // un seguimiento sobre un caso de días atrás no entraba en el rango
@@ -390,8 +406,15 @@ function aplicarFiltro(){
     ultimaActividad: p.ultima_actividad,
   }));
 
-  document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
-  document.getElementById('cont').innerHTML = renderAlertaDuplicados(duplicadosActuales.grupos) + renderAgrupadoPorTurno(lista);
+  document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'}${duplaFiltro ? ` de la dupla ${esc(duplaFiltro)}` : ''} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
+  // Con una sola dupla ya no tiene sentido agrupar por turno/dupla — se
+  // muestra la lista plana directamente, ordenada por nombre.
+  const gruposRelevantes = duplaFiltro
+    ? duplicadosActuales.grupos.filter(g => g.casos.some(c => c.dupla_codigo === duplaFiltro))
+    : duplicadosActuales.grupos;
+  const listaOrdenada = duplaFiltro ? [...lista].sort((a,b) => a.nombre.localeCompare(b.nombre)) : lista;
+  document.getElementById('cont').innerHTML = renderAlertaDuplicados(gruposRelevantes) +
+    (duplaFiltro ? renderListadoCasosCards(listaOrdenada) : renderAgrupadoPorTurno(lista));
 }
 
 cargar();
