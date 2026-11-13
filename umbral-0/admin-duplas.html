@@ -3949,7 +3949,6 @@ function renderReporte(cont, r){
       </table>
       <div class="kpi-grid" style="margin-top:14px;">
         <div class="kpi"><div class="num">${r.intervencionesDerivaciones.totalDerivaciones || (r.koboOutcomes ? Object.values(r.koboOutcomes.conteo).reduce((a,b)=>a+b,0) : 0)}</div><div class="lbl">Total derivaciones</div></div>
-        <div class="kpi"><div class="num">${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}</div><div class="lbl">% efectivamente concretadas</div></div>
       </div>
       <!-- Fallback (sept/2026, pedido de Agustina: "las derivaciones de
            nuestra plataforma no pueden quedar vacías, de última poner el
