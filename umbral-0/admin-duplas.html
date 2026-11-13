@@ -3774,17 +3774,21 @@ async function calcularReporte({ client, desde, hasta, personas, intervenciones,
     ...intervenciones.map(i => i.persona_id),
     ...(seguimientosIds||[]),
   ].filter(Boolean));
-  const idsTocadasNoNuevas = [...idsTocadasEnRango].filter(id => !idsPersonasNuevas.has(id));
-  // "Recontactado" es una persona que estuvo 15+ días SIN ningún contacto
-  // antes del inicio de este período — no cualquier persona ya cargada
-  // con actividad en el rango (eso es "en seguimiento", contacto de
-  // rutina). Pedido de Agustina, 28/9/2026 — mismo criterio que
-  // _clasificarGapSeguimiento() del resumen diario.
-  const personasTocadasNoNuevas = idsTocadasNoNuevas.map(id => personaPorId[id]).filter(Boolean);
-  const desdeUtcReporte = desde + 'T03:00:00.000Z';
-  const { enSeguimiento: idsEnSeguimiento, recontactado: idsRecontactado } = await _clasificarGapSeguimiento(client, personasTocadasNoNuevas, desdeUtcReporte);
-  const enSeguimientoContinuo = personasTocadasNoNuevas.filter(p => idsEnSeguimiento.has(p.id));
-  const recontactadas = personasTocadasNoNuevas.filter(p => idsRecontactado.has(p.id));
+  // "Recontactado"/"en seguimiento continuo" ya NO se comparan contra el
+  // inicio del rango elegido (13/11/2026, antes con _clasificarGapSeguimiento()
+  // acá mismo: si el rango es largo — ej. 14/9 a hoy — nadie puede tener
+  // actividad "antes" de ese inicio y los dos daban 0 siempre, por
+  // definición, no por un error — Agustina: "no puede dar 0, hay que
+  // modificarlo"). _clasificarPatronContactoHistorico() mide el patrón de
+  // cada persona tocada en el rango contra SU PROPIA historia completa, sin
+  // depender de dónde arranca el rango — ver su comentario. Se aplica a
+  // TODAS las tocadas (nuevas incluidas): son preguntas distintas de
+  // "nuevas identificadas", no una partición, así que pueden solaparse.
+  const personasTocadasEnRango = [...idsTocadasEnRango].map(id => personaPorId[id]).filter(Boolean);
+  const hastaUtcReporte = new Date(new Date(hasta + 'T03:00:00.000Z').getTime() + 24*60*60*1000).toISOString();
+  const { enSeguimiento: idsEnSeguimiento, recontactado: idsRecontactado } = await _clasificarPatronContactoHistorico(client, personasTocadasEnRango, hastaUtcReporte);
+  const enSeguimientoContinuo = personasTocadasEnRango.filter(p => idsEnSeguimiento.has(p.id));
+  const recontactadas = personasTocadasEnRango.filter(p => idsRecontactado.has(p.id));
   const seguimientoActivo = personas.filter(p => p.estado === 'activo');
   // Ya se estaba cargando en la ficha (checkbox "¿Acepta entrevista?",
   // sept/2026) pero el reporte nunca lo miraba — sept/2026, encontrado
@@ -3915,7 +3919,7 @@ function renderReporte(cont, r){
         <div class="kpi"><div class="num">${r.poblacion.seguimientoActivo}</div><div class="lbl">Personas con seguimiento activo (al cierre del período)</div></div>
         <div class="kpi"><div class="num">${r.poblacion.aceptaEntrevista}</div><div class="lbl">Personas que aceptan entrevista (total cargado)</div></div>
       </div>
-      ${r.poblacion.rangoCubreTodoElProyecto ? `<div class="nota-limite">⚠️ El rango elegido (${r.desde} al ${r.hasta}) cubre toda la historia del proyecto, así que TODAS las personas caen en "nuevas identificadas" — por eso "Contactos de seguimiento" y "Recontactadas" dan 0: no puede haber nadie "tocado pero no nuevo" si el rango incluye el día en que se dio de alta cada caso. No es un error de datos. Para ver esos dos indicadores con sentido, elegí un rango más corto (ej. la última semana).</div>` : ''}
+      ${r.poblacion.rangoCubreTodoElProyecto ? `<div class="nota-limite">ℹ️ El rango elegido (${r.desde} al ${r.hasta}) cubre toda la historia del proyecto, así que TODAS las personas caen también en "nuevas identificadas" (además de en seguimiento/recontactadas si corresponde) — no es un error de datos, para un rango tan largo es lo esperable.</div>` : ''}
       <div class="nota-limite">⚠️ "Incorporadas al seguimiento" y "con las que se perdió contacto" todavía no se pueden calcular con precisión — falta guardar cuándo cambia el nivel de vínculo de cada persona. Por ahora completalos a mano si hace falta para el reporte.</div>
     </div>
 
@@ -4170,7 +4174,7 @@ a. COBERTURA TERRITORIAL
 - Días con presencia territorial: ${r.cobertura.dias.size}
 - Puntos que requieren aumentar la frecuencia: ${puntosFrecuencia}
 
-b. POBLACIÓN ABORDADA${r.poblacion.rangoCubreTodoElProyecto ? '\n⚠️ El rango elegido cubre toda la historia del proyecto: TODAS las personas caen en "nuevas identificadas", por eso "Contactos de seguimiento" y "Recontactadas" dan 0 — no hay nadie "tocado pero no nuevo" si el rango incluye el día del alta de cada caso. No es un error de datos; para ver esos dos con sentido hay que elegir un rango más corto.' : ''}
+b. POBLACIÓN ABORDADA${r.poblacion.rangoCubreTodoElProyecto ? '\nℹ️ El rango elegido cubre toda la historia del proyecto, así que TODAS las personas caen también en "nuevas identificadas" (además de en seguimiento/recontactadas si corresponde) — no es un error de datos.' : ''}
 - Personas nuevas identificadas: ${r.poblacion.nuevas}
 - Contactos de seguimiento (rutina, sin gap): ${r.poblacion.enSeguimientoContinuo}
 - Personas recontactadas (15+ días sin contacto): ${r.poblacion.recontactadas}
@@ -4523,6 +4527,57 @@ async function _clasificarGapSeguimiento(client, personas, desdeUtc){
     const ultima = ultimaPorId[p.id];
     const dias = ultima ? (desdeMs - new Date(ultima).getTime()) / (24*60*60*1000) : Infinity;
     if(dias >= DIAS_GAP_RECONTACTO) recontactado.add(p.id);
+    else enSeguimiento.add(p.id);
+  });
+  return { enSeguimiento, recontactado };
+}
+
+// Para el reporte en profundidad (calcularReporte(), §10.1.9) nada más —
+// _clasificarGapSeguimiento() de arriba compara contra el INICIO del
+// rango elegido, así que si el rango es largo (ej. 14/9 a hoy, casi toda
+// la vida del proyecto) nadie puede tener actividad "antes" de ese
+// inicio y "Contactos de seguimiento"/"Recontactadas" dan 0 siempre, por
+// definición (13/11/2026, reportado por Agustina: "no puede dar 0, hay
+// que modificarlo"). Acá en cambio se mira el patrón de CADA persona
+// contra su propia historia completa (no contra el inicio del rango):
+// se ordenan todos sus contactos (alta + intervenciones + seguimientos +
+// derivaciones + validaciones de KoBo, sin recorte de fecha) y se mide el
+// gap más grande entre dos contactos consecutivos. Con un solo contacto
+// en toda su historia no hay patrón que evaluar (ni "continuo" ni
+// "recontactada"); con 2+ contactos y ningún gap de 15+ días, es
+// seguimiento continuo; si en algún punto hubo un gap de 15+ días, es
+// recontactada — pase lo que pase con el rango del reporte. Esto puede
+// solaparse con "nuevas" (alguien dado de alta en el rango que además ya
+// tiene varios contactos propios) a propósito: son preguntas distintas
+// ("¿cuántos casos nuevos entraron?" vs. "¿a cuántos les seguimos el
+// hilo sin perderlos?"), no una partición.
+async function _clasificarPatronContactoHistorico(client, personas, hastaUtc){
+  const enSeguimiento = new Set(), recontactado = new Set();
+  if(!personas.length) return { enSeguimiento, recontactado };
+  const ids = personas.map(p => p.id);
+  const [interv, segu, deriv, kv] = await Promise.all([
+    client.from('intervenciones').select('persona_id, created_at').in('persona_id', ids).lte('created_at', hastaUtc),
+    client.from('seguimientos').select('persona_id, created_at').in('persona_id', ids).lte('created_at', hastaUtc),
+    client.from('derivaciones').select('persona_id, created_at').in('persona_id', ids).lte('created_at', hastaUtc),
+    client.from('kobo_validaciones').select('persona_id, created_at').in('persona_id', ids).lte('created_at', hastaUtc),
+  ]);
+  [interv, segu, deriv, kv].forEach(r => { if(r.error) throw r.error; });
+  const contactosPorId = {};
+  personas.forEach(p => { contactosPorId[p.id] = [new Date(p.created_at).getTime()]; }); // arranca en el alta
+  [interv, segu, deriv, kv].forEach(res => {
+    (res.data||[]).forEach(row => {
+      if(!row.persona_id || !contactosPorId[row.persona_id]) return;
+      contactosPorId[row.persona_id].push(new Date(row.created_at).getTime());
+    });
+  });
+  personas.forEach(p => {
+    const fechas = contactosPorId[p.id].sort((a,b) => a-b);
+    if(fechas.length < 2) return; // un solo contacto en toda su historia: no hay patrón que marcar
+    let gapMaximo = 0;
+    for(let i = 1; i < fechas.length; i++){
+      gapMaximo = Math.max(gapMaximo, (fechas[i] - fechas[i-1]) / (24*60*60*1000));
+    }
+    if(gapMaximo >= DIAS_GAP_RECONTACTO) recontactado.add(p.id);
     else enSeguimiento.add(p.id);
   });
   return { enSeguimiento, recontactado };
