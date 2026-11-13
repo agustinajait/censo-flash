@@ -3281,6 +3281,35 @@ async function fetchTodasLasFilas(queryFactory, pageSize = 1000){
   return todas;
 }
 
+// Ranking de casos nuevos por dupla + promedio diario por dupla de DNIs y
+// de entrevistas en profundidad logradas (13/11/2026, pedido de
+// Agustina: "falta el ranking de casos por dupla y el promedio diario
+// por dupla de dnis de entrevistas"). Los DNIs/entrevistas salen de KoBo
+// (únicos campos donde se puede atribuir eso a una dupla con precisión;
+// la plataforma no lo registra así) — si `koboOutcomes` no se pudo traer,
+// esas dos columnas quedan en null en vez de 0, para no dar a entender
+// "cero" cuando en realidad es "no se sabe". `dias` es el mismo
+// denominador que ya usa "Promedio de casos nuevos por día, por dupla"
+// (días con presencia territorial en el período).
+function armarRankingPorDupla(personas, codigoPorDupla, desde, hasta, dias, koboOutcomes){
+  const personasNuevas = personas.filter(p => p.created_at >= desde && p.created_at <= (hasta + 'T23:59:59'));
+  const casosPorDupla = {};
+  personasNuevas.forEach(p => {
+    const codigo = codigoPorDupla[p.dupla_id] || '—';
+    casosPorDupla[codigo] = (casosPorDupla[codigo] || 0) + 1;
+  });
+  const dniPorDupla = (koboOutcomes && koboOutcomes.dnisUnicosPorDupla) || {};
+  const entrevPorDupla = (koboOutcomes && koboOutcomes.entrevistasPorDupla) || {};
+  const totalDias = dias ? dias.size : 0;
+  const codigos = new Set([...Object.keys(casosPorDupla), ...Object.keys(dniPorDupla), ...Object.keys(entrevPorDupla)]);
+  return [...codigos].map(codigo => ({
+    codigo,
+    casosNuevos: casosPorDupla[codigo] || 0,
+    promedioDniDiario: (totalDias && koboOutcomes) ? +((dniPorDupla[codigo]||0) / totalDias).toFixed(2) : null,
+    promedioEntrevistasDiario: (totalDias && koboOutcomes) ? +((entrevPorDupla[codigo]||0) / totalDias).toFixed(2) : null,
+  })).sort((a,b) => b.casosNuevos - a.casosNuevos);
+}
+
 async function generarReporte(){
   const desde = document.getElementById('f-desde').value;
   const hasta = document.getElementById('f-hasta').value;
@@ -3340,6 +3369,7 @@ async function generarReporte(){
 
     const reporte = await calcularReporte({ client, desde, hasta, personas, intervenciones, seguimientosIds, derivaciones, personaPorId });
     reporte.koboOutcomes = koboOutcomes;
+    reporte.porDupla = armarRankingPorDupla(personas, codigoPorDupla, desde, hasta, reporte.cobertura.dias, koboOutcomes);
     reporte.accionesPlataforma = await calcularAccionesPlataforma(desde, hasta, intervenciones)
       .catch(e => { console.error('No se pudo calcular acciones de la plataforma', e); return { conteo:{}, totalIntervenciones:0, totalValidaciones:0 }; });
     // Listado de casos del período (nuevos + recontactados) — pedido de
@@ -3503,6 +3533,12 @@ async function calcularOutcomesKobo(desde, hasta){
   // 'si' (ver nota en parseUmbral0(), config/umbral-0.js).
   const dnisUnicos = new Set();
   let entrevistasLogradas = 0;
+  // DNIs únicos y entrevistas logradas, PERO desglosadas por dupla
+  // (13/11/2026, pedido de Agustina: "falta... el promedio diario por
+  // dupla de dnis de entrevistas") — mismo criterio y misma pasada de
+  // arriba, solo que acá además se guarda bajo la clave de `codigoDupla`.
+  const dnisPorDupla = {}; // código de dupla -> Set de DNIs
+  const entrevistasPorDupla = {}; // código de dupla -> cantidad
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
     const matches = duplaPorNombreKobo.filter(r => nombresCoincidenKobo(r.nombre, p.operador));
     let match = matches.length === 1 ? matches[0] : null;
@@ -3520,10 +3556,20 @@ async function calcularOutcomesKobo(desde, hasta){
     });
     if(p.lat != null && p.lng != null) puntos.push({ lat: p.lat, lng: p.lng, fecha: p.fecha, tipo: p.tipo || null, dupla: codigoDupla });
     const dni = p.persona && p.persona.dni;
-    if(dni && !esDniPlaceholderDup(dni)) dnisUnicos.add(String(dni).trim());
-    if(p.persona && (p.persona.aceptaEntrevistaProlongada || p.persona.tieneEntrevista)) entrevistasLogradas++;
+    if(dni && !esDniPlaceholderDup(dni)){
+      const dniLimpio = String(dni).trim();
+      dnisUnicos.add(dniLimpio);
+      if(!dnisPorDupla[codigoDupla]) dnisPorDupla[codigoDupla] = new Set();
+      dnisPorDupla[codigoDupla].add(dniLimpio);
+    }
+    if(p.persona && (p.persona.aceptaEntrevistaProlongada || p.persona.tieneEntrevista)){
+      entrevistasLogradas++;
+      entrevistasPorDupla[codigoDupla] = (entrevistasPorDupla[codigoDupla] || 0) + 1;
+    }
   });
-  return { totalEnvios, conteo, puntos, dnisUnicos: dnisUnicos.size, entrevistasLogradas };
+  const dnisUnicosPorDupla = {};
+  Object.entries(dnisPorDupla).forEach(([codigo, set]) => { dnisUnicosPorDupla[codigo] = set.size; });
+  return { totalEnvios, conteo, puntos, dnisUnicos: dnisUnicos.size, entrevistasLogradas, dnisUnicosPorDupla, entrevistasPorDupla };
 }
 
 // Envíos de KoBo de un día puntual que TODAVÍA NADIE VALIDÓ desde la
@@ -4040,6 +4086,19 @@ function renderReporte(cont, r){
       `).join('') : '<div class="empty-msg">Sin observaciones cargadas en este período.</div>'}
     </div>
 
+    <div class="section-title">g. Ranking de casos y entrevistas por dupla</div>
+    <div class="section-hint">Casos nuevos identificados por dupla en el período, cargados en la plataforma. DNIs y entrevistas en profundidad logradas salen de KoBo (no hay forma de atribuirlos a una dupla desde la plataforma) — el promedio diario usa los mismos "días con presencia territorial" que ya usa "Promedio de casos nuevos por día, por dupla" más abajo. Solo para uso interno (admin/coordinación) — no va en el reporte público para gobierno.</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Dupla</th><th style="text-align:right;">Casos nuevos</th><th style="text-align:right;">Promedio diario de DNIs (KoBo)</th><th style="text-align:right;">Promedio diario de entrevistas (KoBo)</th></tr></thead>
+        <tbody>
+          ${r.porDupla && r.porDupla.length ? r.porDupla.map(d =>
+            `<tr><td>${esc(d.codigo)}</td><td class="num">${d.casosNuevos}</td><td class="num">${d.promedioDniDiario!=null?d.promedioDniDiario:'—'}</td><td class="num">${d.promedioEntrevistasDiario!=null?d.promedioEntrevistasDiario:'—'}</td></tr>`).join('')
+            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin casos en el período</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
     <div class="section-title">Listado de casos del período</div>
     <div class="section-hint">Casos nuevos o recontactados en el rango elegido — tocá una tarjeta para ver el detalle.</div>
     ${renderListadoCasosCards(r.listadoCasos)}
@@ -4168,6 +4227,9 @@ function armarMensaje(){
   const koboLinea = r.koboOutcomes
     ? (Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) => `  · ${labelsKobo[codigo]||codigo}: ${n}`).join('\n') || '  (sin envíos de KoBo del equipo en el período)')
     : '  (no se pudo traer KoBo para esta sección)';
+  const porDuplaLinea = (r.porDupla||[]).map(d =>
+    `  · Dupla ${d.codigo}: ${d.casosNuevos} casos nuevos · ${d.promedioDniDiario!=null?d.promedioDniDiario:'—'} DNIs/día (KoBo) · ${d.promedioEntrevistasDiario!=null?d.promedioEntrevistasDiario:'—'} entrevistas/día (KoBo)`
+  ).join('\n') || '  (sin casos en el período)';
   const ETIQUETA_CATEGORIA = { nuevo: 'nuevo', seguimiento: 'en seguimiento', recontactado: 'recontactado — 15+ días sin contacto' };
   const casosLinea = (r.listadoCasos||[]).map(c =>
     `  · [${c.dupla}] ${c.nombre}${c.dni ? ' — DNI ' + c.dni : ''}${c.criticidad ? ' — ' + c.criticidad : ''} (${ETIQUETA_CATEGORIA[c.categoria] || c.categoria})`
@@ -4212,6 +4274,9 @@ ${koboLinea}
 
 f. OBSERVACIONES DIARIAS DEL EQUIPO
 ${observacionesLinea}
+
+g. RANKING DE CASOS Y ENTREVISTAS POR DUPLA (uso interno, no va a gobierno)
+${porDuplaLinea}
 
 LISTADO DE CASOS DEL PERÍODO
 ${casosLinea}
