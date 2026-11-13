@@ -3999,21 +3999,8 @@ function renderReporte(cont, r){
         `}
     </div>
 
-    <div class="section-title">f. Qué hicieron las duplas — confirmado en la plataforma</div>
-    <div class="section-hint">Sale de "¿Qué hiciste con este caso?" — la casilla que tildan acá al validar un envío de KoBo o registrar una intervención, no de la respuesta cruda de KoBo. Categorías más completas que "e." (incluye CIS y teléfono rojo). Todavía no está claro si esto termina reemplazando a "d." (que depende de "Pedir derivación") — por ahora se muestra aparte para poder comparar.</div>
-    <div class="card">
-      <table class="reporte-tabla">
-        <thead><tr><th>Qué hicieron</th><th style="text-align:right;">Cantidad</th></tr></thead>
-        <tbody>
-          ${Object.keys(r.accionesPlataforma.conteo).length ? Object.entries(r.accionesPlataforma.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
-            `<tr><td>${esc((window.PROJECT_CONFIG.accionesIntervencionLabels||{})[codigo] || codigo)}</td><td class="num">${n}</td></tr>`).join('')
-            : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin acciones confirmadas en la plataforma en el período</td></tr>'}
-        </tbody>
-      </table>
-      <div class="section-hint" style="margin-top:10px;">${r.accionesPlataforma.totalIntervenciones} intervención(es) y ${r.accionesPlataforma.totalValidaciones} validación(es) de KoBo con acciones cargadas en este período (una misma intervención/validación puede sumar en más de una fila).</div>
-    </div>
 
-    <div class="section-title">g. Observaciones diarias del equipo</div>
+    <div class="section-title">f. Observaciones diarias del equipo</div>
     <div class="section-hint">Lo que cada dupla cargó al cerrar su jornada (obligatorio desde el 21/9/2026) — ver "📅 Resumen diario" para el detalle de casos/intervenciones de un día puntual.</div>
     <div class="card">
       ${r.observacionesDiarias.length ? r.observacionesDiarias.map(o => `
@@ -4152,9 +4139,6 @@ function armarMensaje(){
   const koboLinea = r.koboOutcomes
     ? (Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) => `  · ${labelsKobo[codigo]||codigo}: ${n}`).join('\n') || '  (sin envíos de KoBo del equipo en el período)')
     : '  (no se pudo traer KoBo para esta sección)';
-  const labelsAcciones = window.PROJECT_CONFIG.accionesIntervencionLabels || {};
-  const accionesLinea = Object.entries(r.accionesPlataforma.conteo).sort((a,b)=>b[1]-a[1])
-    .map(([codigo,n]) => `  · ${labelsAcciones[codigo]||codigo}: ${n}`).join('\n') || '  (sin acciones confirmadas en la plataforma en el período)';
   const ETIQUETA_CATEGORIA = { nuevo: 'nuevo', seguimiento: 'en seguimiento', recontactado: 'recontactado — 15+ días sin contacto' };
   const casosLinea = (r.listadoCasos||[]).map(c =>
     `  · [${c.dupla}] ${c.nombre}${c.dni ? ' — DNI ' + c.dni : ''}${c.criticidad ? ' — ' + c.criticidad : ''} (${ETIQUETA_CATEGORIA[c.categoria] || c.categoria})`
@@ -4197,10 +4181,7 @@ d2. SEGUIMIENTOS Y CLIMA
 e. DERIVACIONES Y CONTACTOS SEGÚN KOBO (terreno)
 ${koboLinea}
 
-f. QUÉ HICIERON LAS DUPLAS (confirmado en la plataforma)
-${accionesLinea}
-
-g. OBSERVACIONES DIARIAS DEL EQUIPO
+f. OBSERVACIONES DIARIAS DEL EQUIPO
 ${observacionesLinea}
 
 LISTADO DE CASOS DEL PERÍODO
