@@ -781,8 +781,16 @@ function switchTab(nombre){
   history.replaceState(null, '', nombre === 'duplas' ? '#duplas' : '#' + nombre);
   if(nombre === 'reporte' && !_reporteCargado){
     _reporteCargado = true;
-    document.getElementById('f-desde').value = hoyStr(-6);
-    document.getElementById('f-hasta').value = hoyStr(0);
+    // Recuerda el último rango usado (localStorage) — si no, por defecto
+    // vuelve a "últimos 7 días" en cada carga de página, y es fácil no
+    // notar el reset y generar el reporte para la ventana chica en vez
+    // del rango real que se venía usando (ej. 14/9 a hoy) — reportado por
+    // Agustina 13/11/2026: un "13 derivaciones" que la alarmó porque en
+    // realidad eran solo los últimos 7 días, no todo el período.
+    let rangoGuardado = null;
+    try{ rangoGuardado = JSON.parse(localStorage.getItem('umbral0_reporte_rango') || 'null'); }catch(e){}
+    document.getElementById('f-desde').value = (rangoGuardado && rangoGuardado.desde) || hoyStr(-6);
+    document.getElementById('f-hasta').value = (rangoGuardado && rangoGuardado.hasta) || hoyStr(0);
     generarReporte();
   }
   if(nombre === 'diario'){
@@ -3251,12 +3259,35 @@ boot().catch(e => {
 //     para completar a mano en cada reporte.
 // ─────────────────────────────────────────────────────────────────────────
 
+// Supabase/PostgREST corta en silencio cualquier select() en 1000 filas
+// (el "Max Rows" default del proyecto) — no tira error, devuelve una
+// página incompleta sin avisar. Reportado por Agustina 13/11/2026: "b.
+// Población abordada" mostraba "1000 personas con seguimiento activo",
+// un número redondo sospechoso que confirmó que la tabla `personas` ya
+// superó esa cota (941 no ocultas el 16/10/2026, cuando se documentó el
+// bug hermano de esto — el de la URL de `.in()` demasiado larga). Pagina
+// con `.range()` hasta traer todo. `queryFactory` tiene que devolver una
+// query NUEVA cada vez (no se puede reusar un query builder ya resuelto).
+async function fetchTodasLasFilas(queryFactory, pageSize = 1000){
+  let desde = 0;
+  let todas = [];
+  while(true){
+    const { data, error } = await queryFactory().range(desde, desde + pageSize - 1);
+    if(error) throw error;
+    todas = todas.concat(data || []);
+    if(!data || data.length < pageSize) break;
+    desde += pageSize;
+  }
+  return todas;
+}
+
 async function generarReporte(){
   const desde = document.getElementById('f-desde').value;
   const hasta = document.getElementById('f-hasta').value;
   const estadoEl = document.getElementById('generar-estado');
   const btn = document.getElementById('btn-generar');
   if(!desde || !hasta){ estadoEl.textContent = 'Elegí desde/hasta.'; return; }
+  try{ localStorage.setItem('umbral0_reporte_rango', JSON.stringify({ desde, hasta })); }catch(e){}
   btn.disabled = true; estadoEl.textContent = 'Calculando…';
   const cont = document.getElementById('reporte-cont');
   cont.innerHTML = '';
@@ -3276,8 +3307,8 @@ async function generarReporte(){
     // `created_at` (timestamptz, sin ese problema).
     const desdeUtcReporte = desde + 'T03:00:00.000Z';
     const hastaUtcReporte = new Date(new Date(hasta + 'T03:00:00.000Z').getTime() + 24*60*60*1000).toISOString();
-    const [personasRes, intervencionesRes, derivacionesRes, seguimientosRes, koboOutcomes, duplasRes, jornadasRes] = await Promise.all([
-      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_educativa, situacion_economica, redes_contencion').eq('oculto', false),
+    const [personas, intervencionesRes, derivacionesRes, seguimientosRes, koboOutcomes, duplasRes, jornadasRes] = await Promise.all([
+      fetchTodasLasFilas(() => client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, estado, criticidad, nivel_actual, acepta_entrevista, historia_breve, created_at, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_educativa, situacion_economica, redes_contencion').eq('oculto', false)),
       client.from('intervenciones').select('*').gte('created_at', desdeUtcReporte).lt('created_at', hastaUtcReporte),
       client.from('derivaciones').select('tipo, estado, fecha_solicitud').gte('fecha_solicitud', desde).lte('fecha_solicitud', hasta + 'T23:59:59'),
       // "Tocada" tiene que incluir seguimientos (notas/checklist), no solo
@@ -3294,13 +3325,11 @@ async function generarReporte(){
       client.from('jornadas').select('dupla_id, fecha, observaciones').gte('fecha', desde).lte('fecha', hasta)
         .order('fecha', { ascending: false }),
     ]);
-    if(personasRes.error) throw personasRes.error;
     if(intervencionesRes.error) throw intervencionesRes.error;
     if(derivacionesRes.error) throw derivacionesRes.error;
     if(seguimientosRes.error) throw seguimientosRes.error;
     if(jornadasRes.error) throw jornadasRes.error;
 
-    const personas = personasRes.data || [];
     const intervenciones = intervencionesRes.data || [];
     const derivaciones = derivacionesRes.data || [];
     const seguimientosIds = (seguimientosRes.data||[]).map(s => s.persona_id).filter(Boolean);
@@ -4539,20 +4568,20 @@ async function _clasificarPatronContactoHistorico(client, personas, hastaUtc){
   // límite de longitud (mismo bug ya reportado y arreglado en
   // calcularResumenTodasLasDuplas(), 16/10/2026: "Bad Request" por una URL
   // de ~35.000 caracteres). Acá se trae CADA tabla completa filtrada solo
-  // por fecha (las 4 tablas son chicas, un par de miles de filas en
-  // total) y se descarta en memoria lo que no es de estas personas — el
-  // `if(!contactosPorId[row.persona_id]) return;` de abajo ya lo hace solo.
+  // por fecha, paginando con fetchTodasLasFilas() (ninguna de las 4 está
+  // garantizada a tener menos de 1000 filas), y se descarta en memoria lo
+  // que no es de estas personas — el `if(!contactosPorId[row.persona_id])
+  // return;` de abajo ya lo hace solo.
   const [interv, segu, deriv, kv] = await Promise.all([
-    client.from('intervenciones').select('persona_id, created_at').lte('created_at', hastaUtc),
-    client.from('seguimientos').select('persona_id, created_at').lte('created_at', hastaUtc),
-    client.from('derivaciones').select('persona_id, created_at').lte('created_at', hastaUtc),
-    client.from('kobo_validaciones').select('persona_id, created_at').lte('created_at', hastaUtc),
+    fetchTodasLasFilas(() => client.from('intervenciones').select('persona_id, created_at').lte('created_at', hastaUtc)),
+    fetchTodasLasFilas(() => client.from('seguimientos').select('persona_id, created_at').lte('created_at', hastaUtc)),
+    fetchTodasLasFilas(() => client.from('derivaciones').select('persona_id, created_at').lte('created_at', hastaUtc)),
+    fetchTodasLasFilas(() => client.from('kobo_validaciones').select('persona_id, created_at').lte('created_at', hastaUtc)),
   ]);
-  [interv, segu, deriv, kv].forEach(r => { if(r.error) throw r.error; });
   const contactosPorId = {};
   personas.forEach(p => { contactosPorId[p.id] = [new Date(p.created_at).getTime()]; }); // arranca en el alta
-  [interv, segu, deriv, kv].forEach(res => {
-    (res.data||[]).forEach(row => {
+  [interv, segu, deriv, kv].forEach(filas => {
+    filas.forEach(row => {
       if(!row.persona_id || !contactosPorId[row.persona_id]) return;
       contactosPorId[row.persona_id].push(new Date(row.created_at).getTime());
     });
