@@ -4554,12 +4554,19 @@ async function _clasificarGapSeguimiento(client, personas, desdeUtc){
 async function _clasificarPatronContactoHistorico(client, personas, hastaUtc){
   const enSeguimiento = new Set(), recontactado = new Set();
   if(!personas.length) return { enSeguimiento, recontactado };
-  const ids = personas.map(p => p.id);
+  // Sin .in('persona_id', ids) — con un rango largo (ej. 14/9 a hoy)
+  // `personas` puede tener cientos/miles de ids, y esa URL supera el
+  // límite de longitud (mismo bug ya reportado y arreglado en
+  // calcularResumenTodasLasDuplas(), 16/10/2026: "Bad Request" por una URL
+  // de ~35.000 caracteres). Acá se trae CADA tabla completa filtrada solo
+  // por fecha (las 4 tablas son chicas, un par de miles de filas en
+  // total) y se descarta en memoria lo que no es de estas personas — el
+  // `if(!contactosPorId[row.persona_id]) return;` de abajo ya lo hace solo.
   const [interv, segu, deriv, kv] = await Promise.all([
-    client.from('intervenciones').select('persona_id, created_at').in('persona_id', ids).lte('created_at', hastaUtc),
-    client.from('seguimientos').select('persona_id, created_at').in('persona_id', ids).lte('created_at', hastaUtc),
-    client.from('derivaciones').select('persona_id, created_at').in('persona_id', ids).lte('created_at', hastaUtc),
-    client.from('kobo_validaciones').select('persona_id, created_at').in('persona_id', ids).lte('created_at', hastaUtc),
+    client.from('intervenciones').select('persona_id, created_at').lte('created_at', hastaUtc),
+    client.from('seguimientos').select('persona_id, created_at').lte('created_at', hastaUtc),
+    client.from('derivaciones').select('persona_id, created_at').lte('created_at', hastaUtc),
+    client.from('kobo_validaciones').select('persona_id, created_at').lte('created_at', hastaUtc),
   ]);
   [interv, segu, deriv, kv].forEach(r => { if(r.error) throw r.error; });
   const contactosPorId = {};
