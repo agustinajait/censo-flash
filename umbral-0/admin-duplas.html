@@ -3937,14 +3937,14 @@ function renderReporte(cont, r){
     <div class="section-title">d. Intervenciones y derivaciones</div>
     <div class="card">
       <table class="reporte-tabla">
-        <thead><tr><th>Tipo de derivación</th><th style="text-align:right;">Total</th><th style="text-align:right;">Efectivizadas</th><th style="text-align:right;">Rechazadas</th></tr></thead>
+        <thead><tr><th>Tipo de derivación</th><th style="text-align:right;">Total</th></tr></thead>
         <tbody>
           ${Object.keys(r.intervencionesDerivaciones.porTipo).length ? Object.entries(r.intervencionesDerivaciones.porTipo).sort((a,b)=>b[1].total-a[1].total).map(([tipo,d]) =>
-            `<tr><td>${esc(tipo)}</td><td class="num">${d.total}</td><td class="num">${d.efectivizado}</td><td class="num">${d.rechazado}</td></tr>`).join('')
+            `<tr><td>${esc(tipo)}</td><td class="num">${d.total}</td></tr>`).join('')
             : (r.koboOutcomes && Object.keys(r.koboOutcomes.conteo).length
                 ? Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
-                    `<tr><td>${esc((window.PROJECT_CONFIG.terminoIntervencionLabels||{})[codigo] || codigo)}</td><td class="num">${n}</td><td class="num">—</td><td class="num">—</td></tr>`).join('')
-                : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>')}
+                    `<tr><td>${esc((window.PROJECT_CONFIG.terminoIntervencionLabels||{})[codigo] || codigo)}</td><td class="num">${n}</td></tr>`).join('')
+                : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>')}
         </tbody>
       </table>
       <div class="kpi-grid" style="margin-top:14px;">
@@ -4147,7 +4147,7 @@ function armarMensaje(){
   const puntosFrecuencia = (document.getElementById('txt-puntos-frecuencia')||{}).value || '(sin observaciones)';
   const alertas = (document.getElementById('alertas-texto')||{}).value || '(sin alertas cargadas en este período)';
   const tiposLinea = Object.entries(r.intervencionesDerivaciones.porTipo).sort((a,b)=>b[1].total-a[1].total)
-    .map(([tipo,d]) => `  · ${tipo}: ${d.total} (${d.efectivizado} efectivizadas, ${d.rechazado} rechazadas)`).join('\n') || '  (sin derivaciones)';
+    .map(([tipo,d]) => `  · ${tipo}: ${d.total}`).join('\n') || '  (sin derivaciones)';
   const nivelesLinea = r.evolucion.porNivel.map(n => `  · Nivel ${n.nivel} (${NOMBRE_NIVEL[n.nivel]}): ${n.cantidad}`).join('\n');
   const labelsKobo = window.PROJECT_CONFIG.terminoIntervencionLabels || {};
   const koboLinea = r.koboOutcomes
@@ -4188,7 +4188,7 @@ ${nivelesLinea}
 
 d. INTERVENCIONES Y DERIVACIONES (cargadas en la plataforma)
 ${tiposLinea}
-Total: ${r.intervencionesDerivaciones.totalDerivaciones} · Efectivizadas: ${r.intervencionesDerivaciones.totalEfectivizadas} (${r.intervencionesDerivaciones.pctConcretadas!=null?r.intervencionesDerivaciones.pctConcretadas+'%':'—'}) · Rechazadas: ${r.intervencionesDerivaciones.totalRechazadas}
+Total: ${r.intervencionesDerivaciones.totalDerivaciones}
 
 d2. SEGUIMIENTOS Y CLIMA
 - Seguimientos en el período: ${r.seguimientosYClima.totalSeguimientos}
