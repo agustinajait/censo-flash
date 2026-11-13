@@ -1690,3 +1690,60 @@ $$;
 
 revoke all on function public.ver_historial_por_dni(text) from public;
 grant execute on function public.ver_historial_por_dni(text) to authenticated;
+
+-- personas_listado_publico + historial (13/11/2026) — pedido de
+-- Agustina sobre casos-en-vivo.html: "quiero ver sus intervenciones y
+-- seguimientos". ver_historial_por_dni() de arriba ya arma exactamente
+-- este JSON por persona, pero es una función `authenticated` (requiere
+-- login) — casos-en-vivo.html no tiene login, lee con la anon key, así
+-- que no puede llamarla, y además esa página lista cientos de casos a
+-- la vez (una llamada RPC por persona no escala). Se agrega una columna
+-- nueva `historial` (jsonb) a la vista en vez de eso: un CREATE OR
+-- REPLACE VIEW no puede reordenar ni sacar columnas existentes, pero sí
+-- agregar al final sin romper nada (mismo patrón ya usado acá con
+-- ultima_actividad). Junta intervenciones + seguimientos de cada
+-- persona en un array ordenado por fecha — mismos campos que ya usa el
+-- timeline de la ficha en casos.html (resumen/ubicacion/acciones de
+-- intervenciones; contenido/checklist_item/checklist_completado de
+-- seguimientos). Deriva directo de personas_listado_publico (ya
+-- bypasea el RLS por-dupla a propósito, ver comentario más arriba) —
+-- security_invoker sigue sin aplicar acá por la misma razón.
+create or replace view public.personas_listado_publico as
+select
+  p.id, p.nombre, p.apellido, p.dni, p.dni_denuncia_extravio, p.sin_identificar,
+  p.zona, p.comuna, p.punto_contacto, p.criticidad, p.nivel_actual,
+  p.acepta_entrevista, p.historia_breve, p.fecha_nacimiento, p.telefono_contacto,
+  p.situacion_habitacional, p.situacion_economica, p.situacion_educativa,
+  p.redes_contencion, p.estado, p.created_at, d.codigo as dupla_codigo,
+  p.nacionalidad, p.situacion_sanitaria, p.estado_salud, p.medicacion,
+  p.esquema, p.sube_escaleras, p.cama_arriba, p.estuvo_en_cis_antes,
+  p.estuvo_en_cis_detalle, p.consumo_activo, d.turno as dupla_turno,
+  d.es_referente as dupla_es_referente,
+  greatest(
+    p.created_at,
+    (select max(i.created_at) from intervenciones i where i.persona_id = p.id),
+    (select max(s.created_at) from seguimientos s where s.persona_id = p.id),
+    (select max(dv.created_at) from derivaciones dv where dv.persona_id = p.id),
+    (select max(kv.created_at) from kobo_validaciones kv where kv.persona_id = p.id)
+  ) as ultima_actividad,
+  (
+    select coalesce(jsonb_agg(h.* order by h.fecha desc), '[]'::jsonb)
+    from (
+      select
+        i.created_at as fecha, 'intervencion' as tipo, i.tipo as subtipo,
+        i.resumen as texto, i.ubicacion as ubicacion, i.acciones as acciones,
+        null::text as checklist_item, null::boolean as checklist_completado
+      from intervenciones i
+      where i.persona_id = p.id
+      union all
+      select
+        s.created_at as fecha, 'seguimiento' as tipo, s.tipo as subtipo,
+        s.contenido as texto, null as ubicacion, null::text[] as acciones,
+        s.checklist_item as checklist_item, s.checklist_completado as checklist_completado
+      from seguimientos s
+      where s.persona_id = p.id
+    ) h
+  ) as historial
+from personas p
+join duplas d on d.id = p.dupla_id
+where coalesce(p.oculto, false) = false;

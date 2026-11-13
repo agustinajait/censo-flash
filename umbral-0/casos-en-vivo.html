@@ -56,6 +56,15 @@
   .caso-card .caso-historia .caso-detalle-lbl { margin-bottom:2px; flex:none; }
   .caso-card .caso-historia div { white-space:pre-wrap; color:#334155; }
 
+  .hist-vacio { font-size:0.8rem; color:#94a3b8; }
+  .hist-lista { display:flex; flex-direction:column; gap:8px; }
+  .hist-item { background:white; border:1px solid #e2eaf8; border-left:3px solid var(--gray,#94a3b8); border-radius:8px; padding:8px 10px; }
+  .hist-item.hist-intervencion { border-left-color:var(--blue); }
+  .hist-item.hist-seguimiento { border-left-color:var(--green); }
+  .hist-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:0.8rem; color:var(--navy); flex-wrap:wrap; }
+  .hist-fecha { font-size:0.7rem; color:#94a3b8; font-weight:600; white-space:nowrap; }
+  .hist-body { font-size:0.8rem; color:#334155; margin-top:3px; white-space:pre-wrap; }
+
   .dup-alerta { background:#fff7ed; border:1.5px solid #fdba74; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
   .dup-alerta summary { cursor:pointer; font-family:'Sora',sans-serif; font-weight:700; font-size:0.86rem; color:#9a3412; }
   .dup-alerta .dup-item { font-size:0.8rem; color:#78350f; padding:6px 0; border-top:1px solid #fed7aa; }
@@ -237,9 +246,54 @@ function renderListadoCasosCards(lista){
         ${c.estadoSalud ? `<div class="caso-historia"><span class="caso-detalle-lbl">Estado de salud</span><div>${esc(c.estadoSalud)}</div></div>` : ''}
         ${c.medicacion ? `<div class="caso-historia"><span class="caso-detalle-lbl">Medicación</span><div>${esc(c.medicacion)}</div></div>` : ''}
         ${c.esquema ? `<div class="caso-historia"><span class="caso-detalle-lbl">Esquema</span><div>${esc(c.esquema)}</div></div>` : ''}
+        <div class="caso-historia"><span class="caso-detalle-lbl">Intervenciones y seguimientos</span>${renderHistorial(c.historial)}</div>
       </div>
     </details>
   `).join('')}</div>`;
+}
+
+// Timeline de intervenciones + seguimientos (13/11/2026, pedido de
+// Agustina: "quiero ver sus intervenciones y seguimientos" sobre los
+// casos de casos-en-vivo.html). Viene en `p.historial` (columna nueva
+// de la vista personas_listado_publico, ver schema-ajustes.sql) — ya
+// agregado y ordenado por fecha en la base, acá solo se renderiza con
+// el mismo criterio de etiquetas que usa el timeline de la ficha en
+// casos.html (TIPO_INTERVENCION_LABELS/ACCIONES_INTERVENCION_LABELS,
+// acá leídos de window.PROJECT_CONFIG en vez de duplicar el diccionario).
+function fmtFechaHora(iso){
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm} ${hh}:${mi}`;
+}
+function renderHistorialItem(h){
+  const labelsTipo = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.tipoIntervencionLabels) || {};
+  const labelsAcciones = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
+  if(h.tipo === 'intervencion'){
+    const acciones = (h.acciones||[]).map(cod => labelsAcciones[cod] || cod);
+    return `<div class="hist-item hist-intervencion">
+      <div class="hist-head"><b>🚶 Intervención — ${esc(labelsTipo[h.subtipo] || h.subtipo || '')}</b><span class="hist-fecha">${fmtFechaHora(h.fecha)}</span></div>
+      ${acciones.length ? `<div class="hist-body"><b>Qué se hizo:</b> ${acciones.map(a=>esc(a)).join(' · ')}</div>` : ''}
+      ${h.ubicacion ? `<div class="hist-body" style="font-size:0.74rem;color:#94a3b8;">📍 ${esc(h.ubicacion)}</div>` : ''}
+      ${h.texto ? `<div class="hist-body">${esc(h.texto)}</div>` : ''}
+    </div>`;
+  }
+  if(h.subtipo === 'checklist_item'){
+    return `<div class="hist-item hist-seguimiento">
+      <div class="hist-head"><b>📝 Seguimiento — checklist</b><span class="hist-fecha">${fmtFechaHora(h.fecha)}</span></div>
+      <div class="hist-body">${h.checklist_completado ? '☑' : '☐'} ${esc(h.checklist_item || '')}</div>
+    </div>`;
+  }
+  return `<div class="hist-item hist-seguimiento">
+    <div class="hist-head"><b>📝 Seguimiento — comentario</b><span class="hist-fecha">${fmtFechaHora(h.fecha)}</span></div>
+    <div class="hist-body">${esc(h.texto || '')}</div>
+  </div>`;
+}
+function renderHistorial(historial){
+  if(!historial || !historial.length) return '<div class="hist-vacio">Sin intervenciones ni seguimientos cargados.</div>';
+  return `<div class="hist-lista">${historial.map(renderHistorialItem).join('')}</div>`;
 }
 
 const TURNO_ORDEN = ['T1','T2','T3','T4'];
@@ -404,6 +458,7 @@ function aplicarFiltro(){
     duplicado: duplicadosActuales.idsDuplicados.has(p.id),
     creadoEn: p.created_at,
     ultimaActividad: p.ultima_actividad,
+    historial: p.historial || [],
   }));
 
   document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'}${duplaFiltro ? ` de la dupla ${esc(duplaFiltro)}` : ''} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
