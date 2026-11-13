@@ -156,8 +156,6 @@ function render(r){
   const koboOutcomes = d.koboOutcomes || null;
   const dniPendientes = d.dniPendientes || null;
   const labelsKobo = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.terminoIntervencionLabels) || {};
-  const accionesPlataforma = d.accionesPlataforma || { conteo:{}, totalIntervenciones:0, totalValidaciones:0 };
-  const labelsAcciones = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.accionesIntervencionLabels) || {};
   const observacionesDiarias = d.observacionesDiarias || [];
 
   document.getElementById('cont').innerHTML = `
@@ -202,19 +200,18 @@ function render(r){
     <div class="section-title">d. Intervenciones y derivaciones</div>
     <div class="card">
       <table class="reporte-tabla">
-        <thead><tr><th>Tipo de derivación</th><th style="text-align:right;">Total</th><th style="text-align:right;">Efectivizadas</th><th style="text-align:right;">Rechazadas</th></tr></thead>
+        <thead><tr><th>Tipo de derivación</th><th style="text-align:right;">Total</th></tr></thead>
         <tbody>
           ${Object.keys(porTipo).length ? Object.entries(porTipo).sort((a,b)=>b[1].total-a[1].total).map(([tipo,t]) =>
-            `<tr><td>${esc(tipo)}</td><td class="num">${t.total}</td><td class="num">${t.efectivizado}</td><td class="num">${t.rechazado}</td></tr>`).join('')
+            `<tr><td>${esc(tipo)}</td><td class="num">${t.total}</td></tr>`).join('')
             : (koboOutcomes && Object.keys(koboOutcomes.conteo).length
                 ? Object.entries(koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
-                    `<tr><td>${esc(labelsKobo[codigo]||codigo)}</td><td class="num">${n}</td><td class="num">—</td><td class="num">—</td></tr>`).join('')
-                : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>')}
+                    `<tr><td>${esc(labelsKobo[codigo]||codigo)}</td><td class="num">${n}</td></tr>`).join('')
+                : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin derivaciones en el período</td></tr>')}
         </tbody>
       </table>
       <div class="kpi-grid" style="margin-top:14px;">
         <div class="kpi"><div class="num">${idyv.totalDerivaciones || (koboOutcomes ? Object.values(koboOutcomes.conteo).reduce((a,b)=>a+b,0) : 0)}</div><div class="lbl">Total derivaciones</div></div>
-        <div class="kpi"><div class="num">${idyv.pctConcretadas!=null?idyv.pctConcretadas+'%':'—'}</div><div class="lbl">% efectivamente concretadas</div></div>
       </div>
       <!-- Denuncia de extravío de DNI vs. trámite formalizado (§10.1.21) -->
       ${dniPendientes && dniPendientes.personasConDenunciaExtravio > dniPendientes.derivacionesHacerDni ? `<div class="nota-limite">⚠️ Hay ${dniPendientes.personasConDenunciaExtravio} personas cargadas con denuncia de extravío de DNI (estado actual de la ficha, no acotado al período) pero solo ${dniPendientes.derivacionesHacerDni} con el trámite de "Hacer DNI" formalizado como derivación en la plataforma — a ${dniPendientes.personasConDenunciaExtravio - dniPendientes.derivacionesHacerDni} les faltaría iniciar el trámite ahí.</div>` : ''}
@@ -229,21 +226,14 @@ function render(r){
          DISENO-CASOS.md §10.1.50. El fallback de la tabla de "d." (mostrar
          los conteos de KoBo cuando no hay derivaciones cargadas en la
          plataforma) se mantiene sin cambios, solo se sacó el aviso que
-         señalaba explícitamente esa diferencia. -->
+         señalaba explícitamente esa diferencia. Por el mismo motivo
+         (nov/2026, pedido de Agustina) se sacó también de este reporte
+         público la sección "Qué hicieron las duplas — confirmado en la
+         plataforma" y las columnas Efectivizadas/Rechazadas + el KPI de
+         % concretadas de "d.": todo esto evidenciaba que los datos de la
+         plataforma no son precisos, y este reporte lo ve su jefe. -->
 
-    <div class="section-title">e. Qué hicieron las duplas — confirmado en la plataforma</div>
-    <div class="card">
-      <table class="reporte-tabla">
-        <thead><tr><th>Qué hicieron</th><th style="text-align:right;">Cantidad</th></tr></thead>
-        <tbody>
-          ${Object.keys(accionesPlataforma.conteo).length ? Object.entries(accionesPlataforma.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) =>
-            `<tr><td>${esc(labelsAcciones[codigo]||codigo)}</td><td class="num">${n}</td></tr>`).join('')
-            : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;">Sin acciones confirmadas en la plataforma en el período</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section-title">f. Observaciones diarias del equipo</div>
+    <div class="section-title">e. Observaciones diarias del equipo</div>
     <div class="card">
       ${observacionesDiarias.length ? observacionesDiarias.map(o => `
         <div style="padding:10px 0;border-bottom:1px solid var(--border);">
