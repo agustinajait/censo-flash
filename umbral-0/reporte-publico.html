@@ -157,6 +157,7 @@ function render(r){
   const dniPendientes = d.dniPendientes || null;
   const labelsKobo = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.terminoIntervencionLabels) || {};
   const observacionesDiarias = d.observacionesDiarias || [];
+  const porDupla = d.porDupla || [];
 
   document.getElementById('cont').innerHTML = `
     <div class="section-title">a. Cobertura territorial</div>
@@ -231,7 +232,13 @@ function render(r){
          público la sección "Qué hicieron las duplas — confirmado en la
          plataforma" y las columnas Efectivizadas/Rechazadas + el KPI de
          % concretadas de "d.": todo esto evidenciaba que los datos de la
-         plataforma no son precisos, y este reporte lo ve su jefe. -->
+         plataforma no son precisos, y este reporte lo ve su jefe.
+
+         13/11/2026 — Agustina aclaró que este link YA NO se lo pasa a
+         gobierno (solo a su jefe), y que gobierno de todos modos ya tiene
+         su propio ranking de las duplas. Por eso el ranking de "f." de
+         abajo sí se agrega acá (a diferencia de lo anterior, no hay nada
+         ahí que evidencie imprecisión de datos). -->
 
     <div class="section-title">e. Observaciones diarias del equipo</div>
     <div class="card">
@@ -241,6 +248,18 @@ function render(r){
           <div style="font-size:0.85rem;white-space:pre-wrap;margin-top:2px;">${esc(o.texto)}</div>
         </div>
       `).join('') : '<div class="nota-libre">Sin observaciones cargadas en este período.</div>'}
+    </div>
+
+    <div class="section-title">f. Ranking de casos y entrevistas por dupla</div>
+    <div class="card">
+      <table class="reporte-tabla">
+        <thead><tr><th>Dupla</th><th style="text-align:right;">Casos nuevos</th><th style="text-align:right;">Promedio diario de DNIs (KoBo)</th><th style="text-align:right;">Promedio diario de entrevistas (KoBo)</th></tr></thead>
+        <tbody>
+          ${porDupla.length ? porDupla.map(dd =>
+            `<tr><td>${esc(dd.codigo)}</td><td class="num">${dd.casosNuevos}</td><td class="num">${dd.promedioDniDiario!=null?dd.promedioDniDiario:'—'}</td><td class="num">${dd.promedioEntrevistasDiario!=null?dd.promedioEntrevistasDiario:'—'}</td></tr>`).join('')
+            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin casos en el período</td></tr>'}
+        </tbody>
+      </table>
     </div>
 
     <div class="section-title">Listado de casos del período</div>

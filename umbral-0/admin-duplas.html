@@ -4087,7 +4087,7 @@ function renderReporte(cont, r){
     </div>
 
     <div class="section-title">g. Ranking de casos y entrevistas por dupla</div>
-    <div class="section-hint">Casos nuevos identificados por dupla en el período, cargados en la plataforma. DNIs y entrevistas en profundidad logradas salen de KoBo (no hay forma de atribuirlos a una dupla desde la plataforma) — el promedio diario usa los mismos "días con presencia territorial" que ya usa "Promedio de casos nuevos por día, por dupla" más abajo. Solo para uso interno (admin/coordinación) — no va en el reporte público para gobierno.</div>
+    <div class="section-hint">Casos nuevos identificados por dupla en el período, cargados en la plataforma. DNIs y entrevistas en profundidad logradas salen de KoBo (no hay forma de atribuirlos a una dupla desde la plataforma) — el promedio diario usa los mismos "días con presencia territorial" que ya usa "Promedio de casos nuevos por día, por dupla" más abajo. También va en el link público (reporte-publico.html, §13/11/2026: confirmado con Agustina que ya no se lo pasa a gobierno, solo a su jefe).</div>
     <div class="card">
       <table class="reporte-tabla">
         <thead><tr><th>Dupla</th><th style="text-align:right;">Casos nuevos</th><th style="text-align:right;">Promedio diario de DNIs (KoBo)</th><th style="text-align:right;">Promedio diario de entrevistas (KoBo)</th></tr></thead>
@@ -4275,7 +4275,7 @@ ${koboLinea}
 f. OBSERVACIONES DIARIAS DEL EQUIPO
 ${observacionesLinea}
 
-g. RANKING DE CASOS Y ENTREVISTAS POR DUPLA (uso interno, no va a gobierno)
+g. RANKING DE CASOS Y ENTREVISTAS POR DUPLA
 ${porDuplaLinea}
 
 LISTADO DE CASOS DEL PERÍODO
@@ -4986,6 +4986,12 @@ async function publicarReporte(){
       // g. — observaciones que cada dupla cargó al cerrar su jornada
       // (§10.1.28), no texto editorial de coordinación como "alertas".
       observacionesDiarias: r.observacionesDiarias,
+      // Ranking de casos y entrevistas por dupla (13/11/2026) — va también
+      // al link público: Agustina confirmó que ya no comparte este link
+      // con gobierno (solo con su jefe), y que gobierno igual ya tiene su
+      // propio ranking de las duplas, así que no hay problema en mostrarlo
+      // acá con el mismo formato prolijo del resto del reporte.
+      porDupla: r.porDupla,
       alertas: (document.getElementById('alertas-texto')||{}).value || '',
     };
     const client = await SupabaseClient.getClient();
