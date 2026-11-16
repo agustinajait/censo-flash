@@ -119,6 +119,17 @@
       <div class="form-field"><label>Hasta</label><input type="date" id="f-hasta"></div>
       <button class="btn btn-blue" onclick="aplicarFiltro()">Filtrar</button>
     </div>
+    <!-- Buscar por nombre/DNI (16/11/2026, pedido de Agustina: "quiero
+         poder buscar por dni y nombre desde el admin" — mismo campo que ya
+         tienen las duplas en "⚠️ Por resolver" de casos.html, acá aplicado
+         sobre el rango de fechas ya filtrado). Ver aplicarFiltro(). -->
+    <div class="rango-row" style="margin-top:10px;">
+      <div class="form-field" style="flex:1;min-width:200px;">
+        <label>Buscar</label>
+        <input type="text" id="f-buscar" placeholder="Nombre o DNI…" oninput="aplicarFiltro()">
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-limpiar-buscar" onclick="document.getElementById('f-buscar').value=''; aplicarFiltro();" style="display:none;">✕ Buscar</button>
+    </div>
     <div class="rango-atajos">
       <button class="btn btn-outline btn-sm" onclick="setRango('hoy')">Hoy</button>
       <button class="btn btn-outline btn-sm" onclick="setRango('semana')">Última semana</button>
@@ -563,20 +574,37 @@ function aplicarFiltro(){
   const soloPorResolver = document.getElementById('f-solo-resolver').checked;
   const listaFiltradaChecklist = soloPorResolver ? lista.filter(c => c.faltantes.length) : lista;
 
-  const totalCasos = listaFiltradaChecklist.length;
+  // Buscar por nombre/DNI (16/11/2026, pedido de Agustina: "quiero poder
+  // buscar por dni y nombre desde el admin") — mismo criterio por tokens
+  // que coincidenciaBusquedaPersona() en casos.html, reusando
+  // normalizarNombreDup() (sin acentos, minúscula) que ya existía acá para
+  // detectar duplicados. Se aplica sobre el rango de fechas y el filtro de
+  // checklist ya resueltos arriba, nunca al revés.
+  const busqueda = document.getElementById('f-buscar').value;
+  const btnLimpiarBuscar = document.getElementById('btn-limpiar-buscar');
+  if(btnLimpiarBuscar) btnLimpiarBuscar.style.display = busqueda.trim() ? '' : 'none';
+  const tokensBusqueda = normalizarNombreDup(busqueda).split(/\s+/).filter(Boolean);
+  const listaFiltradaBusqueda = tokensBusqueda.length
+    ? listaFiltradaChecklist.filter(c => {
+        const campo = normalizarNombreDup(`${c.nombre||''} ${c.dni||''}`);
+        return tokensBusqueda.every(t => campo.includes(t));
+      })
+    : listaFiltradaChecklist;
+
+  const totalCasos = listaFiltradaBusqueda.length;
   const totalFaltantes = lista.filter(c => c.faltantes.length).length;
-  document.getElementById('resumen').innerHTML = `<b>${totalCasos}</b> caso${totalCasos===1?'':'s'}${duplaFiltro ? ` de la dupla ${esc(duplaFiltro)}` : ''} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>${soloPorResolver ? ' — filtrando solo los que tienen la entrevista incompleta' : ` (<b>${totalFaltantes}</b> con la entrevista incompleta)`}.`;
+  document.getElementById('resumen').innerHTML = `<b>${totalCasos}</b> caso${totalCasos===1?'':'s'}${duplaFiltro ? ` de la dupla ${esc(duplaFiltro)}` : ''} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>${soloPorResolver ? ' — filtrando solo los que tienen la entrevista incompleta' : ` (<b>${totalFaltantes}</b> con la entrevista incompleta)`}${tokensBusqueda.length ? ` — buscando "${esc(busqueda.trim())}"` : ''}.`;
   // Con una sola dupla ya no tiene sentido agrupar por turno/dupla — se
   // muestra la lista plana directamente, ordenada por nombre.
   const gruposRelevantes = duplaFiltro
     ? duplicadosActuales.grupos.filter(g => g.casos.some(c => c.dupla_codigo === duplaFiltro))
     : duplicadosActuales.grupos;
-  const listaOrdenada = duplaFiltro ? [...listaFiltradaChecklist].sort((a,b) => a.nombre.localeCompare(b.nombre)) : listaFiltradaChecklist;
+  const listaOrdenada = duplaFiltro ? [...listaFiltradaBusqueda].sort((a,b) => a.nombre.localeCompare(b.nombre)) : listaFiltradaBusqueda;
   // Al filtrar "solo por resolver" se abren todas las tarjetas de una — es
   // justo lo que se va a imprimir, no tiene sentido que haya que ir
   // clickeando cada una para que se vea qué le falta a cada caso.
   document.getElementById('cont').innerHTML = renderAlertaDuplicados(gruposRelevantes) +
-    (duplaFiltro ? renderListadoCasosCards(listaOrdenada, soloPorResolver) : renderAgrupadoPorTurno(listaFiltradaChecklist, soloPorResolver));
+    (duplaFiltro ? renderListadoCasosCards(listaOrdenada, soloPorResolver) : renderAgrupadoPorTurno(listaFiltradaBusqueda, soloPorResolver));
 }
 
 cargar();
