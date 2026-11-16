@@ -219,6 +219,13 @@ function _koboAlgunoRespondio(personasKobo, campo){
 }
 function itemsChecklistKobo(personasKobo, sinIdentificar){
   const r = campo => _koboAlgunoRespondio(personasKobo, campo);
+  // "Situación habitacional" NO incluye `lugarHabitual` (16/11/2026,
+  // mismo fix que itemsChecklistKobo() en casos.html — lugar_habitual es
+  // de una sección clínica aparte del formulario, casi nunca se contesta
+  // (111 de 2521 envíos reales), a diferencia de las otras 5 preguntas de
+  // esta categoría, que se contestan siempre juntas (527 de 2521 cada
+  // una). Con lugarHabitual adentro, la categoría quedaba imposible de
+  // completar en la práctica.
   const necesitaTipoActividad = personasKobo.some(p => p.actividad === true);
   const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
   const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
@@ -229,7 +236,7 @@ function itemsChecklistKobo(personasKobo, sinIdentificar){
     { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
     { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
     { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') },
-    { label:'Situación habitacional', ok: r('lugarHabitual') && r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
+    { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
     { label:'Situación económica', ok: economicaOk },
     { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
     { label:'Redes de contención', ok: redesOk },
