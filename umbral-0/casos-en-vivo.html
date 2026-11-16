@@ -122,8 +122,8 @@
     <div class="rango-atajos">
       <button class="btn btn-outline btn-sm" onclick="setRango('hoy')">Hoy</button>
       <button class="btn btn-outline btn-sm" onclick="setRango('semana')">Última semana</button>
-      <button class="btn btn-outline btn-sm" onclick="setRango('quincena')">Últimos 14 días</button>
-      <button class="btn btn-outline btn-sm" onclick="setRango('mes')">Este mes</button>
+      <button class="btn btn-outline btn-sm" onclick="setRango('quincena')">Quincena</button>
+      <button class="btn btn-outline btn-sm" onclick="setRango('mes')">Último mes</button>
       <button class="btn btn-amber btn-sm" id="btn-actualizar" onclick="cargar()">🔄 Actualizar</button>
     </div>
     <!-- "Casos por resolver" (16/11/2026, pedido de Agustina) — filtra a
@@ -236,6 +236,14 @@ function esDniPlaceholderDup(dni){
   if(!s) return true;
   if(!/[a-z0-9]/i.test(s)) return true;
   if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  // DNI "de relleno" (todo el mismo dígito repetido, ej. "99999999" o
+  // "00000000") — mismo chequeo que ya tenía esDniPlaceholderDup() en
+  // casos.html (16/10/2026, dupla L) pero que faltaba acá (16/11/2026,
+  // encontrado al armar el listado de "casos por resolver" para la
+  // reunión: decenas de personas DISTINTAS en toda la plataforma
+  // comparten estos valores, y sin este chequeo "⚠️ Posibles duplicados"
+  // las agrupaba a todas como si fueran la misma persona).
+  if(/^(\d)\1+$/.test(s)) return true;
   return false;
 }
 
@@ -415,12 +423,18 @@ function hoyStr(offsetDias){
   return `${y}-${m}-${day}`;
 }
 function setRango(tipo){
-  const hoy = new Date();
   let desde, hasta = hoyStr(0);
   if(tipo === 'hoy') desde = hoyStr(0);
   else if(tipo === 'semana') desde = hoyStr(-6);
-  else if(tipo === 'quincena') desde = hoyStr(-13);
-  else if(tipo === 'mes') desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0,10);
+  // "Quincena" = últimos 15 días corridos (antes eran 14 — 16/11/2026,
+  // pedido de Agustina para poder elegir semana/quincena/mes al imprimir
+  // "casos por resolver" para cada dupla). "Último mes" = últimos 30 días
+  // corridos, NO el mes calendario — antes usaba el 1° del mes calendario
+  // con toISOString() (el mismo bug de huso horario que hoyStr() evita a
+  // propósito, ver comentario arriba: desde las 21hs locales ya mostraba
+  // el día de mañana).
+  else if(tipo === 'quincena') desde = hoyStr(-14);
+  else if(tipo === 'mes') desde = hoyStr(-29);
   else return;
   document.getElementById('f-desde').value = desde;
   document.getElementById('f-hasta').value = hasta;
@@ -436,12 +450,17 @@ let duplicadosActuales = { grupos:[], idsDuplicados:new Set() };
 // desde cada tarjeta de dupla — en vez de armar una vista nueva, se
 // reusa esta misma página (ya es de solo lectura, sin login, pensada
 // para ver el estado real) filtrada a una dupla sola. Por default
-// muestra TODO lo de esa dupla (no solo la última semana) — la idea es
-// ver lo mismo que vería la dupla al entrar, no un recorte por fecha.
+// muestra el ÚLTIMO MES de esa dupla, no todo el historial (16/11/2026,
+// pedido de Agustina: "quiero que cada dupla tenga los casos por resolver
+// del último mes y pueda filtrar por última semana, quincena" — antes no
+// filtraba por fecha acá a propósito, pero para imprimir un listado
+// accionable por reunión no tiene sentido arrastrar un caso de hace 3
+// meses sin tocar). Para ver el historial completo, igual que antes, hay
+// que vaciar "Desde" a mano.
 const duplaFiltro = new URLSearchParams(location.search).get('dupla');
 if(duplaFiltro){
   document.getElementById('titulo').textContent = `📥 Casos de la dupla ${duplaFiltro}`;
-  document.getElementById('subtitulo').textContent = 'Mismos casos que ve la dupla al entrar a su cuenta — de solo lectura. Dejá "Desde" vacío para ver todo su historial, o filtrá por fecha si hace falta.';
+  document.getElementById('subtitulo').textContent = 'Mismos casos que ve la dupla al entrar a su cuenta — de solo lectura. Por defecto muestra el último mes; vaciá "Desde" para ver todo su historial.';
 }
 
 // Se pide TODO de una (sin filtrar en el pedido a Supabase) y se filtra
@@ -466,8 +485,7 @@ async function cargar(){
     // de fechas filtrado (la misma persona puede volver a aparecer días
     // después) — se recalcula acá, no en cada aplicarFiltro().
     duplicadosActuales = detectarDuplicados(todosLosCasos);
-    if(duplaFiltro) aplicarFiltro();
-    else if(!document.getElementById('f-desde').value) setRango('semana');
+    if(!document.getElementById('f-desde').value) setRango(duplaFiltro ? 'mes' : 'semana');
     else aplicarFiltro();
   }catch(e){
     cont.innerHTML = `<div class="empty-msg">No se pudo cargar (${esc(e.message)}).</div>`;
