@@ -191,45 +191,123 @@ function nombreDisplay(p){
 function critClaseCaso(c){ return c==='Alta' ? 'crit-alta' : c==='Media' ? 'crit-media' : c==='Baja' ? 'crit-baja' : ''; }
 function siNoBool(v){ return v===true ? 'Sí' : (v===false ? 'No' : '—'); }
 
-// Checklist de la entrevista (GOPA) — mismos items/criterio que
-// itemsChecklistEntrevista() en casos.html (duplicada acá, mismo patrón que
-// el resto de los helpers de esta página), aplicado sobre la fila cruda de
-// `personas_listado_publico` (mismos nombres de columna que la tabla
-// `personas`). 16/11/2026, pedido de Agustina para la reunión con duplas y
-// GOPA: "necesito imprimir un listado con la lista de casos [por resolver]
-// para cada dupla" — acá se usa para poder filtrar y marcar qué le falta a
-// cada caso sin tener que entrar a la ficha completa de cada uno.
-function itemsChecklistEntrevista(p){
+// Checklist de "casos por resolver" BASADO EN KOBO — duplicada tal cual de
+// itemsChecklistKobo()/esCasoPorResolver() en casos.html (16/11/2026,
+// corrección de Agustina: "lo que te pedí es que uses la información de
+// KoBo... hasta tener todo lo requerido" — NO los campos ya volcados en
+// `personas_listado_publico`). `personasKobo` es el array de `.persona` de
+// TODOS los envíos de KoBo ya asociados a ese caso (kobo_validaciones_publico
+// + parseUmbral0(), ver cargarKoboParaChecklist() más abajo) — un campo
+// cuenta como "respondido" si aparece en CUALQUIERA de esos envíos.
+//
+// Mismas dos decisiones que en casos.html: se saca "¿Tiene celular de
+// contacto?" (KoBo no lo pregunta) y cada categoría con varias preguntas
+// exige TODAS sus preguntas respondidas. Los campos que el formulario
+// salta por lógica condicional (ej. "tipo de actividad" si no hay
+// actividad económica) se tratan como condicionales — inferido de
+// parseUmbral0(), sin poder confirmarlo contra la lógica de salto real de
+// KoBoToolbox desde acá.
+function _koboValorPresente(v){
+  if(v === null || v === undefined) return false;
+  if(typeof v === 'string') return v.trim() !== '';
+  if(typeof v === 'boolean') return true;
+  if(Array.isArray(v)) return v.length > 0;
+  return true;
+}
+function _koboAlgunoRespondio(personasKobo, campo){
+  return personasKobo.some(p => _koboValorPresente(p[campo]));
+}
+function itemsChecklistKobo(personasKobo, sinIdentificar){
+  const r = campo => _koboAlgunoRespondio(personasKobo, campo);
+  const necesitaTipoActividad = personasKobo.some(p => p.actividad === true);
+  const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
+  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
+  const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
+  const redesOk = r('vinculos') && (!necesitaTipoVinculos || r('tipoVinculos'))
+    && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || r('institucionComunitariaCual'));
   return [
-    { label:'Nombre y apellido', ok: p.sin_identificar ? null : !!(p.nombre && p.apellido) },
-    { label:'DNI (o denuncia de extravío)', ok: !!(p.dni || p.dni_denuncia_extravio) },
-    { label:'Fecha de nacimiento / edad', ok: !!p.fecha_nacimiento },
-    { label:'¿Tiene celular de contacto?', ok: !!p.telefono_contacto },
-    { label:'Situación habitacional', ok: !!(p.situacion_habitacional && p.situacion_habitacional.trim()) },
-    { label:'Situación económica', ok: !!(p.situacion_economica && p.situacion_economica.trim()) },
-    { label:'Situación educativa', ok: !!(p.situacion_educativa && p.situacion_educativa.trim()) },
-    { label:'Redes de contención', ok: !!(p.redes_contencion && p.redes_contencion.trim()) },
+    { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
+    { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
+    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') },
+    { label:'Situación habitacional', ok: r('lugarHabitual') && r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
+    { label:'Situación económica', ok: economicaOk },
+    { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
+    { label:'Redes de contención', ok: redesOk },
     { label:'Documentación necesaria', ok: undefined },
     { label:'Deseos de la persona', ok: undefined },
   ];
 }
-// "Casos por resolver" (16/11/2026, aclaración de Agustina: "casos por
-// resolver debe englobar los que tienen bastante información" — NO
-// cualquier caso con un campo faltante) — duplicada tal cual de
-// esCasoPorResolver() en casos.html. Descarta los registros casi vacíos
-// (ej. un "sin identificar" sin ningún otro dato, de los que hay bastantes
-// en la base) — no hay nada concreto para que la dupla vaya a completar,
-// sería solo ruido en el listado para imprimir. Cuenta como "por
-// resolver" el que ya tiene cargada al menos la mitad (para arriba) de
-// los items aplicables, pero todavía le falta alguno.
 function esCasoPorResolver(items){
   const completos = items.filter(i => i.ok === true).length;
   const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
   return completos < aplicables && completos >= Math.ceil(aplicables / 2);
 }
-function faltantesChecklist(p){
-  const items = itemsChecklistEntrevista(p);
+// `koboPorPersonaId` es el mapa persona_id -> [persona, ...] armado una
+// sola vez por cargarKoboParaChecklist() — acá solo se arma el checklist y
+// se filtra, sin volver a tocar la red.
+function faltantesChecklist(p, koboPorPersonaId){
+  const items = itemsChecklistKobo((koboPorPersonaId && koboPorPersonaId[p.id]) || [], p.sin_identificar);
   return esCasoPorResolver(items) ? items.filter(i => i.ok === false).map(i => i.label) : [];
+}
+
+// Identificador estable de un envío de KoBo (duplicada de
+// koboSubmissionId() en casos.html).
+function koboSubmissionId(p){
+  const raw = p && p._raw;
+  if(!raw) return null;
+  if(raw._id !== undefined && raw._id !== null && raw._id !== '') return String(raw._id);
+  if(raw._uuid) return String(raw._uuid);
+  return null;
+}
+async function fetchKoboProxyAll(project, assetId){
+  let results = [], next = `${project.kobo.base}/${assetId}/data/?format=json&limit=3000`;
+  while(next){
+    const proxyUrl = `/.netlify/functions/kobo-proxy?url=${encodeURIComponent(next)}&token=${encodeURIComponent(project.kobo.token)}`;
+    const resp = await fetch(proxyUrl);
+    const data = await resp.json().catch(()=>null);
+    if(!resp.ok || !data) throw new Error((data && data.error) || `KoBo error ${resp.status}`);
+    results = results.concat(data.results || []);
+    next = data.next || null;
+  }
+  return results;
+}
+// Junta, para CADA caso de TODA la plataforma, el `.persona` de sus envíos
+// de KoBo ya asociados — una sola vez por `cargar()` (no en cada
+// aplicarFiltro()). `kobo_validaciones_publico` (16/11/2026, nueva vista
+// pública — ver schema-ajustes.sql) es la versión sin login de
+// `kobo_validaciones`, que esta página no puede leer directo (RLS exige
+// estar logueado). Si KoBo no responde (sin conexión, etc.) sigue de
+// largo con el mapa vacío — "casos por resolver" simplemente muestra todo
+// como sin resolver hasta poder reintentar, no rompe el resto de la
+// página.
+async function cargarKoboParaChecklist(client){
+  const koboPorPersonaId = {};
+  try{
+    const project = window.PROJECT_CONFIG;
+    const form = project && project.kobo && (project.kobo.forms||[])[0];
+    if(!form) return koboPorPersonaId;
+    const [{ data: validaciones, error }, koboRowsRaw] = await Promise.all([
+      client.from('kobo_validaciones_publico').select('persona_id, kobo_submission_id'),
+      fetchKoboProxyAll(project, form.id),
+    ]);
+    if(error) throw error;
+    const personaKoboPorSubmission = {};
+    koboRowsRaw.forEach(row => {
+      const parsed = form.parseRow(row);
+      if(!parsed) return;
+      const subId = koboSubmissionId(parsed);
+      if(subId) personaKoboPorSubmission[subId] = parsed.persona;
+    });
+    (validaciones||[]).forEach(v => {
+      const personaKobo = personaKoboPorSubmission[v.kobo_submission_id];
+      if(!personaKobo) return;
+      if(!koboPorPersonaId[v.persona_id]) koboPorPersonaId[v.persona_id] = [];
+      koboPorPersonaId[v.persona_id].push(personaKobo);
+    });
+  }catch(e){
+    console.error('No se pudo cargar KoBo para "Casos por resolver"', e);
+  }
+  return koboPorPersonaId;
 }
 
 // Igual que normalizarNombreKobo() en casos.html (sin acentos, minúscula,
@@ -454,6 +532,7 @@ function setRango(tipo){
 
 let todosLosCasos = [];
 let duplicadosActuales = { grupos:[], idsDuplicados:new Set() };
+let _koboPorPersonaId = {}; // persona_id -> array de `.persona` de sus envíos de KoBo, ver cargarKoboParaChecklist()
 
 // Filtro opcional por una sola dupla (13/11/2026, pedido de Agustina:
 // "quiero desde admin poder ver los casos de cada dupla como si entrara
@@ -489,9 +568,13 @@ async function cargar(){
     // schema-ajustes.sql). A diferencia del reporte semanal, esto SÍ
     // es en vivo: cada "Actualizar" vuelve a pedir el estado actual.
     const client = await SupabaseClient.getClient();
-    const { data, error } = await client.from('personas_listado_publico').select('*').order('created_at', { ascending:false });
+    const [{ data, error }, koboPorPersonaId] = await Promise.all([
+      client.from('personas_listado_publico').select('*').order('created_at', { ascending:false }),
+      cargarKoboParaChecklist(client),
+    ]);
     if(error) throw error;
     todosLosCasos = data || [];
+    _koboPorPersonaId = koboPorPersonaId;
     // Los duplicados se calculan sobre TODO lo cargado, no solo el rango
     // de fechas filtrado (la misma persona puede volver a aparecer días
     // después) — se recalcula acá, no en cada aplicarFiltro().
@@ -562,7 +645,7 @@ function aplicarFiltro(){
     creadoEn: p.created_at,
     ultimaActividad: p.ultima_actividad,
     historial: p.historial || [],
-    faltantes: faltantesChecklist(p),
+    faltantes: faltantesChecklist(p, _koboPorPersonaId),
   }));
 
   // Solo casos por resolver (16/11/2026, pedido de Agustina para la

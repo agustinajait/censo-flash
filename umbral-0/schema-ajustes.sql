@@ -1747,3 +1747,25 @@ select
 from personas p
 join duplas d on d.id = p.dupla_id
 where coalesce(p.oculto, false) = false;
+
+-- kobo_validaciones_publico (16/11/2026) — mismo patrón que
+-- personas_listado_publico/personas_dni_index: bypasea a propósito el RLS
+-- por-dupla de kobo_validaciones (solo accesible hoy para cuentas
+-- logueadas, ver policy kobo_validaciones_select) para que
+-- casos-en-vivo.html (sin login, pensada para compartir con GOPA) pueda
+-- calcular "casos por resolver" con el mismo criterio que ya usan las
+-- duplas desde casos.html (itemsChecklistKobo(): usar los envíos de KoBo
+-- ya asociados a cada caso, no los campos de la ficha). Expone SOLO los
+-- dos ids de la relación — nada de `nota`/`acciones`/`creado_por`, que no
+-- hace falta para este cálculo. Filtra personas ocultas igual que
+-- personas_listado_publico. Ya aplicada en producción vía mcp Supabase.
+create view public.kobo_validaciones_publico as
+select kv.persona_id, kv.kobo_submission_id
+from public.kobo_validaciones kv
+join public.personas p on p.id = kv.persona_id
+where coalesce(p.oculto, false) = false;
+
+grant select on public.kobo_validaciones_publico to anon;
+
+revoke insert, update, delete, truncate, references, trigger
+  on public.kobo_validaciones_publico from anon, authenticated;
