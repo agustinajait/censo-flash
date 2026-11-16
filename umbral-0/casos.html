@@ -586,6 +586,17 @@
       <div id="mia-tab-resolver" style="display:none;">
         <div class="section-label">⚠️ Casos por resolver</div>
         <div class="section-hint">Casos de mi dupla con datos de la entrevista todavía incompletos (checklist GOPA) — entrá al caso, completá lo que falta y volvé a cargarlo en KoBo.</div>
+        <!-- Filtro por fecha de carga y por nombre/DNI (16/11/2026, pedido de
+             Agustina: "quiero que en casos por resolver puedan filtrar por
+             fecha y por dni") — mismo patrón que "Mis derivaciones"/"Mis
+             seguimientos" de arriba, filtrando sobre created_at (fecha en
+             que se cargó el caso) en vez de un evento puntual como
+             derivación/seguimiento, que acá no aplica. -->
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+          <input type="text" id="mis-resolver-buscar" placeholder="Buscar por nombre o DNI…" oninput="Casos.renderCasosPorResolver()" style="flex:1; min-width:180px;">
+          <input type="date" id="mis-resolver-fecha" title="Filtrar por fecha en que se cargó el caso" onchange="Casos.renderCasosPorResolver()" style="max-width:150px;">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-limpiar-mis-resolver" onclick="document.getElementById('mis-resolver-buscar').value=''; document.getElementById('mis-resolver-fecha').value=''; Casos.renderCasosPorResolver();" style="display:none;">✕ Limpiar filtros</button>
+        </div>
         <div id="mis-resolver-list"></div>
       </div>
     </div>
@@ -3796,7 +3807,7 @@ const Casos = {
       const [derivRes, seguRes, personasRes] = await Promise.all([
         client.from('derivaciones').select('id, tipo, estado, fecha_solicitud, persona_id').order('fecha_solicitud', { ascending: false }).limit(2000),
         client.from('seguimientos').select('id, fecha, contenido, persona_id').order('fecha', { ascending: false }).limit(2000),
-        client.from('personas').select('id, nombre, apellido, dni, sin_identificar, dni_denuncia_extravio, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').eq('oculto', false),
+        client.from('personas').select('id, nombre, apellido, dni, sin_identificar, dni_denuncia_extravio, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion, created_at').eq('oculto', false),
       ]);
       if(derivRes.error) throw derivRes.error;
       if(seguRes.error) throw seguRes.error;
@@ -3917,9 +3928,33 @@ const Casos = {
   // dupla no tiene que entrar caso por caso a buscarlo. Ordenados por
   // nombre, no por cantidad de faltantes (más fácil de encontrar un caso
   // puntual en la reunión).
+  // Filtros por fecha de carga y por nombre/DNI (16/11/2026, pedido de
+  // Agustina: "quiero que en casos por resolver puedan filtrar por fecha y
+  // por dni") — mismo patrón que renderMisDerivaciones()/renderMisSeguimientos()
+  // de arriba, pero filtrando sobre `created_at` de la propia persona (acá
+  // no hay un evento puntual como derivación/seguimiento para fechar).
   renderCasosPorResolver(){
     const box = document.getElementById('mis-resolver-list');
-    const incompletos = Object.values(_miActividadPersonaPorId)
+    const texto = (document.getElementById('mis-resolver-buscar')||{}).value || '';
+    const fechaSel = (document.getElementById('mis-resolver-fecha')||{}).value || '';
+    const btnLimpiar = document.getElementById('btn-limpiar-mis-resolver');
+    if(btnLimpiar) btnLimpiar.style.display = (texto || fechaSel) ? '' : 'none';
+
+    let personas = Object.values(_miActividadPersonaPorId);
+    if(texto.trim()){
+      personas = personas.filter(p => coincidenciaBusquedaPersona(p, texto));
+    }
+    if(fechaSel){
+      const desdeUtc = new Date(fechaSel + 'T03:00:00.000Z');
+      const hastaUtc = new Date(desdeUtc.getTime() + 24*60*60*1000);
+      personas = personas.filter(p => {
+        if(!p.created_at) return false;
+        const f = new Date(p.created_at);
+        return f >= desdeUtc && f < hastaUtc;
+      });
+    }
+
+    const incompletos = personas
       .map(p => ({ p, items: itemsChecklistEntrevista(p) }))
       .filter(r => esCasoPorResolver(r.items))
       .map(r => ({ p: r.p, faltantes: r.items.filter(i => i.ok === false).map(i => i.label) }))
@@ -3932,7 +3967,7 @@ const Casos = {
         </div>
         <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${r.p.id}')">Ver caso →</button>
       </div>
-    `).join('') : '<div class="empty-msg">Todos tus casos tienen la entrevista completa. 🎉</div>';
+    `).join('') : `<div class="empty-msg">${(texto||fechaSel) ? 'Ningún caso coincide con ese filtro.' : 'Todos tus casos tienen la entrevista completa. 🎉'}</div>`;
   },
 
   mostrarTabMiActividad(tab){
