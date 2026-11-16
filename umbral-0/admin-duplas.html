@@ -249,6 +249,18 @@
   <!-- PESTAÑA: DUPLAS Y EQUIPO -->
   <div class="wrap" id="tab-duplas">
 
+    <!-- Buscar un caso (16/11/2026, pedido de Agustina: "quiero desde el
+         admin buscar casos sin tener que buscar en las duplas" — antes la
+         única búsqueda por nombre/DNI vivía adentro de "Listado de casos
+         del período", en la pestaña Reporte, y solo encontraba casos del
+         rango de fechas elegido ahí; para encontrar cualquier caso puntual
+         sin eso había que abrir "Ver casos de esta dupla" dupla por dupla.
+         Esta busca en TODA la plataforma de una, sin importar fecha ni
+         dupla. Ver cargarCasosGlobalAdmin()/renderBuscarCasoGlobal(). -->
+    <div class="section-label">🔍 Buscar un caso</div>
+    <input type="text" id="buscar-caso-global-input" placeholder="Buscar por nombre o DNI, en todas las duplas…" oninput="renderBuscarCasoGlobal(this.value)" style="margin-bottom:10px;max-width:420px;">
+    <div id="buscar-caso-global-cont"></div>
+
     <!-- Vista única de duplas (23/9/2026, pedido de Agustina: "es
          confuso... operadores por turnos y duplas territoriales es
          redundante. el objetivo es poder ver las duplas con sus
@@ -1301,6 +1313,7 @@ async function guardarRecurso(){
 async function cargarTodo(){
   await Promise.all([cargarPerfilesPorDupla(), cargarDuplas(), cargarChoferes(), cargarAccesosCoordinacion()]);
   cargarKoboPendientesAdmin(); // no se espera: si KoBo tarda o falla, no bloquea el resto de la pantalla
+  cargarCasosGlobalAdmin(); // idem — el buscador de casos no bloquea el resto de la pantalla
 }
 
 // ── KOBO PENDIENTES (todas las duplas) — mismo criterio que casos.html:
@@ -3811,6 +3824,62 @@ function filtrarListadoCasos(query){
   cont.innerHTML = filtrados.length
     ? renderListadoCasosCards(filtrados)
     : `<div class="empty-msg" style="padding:30px 10px;text-align:center;color:#94a3b8;">Sin resultados para "${esc(query.trim())}" en este período.</div>`;
+}
+
+// Buscar un caso en TODA la plataforma, sin login dupla por dupla
+// (16/11/2026, pedido de Agustina: "quiero desde el admin buscar casos
+// sin tener que buscar en las duplas") — se carga una sola vez al entrar
+// (cargarTodo()) y se filtra en el cliente en cada tecla, mismo criterio
+// que filtrarListadoCasos() (normalizarNombreDup + includes), pero acá
+// sin depender de haber generado un reporte ni de un rango de fechas: es
+// SIEMPRE todo lo cargado en la plataforma. Reusa renderListadoCasosCards()
+// dándole la misma forma de objeto que ya arma armarListadoCasos(), para
+// no mantener dos maneras de pintar una tarjeta de caso.
+let _casosGlobalAdminCache = null;
+async function cargarCasosGlobalAdmin(){
+  try{
+    const client = await SupabaseClient.getClient();
+    const [{ data: personas, error: errP }, { data: duplasRows, error: errD }] = await Promise.all([
+      client.from('personas').select('id, nombre, apellido, dni, dni_denuncia_extravio, sin_identificar, dupla_id, zona, comuna, punto_contacto, criticidad, nivel_actual, acepta_entrevista, historia_breve, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').eq('oculto', false),
+      client.from('duplas').select('id, codigo'),
+    ]);
+    if(errP) throw errP;
+    if(errD) throw errD;
+    const codigoPorDupla = {};
+    (duplasRows||[]).forEach(d => { codigoPorDupla[d.id] = d.codigo; });
+    _casosGlobalAdminCache = (personas||[]).map(p => ({
+      nombre: nombreDisplayReporte(p),
+      dni: p.dni || (p.dni_denuncia_extravio ? 'Denuncia de extravío' : null),
+      dupla: codigoPorDupla[p.dupla_id] || '—',
+      zona: p.zona || p.comuna || p.punto_contacto || null,
+      criticidad: p.criticidad || null,
+      nivel: p.nivel_actual || null,
+      aceptaEntrevista: !!p.acepta_entrevista,
+      historiaBreve: (p.historia_breve || '').trim(),
+      fechaNacimiento: p.fecha_nacimiento || null,
+      edad: edadDesde(p.fecha_nacimiento),
+      telefono: p.telefono_contacto || null,
+      situacionHabitacional: (p.situacion_habitacional || '').trim(),
+      situacionEconomica: (p.situacion_economica || '').trim(),
+      situacionEducativa: (p.situacion_educativa || '').trim(),
+      redesContencion: (p.redes_contencion || '').trim(),
+    }));
+  }catch(e){
+    console.error('No se pudo cargar el buscador global de casos', e);
+  }
+}
+function renderBuscarCasoGlobal(query){
+  const cont = document.getElementById('buscar-caso-global-cont');
+  if(!cont) return;
+  const q = normalizarNombreDup(query);
+  if(!q){ cont.innerHTML = ''; return; }
+  if(!_casosGlobalAdminCache){ cont.innerHTML = '<div class="empty-msg">Cargando casos…</div>'; return; }
+  const filtrados = _casosGlobalAdminCache.filter(c =>
+    normalizarNombreDup(c.nombre).includes(q) || String(c.dni||'').includes(query.trim())
+  );
+  cont.innerHTML = filtrados.length
+    ? renderListadoCasosCards(filtrados.slice(0, 50)) + (filtrados.length > 50 ? `<div class="section-hint" style="margin-top:6px;">Mostrando los primeros 50 de ${filtrados.length} resultados — afiná la búsqueda para ver menos.</div>` : '')
+    : `<div class="empty-msg" style="padding:30px 10px;text-align:center;color:#94a3b8;">Sin resultados para "${esc(query.trim())}".</div>`;
 }
 
 // Cada caso como una tarjeta plegable (<details>) en vez de una fila de
