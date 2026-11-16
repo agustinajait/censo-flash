@@ -73,9 +73,27 @@ async function enviar(){
   const situaciones    = document.getElementById('f_situaciones').value;
   const observaciones  = document.getElementById('f_observaciones').value;
   const fotoFile       = document.getElementById('f_foto').files[0];
+  // DNI del operador y WhatsApp de la dupla (16/11/2026, pedido de
+  // Agustina: "en KoBo piden el DNI y mis duplas estaban cargando mal el
+  // DNI" + "quiero poder mandarles un mensaje directo cuando faltan las
+  // cargas") — solo existen en el cierre de Censo Flash por ahora (no en
+  // umbral-0/cierre.html, que usa este mismo motor), de ahí el chequeo de
+  // que el input exista antes de leerlo/exigirlo.
+  const dniInput       = document.getElementById('f_dni');
+  const whatsappInput  = document.getElementById('f_whatsapp');
+  const dniOperador    = dniInput ? dniInput.value.trim() : '';
+  const whatsappDupla  = whatsappInput ? whatsappInput.value.trim() : '';
 
   if(!dia || !responsable || !inicio || !cierre || !registros){
     alert('Por favor completá fecha, responsable, horarios y cantidad de registros.');
+    return;
+  }
+  if(dniInput && !dniOperador){
+    alert('Por favor completá el DNI del operador (el mismo que cargás en KoBo).');
+    return;
+  }
+  if(whatsappInput && !whatsappDupla){
+    alert('Por favor completá el WhatsApp de contacto de la dupla.');
     return;
   }
 
@@ -92,6 +110,7 @@ async function enviar(){
 
   const payload = {
     proyecto: CFG.id, dupla, dia, responsable,
+    dni_operador: dniOperador, whatsapp_dupla: whatsappDupla,
     horario_inicio: inicio, horario_cierre: cierre, tiempo_total: tiempo,
     registros, inconvenientes, clima, eventos, situaciones, observaciones,
     foto: fotoBase64
