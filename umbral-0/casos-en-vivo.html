@@ -244,17 +244,24 @@ function itemsChecklistKobo(personasKobo, sinIdentificar){
     { label:'Deseos de la persona', ok: undefined },
   ];
 }
-function esCasoPorResolver(items){
+// `actividadPlataforma` (16/11/2026, pedido de Agustina: "también podemos
+// sumar los casos que tienen poca información [en KoBo] pero muchos
+// seguimientos o intervenciones") — mismo criterio que esCasoPorResolver()
+// en casos.html, acá con `p.historial.length` (intervenciones+seguimientos
+// ya vienen juntos y contados en personas_listado_publico, ver
+// schema-ajustes.sql) en vez de una cuenta aparte.
+function esCasoPorResolver(items, actividadPlataforma){
   const completos = items.filter(i => i.ok === true).length;
   const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
-  return completos < aplicables && completos >= Math.ceil(aplicables / 2);
+  if(completos >= aplicables) return false;
+  return completos >= Math.ceil(aplicables / 2) || (actividadPlataforma||0) >= 2;
 }
 // `koboPorPersonaId` es el mapa persona_id -> [persona, ...] armado una
 // sola vez por cargarKoboParaChecklist() — acá solo se arma el checklist y
 // se filtra, sin volver a tocar la red.
 function faltantesChecklist(p, koboPorPersonaId){
   const items = itemsChecklistKobo((koboPorPersonaId && koboPorPersonaId[p.id]) || [], p.sin_identificar);
-  return esCasoPorResolver(items) ? items.filter(i => i.ok === false).map(i => i.label) : [];
+  return esCasoPorResolver(items, (p.historial||[]).length) ? items.filter(i => i.ok === false).map(i => i.label) : [];
 }
 
 // Identificador estable de un envío de KoBo (duplicada de

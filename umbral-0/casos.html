@@ -2573,6 +2573,7 @@ let _misSeguimientosActuales = []; // ver mostrarMiActividad()/Casos.renderMisSe
 let _misDerivacionesActuales = []; // idem, ver Casos.renderMisDerivaciones() — todas las derivaciones de mi dupla, sin filtrar
 let _miActividadPersonaPorId = {}; // idem, compartido por los dos — para mostrar nombre/DNI sin pedirlo de nuevo en cada filtro
 let _miActividadKoboPorPersonaId = {}; // persona_id -> array de `.persona` de sus envíos de KoBo ya asociados, ver itemsChecklistKobo() y mostrarMiActividad()
+let _miActividadActividadPorPersonaId = {}; // persona_id -> cantidad de intervenciones + seguimientos, ver esCasoPorResolver()/renderCasosPorResolver()
 
 // Diagnóstico (1/10/2026): busca en las filas CRUDAS de KoBo (ANTES de
 // parseUmbral0 — que descarta en silencio cualquier fila donde
@@ -3541,10 +3542,19 @@ function itemsChecklistKobo(personasKobo, sinIdentificar){
 // como "por resolver" al que YA tiene cargada al menos la mitad (para
 // arriba) de los items aplicables del checklist, pero todavía le falta
 // alguno.
-function esCasoPorResolver(items){
+// `actividadPlataforma` (16/11/2026, pedido de Agustina: "también podemos
+// sumar los casos que tienen poca información [en KoBo], pero muchos
+// seguimientos o intervenciones") — cantidad de intervenciones +
+// seguimientos YA cargados en Releva para ese caso. Un caso con pocas
+// respuestas en KoBo pero con varias visitas reales registradas acá
+// tampoco es ruido — al contrario, es un caso con vínculo ya construido,
+// bueno para terminar hoy aunque el checklist de KoBo esté bajo. Alcanza
+// con 2 o más para entrar por esta otra puerta.
+function esCasoPorResolver(items, actividadPlataforma){
   const completos = items.filter(i => i.ok === true).length;
   const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
-  return completos < aplicables && completos >= Math.ceil(aplicables / 2);
+  if(completos >= aplicables) return false; // ya está completo, no hay nada que resolver
+  return completos >= Math.ceil(aplicables / 2) || (actividadPlataforma||0) >= 2;
 }
 
 // Corrector de redacción por IA — llama a la función serverless de Netlify
@@ -3889,11 +3899,17 @@ const Casos = {
       // antes solo traía nombre/dni para resolver el nombre de cada
       // derivación/seguimiento. `kobo_validaciones` es lo que liga cada
       // caso a sus envíos de KoBo (ver itemsChecklistKobo() más arriba).
-      const [derivRes, seguRes, personasRes, validacionesRes] = await Promise.all([
+      // `intervenciones` acá es solo para contar cuántas tiene cada caso
+      // (ver _miActividadActividadPorPersonaId más abajo) — "también
+      // podemos sumar los casos que tienen poca información [en KoBo] pero
+      // muchos seguimientos o intervenciones" (16/11/2026, pedido de
+      // Agustina).
+      const [derivRes, seguRes, personasRes, validacionesRes, intervRes] = await Promise.all([
         client.from('derivaciones').select('id, tipo, estado, fecha_solicitud, persona_id').order('fecha_solicitud', { ascending: false }).limit(2000),
         client.from('seguimientos').select('id, fecha, contenido, persona_id').order('fecha', { ascending: false }).limit(2000),
         client.from('personas').select('id, nombre, apellido, dni, sin_identificar, dni_denuncia_extravio, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion, created_at').eq('oculto', false),
         client.from('kobo_validaciones').select('persona_id, kobo_submission_id').eq('dupla_id', miPerfil.dupla_id),
+        client.from('intervenciones').select('persona_id'),
       ]);
       if(derivRes.error) throw derivRes.error;
       if(seguRes.error) throw seguRes.error;
@@ -3907,6 +3923,18 @@ const Casos = {
 
       _misSeguimientosActuales = seguRes.data || [];
       Casos.renderMisSeguimientos();
+
+      // Cantidad de intervenciones + seguimientos por caso, sin importar
+      // los filtros de "Mis seguimientos" de arriba — se usa en
+      // esCasoPorResolver() para sumar los casos con poca info en KoBo
+      // pero mucho trabajo ya hecho en Releva.
+      _miActividadActividadPorPersonaId = {};
+      const sumarActividad = (persona_id) => {
+        if(!persona_id) return;
+        _miActividadActividadPorPersonaId[persona_id] = (_miActividadActividadPorPersonaId[persona_id] || 0) + 1;
+      };
+      _misSeguimientosActuales.forEach(s => sumarActividad(s.persona_id));
+      (intervRes.data || []).forEach(i => sumarActividad(i.persona_id));
 
       // Junta, por caso, el `.persona` de CADA envío de KoBo ya asociado
       // (ver itemsChecklistKobo()) — si falla (sin conexión a KoBo, etc.)
@@ -4073,12 +4101,13 @@ const Casos = {
     }
 
     const incompletos = personas
-      .map(p => ({ p, items: itemsChecklistKobo(_miActividadKoboPorPersonaId[p.id] || [], p.sin_identificar) }))
-      .filter(r => esCasoPorResolver(r.items))
+      .map(p => ({ p, items: itemsChecklistKobo(_miActividadKoboPorPersonaId[p.id] || [], p.sin_identificar), actividad: _miActividadActividadPorPersonaId[p.id] || 0 }))
+      .filter(r => esCasoPorResolver(r.items, r.actividad))
       .map(r => ({
         p: r.p,
         completos: r.items.filter(i => i.ok === true).length,
         nEnvios: (_miActividadKoboPorPersonaId[r.p.id] || []).length,
+        actividad: r.actividad,
         faltantes: r.items.filter(i => i.ok === false).map(i => i.label),
       }))
       .sort((a,b) => b.completos - a.completos || b.nEnvios - a.nEnvios || nombreDisplay(a.p).localeCompare(nombreDisplay(b.p)));
@@ -4086,7 +4115,7 @@ const Casos = {
       <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${r.p.id}')">
         <div class="kobo-pend-txt">
           <strong>${esc(nombreDisplay(r.p))}</strong>${r.p.dni ? ' · DNI ' + esc(r.p.dni) : ''}${i < 10 ? ' · 🎯 Prioridad para hoy' : ''}
-          <div class="meta">Falta: ${r.faltantes.map(f => esc(f)).join(' · ')}</div>
+          <div class="meta">Falta: ${r.faltantes.map(f => esc(f)).join(' · ')}${r.actividad ? ` · ${r.actividad} intervención(es)/seguimiento(s) en Releva` : ''}</div>
         </div>
         <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${r.p.id}')">Ver caso →</button>
       </div>
