@@ -2572,6 +2572,7 @@ let koboValidadoSinIntervencionActuales = []; // ver cargarKoboPendientes() — 
 let _misSeguimientosActuales = []; // ver mostrarMiActividad()/Casos.renderMisSeguimientos() — todos los seguimientos de mi dupla, sin filtrar
 let _misDerivacionesActuales = []; // idem, ver Casos.renderMisDerivaciones() — todas las derivaciones de mi dupla, sin filtrar
 let _miActividadPersonaPorId = {}; // idem, compartido por los dos — para mostrar nombre/DNI sin pedirlo de nuevo en cada filtro
+let _miActividadKoboPorPersonaId = {}; // persona_id -> array de `.persona` de sus envíos de KoBo ya asociados, ver itemsChecklistKobo() y mostrarMiActividad()
 
 // Diagnóstico (1/10/2026): busca en las filas CRUDAS de KoBo (ANTES de
 // parseUmbral0 — que descarta en silencio cualquier fila donde
@@ -3448,6 +3449,81 @@ function itemsChecklistEntrevista(p){
   ];
 }
 
+// Checklist de "casos por resolver" BASADO EN KOBO (16/11/2026,
+// corrección de Agustina: "lo que te pedí es que uses la información de
+// KoBo para ver qué casos... tiene que continuar cargando información en
+// KoBo hasta tener todo lo requerido" — a diferencia de
+// itemsChecklistEntrevista() de arriba, que mira los campos YA
+// VOLCADOS en la ficha de la plataforma (`personas`), esto mira
+// directamente los envíos de KoBo asociados a esa persona
+// (`kobo_validaciones` + parseUmbral0(), ver mostrarMiActividad()) — si
+// algo todavía no está en ningún envío de KoBo de esa persona, hay que
+// volver a cargarlo ahí, sin importar lo que diga la ficha.
+//
+// `personasKobo` es el ARRAY de `.persona` de TODOS los envíos de KoBo ya
+// asociados a este caso (puede tener más de uno: primer acercamiento +
+// seguimientos) — un campo cuenta como "respondido" si aparece en
+// CUALQUIERA de esos envíos (no hace falta que esté todo en el mismo).
+//
+// Dos decisiones de Agustina (16/11/2026):
+// 1. Se saca "¿Tiene celular de contacto?" — KoBo no pregunta el
+//    teléfono en ningún lado (confirmado contra parseUmbral0()), así que
+//    ninguna cantidad de envíos nuevos lo va a completar; sigue
+//    pidiéndose en la ficha de la plataforma, pero no cuenta acá.
+// 2. Para que una categoría con varias preguntas (ej. "Situación
+//    habitacional") cuente como completa, tienen que estar TODAS sus
+//    preguntas respondidas, no alcanza con una sola.
+// OJO — con el punto 2, los campos que el propio formulario de KoBo
+// salta por lógica condicional (ej. "tipo de actividad" no se pregunta
+// si ya contestaste que no tenés actividad económica) NO deberían
+// contar como "faltantes" — are tratan acá como condicionales (solo
+// hacen falta si la respuesta anterior los dispara). Esto es una
+// inferencia a partir de los nombres/comentarios de parseUmbral0(), NO
+// está confirmado contra la lógica de salto real del formulario en
+// KoBoToolbox — si alguna categoría marca "falta" algo que en realidad
+// nunca se pregunta (o al revés), avisale a Claude para ajustar el
+// mapeo exacto.
+function _koboValorPresente(v){
+  if(v === null || v === undefined) return false;
+  if(typeof v === 'string') return v.trim() !== '';
+  if(typeof v === 'boolean') return true; // false es una respuesta real, no "sin responder"
+  if(Array.isArray(v)) return v.length > 0;
+  return true;
+}
+function _koboAlgunoRespondio(personasKobo, campo){
+  return personasKobo.some(p => _koboValorPresente(p[campo]));
+}
+function itemsChecklistKobo(personasKobo, sinIdentificar){
+  const r = campo => _koboAlgunoRespondio(personasKobo, campo);
+  // "Tiene actividad económica" — si ALGÚN envío contestó que sí, hace
+  // falta el detalle (tipoActividad) en ALGÚN envío; si todos los envíos
+  // que contestaron esto dijeron que no, no hace falta.
+  const necesitaTipoActividad = personasKobo.some(p => p.actividad === true);
+  const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
+  // "Vínculos actuales" — si contestó algo distinto de "solo" (acompañado),
+  // hace falta el detalle de qué tipo de vínculo (tipoVinculos).
+  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
+  // "Asiste a institución comunitaria" — si ALGÚN envío dijo que sí, hace
+  // falta cuál (institucionComunitariaCual).
+  const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
+  const redesOk = r('vinculos') && (!necesitaTipoVinculos || r('tipoVinculos'))
+    && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || r('institucionComunitariaCual'));
+  return [
+    { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
+    // KoBo no tiene "denuncia de extravío" (eso es un trámite legal, no
+    // una pregunta del formulario) — su equivalente real para alguien sin
+    // DNI es el alias (persona_autopercibida/alias_segui).
+    { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
+    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') },
+    { label:'Situación habitacional', ok: r('lugarHabitual') && r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
+    { label:'Situación económica', ok: economicaOk },
+    { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
+    { label:'Redes de contención', ok: redesOk },
+    { label:'Documentación necesaria', ok: undefined },
+    { label:'Deseos de la persona', ok: undefined },
+  ];
+}
+
 // "Casos por resolver" (16/11/2026, aclaración de Agustina: "casos por
 // resolver debe englobar los que tienen bastante información" — NO
 // cualquier caso con un campo faltante) — un caso recién cargado o casi
@@ -3803,11 +3879,13 @@ const Casos = {
       // La consulta de `personas` trae además los campos del checklist de
       // la entrevista (16/11/2026, para "⚠️ Por resolver" de abajo) —
       // antes solo traía nombre/dni para resolver el nombre de cada
-      // derivación/seguimiento.
-      const [derivRes, seguRes, personasRes] = await Promise.all([
+      // derivación/seguimiento. `kobo_validaciones` es lo que liga cada
+      // caso a sus envíos de KoBo (ver itemsChecklistKobo() más arriba).
+      const [derivRes, seguRes, personasRes, validacionesRes] = await Promise.all([
         client.from('derivaciones').select('id, tipo, estado, fecha_solicitud, persona_id').order('fecha_solicitud', { ascending: false }).limit(2000),
         client.from('seguimientos').select('id, fecha, contenido, persona_id').order('fecha', { ascending: false }).limit(2000),
         client.from('personas').select('id, nombre, apellido, dni, sin_identificar, dni_denuncia_extravio, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion, created_at').eq('oculto', false),
+        client.from('kobo_validaciones').select('persona_id, kobo_submission_id').eq('dupla_id', miPerfil.dupla_id),
       ]);
       if(derivRes.error) throw derivRes.error;
       if(seguRes.error) throw seguRes.error;
@@ -3822,6 +3900,34 @@ const Casos = {
       _misSeguimientosActuales = seguRes.data || [];
       Casos.renderMisSeguimientos();
 
+      // Junta, por caso, el `.persona` de CADA envío de KoBo ya asociado
+      // (ver itemsChecklistKobo()) — si falla (sin conexión a KoBo, etc.)
+      // se sigue de largo con el mapa vacío en vez de romper el resto de
+      // la pantalla; "Casos por resolver" simplemente va a mostrar todo
+      // como faltante hasta que se pueda reintentar.
+      _miActividadKoboPorPersonaId = {};
+      if(!validacionesRes.error && (validacionesRes.data||[]).length){
+        try{
+          const project = window.PROJECT_CONFIG;
+          const form = project && project.kobo && (project.kobo.forms||[])[0];
+          if(form){
+            const koboRowsParseadas = await obtenerKoboRowsParseadas(project, form);
+            const personaKoboPorSubmission = {};
+            koboRowsParseadas.forEach(p => {
+              const subId = koboSubmissionId(p);
+              if(subId) personaKoboPorSubmission[subId] = p.persona;
+            });
+            validacionesRes.data.forEach(v => {
+              const personaKobo = personaKoboPorSubmission[v.kobo_submission_id];
+              if(!personaKobo) return;
+              if(!_miActividadKoboPorPersonaId[v.persona_id]) _miActividadKoboPorPersonaId[v.persona_id] = [];
+              _miActividadKoboPorPersonaId[v.persona_id].push(personaKobo);
+            });
+          }
+        }catch(e){
+          console.error('No se pudo cargar KoBo para "Casos por resolver"', e);
+        }
+      }
       Casos.renderCasosPorResolver();
     }catch(e){
       boxDeriv.innerHTML = `<div class="empty-msg">Error cargando derivaciones: ${esc(e.message)}</div>`;
@@ -3919,15 +4025,15 @@ const Casos = {
     }).join('') : `<div class="empty-msg">${(texto||fechaSel) ? 'Ninguna derivación coincide con ese filtro.' : 'Todavía no hay derivaciones pedidas por tu dupla.'}</div>`;
   },
 
-  // Casos por resolver (16/11/2026, pedido de Agustina) — mismo checklist
-  // de la entrevista (GOPA) que itemsChecklistEntrevista() ya calcula para
-  // la ficha de un caso puntual, acá aplicado a TODOS los casos de mi
-  // dupla (`_miActividadPersonaPorId`, ya cargado por mostrarMiActividad()
-  // con los campos del checklist) para listar de una sola vez cuáles
-  // todavía tienen la entrevista incompleta y qué les falta — así la
-  // dupla no tiene que entrar caso por caso a buscarlo. Ordenados por
-  // nombre, no por cantidad de faltantes (más fácil de encontrar un caso
-  // puntual en la reunión).
+  // Casos por resolver (16/11/2026, pedido de Agustina — corregido el
+  // mismo día: "lo que te pedí es que uses la información de KoBo... hasta
+  // tener todo lo requerido para que el caso esté completo") — usa
+  // itemsChecklistKobo() (los envíos de KoBo YA asociados a cada caso,
+  // `_miActividadKoboPorPersonaId`, cargado por mostrarMiActividad()), NO
+  // los campos de la ficha (itemsChecklistEntrevista() sigue existiendo
+  // para la ficha de un caso puntual, es una vista distinta). Ordenados
+  // por nombre, no por cantidad de faltantes (más fácil de encontrar un
+  // caso puntual en la reunión).
   // Filtros por fecha de carga y por nombre/DNI (16/11/2026, pedido de
   // Agustina: "quiero que en casos por resolver puedan filtrar por fecha y
   // por dni") — mismo patrón que renderMisDerivaciones()/renderMisSeguimientos()
@@ -3955,7 +4061,7 @@ const Casos = {
     }
 
     const incompletos = personas
-      .map(p => ({ p, items: itemsChecklistEntrevista(p) }))
+      .map(p => ({ p, items: itemsChecklistKobo(_miActividadKoboPorPersonaId[p.id] || [], p.sin_identificar) }))
       .filter(r => esCasoPorResolver(r.items))
       .map(r => ({ p: r.p, faltantes: r.items.filter(i => i.ok === false).map(i => i.label) }))
       .sort((a,b) => nombreDisplay(a.p).localeCompare(nombreDisplay(b.p)));
