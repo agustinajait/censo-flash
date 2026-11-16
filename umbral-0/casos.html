@@ -4039,9 +4039,13 @@ const Casos = {
   // itemsChecklistKobo() (los envíos de KoBo YA asociados a cada caso,
   // `_miActividadKoboPorPersonaId`, cargado por mostrarMiActividad()), NO
   // los campos de la ficha (itemsChecklistEntrevista() sigue existiendo
-  // para la ficha de un caso puntual, es una vista distinta). Ordenados
-  // por nombre, no por cantidad de faltantes (más fácil de encontrar un
-  // caso puntual en la reunión).
+  // para la ficha de un caso puntual, es una vista distinta).
+  // Ordenados por cuántos ítems del checklist ya tiene completos, de mayor
+  // a menor (16/11/2026, pedido de Agustina para la reunión con las
+  // duplas: "quiero darle una lista de 10 casos a cada dupla... los 10
+  // casos que más información tiene" — los primeros 10 son los mismos que
+  // se imprimieron para la reunión, marcados acá con "🎯 Prioridad para
+  // hoy" para que la dupla los vea igual desde su cuenta, no solo en papel).
   // Filtros por fecha de carga y por nombre/DNI (16/11/2026, pedido de
   // Agustina: "quiero que en casos por resolver puedan filtrar por fecha y
   // por dni") — mismo patrón que renderMisDerivaciones()/renderMisSeguimientos()
@@ -4071,12 +4075,17 @@ const Casos = {
     const incompletos = personas
       .map(p => ({ p, items: itemsChecklistKobo(_miActividadKoboPorPersonaId[p.id] || [], p.sin_identificar) }))
       .filter(r => esCasoPorResolver(r.items))
-      .map(r => ({ p: r.p, faltantes: r.items.filter(i => i.ok === false).map(i => i.label) }))
-      .sort((a,b) => nombreDisplay(a.p).localeCompare(nombreDisplay(b.p)));
-    box.innerHTML = incompletos.length ? incompletos.map(r => `
+      .map(r => ({
+        p: r.p,
+        completos: r.items.filter(i => i.ok === true).length,
+        nEnvios: (_miActividadKoboPorPersonaId[r.p.id] || []).length,
+        faltantes: r.items.filter(i => i.ok === false).map(i => i.label),
+      }))
+      .sort((a,b) => b.completos - a.completos || b.nEnvios - a.nEnvios || nombreDisplay(a.p).localeCompare(nombreDisplay(b.p)));
+    box.innerHTML = incompletos.length ? incompletos.map((r,i) => `
       <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${r.p.id}')">
         <div class="kobo-pend-txt">
-          <strong>${esc(nombreDisplay(r.p))}</strong>${r.p.dni ? ' · DNI ' + esc(r.p.dni) : ''}
+          <strong>${esc(nombreDisplay(r.p))}</strong>${r.p.dni ? ' · DNI ' + esc(r.p.dni) : ''}${i < 10 ? ' · 🎯 Prioridad para hoy' : ''}
           <div class="meta">Falta: ${r.faltantes.map(f => esc(f)).join(' · ')}</div>
         </div>
         <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${r.p.id}')">Ver caso →</button>
