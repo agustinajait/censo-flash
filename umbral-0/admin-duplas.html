@@ -3789,6 +3789,30 @@ function armarListadoCasos(personas, intervenciones, seguimientosIds, desde, has
     .sort((a,b) => (a.dupla+a.nombre).localeCompare(b.dupla+b.nombre));
 }
 
+// Búsqueda por nombre/apellido/DNI dentro del "Listado de casos del
+// período" (16/11/2026, pedido de Agustina: "quiero poder buscar casos
+// por nombre y dni en el admin cuando veo los casos de las duplas") —
+// filtra en el cliente sobre r.listadoCasos (ya calculado, no vuelve a
+// pedir nada a la base), usando normalizarNombreDup() para ignorar
+// acentos/mayúsculas tanto en lo que se escribe como en los nombres.
+function filtrarListadoCasos(query){
+  const r = window._ultimoReporte;
+  if(!r || !r.listadoCasos) return;
+  const cont = document.getElementById('listado-casos-cont');
+  if(!cont) return;
+  const q = normalizarNombreDup(query);
+  if(!q){
+    cont.innerHTML = renderListadoCasosCards(r.listadoCasos);
+    return;
+  }
+  const filtrados = r.listadoCasos.filter(c =>
+    normalizarNombreDup(c.nombre).includes(q) || String(c.dni||'').includes(query.trim())
+  );
+  cont.innerHTML = filtrados.length
+    ? renderListadoCasosCards(filtrados)
+    : `<div class="empty-msg" style="padding:30px 10px;text-align:center;color:#94a3b8;">Sin resultados para "${esc(query.trim())}" en este período.</div>`;
+}
+
 // Cada caso como una tarjeta plegable (<details>) en vez de una fila de
 // tabla de 8 columnas — pedido de Agustina (sept/2026): "que los casos se
 // vean en cajas y si quieren abrirlos que los abran". Se usa acá y en
@@ -4103,8 +4127,9 @@ function renderReporte(cont, r){
     </div>
 
     <div class="section-title">Listado de casos del período</div>
-    <div class="section-hint">Casos nuevos o recontactados en el rango elegido — tocá una tarjeta para ver el detalle.</div>
-    ${renderListadoCasosCards(r.listadoCasos)}
+    <div class="section-hint">Casos nuevos o recontactados en el rango elegido — tocá una tarjeta para ver el detalle. Buscá por nombre, apellido o DNI para encontrar un caso puntual dentro del período.</div>
+    <input type="text" id="buscar-caso-input" placeholder="Buscar por nombre o DNI…" oninput="filtrarListadoCasos(this.value)" style="margin-bottom:10px;max-width:360px;">
+    <div id="listado-casos-cont">${renderListadoCasosCards(r.listadoCasos)}</div>
 
     <div class="section-title">Tablero de indicadores</div>
     <div class="card">
