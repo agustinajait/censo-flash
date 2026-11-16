@@ -1410,9 +1410,17 @@ async function cargarKoboPendientesAdmin(){
 
   try{
     const client = await SupabaseClient.getClient();
+    // `integrantes` acá y en los otros 4 matcheos de KoBo por nombre de
+    // operador (16/11/2026, bug real encontrado armando un listado aparte
+    // para Agustina) le faltaba `.eq('activo', true)` — sin eso, un
+    // ex-integrante dado de baja seguía contando para el matching, y si
+    // alguna dupla tiene hoy un integrante activo con el MISMO nombre que
+    // ese ex-integrante de otra dupla (pasó con Marina Zabala: de baja en
+    // Dupla C, activa en Dupla G), el envío de KoBo se le podía atribuir a
+    // la dupla equivocada sin ningún aviso.
     const [{ data: duplas, error: errD }, { data: integrantes, error: errI }, { data: personas, error: errP }, { data: validaciones, error: errV }, koboRowsRaw] = await Promise.all([
       client.from('duplas').select('id, codigo, turno').eq('activa', true),
-      client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+      client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
       client.from('personas').select('dni, dupla_id').not('dni', 'is', null),
       client.from('kobo_validaciones').select('kobo_submission_id'),
       fetchKoboProxyAll(project, form.id),
@@ -2665,7 +2673,7 @@ async function _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla){
   try{
     const client = await SupabaseClient.getClient();
     const [{ data: integrantes }, koboRowsRaw] = await Promise.all([
-      client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+      client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
       fetchKoboProxyAll(project, form.id),
     ]);
     const turnoPorDuplaId = {};
@@ -3509,7 +3517,7 @@ async function calcularOutcomesKobo(desde, hasta){
   if(!form) return null;
   const client = await SupabaseClient.getClient();
   const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, koboRowsRaw] = await Promise.all([
-    client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+    client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
     client.from('duplas').select('id, codigo, turno'),
     fetchKoboProxyAll(project, form.id),
   ]);
@@ -3605,7 +3613,7 @@ async function koboSinValidarPorDupla(fecha){
   if(!form) return {};
   const client = await SupabaseClient.getClient();
   const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, { data: validaciones, error: errV }, koboRowsRaw] = await Promise.all([
-    client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+    client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
     client.from('duplas').select('id, codigo, turno'),
     client.from('kobo_validaciones').select('kobo_submission_id'),
     fetchKoboProxyAll(project, form.id),
@@ -3658,7 +3666,7 @@ async function koboDniEntrevistasPorDupla(fecha){
   if(!form) return { dniPorDupla: {}, entrevPorDupla: {} };
   const client = await SupabaseClient.getClient();
   const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, koboRowsRaw] = await Promise.all([
-    client.from('integrantes').select('nombre, apellido, dupla_id').neq('rol', 'chofer'),
+    client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
     client.from('duplas').select('id, codigo, turno'),
     fetchKoboProxyAll(project, form.id),
   ]);
