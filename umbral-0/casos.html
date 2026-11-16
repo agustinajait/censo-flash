@@ -3437,6 +3437,21 @@ function itemsChecklistEntrevista(p){
   ];
 }
 
+// "Casos por resolver" (16/11/2026, aclaración de Agustina: "casos por
+// resolver debe englobar los que tienen bastante información" — NO
+// cualquier caso con un campo faltante) — un caso recién cargado o casi
+// vacío (ej. un "sin identificar" sin ningún otro dato, de los que hay
+// bastantes) no es un caso real para que la dupla "resuelva": no hay nada
+// concreto para ir a completar, es solo ruido en el listado. Se cuenta
+// como "por resolver" al que YA tiene cargada al menos la mitad (para
+// arriba) de los items aplicables del checklist, pero todavía le falta
+// alguno.
+function esCasoPorResolver(items){
+  const completos = items.filter(i => i.ok === true).length;
+  const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
+  return completos < aplicables && completos >= Math.ceil(aplicables / 2);
+}
+
 // Corrector de redacción por IA — llama a la función serverless de Netlify
 // (netlify/functions/corregir-texto.js), que es la única que conoce la
 // clave de la API. El navegador nunca ve esa clave.
@@ -3905,8 +3920,9 @@ const Casos = {
   renderCasosPorResolver(){
     const box = document.getElementById('mis-resolver-list');
     const incompletos = Object.values(_miActividadPersonaPorId)
-      .map(p => ({ p, faltantes: itemsChecklistEntrevista(p).filter(i => i.ok === false).map(i => i.label) }))
-      .filter(r => r.faltantes.length)
+      .map(p => ({ p, items: itemsChecklistEntrevista(p) }))
+      .filter(r => esCasoPorResolver(r.items))
+      .map(r => ({ p: r.p, faltantes: r.items.filter(i => i.ok === false).map(i => i.label) }))
       .sort((a,b) => nombreDisplay(a.p).localeCompare(nombreDisplay(b.p)));
     box.innerHTML = incompletos.length ? incompletos.map(r => `
       <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${r.p.id}')">

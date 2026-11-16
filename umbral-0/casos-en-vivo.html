@@ -202,8 +202,23 @@ function itemsChecklistEntrevista(p){
     { label:'Deseos de la persona', ok: undefined },
   ];
 }
+// "Casos por resolver" (16/11/2026, aclaración de Agustina: "casos por
+// resolver debe englobar los que tienen bastante información" — NO
+// cualquier caso con un campo faltante) — duplicada tal cual de
+// esCasoPorResolver() en casos.html. Descarta los registros casi vacíos
+// (ej. un "sin identificar" sin ningún otro dato, de los que hay bastantes
+// en la base) — no hay nada concreto para que la dupla vaya a completar,
+// sería solo ruido en el listado para imprimir. Cuenta como "por
+// resolver" el que ya tiene cargada al menos la mitad (para arriba) de
+// los items aplicables, pero todavía le falta alguno.
+function esCasoPorResolver(items){
+  const completos = items.filter(i => i.ok === true).length;
+  const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
+  return completos < aplicables && completos >= Math.ceil(aplicables / 2);
+}
 function faltantesChecklist(p){
-  return itemsChecklistEntrevista(p).filter(i => i.ok === false).map(i => i.label);
+  const items = itemsChecklistEntrevista(p);
+  return esCasoPorResolver(items) ? items.filter(i => i.ok === false).map(i => i.label) : [];
 }
 
 // Igual que normalizarNombreKobo() en casos.html (sin acentos, minúscula,
