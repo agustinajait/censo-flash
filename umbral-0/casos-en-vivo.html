@@ -78,6 +78,26 @@
 
   .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
   .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
+
+  /* Impresión (16/11/2026, pedido de Agustina: imprimir el listado de
+     casos por resolver para la reunión con duplas y GOPA) — un bloque de
+     dupla por hoja, para poder repartir cada hoja a su dupla directo, y
+     sin los controles de filtro (no tiene sentido en papel). El topbar
+     degradado tampoco se imprime bien (fondo oscuro, gasta tinta) — se
+     muestra un título simple en su lugar solo para la hoja impresa. */
+  @media print {
+    .no-print, .topbar { display:none !important; }
+    body { background:white; }
+    .wrap { max-width:none; padding:0; }
+    .wrap::before { content:'📥 Casos por resolver — Releva Umbral'; display:block; font-family:'Sora',sans-serif; font-weight:800; font-size:1.1rem; margin-bottom:10px; }
+    .turno-grupo { break-inside:avoid; }
+    .dupla-titulo { break-before:page; break-after:avoid; }
+    .turno-titulo:first-child + .dupla-titulo, .turno-grupo:first-child .dupla-titulo:first-of-type { break-before:avoid; }
+    .caso-card { break-inside:avoid; box-shadow:none; border:1px solid #cbd5e1; }
+    .casos-grid { display:block; }
+    .casos-grid .caso-card { margin-bottom:10px; }
+    .caso-card summary::after { display:none; }
+  }
 </style>
 </head>
 <body>
@@ -92,7 +112,7 @@
 </div>
 
 <div class="wrap">
-  <div class="card">
+  <div class="card no-print">
     <div class="section-hint">Filtrá por fecha de actividad del caso (alta, intervención, seguimiento o derivación — lo que sea más reciente) y actualizá cuando quieras.</div>
     <div class="rango-row">
       <div class="form-field"><label>Desde</label><input type="date" id="f-desde"></div>
@@ -105,6 +125,18 @@
       <button class="btn btn-outline btn-sm" onclick="setRango('quincena')">Últimos 14 días</button>
       <button class="btn btn-outline btn-sm" onclick="setRango('mes')">Este mes</button>
       <button class="btn btn-amber btn-sm" id="btn-actualizar" onclick="cargar()">🔄 Actualizar</button>
+    </div>
+    <!-- "Casos por resolver" (16/11/2026, pedido de Agustina) — filtra a
+         solo los casos con la entrevista (checklist GOPA) incompleta y
+         abre todas las tarjetas, para imprimir directo un listado de "qué
+         le falta completar a cada dupla" sin tener que clickear una por
+         una. Ver aplicarFiltro(). -->
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <label style="display:flex;align-items:center;gap:7px;font-size:0.84rem;color:#334155;cursor:pointer;">
+        <input type="checkbox" id="f-solo-resolver" onchange="aplicarFiltro()">
+        ⚠️ Solo casos por resolver (entrevista incompleta — para volver a cargar en KoBo)
+      </label>
+      <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimir</button>
     </div>
   </div>
 
@@ -147,6 +179,32 @@ function nombreDisplay(p){
 }
 function critClaseCaso(c){ return c==='Alta' ? 'crit-alta' : c==='Media' ? 'crit-media' : c==='Baja' ? 'crit-baja' : ''; }
 function siNoBool(v){ return v===true ? 'Sí' : (v===false ? 'No' : '—'); }
+
+// Checklist de la entrevista (GOPA) — mismos items/criterio que
+// itemsChecklistEntrevista() en casos.html (duplicada acá, mismo patrón que
+// el resto de los helpers de esta página), aplicado sobre la fila cruda de
+// `personas_listado_publico` (mismos nombres de columna que la tabla
+// `personas`). 16/11/2026, pedido de Agustina para la reunión con duplas y
+// GOPA: "necesito imprimir un listado con la lista de casos [por resolver]
+// para cada dupla" — acá se usa para poder filtrar y marcar qué le falta a
+// cada caso sin tener que entrar a la ficha completa de cada uno.
+function itemsChecklistEntrevista(p){
+  return [
+    { label:'Nombre y apellido', ok: p.sin_identificar ? null : !!(p.nombre && p.apellido) },
+    { label:'DNI (o denuncia de extravío)', ok: !!(p.dni || p.dni_denuncia_extravio) },
+    { label:'Fecha de nacimiento / edad', ok: !!p.fecha_nacimiento },
+    { label:'¿Tiene celular de contacto?', ok: !!p.telefono_contacto },
+    { label:'Situación habitacional', ok: !!(p.situacion_habitacional && p.situacion_habitacional.trim()) },
+    { label:'Situación económica', ok: !!(p.situacion_economica && p.situacion_economica.trim()) },
+    { label:'Situación educativa', ok: !!(p.situacion_educativa && p.situacion_educativa.trim()) },
+    { label:'Redes de contención', ok: !!(p.redes_contencion && p.redes_contencion.trim()) },
+    { label:'Documentación necesaria', ok: undefined },
+    { label:'Deseos de la persona', ok: undefined },
+  ];
+}
+function faltantesChecklist(p){
+  return itemsChecklistEntrevista(p).filter(i => i.ok === false).map(i => i.label);
+}
 
 // Igual que normalizarNombreKobo() en casos.html (sin acentos, minúscula,
 // espacios colapsados) — se usa acá solo para matchear posibles
@@ -213,15 +271,16 @@ function renderAlertaDuplicados(grupos){
 // Misma tarjeta plegable que el reporte semanal (admin-duplas.html /
 // reporte-publico.html), con los campos extra del legajo completo
 // (pedido de Agustina: "que levante el perfil de la persona completo").
-function renderListadoCasosCards(lista){
+function renderListadoCasosCards(lista, abiertas){
   if(!lista || !lista.length) return '<div class="empty-msg" style="padding:20px 10px;">Sin casos en este rango de fechas</div>';
   return `<div class="casos-grid">${lista.map(c => `
-    <details class="caso-card${c.duplicado ? ' es-duplicado' : ''}">
+    <details class="caso-card${c.duplicado ? ' es-duplicado' : ''}"${abiertas ? ' open' : ''}>
       <summary>
         <span class="caso-dupla">${esc(c.dupla)}</span>
         <span class="caso-nombre">${esc(c.nombre)}</span>
         ${c.criticidad ? `<span class="caso-crit ${critClaseCaso(c.criticidad)}">${esc(c.criticidad)}</span>` : ''}
         ${c.duplicado ? `<span class="caso-dup">⚠️ posible duplicado</span>` : ''}
+        ${c.faltantes && c.faltantes.length ? `<span class="caso-dup" style="background:#fffbeb;color:#92400e;border-color:#fde68a;">⚠️ Falta: ${c.faltantes.map(f=>esc(f)).join(' · ')}</span>` : ''}
       </summary>
       <div class="caso-detalle">
         <div><span class="caso-detalle-lbl">DNI</span><span>${esc(c.dni || '—')}</span></div>
@@ -302,7 +361,7 @@ const TURNO_LABEL = {T1:'Turno 1', T2:'Turno 2', T3:'Turno 3', T4:'Turno 4'};
 // Agrupa por turno (orden fijo T1..T4, turnos sin casos no se muestran) y
 // dentro de cada turno por dupla (orden alfabético de código) — pedido de
 // Agustina: "que este ordenado por turnos y duplas".
-function renderAgrupadoPorTurno(lista){
+function renderAgrupadoPorTurno(lista, abiertas){
   if(!lista || !lista.length) return '<div class="empty-msg" style="padding:30px 10px;">Sin casos en este rango de fechas</div>';
   const porTurno = new Map();
   lista.forEach(c => {
@@ -322,7 +381,7 @@ function renderAgrupadoPorTurno(lista){
         const grupo = porDupla.get(dupla);
         const casosOrdenados = [...grupo.casos].sort((a,b) => a.nombre.localeCompare(b.nombre));
         return `<div class="dupla-titulo">Dupla ${esc(dupla)}${grupo.esReferente ? ' <span class="ref-badge">referente del turno</span>' : ''}</div>
-        ${renderListadoCasosCards(casosOrdenados)}`;
+        ${renderListadoCasosCards(casosOrdenados, abiertas)}`;
       }).join('')}
     </div>`;
   }).join('');
@@ -459,17 +518,32 @@ function aplicarFiltro(){
     creadoEn: p.created_at,
     ultimaActividad: p.ultima_actividad,
     historial: p.historial || [],
+    faltantes: faltantesChecklist(p),
   }));
 
-  document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'}${duplaFiltro ? ` de la dupla ${esc(duplaFiltro)}` : ''} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
+  // Solo casos por resolver (16/11/2026, pedido de Agustina para la
+  // reunión con duplas y GOPA: "quiero imprimir un listado con la lista de
+  // casos [por resolver] para cada dupla") — filtra sobre la lista ya
+  // mapeada (faltantes ya calculado arriba para CADA caso del rango, se
+  // use o no el filtro) en vez de sobre `p` crudo, para no duplicar el
+  // cálculo del checklist dos veces.
+  const soloPorResolver = document.getElementById('f-solo-resolver').checked;
+  const listaFiltradaChecklist = soloPorResolver ? lista.filter(c => c.faltantes.length) : lista;
+
+  const totalCasos = listaFiltradaChecklist.length;
+  const totalFaltantes = lista.filter(c => c.faltantes.length).length;
+  document.getElementById('resumen').innerHTML = `<b>${totalCasos}</b> caso${totalCasos===1?'':'s'}${duplaFiltro ? ` de la dupla ${esc(duplaFiltro)}` : ''} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>${soloPorResolver ? ' — filtrando solo los que tienen la entrevista incompleta' : ` (<b>${totalFaltantes}</b> con la entrevista incompleta)`}.`;
   // Con una sola dupla ya no tiene sentido agrupar por turno/dupla — se
   // muestra la lista plana directamente, ordenada por nombre.
   const gruposRelevantes = duplaFiltro
     ? duplicadosActuales.grupos.filter(g => g.casos.some(c => c.dupla_codigo === duplaFiltro))
     : duplicadosActuales.grupos;
-  const listaOrdenada = duplaFiltro ? [...lista].sort((a,b) => a.nombre.localeCompare(b.nombre)) : lista;
+  const listaOrdenada = duplaFiltro ? [...listaFiltradaChecklist].sort((a,b) => a.nombre.localeCompare(b.nombre)) : listaFiltradaChecklist;
+  // Al filtrar "solo por resolver" se abren todas las tarjetas de una — es
+  // justo lo que se va a imprimir, no tiene sentido que haya que ir
+  // clickeando cada una para que se vea qué le falta a cada caso.
   document.getElementById('cont').innerHTML = renderAlertaDuplicados(gruposRelevantes) +
-    (duplaFiltro ? renderListadoCasosCards(listaOrdenada) : renderAgrupadoPorTurno(lista));
+    (duplaFiltro ? renderListadoCasosCards(listaOrdenada, soloPorResolver) : renderAgrupadoPorTurno(listaFiltradaChecklist, soloPorResolver));
 }
 
 cargar();

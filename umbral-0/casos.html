@@ -554,6 +554,7 @@
       <div style="display:flex;gap:8px;margin-bottom:14px;">
         <button class="btn btn-sm" id="tab-mia-derivaciones" onclick="Casos.mostrarTabMiActividad('derivaciones')">📨 Derivaciones</button>
         <button class="btn btn-outline btn-sm" id="tab-mia-seguimientos" onclick="Casos.mostrarTabMiActividad('seguimientos')">📝 Seguimientos</button>
+        <button class="btn btn-outline btn-sm" id="tab-mia-resolver" onclick="Casos.mostrarTabMiActividad('resolver')">⚠️ Por resolver</button>
       </div>
       <div id="mia-tab-derivaciones">
         <div class="section-label">📨 Mis derivaciones</div>
@@ -574,6 +575,18 @@
           <button type="button" class="btn btn-outline btn-sm" id="btn-limpiar-mis-segu" onclick="document.getElementById('mis-segu-buscar').value=''; document.getElementById('mis-segu-fecha').value=''; Casos.renderMisSeguimientos();" style="display:none;">✕ Limpiar filtros</button>
         </div>
         <div id="mis-seguimientos-list"></div>
+      </div>
+      <!-- Casos por resolver (16/11/2026, pedido de Agustina para la reunión
+           con duplas y GOPA: "en mis derivaciones y casos quiero que les
+           aparezca el listado de casos por resolver así lo pueden volver a
+           cargar en KoBo" — mismo checklist de la entrevista que ya se
+           muestra en la ficha de cada caso (§ CHECKLIST DE LA ENTREVISTA),
+           pero como listado propio para no tener que entrar caso por caso a
+           encontrar cuáles les falta completar. -->
+      <div id="mia-tab-resolver" style="display:none;">
+        <div class="section-label">⚠️ Casos por resolver</div>
+        <div class="section-hint">Casos de mi dupla con datos de la entrevista todavía incompletos (checklist GOPA) — entrá al caso, completá lo que falta y volvé a cargarlo en KoBo.</div>
+        <div id="mis-resolver-list"></div>
       </div>
     </div>
 
@@ -3403,6 +3416,27 @@ function nombreDisplay(p){
   return full || 'Persona sin identificar';
 }
 
+// Checklist de la entrevista (GOPA) — mismos items/criterio que
+// Casos._renderChecklistEntrevista() más abajo, factorizado acá (16/11/2026,
+// pedido de Agustina para la reunión con duplas y GOPA: "necesito que en
+// mis derivaciones y casos les aparezca el listado de casos por resolver")
+// para poder reusarlo también desde "⚠️ Por resolver" sin repetir la
+// lista de 10 items dos veces en el mismo archivo.
+function itemsChecklistEntrevista(p){
+  return [
+    { label:'Nombre y apellido', ok: p.sin_identificar ? null : !!(p.nombre && p.apellido) },
+    { label:'DNI (o denuncia de extravío)', ok: !!(p.dni || p.dni_denuncia_extravio) },
+    { label:'Fecha de nacimiento / edad', ok: !!p.fecha_nacimiento },
+    { label:'¿Tiene celular de contacto?', ok: !!p.telefono_contacto },
+    { label:'Situación habitacional', ok: !!(p.situacion_habitacional && p.situacion_habitacional.trim()) },
+    { label:'Situación económica', ok: !!(p.situacion_economica && p.situacion_economica.trim()) },
+    { label:'Situación educativa', ok: !!(p.situacion_educativa && p.situacion_educativa.trim()) },
+    { label:'Redes de contención', ok: !!(p.redes_contencion && p.redes_contencion.trim()) },
+    { label:'Documentación necesaria', ok: undefined },
+    { label:'Deseos de la persona', ok: undefined },
+  ];
+}
+
 // Corrector de redacción por IA — llama a la función serverless de Netlify
 // (netlify/functions/corregir-texto.js), que es la única que conoce la
 // clave de la API. El navegador nunca ve esa clave.
@@ -3728,8 +3762,10 @@ const Casos = {
     Casos.mostrarTabMiActividad('derivaciones');
     const boxDeriv = document.getElementById('mis-derivaciones-list');
     const boxSegu = document.getElementById('mis-seguimientos-list');
+    const boxResolver = document.getElementById('mis-resolver-list');
     boxDeriv.innerHTML = '<div class="empty-msg">Cargando…</div>';
     boxSegu.innerHTML = '<div class="empty-msg">Cargando…</div>';
+    boxResolver.innerHTML = '<div class="empty-msg">Cargando…</div>';
     try{
       const client = await SupabaseClient.getClient();
       // Sin límite bajo para derivaciones ni seguimientos (antes 100) — con
@@ -3738,10 +3774,14 @@ const Casos = {
       // encontrarlo filtrando. El filtrado es client-side (mismo criterio
       // que buscarPersonas()), no hace falta un query nuevo por cada letra
       // tipeada.
+      // La consulta de `personas` trae además los campos del checklist de
+      // la entrevista (16/11/2026, para "⚠️ Por resolver" de abajo) —
+      // antes solo traía nombre/dni para resolver el nombre de cada
+      // derivación/seguimiento.
       const [derivRes, seguRes, personasRes] = await Promise.all([
         client.from('derivaciones').select('id, tipo, estado, fecha_solicitud, persona_id').order('fecha_solicitud', { ascending: false }).limit(2000),
         client.from('seguimientos').select('id, fecha, contenido, persona_id').order('fecha', { ascending: false }).limit(2000),
-        client.from('personas').select('id, nombre, apellido, dni, sin_identificar').eq('oculto', false),
+        client.from('personas').select('id, nombre, apellido, dni, sin_identificar, dni_denuncia_extravio, fecha_nacimiento, telefono_contacto, situacion_habitacional, situacion_economica, situacion_educativa, redes_contencion').eq('oculto', false),
       ]);
       if(derivRes.error) throw derivRes.error;
       if(seguRes.error) throw seguRes.error;
@@ -3755,9 +3795,12 @@ const Casos = {
 
       _misSeguimientosActuales = seguRes.data || [];
       Casos.renderMisSeguimientos();
+
+      Casos.renderCasosPorResolver();
     }catch(e){
       boxDeriv.innerHTML = `<div class="empty-msg">Error cargando derivaciones: ${esc(e.message)}</div>`;
       boxSegu.innerHTML = '';
+      boxResolver.innerHTML = '';
       console.error('No se pudo cargar "Mis derivaciones y seguimientos"', e);
     }
   },
@@ -3850,12 +3893,37 @@ const Casos = {
     }).join('') : `<div class="empty-msg">${(texto||fechaSel) ? 'Ninguna derivación coincide con ese filtro.' : 'Todavía no hay derivaciones pedidas por tu dupla.'}</div>`;
   },
 
+  // Casos por resolver (16/11/2026, pedido de Agustina) — mismo checklist
+  // de la entrevista (GOPA) que itemsChecklistEntrevista() ya calcula para
+  // la ficha de un caso puntual, acá aplicado a TODOS los casos de mi
+  // dupla (`_miActividadPersonaPorId`, ya cargado por mostrarMiActividad()
+  // con los campos del checklist) para listar de una sola vez cuáles
+  // todavía tienen la entrevista incompleta y qué les falta — así la
+  // dupla no tiene que entrar caso por caso a buscarlo. Ordenados por
+  // nombre, no por cantidad de faltantes (más fácil de encontrar un caso
+  // puntual en la reunión).
+  renderCasosPorResolver(){
+    const box = document.getElementById('mis-resolver-list');
+    const incompletos = Object.values(_miActividadPersonaPorId)
+      .map(p => ({ p, faltantes: itemsChecklistEntrevista(p).filter(i => i.ok === false).map(i => i.label) }))
+      .filter(r => r.faltantes.length)
+      .sort((a,b) => nombreDisplay(a.p).localeCompare(nombreDisplay(b.p)));
+    box.innerHTML = incompletos.length ? incompletos.map(r => `
+      <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${r.p.id}')">
+        <div class="kobo-pend-txt">
+          <strong>${esc(nombreDisplay(r.p))}</strong>${r.p.dni ? ' · DNI ' + esc(r.p.dni) : ''}
+          <div class="meta">Falta: ${r.faltantes.map(f => esc(f)).join(' · ')}</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${r.p.id}')">Ver caso →</button>
+      </div>
+    `).join('') : '<div class="empty-msg">Todos tus casos tienen la entrevista completa. 🎉</div>';
+  },
+
   mostrarTabMiActividad(tab){
-    const esDeriv = tab === 'derivaciones';
-    document.getElementById('mia-tab-derivaciones').style.display = esDeriv ? 'block' : 'none';
-    document.getElementById('mia-tab-seguimientos').style.display = esDeriv ? 'none' : 'block';
-    document.getElementById('tab-mia-derivaciones').className = 'btn btn-sm' + (esDeriv ? '' : ' btn-outline');
-    document.getElementById('tab-mia-seguimientos').className = 'btn btn-sm' + (esDeriv ? ' btn-outline' : '');
+    ['derivaciones','seguimientos','resolver'].forEach(t => {
+      document.getElementById('mia-tab-'+t).style.display = (t === tab) ? 'block' : 'none';
+      document.getElementById('tab-mia-'+t).className = 'btn btn-sm' + (t === tab ? '' : ' btn-outline');
+    });
   },
 
   // ── CIERRES DE JORNADA (§10.1.35) ───────────────────────────────────────
@@ -5108,18 +5176,7 @@ const Casos = {
   _renderChecklistEntrevista(){
     const p = personaActual;
     const box = document.getElementById('checklist-entrevista-box');
-    const items = [
-      { label:'Nombre y apellido', ok: p.sin_identificar ? null : !!(p.nombre && p.apellido) },
-      { label:'DNI (o denuncia de extravío)', ok: !!(p.dni || p.dni_denuncia_extravio) },
-      { label:'Fecha de nacimiento / edad', ok: !!p.fecha_nacimiento },
-      { label:'¿Tiene celular de contacto?', ok: !!p.telefono_contacto },
-      { label:'Situación habitacional', ok: !!(p.situacion_habitacional && p.situacion_habitacional.trim()) },
-      { label:'Situación económica', ok: !!(p.situacion_economica && p.situacion_economica.trim()) },
-      { label:'Situación educativa', ok: !!(p.situacion_educativa && p.situacion_educativa.trim()) },
-      { label:'Redes de contención', ok: !!(p.redes_contencion && p.redes_contencion.trim()) },
-      { label:'Documentación necesaria', ok: undefined },
-      { label:'Deseos de la persona', ok: undefined },
-    ];
+    const items = itemsChecklistEntrevista(p);
     const completos = items.filter(i => i.ok === true).length;
     const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
     const iconoDe = ok => ok === true ? '✅' : ok === false ? '⬜' : ok === null ? '➖' : '⚠️';
