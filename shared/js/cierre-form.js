@@ -9,6 +9,40 @@ function getDuplaId(){
   return new URLSearchParams(window.location.search).get('dupla') || '??';
 }
 
+// Mismo criterio que normDupla() en dashboard-engine.js — normaliza
+// cualquier forma de dupla ("5", "05", "Dupla 05"...) a 2 dígitos, para
+// poder comparar el id de la URL contra lo que haya quedado cargado en
+// el Sheet (que puede no estar siempre escrito igual).
+function normDuplaLocal(x){
+  if(x===null || x===undefined || x==='') return null;
+  const n = parseInt(String(x).replace(/\D/g,''), 10);
+  return isNaN(n) ? null : String(n).padStart(2,'0');
+}
+
+// El WhatsApp de la dupla se pide UNA sola vez (16/11/2026, pedido de
+// Agustina: "el whatsapp es por única vez") — se fija si esta dupla ya
+// tiene algún cierre anterior (de cualquier fecha) con el número
+// cargado, usando el mismo endpoint doGet que ya lee el dashboard. Si no
+// se puede chequear (sin red, el Sheet todavía no tiene las columnas
+// nuevas, etc.) se pide igual — mejor preguntar de más que perder el
+// dato para siempre por asumir que ya estaba.
+async function whatsappYaCargado(duplaId){
+  if(!CFG.appsScriptUrl || !CFG.sheetReadKey) return null;
+  try{
+    const sep = CFG.appsScriptUrl.includes('?') ? '&' : '?';
+    const res = await fetch(CFG.appsScriptUrl + sep + 'key=' + encodeURIComponent(CFG.sheetReadKey));
+    const data = await res.json();
+    const propios = (data.cierres||[])
+      .filter(r => normDuplaLocal(r['Dupla']||r['dupla']) === duplaId)
+      .map(r => String(r['WhatsApp dupla']||r['whatsapp_dupla']||'').trim())
+      .filter(Boolean);
+    return propios.length ? propios[propios.length-1] : null;
+  }catch(e){
+    console.error('No se pudo chequear si esta dupla ya tiene WhatsApp cargado', e);
+    return null;
+  }
+}
+
 function calcTime(){
   const ini = document.getElementById('f_inicio').value;
   const fin = document.getElementById('f_cierre').value;
@@ -132,12 +166,34 @@ async function enviar(){
   }
 }
 
-function init(cfg){
+async function init(cfg){
   CFG = cfg || window.PROJECT_CONFIG;
   const dupla = getDuplaId();
   document.getElementById('cover-dupla').textContent = 'Dupla ' + dupla;
   document.getElementById('back-link').href = './index.html?dupla=' + dupla;
   document.getElementById('f_dia').value = new Date().toISOString().split('T')[0];
+
+  const whatsappInput = document.getElementById('f_whatsapp');
+  if(whatsappInput){
+    const numeroConocido = await whatsappYaCargado(normDuplaLocal(dupla) || dupla);
+    if(numeroConocido){
+      whatsappInput.value = numeroConocido;
+      const wrap = whatsappInput.closest('.form-field');
+      if(wrap){
+        wrap.style.display = 'none';
+        const cambiar = document.createElement('div');
+        cambiar.innerHTML = '<a href="#" style="font-size:0.76rem;color:var(--blue);">📱 Ya tenemos tu WhatsApp — ¿cambió? Tocá acá para corregirlo</a>';
+        cambiar.querySelector('a').onclick = (ev) => {
+          ev.preventDefault();
+          wrap.style.display = '';
+          whatsappInput.value = '';
+          whatsappInput.focus();
+          cambiar.remove();
+        };
+        wrap.insertAdjacentElement('afterend', cambiar);
+      }
+    }
+  }
 }
 
 window.CierreForm = { init, calcTime, previewFoto, enviar };
