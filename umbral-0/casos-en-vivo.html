@@ -78,6 +78,26 @@
 
   .huehaci-credit { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.68rem; color:#94a3b8; padding:10px 10px 0; }
   .huehaci-credit img { height:14px; width:auto; background:white; border-radius:3px; padding:1px 3px; border:1px solid #e2e8f0; }
+
+  /* Impresión (16/11/2026, pedido de Agustina: imprimir el listado de
+     casos por resolver para la reunión con duplas y GOPA) — un bloque de
+     dupla por hoja, para poder repartir cada hoja a su dupla directo, y
+     sin los controles de filtro (no tiene sentido en papel). El topbar
+     degradado tampoco se imprime bien (fondo oscuro, gasta tinta) — se
+     muestra un título simple en su lugar solo para la hoja impresa. */
+  @media print {
+    .no-print, .topbar { display:none !important; }
+    body { background:white; }
+    .wrap { max-width:none; padding:0; }
+    .wrap::before { content:'📥 Casos por resolver — Releva Umbral'; display:block; font-family:'Sora',sans-serif; font-weight:800; font-size:1.1rem; margin-bottom:10px; }
+    .turno-grupo { break-inside:avoid; }
+    .dupla-titulo { break-before:page; break-after:avoid; }
+    .turno-titulo:first-child + .dupla-titulo, .turno-grupo:first-child .dupla-titulo:first-of-type { break-before:avoid; }
+    .caso-card { break-inside:avoid; box-shadow:none; border:1px solid #cbd5e1; }
+    .casos-grid { display:block; }
+    .casos-grid .caso-card { margin-bottom:10px; }
+    .caso-card summary::after { display:none; }
+  }
 </style>
 </head>
 <body>
@@ -92,19 +112,42 @@
 </div>
 
 <div class="wrap">
-  <div class="card">
+  <div class="card no-print">
     <div class="section-hint">Filtrá por fecha de actividad del caso (alta, intervención, seguimiento o derivación — lo que sea más reciente) y actualizá cuando quieras.</div>
     <div class="rango-row">
       <div class="form-field"><label>Desde</label><input type="date" id="f-desde"></div>
       <div class="form-field"><label>Hasta</label><input type="date" id="f-hasta"></div>
       <button class="btn btn-blue" onclick="aplicarFiltro()">Filtrar</button>
     </div>
+    <!-- Buscar por nombre/DNI (16/11/2026, pedido de Agustina: "quiero
+         poder buscar por dni y nombre desde el admin" — mismo campo que ya
+         tienen las duplas en "⚠️ Por resolver" de casos.html, acá aplicado
+         sobre el rango de fechas ya filtrado). Ver aplicarFiltro(). -->
+    <div class="rango-row" style="margin-top:10px;">
+      <div class="form-field" style="flex:1;min-width:200px;">
+        <label>Buscar</label>
+        <input type="text" id="f-buscar" placeholder="Nombre o DNI…" oninput="aplicarFiltro()">
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-limpiar-buscar" onclick="document.getElementById('f-buscar').value=''; aplicarFiltro();" style="display:none;">✕ Buscar</button>
+    </div>
     <div class="rango-atajos">
       <button class="btn btn-outline btn-sm" onclick="setRango('hoy')">Hoy</button>
       <button class="btn btn-outline btn-sm" onclick="setRango('semana')">Última semana</button>
-      <button class="btn btn-outline btn-sm" onclick="setRango('quincena')">Últimos 14 días</button>
-      <button class="btn btn-outline btn-sm" onclick="setRango('mes')">Este mes</button>
+      <button class="btn btn-outline btn-sm" onclick="setRango('quincena')">Quincena</button>
+      <button class="btn btn-outline btn-sm" onclick="setRango('mes')">Último mes</button>
       <button class="btn btn-amber btn-sm" id="btn-actualizar" onclick="cargar()">🔄 Actualizar</button>
+    </div>
+    <!-- "Casos por resolver" (16/11/2026, pedido de Agustina) — filtra a
+         solo los casos con la entrevista (checklist GOPA) incompleta y
+         abre todas las tarjetas, para imprimir directo un listado de "qué
+         le falta completar a cada dupla" sin tener que clickear una por
+         una. Ver aplicarFiltro(). -->
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <label style="display:flex;align-items:center;gap:7px;font-size:0.84rem;color:#334155;cursor:pointer;">
+        <input type="checkbox" id="f-solo-resolver" onchange="aplicarFiltro()">
+        ⚠️ Solo casos por resolver (entrevista incompleta — para volver a cargar en KoBo)
+      </label>
+      <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimir</button>
     </div>
   </div>
 
@@ -117,7 +160,7 @@
   </div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-12"></script>
+<script src="../config/umbral-0.js?v=2026-11-17"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
@@ -148,6 +191,142 @@ function nombreDisplay(p){
 function critClaseCaso(c){ return c==='Alta' ? 'crit-alta' : c==='Media' ? 'crit-media' : c==='Baja' ? 'crit-baja' : ''; }
 function siNoBool(v){ return v===true ? 'Sí' : (v===false ? 'No' : '—'); }
 
+// Checklist de "casos por resolver" BASADO EN KOBO — duplicada tal cual de
+// itemsChecklistKobo()/esCasoPorResolver() en casos.html (16/11/2026,
+// corrección de Agustina: "lo que te pedí es que uses la información de
+// KoBo... hasta tener todo lo requerido" — NO los campos ya volcados en
+// `personas_listado_publico`). `personasKobo` es el array de `.persona` de
+// TODOS los envíos de KoBo ya asociados a ese caso (kobo_validaciones_publico
+// + parseUmbral0(), ver cargarKoboParaChecklist() más abajo) — un campo
+// cuenta como "respondido" si aparece en CUALQUIERA de esos envíos.
+//
+// Mismas dos decisiones que en casos.html: se saca "¿Tiene celular de
+// contacto?" (KoBo no lo pregunta) y cada categoría con varias preguntas
+// exige TODAS sus preguntas respondidas. Los campos que el formulario
+// salta por lógica condicional (ej. "tipo de actividad" si no hay
+// actividad económica) se tratan como condicionales — inferido de
+// parseUmbral0(), sin poder confirmarlo contra la lógica de salto real de
+// KoBoToolbox desde acá.
+function _koboValorPresente(v){
+  if(v === null || v === undefined) return false;
+  if(typeof v === 'string') return v.trim() !== '';
+  if(typeof v === 'boolean') return true;
+  if(Array.isArray(v)) return v.length > 0;
+  return true;
+}
+function _koboAlgunoRespondio(personasKobo, campo){
+  return personasKobo.some(p => _koboValorPresente(p[campo]));
+}
+// `ficha` (17/11/2026): la rama "Seguimiento" del formulario de KoBo no
+// pregunta fecha de nacimiento (ver parseUmbral0()) — si la ficha del caso
+// en Releva ya la tiene, el ítem "Fecha de nacimiento o edad" cuenta.
+function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
+  const r = campo => _koboAlgunoRespondio(personasKobo, campo);
+  // "Situación habitacional" NO incluye `lugarHabitual` (16/11/2026,
+  // mismo fix que itemsChecklistKobo() en casos.html — lugar_habitual es
+  // de una sección clínica aparte del formulario, casi nunca se contesta
+  // (111 de 2521 envíos reales), a diferencia de las otras 5 preguntas de
+  // esta categoría, que se contestan siempre juntas (527 de 2521 cada
+  // una). Con lugarHabitual adentro, la categoría quedaba imposible de
+  // completar en la práctica.
+  const necesitaTipoActividad = personasKobo.some(p => p.actividad === true);
+  const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
+  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
+  const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
+  const redesOk = r('vinculos') && (!necesitaTipoVinculos || r('tipoVinculos'))
+    && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || r('institucionComunitariaCual'));
+  return [
+    { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
+    { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
+    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') || !!(ficha && ficha.fecha_nacimiento) },
+    { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
+    { label:'Situación económica', ok: economicaOk },
+    { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
+    { label:'Redes de contención', ok: redesOk },
+    { label:'Documentación necesaria', ok: undefined },
+    { label:'Deseos de la persona', ok: undefined },
+  ];
+}
+// `actividadPlataforma` (16/11/2026, pedido de Agustina: "también podemos
+// sumar los casos que tienen poca información [en KoBo] pero muchos
+// seguimientos o intervenciones") — mismo criterio que esCasoPorResolver()
+// en casos.html, acá con `p.historial.length` (intervenciones+seguimientos
+// ya vienen juntos y contados en personas_listado_publico, ver
+// schema-ajustes.sql) en vez de una cuenta aparte.
+function esCasoPorResolver(items, actividadPlataforma){
+  const completos = items.filter(i => i.ok === true).length;
+  const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
+  if(completos >= aplicables) return false;
+  return completos >= Math.ceil(aplicables / 2) || (actividadPlataforma||0) >= 2;
+}
+// `koboPorPersonaId` es el mapa persona_id -> [persona, ...] armado una
+// sola vez por cargarKoboParaChecklist() — acá solo se arma el checklist y
+// se filtra, sin volver a tocar la red.
+function faltantesChecklist(p, koboPorPersonaId){
+  const items = itemsChecklistKobo((koboPorPersonaId && koboPorPersonaId[p.id]) || [], p.sin_identificar, p);
+  return esCasoPorResolver(items, (p.historial||[]).length) ? items.filter(i => i.ok === false).map(i => i.label) : [];
+}
+
+// Identificador estable de un envío de KoBo (duplicada de
+// koboSubmissionId() en casos.html).
+function koboSubmissionId(p){
+  const raw = p && p._raw;
+  if(!raw) return null;
+  if(raw._id !== undefined && raw._id !== null && raw._id !== '') return String(raw._id);
+  if(raw._uuid) return String(raw._uuid);
+  return null;
+}
+async function fetchKoboProxyAll(project, assetId){
+  let results = [], next = `${project.kobo.base}/${assetId}/data/?format=json&limit=3000`;
+  while(next){
+    const proxyUrl = `/.netlify/functions/kobo-proxy?url=${encodeURIComponent(next)}&token=${encodeURIComponent(project.kobo.token)}`;
+    const resp = await fetch(proxyUrl);
+    const data = await resp.json().catch(()=>null);
+    if(!resp.ok || !data) throw new Error((data && data.error) || `KoBo error ${resp.status}`);
+    results = results.concat(data.results || []);
+    next = data.next || null;
+  }
+  return results;
+}
+// Junta, para CADA caso de TODA la plataforma, el `.persona` de sus envíos
+// de KoBo ya asociados — una sola vez por `cargar()` (no en cada
+// aplicarFiltro()). `kobo_validaciones_publico` (16/11/2026, nueva vista
+// pública — ver schema-ajustes.sql) es la versión sin login de
+// `kobo_validaciones`, que esta página no puede leer directo (RLS exige
+// estar logueado). Si KoBo no responde (sin conexión, etc.) sigue de
+// largo con el mapa vacío — "casos por resolver" simplemente muestra todo
+// como sin resolver hasta poder reintentar, no rompe el resto de la
+// página.
+async function cargarKoboParaChecklist(client){
+  const koboPorPersonaId = {};
+  try{
+    const project = window.PROJECT_CONFIG;
+    const form = project && project.kobo && (project.kobo.forms||[])[0];
+    if(!form) return koboPorPersonaId;
+    const [{ data: validaciones, error }, koboRowsRaw] = await Promise.all([
+      client.from('kobo_validaciones_publico').select('persona_id, kobo_submission_id'),
+      fetchKoboProxyAll(project, form.id),
+    ]);
+    if(error) throw error;
+    const personaKoboPorSubmission = {};
+    koboRowsRaw.forEach(row => {
+      const parsed = form.parseRow(row);
+      if(!parsed) return;
+      const subId = koboSubmissionId(parsed);
+      if(subId) personaKoboPorSubmission[subId] = parsed.persona;
+    });
+    (validaciones||[]).forEach(v => {
+      const personaKobo = personaKoboPorSubmission[v.kobo_submission_id];
+      if(!personaKobo) return;
+      if(!koboPorPersonaId[v.persona_id]) koboPorPersonaId[v.persona_id] = [];
+      koboPorPersonaId[v.persona_id].push(personaKobo);
+    });
+  }catch(e){
+    console.error('No se pudo cargar KoBo para "Casos por resolver"', e);
+  }
+  return koboPorPersonaId;
+}
+
 // Igual que normalizarNombreKobo() en casos.html (sin acentos, minúscula,
 // espacios colapsados) — se usa acá solo para matchear posibles
 // duplicados por nombre cuando no hay DNI.
@@ -163,6 +342,14 @@ function esDniPlaceholderDup(dni){
   if(!s) return true;
   if(!/[a-z0-9]/i.test(s)) return true;
   if(/^(nn|s\/?d|ns\/?nc|no (sabe|contesta|responde)|sin datos?)$/.test(s.replace(/\s+/g,' '))) return true;
+  // DNI "de relleno" (todo el mismo dígito repetido, ej. "99999999" o
+  // "00000000") — mismo chequeo que ya tenía esDniPlaceholderDup() en
+  // casos.html (16/10/2026, dupla L) pero que faltaba acá (16/11/2026,
+  // encontrado al armar el listado de "casos por resolver" para la
+  // reunión: decenas de personas DISTINTAS en toda la plataforma
+  // comparten estos valores, y sin este chequeo "⚠️ Posibles duplicados"
+  // las agrupaba a todas como si fueran la misma persona).
+  if(/^(\d)\1+$/.test(s)) return true;
   return false;
 }
 
@@ -213,15 +400,16 @@ function renderAlertaDuplicados(grupos){
 // Misma tarjeta plegable que el reporte semanal (admin-duplas.html /
 // reporte-publico.html), con los campos extra del legajo completo
 // (pedido de Agustina: "que levante el perfil de la persona completo").
-function renderListadoCasosCards(lista){
+function renderListadoCasosCards(lista, abiertas){
   if(!lista || !lista.length) return '<div class="empty-msg" style="padding:20px 10px;">Sin casos en este rango de fechas</div>';
   return `<div class="casos-grid">${lista.map(c => `
-    <details class="caso-card${c.duplicado ? ' es-duplicado' : ''}">
+    <details class="caso-card${c.duplicado ? ' es-duplicado' : ''}"${abiertas ? ' open' : ''}>
       <summary>
         <span class="caso-dupla">${esc(c.dupla)}</span>
         <span class="caso-nombre">${esc(c.nombre)}</span>
         ${c.criticidad ? `<span class="caso-crit ${critClaseCaso(c.criticidad)}">${esc(c.criticidad)}</span>` : ''}
         ${c.duplicado ? `<span class="caso-dup">⚠️ posible duplicado</span>` : ''}
+        ${c.faltantes && c.faltantes.length ? `<span class="caso-dup" style="background:#fffbeb;color:#92400e;border-color:#fde68a;">⚠️ Falta: ${c.faltantes.map(f=>esc(f)).join(' · ')}</span>` : ''}
       </summary>
       <div class="caso-detalle">
         <div><span class="caso-detalle-lbl">DNI</span><span>${esc(c.dni || '—')}</span></div>
@@ -302,7 +490,7 @@ const TURNO_LABEL = {T1:'Turno 1', T2:'Turno 2', T3:'Turno 3', T4:'Turno 4'};
 // Agrupa por turno (orden fijo T1..T4, turnos sin casos no se muestran) y
 // dentro de cada turno por dupla (orden alfabético de código) — pedido de
 // Agustina: "que este ordenado por turnos y duplas".
-function renderAgrupadoPorTurno(lista){
+function renderAgrupadoPorTurno(lista, abiertas){
   if(!lista || !lista.length) return '<div class="empty-msg" style="padding:30px 10px;">Sin casos en este rango de fechas</div>';
   const porTurno = new Map();
   lista.forEach(c => {
@@ -322,7 +510,7 @@ function renderAgrupadoPorTurno(lista){
         const grupo = porDupla.get(dupla);
         const casosOrdenados = [...grupo.casos].sort((a,b) => a.nombre.localeCompare(b.nombre));
         return `<div class="dupla-titulo">Dupla ${esc(dupla)}${grupo.esReferente ? ' <span class="ref-badge">referente del turno</span>' : ''}</div>
-        ${renderListadoCasosCards(casosOrdenados)}`;
+        ${renderListadoCasosCards(casosOrdenados, abiertas)}`;
       }).join('')}
     </div>`;
   }).join('');
@@ -341,12 +529,18 @@ function hoyStr(offsetDias){
   return `${y}-${m}-${day}`;
 }
 function setRango(tipo){
-  const hoy = new Date();
   let desde, hasta = hoyStr(0);
   if(tipo === 'hoy') desde = hoyStr(0);
   else if(tipo === 'semana') desde = hoyStr(-6);
-  else if(tipo === 'quincena') desde = hoyStr(-13);
-  else if(tipo === 'mes') desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0,10);
+  // "Quincena" = últimos 15 días corridos (antes eran 14 — 16/11/2026,
+  // pedido de Agustina para poder elegir semana/quincena/mes al imprimir
+  // "casos por resolver" para cada dupla). "Último mes" = últimos 30 días
+  // corridos, NO el mes calendario — antes usaba el 1° del mes calendario
+  // con toISOString() (el mismo bug de huso horario que hoyStr() evita a
+  // propósito, ver comentario arriba: desde las 21hs locales ya mostraba
+  // el día de mañana).
+  else if(tipo === 'quincena') desde = hoyStr(-14);
+  else if(tipo === 'mes') desde = hoyStr(-29);
   else return;
   document.getElementById('f-desde').value = desde;
   document.getElementById('f-hasta').value = hasta;
@@ -355,6 +549,7 @@ function setRango(tipo){
 
 let todosLosCasos = [];
 let duplicadosActuales = { grupos:[], idsDuplicados:new Set() };
+let _koboPorPersonaId = {}; // persona_id -> array de `.persona` de sus envíos de KoBo, ver cargarKoboParaChecklist()
 
 // Filtro opcional por una sola dupla (13/11/2026, pedido de Agustina:
 // "quiero desde admin poder ver los casos de cada dupla como si entrara
@@ -362,12 +557,17 @@ let duplicadosActuales = { grupos:[], idsDuplicados:new Set() };
 // desde cada tarjeta de dupla — en vez de armar una vista nueva, se
 // reusa esta misma página (ya es de solo lectura, sin login, pensada
 // para ver el estado real) filtrada a una dupla sola. Por default
-// muestra TODO lo de esa dupla (no solo la última semana) — la idea es
-// ver lo mismo que vería la dupla al entrar, no un recorte por fecha.
+// muestra el ÚLTIMO MES de esa dupla, no todo el historial (16/11/2026,
+// pedido de Agustina: "quiero que cada dupla tenga los casos por resolver
+// del último mes y pueda filtrar por última semana, quincena" — antes no
+// filtraba por fecha acá a propósito, pero para imprimir un listado
+// accionable por reunión no tiene sentido arrastrar un caso de hace 3
+// meses sin tocar). Para ver el historial completo, igual que antes, hay
+// que vaciar "Desde" a mano.
 const duplaFiltro = new URLSearchParams(location.search).get('dupla');
 if(duplaFiltro){
   document.getElementById('titulo').textContent = `📥 Casos de la dupla ${duplaFiltro}`;
-  document.getElementById('subtitulo').textContent = 'Mismos casos que ve la dupla al entrar a su cuenta — de solo lectura. Dejá "Desde" vacío para ver todo su historial, o filtrá por fecha si hace falta.';
+  document.getElementById('subtitulo').textContent = 'Mismos casos que ve la dupla al entrar a su cuenta — de solo lectura. Por defecto muestra el último mes; vaciá "Desde" para ver todo su historial.';
 }
 
 // Se pide TODO de una (sin filtrar en el pedido a Supabase) y se filtra
@@ -385,15 +585,18 @@ async function cargar(){
     // schema-ajustes.sql). A diferencia del reporte semanal, esto SÍ
     // es en vivo: cada "Actualizar" vuelve a pedir el estado actual.
     const client = await SupabaseClient.getClient();
-    const { data, error } = await client.from('personas_listado_publico').select('*').order('created_at', { ascending:false });
+    const [{ data, error }, koboPorPersonaId] = await Promise.all([
+      client.from('personas_listado_publico').select('*').order('created_at', { ascending:false }),
+      cargarKoboParaChecklist(client),
+    ]);
     if(error) throw error;
     todosLosCasos = data || [];
+    _koboPorPersonaId = koboPorPersonaId;
     // Los duplicados se calculan sobre TODO lo cargado, no solo el rango
     // de fechas filtrado (la misma persona puede volver a aparecer días
     // después) — se recalcula acá, no en cada aplicarFiltro().
     duplicadosActuales = detectarDuplicados(todosLosCasos);
-    if(duplaFiltro) aplicarFiltro();
-    else if(!document.getElementById('f-desde').value) setRango('semana');
+    if(!document.getElementById('f-desde').value) setRango(duplaFiltro ? 'mes' : 'semana');
     else aplicarFiltro();
   }catch(e){
     cont.innerHTML = `<div class="empty-msg">No se pudo cargar (${esc(e.message)}).</div>`;
@@ -459,17 +662,49 @@ function aplicarFiltro(){
     creadoEn: p.created_at,
     ultimaActividad: p.ultima_actividad,
     historial: p.historial || [],
+    faltantes: faltantesChecklist(p, _koboPorPersonaId),
   }));
 
-  document.getElementById('resumen').innerHTML = `<b>${lista.length}</b> caso${lista.length===1?'':'s'}${duplaFiltro ? ` de la dupla ${esc(duplaFiltro)}` : ''} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>.`;
+  // Solo casos por resolver (16/11/2026, pedido de Agustina para la
+  // reunión con duplas y GOPA: "quiero imprimir un listado con la lista de
+  // casos [por resolver] para cada dupla") — filtra sobre la lista ya
+  // mapeada (faltantes ya calculado arriba para CADA caso del rango, se
+  // use o no el filtro) en vez de sobre `p` crudo, para no duplicar el
+  // cálculo del checklist dos veces.
+  const soloPorResolver = document.getElementById('f-solo-resolver').checked;
+  const listaFiltradaChecklist = soloPorResolver ? lista.filter(c => c.faltantes.length) : lista;
+
+  // Buscar por nombre/DNI (16/11/2026, pedido de Agustina: "quiero poder
+  // buscar por dni y nombre desde el admin") — mismo criterio por tokens
+  // que coincidenciaBusquedaPersona() en casos.html, reusando
+  // normalizarNombreDup() (sin acentos, minúscula) que ya existía acá para
+  // detectar duplicados. Se aplica sobre el rango de fechas y el filtro de
+  // checklist ya resueltos arriba, nunca al revés.
+  const busqueda = document.getElementById('f-buscar').value;
+  const btnLimpiarBuscar = document.getElementById('btn-limpiar-buscar');
+  if(btnLimpiarBuscar) btnLimpiarBuscar.style.display = busqueda.trim() ? '' : 'none';
+  const tokensBusqueda = normalizarNombreDup(busqueda).split(/\s+/).filter(Boolean);
+  const listaFiltradaBusqueda = tokensBusqueda.length
+    ? listaFiltradaChecklist.filter(c => {
+        const campo = normalizarNombreDup(`${c.nombre||''} ${c.dni||''}`);
+        return tokensBusqueda.every(t => campo.includes(t));
+      })
+    : listaFiltradaChecklist;
+
+  const totalCasos = listaFiltradaBusqueda.length;
+  const totalFaltantes = lista.filter(c => c.faltantes.length).length;
+  document.getElementById('resumen').innerHTML = `<b>${totalCasos}</b> caso${totalCasos===1?'':'s'}${duplaFiltro ? ` de la dupla ${esc(duplaFiltro)}` : ''} con actividad entre <b>${desde?fmtFechaCorta(desde):'siempre'}</b> y <b>${hasta?fmtFechaCorta(hasta):'hoy'}</b>${soloPorResolver ? ' — filtrando solo los que tienen la entrevista incompleta' : ` (<b>${totalFaltantes}</b> con la entrevista incompleta)`}${tokensBusqueda.length ? ` — buscando "${esc(busqueda.trim())}"` : ''}.`;
   // Con una sola dupla ya no tiene sentido agrupar por turno/dupla — se
   // muestra la lista plana directamente, ordenada por nombre.
   const gruposRelevantes = duplaFiltro
     ? duplicadosActuales.grupos.filter(g => g.casos.some(c => c.dupla_codigo === duplaFiltro))
     : duplicadosActuales.grupos;
-  const listaOrdenada = duplaFiltro ? [...lista].sort((a,b) => a.nombre.localeCompare(b.nombre)) : lista;
+  const listaOrdenada = duplaFiltro ? [...listaFiltradaBusqueda].sort((a,b) => a.nombre.localeCompare(b.nombre)) : listaFiltradaBusqueda;
+  // Al filtrar "solo por resolver" se abren todas las tarjetas de una — es
+  // justo lo que se va a imprimir, no tiene sentido que haya que ir
+  // clickeando cada una para que se vea qué le falta a cada caso.
   document.getElementById('cont').innerHTML = renderAlertaDuplicados(gruposRelevantes) +
-    (duplaFiltro ? renderListadoCasosCards(listaOrdenada) : renderAgrupadoPorTurno(lista));
+    (duplaFiltro ? renderListadoCasosCards(listaOrdenada, soloPorResolver) : renderAgrupadoPorTurno(listaFiltradaBusqueda, soloPorResolver));
 }
 
 cargar();

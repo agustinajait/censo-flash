@@ -545,6 +545,13 @@ function parseCierreRow(r){
     dupla: normDupla(duplaRaw) || String(duplaRaw).trim(),
     poligono: r['Polígono']||r['Poligono']||r['poligono']||'—',
     responsable: r['Responsable']||r['responsable']||'—',
+    // DNI del operador y WhatsApp de la dupla (16/11/2026, pedido de
+    // Agustina) — nombres de columna a confirmar contra lo que el Apps
+    // Script termine escribiendo en el Sheet (ver nota en cierre-form.js,
+    // payload.dni_operador/whatsapp_dupla); se dejan varios alias por las
+    // dudas, mismo criterio que el resto de este parser.
+    dni: r['DNI operador']||r['DNI']||r['dni_operador']||r['dni']||'—',
+    whatsapp: String(r['WhatsApp dupla']||r['WhatsApp']||r['whatsapp_dupla']||r['whatsapp']||'').trim(),
     inicio: r['Inicio']||r['inicio']||'—',
     cierre: r['Cierre']||r['cierre']||'—',
     tiempo: r['Tiempo total']||r['tiempo_total']||'—',
@@ -803,7 +810,7 @@ function renderDashboard(project, data){
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   document.getElementById('filter-info').textContent =
     `Hoy (${fmtDate(hoy)}) · ${total.toLocaleString('es-AR')} personas · ${rows.length} puntos · ${cierres.length} cierres`;
-  renderWithData(project, cierres, rows, presentes, ausencias);
+  renderWithData(project, cierres, rows, presentes, ausencias, data.cierres);
 }
 
 function applyFilter(){
@@ -820,7 +827,7 @@ function applyFilter(){
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   document.getElementById('filter-info').textContent =
     `${total.toLocaleString('es-AR')} personas · ${rows.length} puntos · ${cierres.length} cierres`;
-  renderWithData(project, cierres, rows, presentes, ausencias);
+  renderWithData(project, cierres, rows, presentes, ausencias, data.cierres);
 }
 
 function clearFilter(){
@@ -829,7 +836,7 @@ function clearFilter(){
   document.getElementById('filter-hasta').value = data?.fin || '';
   document.getElementById('filter-info').textContent = '';
   const project = getProject(activeProjectId);
-  if(project && data) renderWithData(project, data.cierres, data.koboRows, data.presentes||[], data.ausencias||[]);
+  if(project && data) renderWithData(project, data.cierres, data.koboRows, data.presentes||[], data.ausencias||[], data.cierres);
 }
 
 // Una salida = una dupla saliendo una noche. `cierres.length` cuenta cada
@@ -843,7 +850,13 @@ function contarSalidas(cierres){
   return new Set(cierres.map(r => (r.dupla||'—') + '|' + (r._fecha||''))).size;
 }
 
-function renderWithData(project, cierres, rows, presentes, ausencias){
+function renderWithData(project, cierres, rows, presentes, ausencias, todosCierres){
+  // `todosCierres` es el histórico completo (sin el filtro de fecha de
+  // arriba) — hace falta en renderDuplasPendientes() para poder mandarle
+  // un WhatsApp a una dupla pendiente usando el ÚLTIMO número que cargó,
+  // aunque no tenga ningún cierre en el rango filtrado (que por algo está
+  // pendiente). Si no se pasa (por las dudas), cae de nuevo a `cierres`.
+  todosCierres = todosCierres || cierres;
   const total = rows.reduce((a,r)=>a+r.personas, 0);
   const puntos = rows.length;
   const fechas = new Set(rows.map(r=>r.fecha).filter(Boolean));
@@ -890,7 +903,7 @@ function renderWithData(project, cierres, rows, presentes, ausencias){
   renderTablaDuplas(project, cierres, rows);
   renderAlertas(cierres);
   renderDuplasPresentes(project, presentes, ausencias);
-  renderDuplasPendientes(project, cierres, ausencias);
+  renderDuplasPendientes(project, cierres, ausencias, todosCierres);
   applyKoboVisibility();
 
   // Mapa de puntos reales de KoBo (§Censo Flash, 29/9/2026) — mismo
@@ -1031,6 +1044,7 @@ function renderTablaDuplas(project, cierres, rows){
       <td>${esc(r.poligono)}</td>
       <td>${fmtDate(r._fecha)}</td>
       <td>${esc(r.responsable)}</td>
+      <td>${esc(r.dni)}</td>
       <td>${esc(r.inicio)}</td><td>${esc(r.cierre)}</td><td>${esc(r.tiempo)}</td>
       <td><b>${r.registros}</b></td>
       <td><b>${pers}</b></td>
@@ -1040,7 +1054,7 @@ function renderTablaDuplas(project, cierres, rows){
       <td>${fotoCell}</td>
     </tr>`;
   });
-  tbody.innerHTML += `<tr class="total-row"><td colspan="7"><b>TOTAL</b></td><td><b>${totalSheet}</b></td><td><b>${rows.reduce((a,r)=>a+r.personas,0)}</b></td><td colspan="3"></td></tr>`;
+  tbody.innerHTML += `<tr class="total-row"><td colspan="8"><b>TOTAL</b></td><td><b>${totalSheet}</b></td><td><b>${rows.reduce((a,r)=>a+r.personas,0)}</b></td><td colspan="3"></td></tr>`;
 }
 
 function renderAlertas(cierres){
@@ -1177,7 +1191,24 @@ function renderDuplasPresentes(project, presentes, ausencias){
 // todavía no mandaron su cierre dentro del rango de fechas que se está
 // mostrando. Las que avisaron ausencia no se cuentan como pendientes — ya
 // está justificado que no cierren ese día.
-function renderDuplasPendientes(project, cierres, ausencias){
+// Último WhatsApp cargado por cada dupla en TODO el histórico de cierres
+// (no solo el rango filtrado) — una dupla pendiente por definición no
+// tiene cierre en el rango filtrado, así que ahí no hay de dónde sacarle
+// el número; se usa el último que cargó alguna vez, de cualquier fecha.
+function ultimoWhatsappPorDupla(todosCierres){
+  const porDupla = {};
+  [...(todosCierres||[])]
+    .filter(r=>r.whatsapp)
+    .sort((a,b)=>String(a._fecha||'').localeCompare(String(b._fecha||'')))
+    .forEach(r=>{ const id = normDupla(r.dupla); if(id) porDupla[id] = r.whatsapp; });
+  return porDupla;
+}
+
+// Solo dígitos, para armar el link wa.me — si ya viene con "+" o espacios
+// (cualquier forma en la que la dupla la haya tipeado) no importa.
+function soloDigitos(s){ return String(s||'').replace(/\D/g,''); }
+
+function renderDuplasPendientes(project, cierres, ausencias, todosCierres){
   const el = document.getElementById('pendientes-content');
   if(!el) return;
   const duplas = project.duplas || [];
@@ -1195,10 +1226,15 @@ function renderDuplasPendientes(project, cierres, ausencias){
       (ausentesCount ? `<p style="font-size:11px;color:var(--gray);margin-top:6px;">${ausentesCount} dupla(s) avisaron ausencia y no cuentan como pendientes.</p>` : '');
     return;
   }
+  const whatsappPorDupla = ultimoWhatsappPorDupla(todosCierres);
   el.innerHTML =
     `<p style="font-size:11px;color:var(--gray);margin-bottom:8px;">${pendientes.length} de ${duplas.length} duplas todavía no registraron su cierre en el rango mostrado${ausentesCount ? ' (sin contar '+ausentesCount+' que avisaron ausencia)' : ''}:</p>` +
     '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
-    pendientes.map(d=>`<span class="badge ba">D${esc(d.id)} · ${esc(d.zona||'')}</span>`).join('') +
+    pendientes.map(d=>{
+      const numero = soloDigitos(whatsappPorDupla[normDupla(d.id)]);
+      const wa = numero ? `<a href="https://wa.me/${numero}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;margin-left:4px;" title="Mandarle WhatsApp a esta dupla">💬</a>` : '';
+      return `<span class="badge ba">D${esc(d.id)} · ${esc(d.zona||'')}${wa}</span>`;
+    }).join('') +
     '</div>';
 }
 
