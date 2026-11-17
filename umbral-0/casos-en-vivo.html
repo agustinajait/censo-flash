@@ -217,7 +217,29 @@ function _koboValorPresente(v){
 function _koboAlgunoRespondio(personasKobo, campo){
   return personasKobo.some(p => _koboValorPresente(p[campo]));
 }
-function itemsChecklistKobo(personasKobo, sinIdentificar){
+// DNI como identificador del cruce KoBo ↔ caso (17/11/2026, pedido de
+// Agustina: "que el identificador sea DNI"). Caso real: Rocío (dupla G)
+// carga su apellido en KoBo a veces como Zabala y a veces como Puebla,
+// así que el matching por nombre de operador no reconocía el envío como
+// de su dupla, nunca se asociaba al caso, y Ángel Roberto Aquino (DNI
+// 38678276) figuraba con TODO faltante teniendo la entrevista completa
+// en KoBo. Ahora un envío cuenta para un caso si está asociado a mano
+// (kobo_validaciones) O si el DNI de la persona en KoBo es el mismo que
+// el DNI del caso — sin importar quién lo cargó. Solo DNIs "reales"
+// (7 a 9 dígitos, no 99999999 ni 00000000) para no mezclar casos con
+// DNI de relleno.
+function dniCruceKobo(valor){
+  const d = String(valor||'').replace(/\D/g, '');
+  if(d.length < 7 || d.length > 9) return null;
+  if(/^(\d)\1+$/.test(d)) return null;
+  return d;
+}
+// `ficha` (17/11/2026): la rama "Seguimiento" del formulario de KoBo no
+// pregunta fecha de nacimiento (ver parseUmbral0()), así que un caso con
+// la entrevista completa hecha como seguimiento quedaba siempre con
+// "Falta: fecha de nacimiento". Si la ficha del caso en Releva ya tiene
+// la fecha de nacimiento, ese ítem cuenta como completo.
+function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   const r = campo => _koboAlgunoRespondio(personasKobo, campo);
   // "Situación habitacional" NO incluye `lugarHabitual` (16/11/2026,
   // mismo fix que itemsChecklistKobo() en casos.html — lugar_habitual es
@@ -235,7 +257,7 @@ function itemsChecklistKobo(personasKobo, sinIdentificar){
   return [
     { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
     { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
-    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') },
+    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') || !!(ficha && ficha.fecha_nacimiento) },
     { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
     { label:'Situación económica', ok: economicaOk },
     { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
@@ -260,7 +282,7 @@ function esCasoPorResolver(items, actividadPlataforma){
 // sola vez por cargarKoboParaChecklist() — acá solo se arma el checklist y
 // se filtra, sin volver a tocar la red.
 function faltantesChecklist(p, koboPorPersonaId){
-  const items = itemsChecklistKobo((koboPorPersonaId && koboPorPersonaId[p.id]) || [], p.sin_identificar);
+  const items = itemsChecklistKobo((koboPorPersonaId && koboPorPersonaId[p.id]) || [], p.sin_identificar, p);
   return esCasoPorResolver(items, (p.historial||[]).length) ? items.filter(i => i.ok === false).map(i => i.label) : [];
 }
 
@@ -296,6 +318,11 @@ async function fetchKoboProxyAll(project, assetId){
 // página.
 async function cargarKoboParaChecklist(client){
   const koboPorPersonaId = {};
+  // Auxiliares no enumerables (no se confunden con un persona_id): envíos
+  // indexados por DNI y qué envíos ya sumó cada caso, para completarlo
+  // después con sumarKoboPorDni() una vez que llegan los casos.
+  Object.defineProperty(koboPorPersonaId, '_porDni', { value: {}, enumerable: false });
+  Object.defineProperty(koboPorPersonaId, '_subIds', { value: {}, enumerable: false });
   try{
     const project = window.PROJECT_CONFIG;
     const form = project && project.kobo && (project.kobo.forms||[])[0];
@@ -306,21 +333,49 @@ async function cargarKoboParaChecklist(client){
     ]);
     if(error) throw error;
     const personaKoboPorSubmission = {};
+    const envioPorDni = koboPorPersonaId._porDni; // dni -> [{subId, persona}], ver dniCruceKobo()
     koboRowsRaw.forEach(row => {
       const parsed = form.parseRow(row);
       if(!parsed) return;
       const subId = koboSubmissionId(parsed);
       if(subId) personaKoboPorSubmission[subId] = parsed.persona;
+      const dni = dniCruceKobo(parsed.persona && parsed.persona.dni);
+      if(subId && dni){
+        if(!envioPorDni[dni]) envioPorDni[dni] = [];
+        envioPorDni[dni].push({ subId, persona: parsed.persona });
+      }
     });
     (validaciones||[]).forEach(v => {
       const personaKobo = personaKoboPorSubmission[v.kobo_submission_id];
       if(!personaKobo) return;
       if(!koboPorPersonaId[v.persona_id]) koboPorPersonaId[v.persona_id] = [];
       koboPorPersonaId[v.persona_id].push(personaKobo);
+      if(!koboPorPersonaId._subIds[v.persona_id]) koboPorPersonaId._subIds[v.persona_id] = new Set();
+      koboPorPersonaId._subIds[v.persona_id].add(String(v.kobo_submission_id));
     });
   }catch(e){
     console.error('No se pudo cargar KoBo para "Casos por resolver"', e);
   }
+  return koboPorPersonaId;
+}
+
+// Suma a cada caso los envíos de KoBo con su mismo DNI aunque nadie los
+// haya asociado a mano (ver dniCruceKobo()). Sin repetir un envío que ya
+// entró por kobo_validaciones.
+function sumarKoboPorDni(casos, koboPorPersonaId){
+  const porDni = (koboPorPersonaId && koboPorPersonaId._porDni) || {};
+  (casos||[]).forEach(p => {
+    const dni = dniCruceKobo(p.dni);
+    if(!dni || !porDni[dni]) return;
+    if(!koboPorPersonaId._subIds[p.id]) koboPorPersonaId._subIds[p.id] = new Set();
+    const ya = koboPorPersonaId._subIds[p.id];
+    porDni[dni].forEach(e => {
+      if(ya.has(e.subId)) return;
+      ya.add(e.subId);
+      if(!koboPorPersonaId[p.id]) koboPorPersonaId[p.id] = [];
+      koboPorPersonaId[p.id].push(e.persona);
+    });
+  });
   return koboPorPersonaId;
 }
 
@@ -588,7 +643,7 @@ async function cargar(){
     ]);
     if(error) throw error;
     todosLosCasos = data || [];
-    _koboPorPersonaId = koboPorPersonaId;
+    _koboPorPersonaId = sumarKoboPorDni(todosLosCasos, koboPorPersonaId);
     // Los duplicados se calculan sobre TODO lo cargado, no solo el rango
     // de fechas filtrado (la misma persona puede volver a aparecer días
     // después) — se recalcula acá, no en cada aplicarFiltro().

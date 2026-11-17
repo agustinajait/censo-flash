@@ -3494,7 +3494,23 @@ function _koboValorPresente(v){
 function _koboAlgunoRespondio(personasKobo, campo){
   return personasKobo.some(p => _koboValorPresente(p[campo]));
 }
-function itemsChecklistKobo(personasKobo, sinIdentificar){
+// DNI como identificador del cruce KoBo ↔ caso (17/11/2026, pedido de
+// Agustina: "que el identificador sea DNI") — mismo criterio que
+// dniCruceKobo() en casos-en-vivo.html. Caso real: Rocío (dupla G) carga
+// su apellido en KoBo a veces como Zabala y a veces como Puebla, el
+// matching por nombre de operador no reconocía el envío como de su
+// dupla, nunca se asociaba y Ángel Roberto Aquino (DNI 38678276)
+// figuraba con todo faltante teniendo la entrevista completa en KoBo.
+// Solo DNIs "reales" (7 a 9 dígitos, no 99999999 ni 00000000).
+function dniCruceKobo(valor){
+  const d = String(valor||'').replace(/\D/g, '');
+  if(d.length < 7 || d.length > 9) return null;
+  if(/^(\d)\1+$/.test(d)) return null;
+  return d;
+}
+// `ficha` (17/11/2026): la rama "Seguimiento" del formulario no pregunta
+// fecha de nacimiento — si la ficha del caso ya la tiene, cuenta.
+function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   const r = campo => _koboAlgunoRespondio(personasKobo, campo);
   // "Situación habitacional" NO incluye `lugarHabitual` (16/11/2026,
   // encontrado armando un listado para la reunión con GOPA: contra un
@@ -3523,7 +3539,7 @@ function itemsChecklistKobo(personasKobo, sinIdentificar){
     // una pregunta del formulario) — su equivalente real para alguien sin
     // DNI es el alias (persona_autopercibida/alias_segui).
     { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
-    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') },
+    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') || !!(ficha && ficha.fecha_nacimiento) },
     { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
     { label:'Situación económica', ok: economicaOk },
     { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
@@ -3942,7 +3958,7 @@ const Casos = {
       // la pantalla; "Casos por resolver" simplemente va a mostrar todo
       // como faltante hasta que se pueda reintentar.
       _miActividadKoboPorPersonaId = {};
-      if(!validacionesRes.error && (validacionesRes.data||[]).length){
+      if(!validacionesRes.error){
         try{
           const project = window.PROJECT_CONFIG;
           const form = project && project.kobo && (project.kobo.forms||[])[0];
@@ -3953,11 +3969,31 @@ const Casos = {
               const subId = koboSubmissionId(p);
               if(subId) personaKoboPorSubmission[subId] = p.persona;
             });
-            validacionesRes.data.forEach(v => {
+            const subIdsPorPersona = {};
+            (validacionesRes.data||[]).forEach(v => {
               const personaKobo = personaKoboPorSubmission[v.kobo_submission_id];
               if(!personaKobo) return;
               if(!_miActividadKoboPorPersonaId[v.persona_id]) _miActividadKoboPorPersonaId[v.persona_id] = [];
               _miActividadKoboPorPersonaId[v.persona_id].push(personaKobo);
+              (subIdsPorPersona[v.persona_id] = subIdsPorPersona[v.persona_id] || new Set()).add(String(v.kobo_submission_id));
+            });
+            // Además, los envíos con el mismo DNI que el caso, aunque nadie
+            // los haya asociado a mano (ver dniCruceKobo()).
+            const envioPorDni = {};
+            koboRowsParseadas.forEach(p => {
+              const subId = koboSubmissionId(p);
+              const dni = dniCruceKobo(p.persona && p.persona.dni);
+              if(subId && dni) (envioPorDni[dni] = envioPorDni[dni] || []).push({ subId, persona: p.persona });
+            });
+            Object.values(personaPorId).forEach(per => {
+              const dni = dniCruceKobo(per.dni);
+              if(!dni || !envioPorDni[dni]) return;
+              const ya = subIdsPorPersona[per.id] = subIdsPorPersona[per.id] || new Set();
+              envioPorDni[dni].forEach(e => {
+                if(ya.has(e.subId)) return;
+                ya.add(e.subId);
+                (_miActividadKoboPorPersonaId[per.id] = _miActividadKoboPorPersonaId[per.id] || []).push(e.persona);
+              });
             });
           }
         }catch(e){
@@ -4101,7 +4137,7 @@ const Casos = {
     }
 
     const incompletos = personas
-      .map(p => ({ p, items: itemsChecklistKobo(_miActividadKoboPorPersonaId[p.id] || [], p.sin_identificar), actividad: _miActividadActividadPorPersonaId[p.id] || 0 }))
+      .map(p => ({ p, items: itemsChecklistKobo(_miActividadKoboPorPersonaId[p.id] || [], p.sin_identificar, p), actividad: _miActividadActividadPorPersonaId[p.id] || 0 }))
       .filter(r => esCasoPorResolver(r.items, r.actividad))
       .map(r => ({
         p: r.p,
