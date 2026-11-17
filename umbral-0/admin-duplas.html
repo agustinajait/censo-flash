@@ -683,7 +683,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-26b"></script>
+<script src="../config/umbral-0.js?v=2026-11-17"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script src="../shared/js/mapa-puntos.js?v=2026-10-12"></script>
@@ -1420,7 +1420,7 @@ async function cargarKoboPendientesAdmin(){
     // la dupla equivocada sin ningún aviso.
     const [{ data: duplas, error: errD }, { data: integrantes, error: errI }, { data: personas, error: errP }, { data: validaciones, error: errV }, koboRowsRaw] = await Promise.all([
       client.from('duplas').select('id, codigo, turno').eq('activa', true),
-      client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
+      client.from('integrantes').select('nombre, apellido, dni, dupla_id').eq('activo', true).neq('rol', 'chofer'),
       client.from('personas').select('dni, dupla_id').not('dni', 'is', null),
       client.from('kobo_validaciones').select('kobo_submission_id'),
       fetchKoboProxyAll(project, form.id),
@@ -1452,10 +1452,10 @@ async function cargarKoboPendientesAdmin(){
     // dupla candidata, mismo criterio que buscarDuplaPorNombre() de
     // shared/js/dashboard-engine.js (§10.1.62).
     const duplaPorNombreArr = (integrantes||[])
-      .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`.trim(), dupla_id: i.dupla_id, turno: turnoPorDupla[i.dupla_id] }))
+      .map(i => ({ dni: i.dni, nombre: `${i.nombre||''} ${i.apellido||''}`.trim(), dupla_id: i.dupla_id, turno: turnoPorDupla[i.dupla_id] }))
       .filter(r => r.nombre);
-    const duplaIdPorOperador = (operador, hora) => {
-      const matches = duplaPorNombreArr.filter(r => nombresCoincidenKobo(r.nombre, operador));
+    const duplaIdPorOperador = (envio, hora) => {
+      const matches = duplaPorNombreArr.filter(r => operadorCoincideConIntegrante(r, envio));
       if(!matches.length) return null;
       if(matches.length === 1) return matches[0].dupla_id;
       const porHorario = matches.filter(r => horaEnTurno(hora, r.turno));
@@ -1483,7 +1483,7 @@ async function cargarKoboPendientesAdmin(){
     // solo importa detectar los completamente anónimos).
     const sinIdentificarPorDupla = new Map(); // subId -> { duplaId, p }
     koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
-      const duplaId = duplaIdPorOperador(p.operador, p.hora);
+      const duplaId = duplaIdPorOperador(p, p.hora);
       if(!duplaId) return; // no matchea con ningún integrante activo — revisar el roster en "👥 Duplas territoriales"
       // "No es población objetivo" / "No se encontró a nadie" — no hay
       // ninguna persona que identificar, no debería aparecer como
@@ -2673,16 +2673,16 @@ async function _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla){
   try{
     const client = await SupabaseClient.getClient();
     const [{ data: integrantes }, koboRowsRaw] = await Promise.all([
-      client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
+      client.from('integrantes').select('nombre, apellido, dni, dupla_id').eq('activo', true).neq('rol', 'chofer'),
       fetchKoboProxyAll(project, form.id),
     ]);
     const turnoPorDuplaId = {};
     duplasAMostrar.forEach(d => { turnoPorDuplaId[d.id] = d.turno; });
     const duplaPorNombreArr = (integrantes||[])
-      .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`.trim(), dupla_id: i.dupla_id, turno: turnoPorDuplaId[i.dupla_id] }))
+      .map(i => ({ dni: i.dni, nombre: `${i.nombre||''} ${i.apellido||''}`.trim(), dupla_id: i.dupla_id, turno: turnoPorDuplaId[i.dupla_id] }))
       .filter(r => r.nombre);
-    const duplaIdPorOperador = (operador, hora) => {
-      const matches = duplaPorNombreArr.filter(r => nombresCoincidenKobo(r.nombre, operador));
+    const duplaIdPorOperador = (envio, hora) => {
+      const matches = duplaPorNombreArr.filter(r => operadorCoincideConIntegrante(r, envio));
       if(!matches.length) return null;
       if(matches.length === 1) return matches[0].dupla_id;
       const porHorario = matches.filter(r => horaEnTurno(hora, r.turno));
@@ -2693,7 +2693,7 @@ async function _finesEstimadosPorKobo(duplasAMostrar, jornadasPorDupla){
     const ultimoPorDuplaFecha = {}; // dupla_id -> { 'YYYY-MM-DD' local : iso mas reciente }
     koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
       if(!p.fecha) return;
-      const duplaId = duplaIdPorOperador(p.operador, p.hora);
+      const duplaId = duplaIdPorOperador(p, p.hora);
       if(!duplaId) return;
       // Fecha LOCAL (Buenos Aires, UTC-3) — mismo criterio que el resto
       // de la plataforma para decidir a qué día pertenece un envío.
@@ -3446,7 +3446,7 @@ async function inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas, 
 
   const client = await SupabaseClient.getClient();
   const [{ data: integrantesRows, error: errI }, koboRowsRaw] = await Promise.all([
-    client.from('integrantes').select('id, nombre, apellido, dupla_id, activo').neq('rol', 'chofer'),
+    client.from('integrantes').select('id, nombre, apellido, dni, dupla_id, activo').neq('rol', 'chofer'),
     fetchKoboProxyAll(project, form.id),
   ]);
   if(errI) throw errI;
@@ -3455,7 +3455,7 @@ async function inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas, 
   (duplas||[]).forEach(d => { duplaIdACodigo[d.id] = d.codigo; turnoPorDuplaId[d.id] = d.turno; });
   const duplaPorNombreKobo = (integrantesRows||[])
     .filter(i => i.dupla_id)
-    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`, dupla_id: i.dupla_id, turno: turnoPorDuplaId[i.dupla_id] }))
+    .map(i => ({ dni: i.dni, nombre: `${i.nombre||''} ${i.apellido||''}`, dupla_id: i.dupla_id, turno: turnoPorDuplaId[i.dupla_id] }))
     .filter(r => r.nombre.trim());
   const integrantesPorDuplaId = {};
   (integrantesRows||[]).forEach(i => { if(i.dupla_id) (integrantesPorDuplaId[i.dupla_id] = integrantesPorDuplaId[i.dupla_id] || []).push(i); });
@@ -3469,7 +3469,7 @@ async function inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas, 
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
     const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
     if(!fechaSolo || !p.operador) return;
-    const matches = duplaPorNombreKobo.filter(r => nombresCoincidenKobo(r.nombre, p.operador));
+    const matches = duplaPorNombreKobo.filter(r => operadorCoincideConIntegrante(r, p));
     let match = matches.length === 1 ? matches[0] : null;
     if(matches.length > 1){
       const porHorario = matches.filter(r => horaEnTurno(p.hora, r.turno));
@@ -3481,7 +3481,7 @@ async function inferirPresentesPorKobo(jornadas, jornadaIdsConfirmadas, duplas, 
     // Dentro de la dupla ya resuelta, ¿a cuál de sus integrantes (activos
     // o no) corresponde el nombre de este operador puntual?
     const candidatos = (integrantesPorDuplaId[match.dupla_id] || [])
-      .filter(i => nombresCoincidenKobo(`${i.nombre||''} ${i.apellido||''}`, p.operador));
+      .filter(i => operadorCoincideConIntegrante(i, p));
     candidatos.forEach(i => {
       const clavePersonaFecha = `${i.id}|${fechaSolo}`;
       if(vistoPorPersonaYFecha.has(clavePersonaFecha)) return;
@@ -3517,7 +3517,7 @@ async function calcularOutcomesKobo(desde, hasta){
   if(!form) return null;
   const client = await SupabaseClient.getClient();
   const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, koboRowsRaw] = await Promise.all([
-    client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
+    client.from('integrantes').select('nombre, apellido, dni, dupla_id').eq('activo', true).neq('rol', 'chofer'),
     client.from('duplas').select('id, codigo, turno'),
     fetchKoboProxyAll(project, form.id),
   ]);
@@ -3535,7 +3535,7 @@ async function calcularOutcomesKobo(desde, hasta){
   // duplaIdPorOperador()/§10.1.76 más arriba en este archivo).
   const duplaPorNombreKobo = (integrantes||[])
     .filter(i => i.dupla_id)
-    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null, turno: turnoPorDuplaId[i.dupla_id] }))
+    .map(i => ({ dni: i.dni, nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null, turno: turnoPorDuplaId[i.dupla_id] }))
     .filter(r => r.nombre.trim());
 
   const conteo = {}; // código de termino_intervencion_diaria -> cantidad
@@ -3564,7 +3564,7 @@ async function calcularOutcomesKobo(desde, hasta){
   const dnisPorDupla = {}; // código de dupla -> Set de DNIs
   const entrevistasPorDupla = {}; // código de dupla -> cantidad
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
-    const matches = duplaPorNombreKobo.filter(r => nombresCoincidenKobo(r.nombre, p.operador));
+    const matches = duplaPorNombreKobo.filter(r => operadorCoincideConIntegrante(r, p));
     let match = matches.length === 1 ? matches[0] : null;
     if(matches.length > 1){
       const porHorario = matches.filter(r => horaEnTurno(p.hora, r.turno));
@@ -3613,7 +3613,7 @@ async function koboSinValidarPorDupla(fecha){
   if(!form) return {};
   const client = await SupabaseClient.getClient();
   const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, { data: validaciones, error: errV }, koboRowsRaw] = await Promise.all([
-    client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
+    client.from('integrantes').select('nombre, apellido, dni, dupla_id').eq('activo', true).neq('rol', 'chofer'),
     client.from('duplas').select('id, codigo, turno'),
     client.from('kobo_validaciones').select('kobo_submission_id'),
     fetchKoboProxyAll(project, form.id),
@@ -3626,7 +3626,7 @@ async function koboSinValidarPorDupla(fecha){
   (duplasRows||[]).forEach(d => { codigoPorDuplaId[d.id] = d.codigo; turnoPorDuplaId[d.id] = d.turno; });
   const duplaPorNombreKobo = (integrantes||[])
     .filter(i => i.dupla_id)
-    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null, turno: turnoPorDuplaId[i.dupla_id] }))
+    .map(i => ({ dni: i.dni, nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null, turno: turnoPorDuplaId[i.dupla_id] }))
     .filter(r => r.nombre.trim());
   const idsValidados = new Set((validaciones||[]).map(v => v.kobo_submission_id));
 
@@ -3638,7 +3638,7 @@ async function koboSinValidarPorDupla(fecha){
     if(fechaSolo !== fecha) return;
     const subId = koboSubmissionId(p);
     if(!subId || idsValidados.has(subId)) return; // ya lo vio alguien
-    const matches = duplaPorNombreKobo.filter(m => nombresCoincidenKobo(m.nombre, p.operador));
+    const matches = duplaPorNombreKobo.filter(m => operadorCoincideConIntegrante(m, p));
     let match = matches.length === 1 ? matches[0] : null;
     if(matches.length > 1){
       const porHorario = matches.filter(m => horaEnTurno(p.hora, m.turno));
@@ -3666,7 +3666,7 @@ async function koboDniEntrevistasPorDupla(fecha){
   if(!form) return { dniPorDupla: {}, entrevPorDupla: {} };
   const client = await SupabaseClient.getClient();
   const [{ data: integrantes, error: errI }, { data: duplasRows, error: errD }, koboRowsRaw] = await Promise.all([
-    client.from('integrantes').select('nombre, apellido, dupla_id').eq('activo', true).neq('rol', 'chofer'),
+    client.from('integrantes').select('nombre, apellido, dni, dupla_id').eq('activo', true).neq('rol', 'chofer'),
     client.from('duplas').select('id, codigo, turno'),
     fetchKoboProxyAll(project, form.id),
   ]);
@@ -3677,7 +3677,7 @@ async function koboDniEntrevistasPorDupla(fecha){
   (duplasRows||[]).forEach(d => { codigoPorDuplaId[d.id] = d.codigo; turnoPorDuplaId[d.id] = d.turno; });
   const duplaPorNombreKobo = (integrantes||[])
     .filter(i => i.dupla_id)
-    .map(i => ({ nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null, turno: turnoPorDuplaId[i.dupla_id] }))
+    .map(i => ({ dni: i.dni, nombre: `${i.nombre||''} ${i.apellido||''}`, codigo: codigoPorDuplaId[i.dupla_id] || null, turno: turnoPorDuplaId[i.dupla_id] }))
     .filter(r => r.nombre.trim());
 
   const dnisPorDupla = {}; // codigo -> Set de DNI (para no contar la misma persona dos veces en el día)
@@ -3687,7 +3687,7 @@ async function koboDniEntrevistasPorDupla(fecha){
     if(!p) return;
     const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
     if(fechaSolo !== fecha) return;
-    const matches = duplaPorNombreKobo.filter(m => nombresCoincidenKobo(m.nombre, p.operador));
+    const matches = duplaPorNombreKobo.filter(m => operadorCoincideConIntegrante(m, p));
     let match = matches.length === 1 ? matches[0] : null;
     if(matches.length > 1){
       const porHorario = matches.filter(m => horaEnTurno(p.hora, m.turno));
