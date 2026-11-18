@@ -1382,6 +1382,48 @@ function nombresCoincidenKobo(a, b){
   return ta.every(t => setB.has(t)) || tb.every(t => setA.has(t));
 }
 
+// Checklist de "entrevista en profundidad COMPLETA" — duplicado tal cual
+// de itemsChecklistKobo()/dniCruceKobo() en casos-en-vivo.html (18/11/2026,
+// pedido de Agustina: "quiero... trazar esta métrica de requisito que son
+// 5 entrevistas por semana completas por dupla" — ver
+// calcularEntrevistasCompletasChecklist() más abajo).
+function dniCruceKobo(valor){
+  const d = String(valor||'').replace(/\D/g, '');
+  if(d.length < 7 || d.length > 9) return null;
+  if(/^(\d)\1+$/.test(d)) return null;
+  return d;
+}
+function _koboValorPresente(v){
+  if(v === null || v === undefined) return false;
+  if(typeof v === 'string') return v.trim() !== '';
+  if(typeof v === 'boolean') return true;
+  if(Array.isArray(v)) return v.length > 0;
+  return true;
+}
+function _koboAlgunoRespondio(personasKobo, campo){
+  return personasKobo.some(p => _koboValorPresente(p[campo]));
+}
+function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
+  const r = campo => _koboAlgunoRespondio(personasKobo, campo);
+  const necesitaTipoActividad = personasKobo.some(p => p.actividad === true);
+  const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
+  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
+  const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
+  const redesOk = r('vinculos') && (!necesitaTipoVinculos || r('tipoVinculos'))
+    && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || r('institucionComunitariaCual'));
+  return [
+    { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
+    { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
+    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') || !!(ficha && ficha.fecha_nacimiento) },
+    { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
+    { label:'Situación económica', ok: economicaOk },
+    { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
+    { label:'Redes de contención', ok: redesOk },
+    { label:'Documentación necesaria', ok: undefined },
+    { label:'Deseos de la persona', ok: undefined },
+  ];
+}
+
 // Idem casos.html — identificador estable de un envío de KoBo, usado acá
 // solo para excluir de "KoBo sin identificar" los que ya quedaron
 // vinculados a un caso desde alguna cuenta de dupla (ver kobo_validaciones
@@ -3340,13 +3382,19 @@ function armarRankingPorDupla(personas, codigoPorDupla, desde, hasta, dias, kobo
   });
   const dniPorDupla = (koboOutcomes && koboOutcomes.dnisUnicosPorDupla) || {};
   const entrevPorDupla = (koboOutcomes && koboOutcomes.entrevistasPorDupla) || {};
+  // Entrevistas COMPLETAS según el checklist de GOPA, no el autoreporte de
+  // KoBo (ver calcularEntrevistasCompletasChecklist(), 18/11/2026) — acá
+  // se muestra la cantidad cruda del período, sin promediar, para poder
+  // compararla directo contra la meta de 5 por semana.
+  const completasPorDupla = (koboOutcomes && koboOutcomes.entrevistasCompletasChecklistPorDupla) || {};
   const totalDias = dias ? dias.size : 0;
-  const codigos = new Set([...Object.keys(casosPorDupla), ...Object.keys(dniPorDupla), ...Object.keys(entrevPorDupla)]);
+  const codigos = new Set([...Object.keys(casosPorDupla), ...Object.keys(dniPorDupla), ...Object.keys(entrevPorDupla), ...Object.keys(completasPorDupla)]);
   return [...codigos].map(codigo => ({
     codigo,
     casosNuevos: casosPorDupla[codigo] || 0,
     promedioDniDiario: (totalDias && koboOutcomes) ? +((dniPorDupla[codigo]||0) / totalDias).toFixed(2) : null,
     promedioEntrevistasDiario: (totalDias && koboOutcomes) ? +((entrevPorDupla[codigo]||0) / totalDias).toFixed(2) : null,
+    entrevistasCompletas: koboOutcomes ? (completasPorDupla[codigo] || 0) : null,
   })).sort((a,b) => b.casosNuevos - a.casosNuevos);
 }
 
@@ -3409,6 +3457,13 @@ async function generarReporte(){
 
     const reporte = await calcularReporte({ client, desde, hasta, personas, intervenciones, seguimientosIds, derivaciones, personaPorId });
     reporte.koboOutcomes = koboOutcomes;
+    // Entrevistas en profundidad completas según el checklist de GOPA, no
+    // solo lo que tildó la dupla en KoBo — ver calcularEntrevistasCompletasChecklist().
+    const entrevistasCompletas = koboOutcomes
+      ? calcularEntrevistasCompletasChecklist(personas, codigoPorDupla, desde, hasta, koboOutcomes)
+      : { total: null, porDupla: {}, detalle: [] };
+    reporte.entrevistasCompletasChecklist = entrevistasCompletas;
+    if(koboOutcomes) koboOutcomes.entrevistasCompletasChecklistPorDupla = entrevistasCompletas.porDupla;
     reporte.porDupla = armarRankingPorDupla(personas, codigoPorDupla, desde, hasta, reporte.cobertura.dias, koboOutcomes);
     reporte.accionesPlataforma = await calcularAccionesPlataforma(desde, hasta, intervenciones)
       .catch(e => { console.error('No se pudo calcular acciones de la plataforma', e); return { conteo:{}, totalIntervenciones:0, totalValidaciones:0 }; });
@@ -3579,7 +3634,16 @@ async function calcularOutcomesKobo(desde, hasta){
   // arriba, solo que acá además se guarda bajo la clave de `codigoDupla`.
   const dnisPorDupla = {}; // código de dupla -> Set de DNIs
   const entrevistasPorDupla = {}; // código de dupla -> cantidad
+  // dni (real) -> [envíos parseados] — para el cruce de completitud de
+  // checklist (ver calcularEntrevistasCompletasChecklist() más abajo).
+  // SIN el filtro de fecha/dupla de abajo: un caso puede haberse ido
+  // completando con envíos de fechas distintas, y el cruce es por DNI de
+  // la PERSONA ayudada, no del operador.
+  const envioPorDni = {};
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
+    const dniPersonaEnvio = dniCruceKobo(p.persona && p.persona.dni);
+    if(dniPersonaEnvio) (envioPorDni[dniPersonaEnvio] = envioPorDni[dniPersonaEnvio] || []).push(p);
+
     const matches = duplaPorNombreKobo.filter(r => operadorCoincideConIntegrante(r, p));
     let match = matches.length === 1 ? matches[0] : null;
     if(matches.length > 1){
@@ -3609,7 +3673,48 @@ async function calcularOutcomesKobo(desde, hasta){
   });
   const dnisUnicosPorDupla = {};
   Object.entries(dnisPorDupla).forEach(([codigo, set]) => { dnisUnicosPorDupla[codigo] = set.size; });
-  return { totalEnvios, conteo, puntos, dnisUnicos: dnisUnicos.size, entrevistasLogradas, dnisUnicosPorDupla, entrevistasPorDupla };
+  return { totalEnvios, conteo, puntos, dnisUnicos: dnisUnicos.size, entrevistasLogradas, dnisUnicosPorDupla, entrevistasPorDupla, envioPorDni };
+}
+
+// Entrevistas en profundidad COMPLETAS según el checklist de GOPA
+// (18/11/2026, pedido de Agustina: "quiero que ellos mismos los puedan
+// pasar a completo o que la plataforma me avise cuando los casos están
+// completos para trazar esta métrica de requisito que son 5 entrevistas
+// por semana completas por dupla" — se eligió que la plataforma lo
+// detecte sola: es el mismo problema de fondo de toda esta sección,
+// "ninguno de los casos tiene la entrevista completa en Cobo" aunque la
+// dupla haya tildado que sí la hizo, así que confiar en que la dupla lo
+// marque a mano reintroduce el mismo punto ciego). Usa el mismo criterio
+// de itemsChecklistKobo()/completos>=aplicables que ya usan "casos por
+// resolver" en casos.html y casos-en-vivo.html: un caso cuenta como
+// entrevista COMPLETA cuando TODAS sus categorías aplicables están
+// respondidas (entre todos sus envíos de KoBo juntos, cruzados por DNI).
+// No hay un timestamp explícito de "se completó acá" — se usa la fecha
+// del envío más reciente entre los que la completan, y solo cuenta si esa
+// fecha cae dentro del período elegido.
+function calcularEntrevistasCompletasChecklist(personas, codigoPorDuplaId, desde, hasta, koboOutcomes){
+  const envioPorDni = (koboOutcomes && koboOutcomes.envioPorDni) || {};
+  let total = 0;
+  const porDupla = {};
+  const detalle = []; // { nombre, dupla, fecha } — para mostrar el listado, no solo el número
+  (personas||[]).forEach(per => {
+    if(per.oculto) return;
+    const dni = dniCruceKobo(per.dni);
+    const matches = dni ? (envioPorDni[dni] || []) : [];
+    if(!matches.length) return;
+    const items = itemsChecklistKobo(matches.map(m => m.persona), per.sin_identificar, per);
+    const completos = items.filter(i => i.ok === true).length;
+    const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
+    if(!aplicables || completos < aplicables) return; // no está completa
+    const fechaCompletitud = matches.reduce((max, m) => ((m.fecha||'') > max ? (m.fecha||'') : max), '').slice(0, 10);
+    if(!fechaCompletitud || fechaCompletitud < desde || fechaCompletitud > hasta) return;
+    total++;
+    const codigo = codigoPorDuplaId[per.dupla_id] || null;
+    if(codigo) porDupla[codigo] = (porDupla[codigo] || 0) + 1;
+    detalle.push({ nombre: `${per.nombre||''} ${per.apellido||''}`.trim() || 'Sin identificar', dupla: codigo, fecha: fechaCompletitud });
+  });
+  detalle.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  return { total, porDupla, detalle };
 }
 
 // Envíos de KoBo de un día puntual que TODAVÍA NADIE VALIDÓ desde la
@@ -4207,14 +4312,14 @@ function renderReporte(cont, r){
     </div>
 
     <div class="section-title">g. Ranking de casos y entrevistas por dupla</div>
-    <div class="section-hint">Casos nuevos identificados por dupla en el período, cargados en la plataforma. DNIs y entrevistas en profundidad logradas salen de KoBo (no hay forma de atribuirlos a una dupla desde la plataforma) — el promedio diario usa los mismos "días con presencia territorial" que ya usa "Promedio de casos nuevos por día, por dupla" más abajo. También va en el link público (reporte-publico.html, §13/11/2026: confirmado con Agustina que ya no se lo pasa a gobierno, solo a su jefe).</div>
+    <div class="section-hint">Casos nuevos identificados por dupla en el período, cargados en la plataforma. DNIs y entrevistas en profundidad logradas salen de KoBo (no hay forma de atribuirlos a una dupla desde la plataforma) — el promedio diario usa los mismos "días con presencia territorial" que ya usa "Promedio de casos nuevos por día, por dupla" más abajo. "Entrevistas completas" (18/11/2026) es distinto de "entrevistas logradas": no mira si la dupla tildó que sí hizo la entrevista en KoBo, sino si el caso tiene TODO el checklist de GOPA respondido (mismo criterio que "casos por resolver") — elegí un rango de una semana para compararlo contra la meta de 5 por dupla. También va en el link público (reporte-publico.html, §13/11/2026: confirmado con Agustina que ya no se lo pasa a gobierno, solo a su jefe).</div>
     <div class="card">
       <table class="reporte-tabla">
-        <thead><tr><th>Dupla</th><th style="text-align:right;">Casos nuevos</th><th style="text-align:right;">Promedio diario de DNIs (KoBo)</th><th style="text-align:right;">Promedio diario de entrevistas (KoBo)</th></tr></thead>
+        <thead><tr><th>Dupla</th><th style="text-align:right;">Casos nuevos</th><th style="text-align:right;">Promedio diario de DNIs (KoBo)</th><th style="text-align:right;">Promedio diario de entrevistas (KoBo)</th><th style="text-align:right;">Entrevistas completas (checklist) · meta 5/semana</th></tr></thead>
         <tbody>
           ${r.porDupla && r.porDupla.length ? r.porDupla.map(d =>
-            `<tr><td>${esc(d.codigo)}</td><td class="num">${d.casosNuevos}</td><td class="num">${d.promedioDniDiario!=null?d.promedioDniDiario:'—'}</td><td class="num">${d.promedioEntrevistasDiario!=null?d.promedioEntrevistasDiario:'—'}</td></tr>`).join('')
-            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin casos en el período</td></tr>'}
+            `<tr><td>${esc(d.codigo)}</td><td class="num">${d.casosNuevos}</td><td class="num">${d.promedioDniDiario!=null?d.promedioDniDiario:'—'}</td><td class="num">${d.promedioEntrevistasDiario!=null?d.promedioEntrevistasDiario:'—'}</td><td class="num"${d.entrevistasCompletas!=null && d.entrevistasCompletas>=5 ? ' style="color:#16a34a;font-weight:700;"' : ''}>${d.entrevistasCompletas!=null?d.entrevistasCompletas:'—'}</td></tr>`).join('')
+            : '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Sin casos en el período</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -4349,7 +4454,7 @@ function armarMensaje(){
     ? (Object.entries(r.koboOutcomes.conteo).sort((a,b)=>b[1]-a[1]).map(([codigo,n]) => `  · ${labelsKobo[codigo]||codigo}: ${n}`).join('\n') || '  (sin envíos de KoBo del equipo en el período)')
     : '  (no se pudo traer KoBo para esta sección)';
   const porDuplaLinea = (r.porDupla||[]).map(d =>
-    `  · Dupla ${d.codigo}: ${d.casosNuevos} casos nuevos · ${d.promedioDniDiario!=null?d.promedioDniDiario:'—'} DNIs/día (KoBo) · ${d.promedioEntrevistasDiario!=null?d.promedioEntrevistasDiario:'—'} entrevistas/día (KoBo)`
+    `  · Dupla ${d.codigo}: ${d.casosNuevos} casos nuevos · ${d.promedioDniDiario!=null?d.promedioDniDiario:'—'} DNIs/día (KoBo) · ${d.promedioEntrevistasDiario!=null?d.promedioEntrevistasDiario:'—'} entrevistas/día (KoBo) · ${d.entrevistasCompletas!=null?d.entrevistasCompletas:'—'} entrevistas completas (checklist, meta 5/semana)`
   ).join('\n') || '  (sin casos en el período)';
   const ETIQUETA_CATEGORIA = { nuevo: 'nuevo', seguimiento: 'en seguimiento', recontactado: 'recontactado — 15+ días sin contacto' };
   const casosLinea = (r.listadoCasos||[]).map(c =>
