@@ -3505,8 +3505,21 @@ async function generarReporte(){
     const diasPeriodo = reporte.cobertura.dias.size;
     const diasCalendario = Math.round((Date.parse(hastaUtcReporte) - Date.parse(desdeUtcReporte)) / 86400000);
     const semanasPeriodo = diasCalendario / 7;
+    // Nombres de los integrantes de cada dupla (18/11/2026, pedido de
+    // Agustina: "agregá los nombres de los integrantes de las duplas en
+    // el cuadro de semáforo también") — mismos datos que ya trae
+    // cargarDuplas() para las tarjetas de "Duplas y equipo" (con
+    // integrantes anidados), no hace falta pedirlos de nuevo.
+    const integrantesPorCodigo = {};
+    _duplasConIntegrantes.forEach(d => {
+      const nombres = (d.integrantes||[])
+        .filter(i => i.rol !== 'chofer' && i.activo !== false)
+        .map(i => `${i.nombre||''} ${i.apellido||''}`.trim())
+        .filter(Boolean);
+      if(d.codigo) integrantesPorCodigo[d.codigo] = nombres.join(', ');
+    });
     reporte.metasGopa = calcularMetasGopa(koboOutcomes, entrevistasCompletas.total, codigosDuplasActivas.length, diasPeriodo, semanasPeriodo);
-    reporte.semaforoDuplas = armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletas.porDupla, diasPeriodo, semanasPeriodo);
+    reporte.semaforoDuplas = armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletas.porDupla, diasPeriodo, semanasPeriodo, integrantesPorCodigo);
     reporte.accionesPlataforma = await calcularAccionesPlataforma(desde, hasta, intervenciones)
       .catch(e => { console.error('No se pudo calcular acciones de la plataforma', e); return { conteo:{}, totalIntervenciones:0, totalValidaciones:0 }; });
     // Listado de casos del período (nuevos + recontactados) — pedido de
@@ -3851,13 +3864,14 @@ function semaforoDe(pct){
 function semaforoEmoji(s){
   return s === 'verde' ? '🟢' : s === 'amarillo' ? '🟡' : s === 'rojo' ? '🔴' : '';
 }
-function armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletasPorDupla, diasPeriodo, semanasPeriodo){
+function armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletasPorDupla, diasPeriodo, semanasPeriodo, integrantesPorCodigo){
   if(!koboOutcomes) return [];
   // Meta de entrevistas completas por dupla, escalada por semana del
   // período (ver comentario en calcularMetasGopa) — 5 si el rango es una
   // semana, menos si es más corto, más si abarca varias semanas.
   const metaEntrevistasPorDupla = Math.round(5 * semanasPeriodo * 10) / 10;
   return codigosDuplasActivas.map(codigo => {
+    const integrantes = (integrantesPorCodigo && integrantesPorCodigo[codigo]) || '';
     const intervDia = diasPeriodo ? (koboOutcomes.totalEnviosPorDupla[codigo]||0) / diasPeriodo : null;
     const dnisDia = diasPeriodo ? (koboOutcomes.dnisUnicosPorDupla[codigo]||0) / diasPeriodo : null;
     const zonaD = koboOutcomes.zonaPorDupla[codigo] || {};
@@ -3868,6 +3882,7 @@ function armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasComp
     const entrevistasD = (entrevistasCompletasPorDupla && entrevistasCompletasPorDupla[codigo]) || 0;
     return {
       codigo,
+      integrantes,
       intervDia: diasPeriodo ? Math.round(intervDia*10)/10 : null,
       intervSemaforo: diasPeriodo ? semaforoDe(pctCumplimiento(intervDia, 5)) : null,
       dnisDia: diasPeriodo ? Math.round(dnisDia*10)/10 : null,
@@ -4365,7 +4380,7 @@ function renderReporte(cont, r){
           <tbody>
             ${r.semaforoDuplas && r.semaforoDuplas.length ? r.semaforoDuplas.map(s => `
               <tr>
-                <td>${esc(s.codigo)}</td>
+                <td>${esc(s.codigo)}${s.integrantes ? `<div style="font-weight:400;font-size:0.76rem;color:#64748b;">${esc(s.integrantes)}</div>` : ''}</td>
                 <td class="num">${semaforoEmoji(s.intervSemaforo)} ${s.intervDia!=null?s.intervDia:'—'}</td>
                 <td class="num">${semaforoEmoji(s.dnisSemaforo)} ${s.dnisDia!=null?s.dnisDia:'—'}</td>
                 <td class="num">${semaforoEmoji(s.entrevistasSemaforo)} ${s.entrevistasCompletas}</td>
