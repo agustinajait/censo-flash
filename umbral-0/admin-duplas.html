@@ -3845,6 +3845,7 @@ function calcularMetasGopa(koboOutcomes, entrevistasCompletasTotal, duplasActiva
   const zonaTotal = Object.values(koboOutcomes.zonaConteo||{}).reduce((a,b)=>a+b, 0);
   const zonaEnZona = (koboOutcomes.zonaConteo.en_zona||0) + (koboOutcomes.zonaConteo.iglesia||0);
   return {
+    duplasActivas,
     intervenciones: { actual: koboOutcomes.totalEnvios, meta: metaIntervenciones, pct: pctCumplimiento(koboOutcomes.totalEnvios, metaIntervenciones) },
     dnis: { actual: koboOutcomes.dnisUnicos, meta: metaDnis, pct: pctCumplimiento(koboOutcomes.dnisUnicos, metaDnis) },
     entrevistasCompletas: { actual: entrevistasCompletasTotal, meta: metaEntrevistas, pct: pctCumplimiento(entrevistasCompletasTotal, metaEntrevistas) },
@@ -4382,11 +4383,11 @@ function renderReporte(cont, r){
     <div class="card">
       ${!r.metasGopa ? '<div class="empty-msg">No se pudo calcular (sin datos de KoBo para el período).</div>' : `
       <div class="kpi-grid">
-        <div class="kpi"><div class="num">${r.metasGopa.intervenciones.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.intervenciones.meta}</span></div><div class="lbl">Intervenciones${r.metasGopa.intervenciones.pct!=null?` (${r.metasGopa.intervenciones.pct}%)`:''}</div></div>
-        <div class="kpi"><div class="num">${r.metasGopa.dnis.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.dnis.meta}</span></div><div class="lbl">DNIs únicos${r.metasGopa.dnis.pct!=null?` (${r.metasGopa.dnis.pct}%)`:''}</div></div>
-        <div class="kpi"><div class="num">${r.metasGopa.entrevistasCompletas.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.entrevistasCompletas.meta}</span></div><div class="lbl">Entrevistas completas (checklist)${r.metasGopa.entrevistasCompletas.pct!=null?` (${r.metasGopa.entrevistasCompletas.pct}%)`:''}</div></div>
-        <div class="kpi"><div class="num">${r.metasGopa.enZona ? r.metasGopa.enZona.pctReal+'%' : '—'}</div><div class="lbl">En zona (meta 85%)${r.metasGopa.enZona ? ` — ${r.metasGopa.enZona.actual}/${r.metasGopa.enZona.total}` : ' — sin ubicación o sin zonas vigentes para clasificar'}</div></div>
-        <div class="kpi"><div class="num">${r.metasGopa.derivacionesPrimerContacto ? r.metasGopa.derivacionesPrimerContacto.pctReal+'%' : '—'}</div><div class="lbl">Derivaciones de primeros contactos (meta 30%)${r.metasGopa.derivacionesPrimerContacto ? ` — ${r.metasGopa.derivacionesPrimerContacto.actual}/${r.metasGopa.derivacionesPrimerContacto.total}` : ' — sin primeros contactos en el período'}</div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.intervenciones.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.intervenciones.meta}</span></div><div class="lbl">Intervenciones${r.metasGopa.intervenciones.pct!=null?` (${r.metasGopa.intervenciones.pct}%)`:''}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 5 por dupla por día (${5*r.metasGopa.duplasActivas}/semana con ${r.metasGopa.duplasActivas} duplas)</span></div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.dnis.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.dnis.meta}</span></div><div class="lbl">DNIs únicos${r.metasGopa.dnis.pct!=null?` (${r.metasGopa.dnis.pct}%)`:''}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 2 por dupla por día (${2*r.metasGopa.duplasActivas}/semana con ${r.metasGopa.duplasActivas} duplas)</span></div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.entrevistasCompletas.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.entrevistasCompletas.meta}</span></div><div class="lbl">Entrevistas completas (checklist)${r.metasGopa.entrevistasCompletas.pct!=null?` (${r.metasGopa.entrevistasCompletas.pct}%)`:''}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 5 por dupla por semana (${5*r.metasGopa.duplasActivas}/semana con ${r.metasGopa.duplasActivas} duplas)</span></div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.enZona ? r.metasGopa.enZona.pctReal+'%' : '—'}</div><div class="lbl">En zona${r.metasGopa.enZona ? ` — ${r.metasGopa.enZona.actual}/${r.metasGopa.enZona.total}` : ' — sin ubicación o sin zonas vigentes para clasificar'}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 85%</span></div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.derivacionesPrimerContacto ? r.metasGopa.derivacionesPrimerContacto.pctReal+'%' : '—'}</div><div class="lbl">Derivaciones de primeros contactos${r.metasGopa.derivacionesPrimerContacto ? ` — ${r.metasGopa.derivacionesPrimerContacto.actual}/${r.metasGopa.derivacionesPrimerContacto.total}` : ' — sin primeros contactos en el período'}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 30%</span></div></div>
       </div>
       `}
     </div>
