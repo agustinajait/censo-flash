@@ -2537,18 +2537,31 @@ async function fetchKoboProxyAll(project, assetId){
 }
 
 // Todos los envíos de KoBo (de cualquier dupla), ya parseados — en caché
-// para el resto de la sesión: lo usa tanto "KoBo pendientes" (altas nuevas)
-// como cargarKoboDePersona() (ficha de un caso ya cargado), y sin esto cada
-// ficha que se abre repetiría el mismo pedido de ~3000 filas. Si falla, NO
-// se cachea el error — el próximo que lo pida vuelve a intentar.
+// con un TTL corto (no para siempre): lo usa tanto "KoBo pendientes" (altas
+// nuevas) como cargarKoboDePersona() (ficha de un caso ya cargado), y sin
+// esto cada ficha que se abre repetiría el mismo pedido de ~3000 filas.
+// ANTES esta caché no vencía nunca durante la sesión — bug reportado por
+// Agustina el 18/11: un envío nuevo de KoBo ("Walter Leiva") cargado por
+// una dupla que ya tenía la app abierta no aparecía como pendiente hasta
+// recargar la página entera. Con el TTL, a los pocos minutos se vuelve a
+// pedir a KoBo sin necesidad de un reload. Si el pedido falla, NO se
+// cachea el error — el próximo que lo pida vuelve a intentar.
 let _koboRowsParseadasCache = null;
+let _koboRowsParseadasCacheHora = 0;
 let _koboRowsParseadasPromise = null;
+const KOBO_ROWS_CACHE_TTL_MS = 3 * 60 * 1000;
 function obtenerKoboRowsParseadas(project, form){
-  if(_koboRowsParseadasCache) return Promise.resolve(_koboRowsParseadasCache);
+  const cacheVencida = !_koboRowsParseadasCacheHora || (Date.now() - _koboRowsParseadasCacheHora) > KOBO_ROWS_CACHE_TTL_MS;
+  if(_koboRowsParseadasCache && !cacheVencida) return Promise.resolve(_koboRowsParseadasCache);
   if(!_koboRowsParseadasPromise){
     _koboRowsParseadasPromise = fetchKoboProxyAll(project, form.id)
       .then(rows => rows.map(r => form.parseRow(r)).filter(Boolean))
-      .then(parsed => { _koboRowsParseadasCache = parsed; return parsed; })
+      .then(parsed => {
+        _koboRowsParseadasCache = parsed;
+        _koboRowsParseadasCacheHora = Date.now();
+        _koboRowsParseadasPromise = null;
+        return parsed;
+      })
       .catch(e => { _koboRowsParseadasPromise = null; throw e; });
   }
   return _koboRowsParseadasPromise;
@@ -2748,12 +2761,24 @@ async function cargarKoboPendientes(){
     // ficha "Miguel Angel" DUPLICADA en vez de sugerir la continuación de
     // la que ya había. Ahora solo se excluye a quien de verdad no tiene
     // ningún nombre cargado (nom vacío) — sea sin_identificar o no.
-    const personasPorNombre = new Map();
+    // Antes era un Map nombre_normalizado_completo -> persona, con lookup
+    // exacto. Bug real (18/11/2026, caso "Ozores" reportado por Agustina):
+    // un envío de KoBo con SOLO el apellido (sin nombre de pila en ESE
+    // envío puntual — pasa con el bloque de seguimiento, que pide nombre y
+    // apellido en campos separados) nunca matcheaba contra "Roberto carlos
+    // Ozores" por match exacto de string, aunque el apellido fuera el
+    // mismo — el envío caía a "sin identificar" en vez de sugerirse como
+    // posible continuación. Ahora se compara con nombresCoincidenKobo()
+    // (el mismo criterio de subconjunto de tokens que ya se usa para
+    // matchear operador->dupla), que sí reconoce "Ozores" como
+    // subconjunto de "Roberto carlos Ozores". No es un merge automático:
+    // sigue mostrándose como tarjeta "¿es la misma persona?" para que la
+    // dupla confirme o descarte.
+    const personasConNombrePropio = [];
     (personasPropias||[]).forEach(p => {
       const nombreCrudo = `${p.nombre||''} ${p.apellido||''}`.trim();
       if(esNombrePlaceholder(nombreCrudo)) return; // "Sin identificar"/"Nc"/etc. — ver esNombrePlaceholder()
-      const nom = normalizarNombreKobo(nombreCrudo);
-      if(nom) personasPorNombre.set(nom, p);
+      personasConNombrePropio.push({ p, nombreCrudo });
     });
 
     const porDni = new Map(); // dni -> envío más reciente (altas nuevas)
@@ -2807,8 +2832,9 @@ async function cargarKoboPendientes(){
       const subId = koboSubmissionId(p);
       if(!subId || idsYaValidados.has(subId) || koboContinuacionesDescartadas.has(subId)) return;
       const nombreCrudoEnvio = `${(p.persona&&p.persona.nombre)||''} ${(p.persona&&p.persona.apellido)||''}`.trim();
-      const nom = !esNombrePlaceholder(nombreCrudoEnvio) && normalizarNombreKobo(nombreCrudoEnvio);
-      const personaMatch = nom && personasPorNombre.get(nom);
+      const tieneNombreEnvio = !esNombrePlaceholder(nombreCrudoEnvio) && nombreCrudoEnvio;
+      const personaMatchEnt = tieneNombreEnvio && personasConNombrePropio.find(x => nombresCoincidenKobo(x.nombreCrudo, nombreCrudoEnvio));
+      const personaMatch = personaMatchEnt && personaMatchEnt.p;
       if(personaMatch){
         const previo = posiblesContinuaciones.get(subId);
         if(!previo || (p.fecha||'') > (previo.envio.fecha||'')) posiblesContinuaciones.set(subId, { persona:personaMatch, envio:p, subId });
@@ -3180,8 +3206,30 @@ function mostrarKoboPendientes(){
           // caso que ya se había arreglado para el prefill del alta, ver
           // _prefillDesdeKobo, pero nunca se arregló en esta tarjeta) —
           // la dupla no reconocía cuál caso era el que había cargado.
-          const nombrePila = (p.persona && (p.persona.nombre || p.persona.alias)) || '';
-          const titulo = nombrePila ? `${esc(nombrePila)} (sin apellido ni DNI)` : `${esc(p.tipo||'Intervención')} (sin nombre ni DNI)`;
+          // Bug real #2 (18/11/2026, reportado por Agustina: "el caso que
+          // subió Tomás Villavicencio sí tiene apellido, es Ozores, y en
+          // Releva figura que no tiene ni DNI y apellido") — el arreglo de
+          // arriba solo miraba `p.persona.nombre`, nunca `p.persona.
+          // apellido`: un envío con apellido pero SIN nombre de pila caía
+          // siempre al "sin nombre ni DNI" genérico, y la etiqueta
+          // "(sin apellido ni DNI)" se mostraba fija aunque el apellido
+          // SÍ estuviera. Ahora se arma el nombre completo con lo que haya
+          // (nombre y/o apellido) y la aclaración de qué falta se calcula,
+          // no se da por hecho.
+          const nombrePila = (p.persona && p.persona.nombre) || '';
+          const apellidoPila = (p.persona && p.persona.apellido) || '';
+          const aliasPila = (p.persona && p.persona.alias) || '';
+          const nombreCompleto = `${nombrePila} ${apellidoPila}`.trim() || aliasPila;
+          let titulo;
+          if(nombreCompleto){
+            const faltantes = [];
+            if(!nombrePila && !aliasPila) faltantes.push('nombre');
+            if(!apellidoPila && !aliasPila) faltantes.push('apellido');
+            faltantes.push('DNI');
+            titulo = `${esc(nombreCompleto)} (sin ${faltantes.join(' ni ')})`;
+          }else{
+            titulo = `${esc(p.tipo||'Intervención')} (sin nombre ni DNI)`;
+          }
           return `
           <div class="kobo-pend-card">
             <div class="kobo-pend-txt">
