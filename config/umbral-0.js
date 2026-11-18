@@ -128,6 +128,33 @@ const TERMINO_INTERVENCION_LABELS = {
   otro: 'Otro',
 };
 
+// Qué códigos de TERMINO_INTERVENCION_LABELS cuentan como "derivación"
+// para la meta de GOPA (18/11/2026, ver calcularOutcomesKobo() en
+// admin-duplas.html: "derivaciones = 30% de los primeros contactos").
+// Primera versión solo tomaba los 6 que arrancan con "derivacion_";
+// Agustina, mostrando la pregunta real de KoBo ("¿Cómo terminó la
+// intervención diaria?"), confirmó que TODAS las acciones de abajo
+// cuentan como derivación — quedan afuera únicamente "Diálogo con la
+// persona" (entrevista_persona) y "Otro" (otro), que no son una
+// derivación a ningún lado.
+const CODIGOS_DERIVACION_GOPA = [
+  'derivacion_ciudadania_portena',
+  'acompanamiento_afeccion_fisica',
+  'llamado_same_emergencia_medica',
+  'llamado_same_emergencia_sm',
+  'traslado_efector_neuropsiquiatrico',
+  'derivacion_adicciones_ambulatoria',
+  'acompanamiento_cesac',
+  'traslado_centro_barrial',
+  'traslado_dipa',
+  'derivacion_red',
+  'derivacion_apoyo_familias',
+  'hospital',
+  'derivacion_internacion_asa',
+  'derivacion_casa_vincular',
+  'policia',
+];
+
 // Qué hizo el operador con el caso, confirmado ACÁ en la plataforma (no
 // en KoBo) — pedido de Agustina (sept/2026): "yo no manejo el kobo,
 // manejo esta plataforma... el que hizo debe verse en el legajo". Es la
@@ -602,6 +629,7 @@ window.PROJECT_CONFIG_UMBRAL_0 = {
 // pueda armar etiquetas legibles al mostrar terminoIntervencionDiaria en el
 // reporte semanal, sin tener que duplicar el diccionario.
 window.PROJECT_CONFIG_UMBRAL_0.terminoIntervencionLabels = TERMINO_INTERVENCION_LABELS;
+window.PROJECT_CONFIG_UMBRAL_0.codigosDerivacionGopa = CODIGOS_DERIVACION_GOPA;
 // Idem — casos.html arma el checklist "¿Qué hiciste con este caso?" a
 // partir de accionesIntervencion (necesita key+label); admin-duplas.html
 // y reporte-publico.html solo necesitan las etiquetas para el reporte.
