@@ -663,6 +663,7 @@ let koboValidacionesActuales = {}; // kobo_submission_id -> fila de kobo_validac
 let koboPosiblesContinuacionesActuales = []; // envíos sin DNI que podrían ser un caso ya cargado (ver cargarKoboPendientes())
 const koboContinuacionesDescartadas = new Set(); // subIds que el operador ya dijo "no es ella" esta sesión
 let koboSinIdentificarActuales = []; // envíos sin DNI NI nombre matcheable — ver cargarKoboPendientes() y confirmarKoboSinIdentificar()
+let koboExistentesSinValidarActuales = []; // casos ya cargados con un envío de KoBo nuevo sin validar — ver cargarKoboPendientes()
 // subId del envío de KoBo que se está confirmando como "Sin identificar"
 // (23/9/2026, bug real reportado por varias duplas: "validé el caso y
 // sigue apareciendo" — confirmarKoboSinIdentificar()/guardarPersona()
@@ -2716,6 +2717,14 @@ async function cargarKoboPendientes(){
     // apenas distinta nunca matcheaban entre sí (texto comparado letra
     // por letra) y el caso volvía a aparecer como alta nueva para siempre.
     const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(d => d && !esDniPlaceholderDup(d)));
+    // persona ya cargada, por DNI — para el aviso de "ya tiene caso, pero
+    // este envío puntual todavía no se validó" (ver koboExistentesSinValidar
+    // más abajo).
+    const personaPorDniExistente = new Map();
+    (personasPropias||[]).forEach(p => {
+      const d = String(p.dni||'').trim();
+      if(d && !esDniPlaceholderDup(d)) personaPorDniExistente.set(d, p);
+    });
     const idsYaValidados = new Set((validacionesPropias||[]).map(v => v.kobo_submission_id));
 
     // "Validado pero sin intervención registrada" (pedido de Agustina,
@@ -2801,6 +2810,17 @@ async function cargarKoboPendientes(){
     const porDni = new Map(); // dni -> envío más reciente (altas nuevas)
     const posiblesContinuaciones = new Map(); // subId -> { persona, envio } (sin DNI, nombre matchea un caso propio)
     const sinIdentificar = new Map(); // subId -> envío (sin DNI Y sin nombre que matchee un caso propio — ver §10.1.14)
+    // persona_id -> { persona, envio, subId } (18/11/2026, pedido de
+    // Agustina: "el problema es que la dupla no va a saber que tiene que
+    // buscarlo [al caso ya cargado]... tiene que seguir apareciendo en
+    // casos para confirmar a diario" — caso real: Walter Leiva ya tenía
+    // ficha en la dupla A desde septiembre, y un envío nuevo de KoBo para
+    // él no mostraba ningún aviso acá, solo adentro de su ficha — la dupla
+    // nunca iba a pensar en ir a buscarlo si no sabía que había algo
+    // nuevo). Guarda el envío SIN VALIDAR más reciente por caso ya
+    // existente, para avisar con un link directo a la ficha en vez de
+    // duplicar el alta.
+    const existentesSinValidar = new Map();
     // Diagnóstico (1/10/2026, pedido de Agustina: "no aparecen pendientes...
     // entré con el usuario de la E y no hay nada", pero la dupla decía
     // haber cargado casos en KoBo ese mismo día) — si el nombre de un
@@ -2837,7 +2857,22 @@ async function cargarKoboPendientes(){
       if(p.poblacionObjetivo === 'no' || p.poblacionObjetivo === 'no_es') return;
       const dni = String((p.persona && p.persona.dni) || '').trim();
       if(dni && !esDniPlaceholderDup(dni)){
-        if(dnisExistentes.has(dni)) return; // ya es un caso cargado — cargarKoboDePersona() ya lo muestra en esa ficha
+        if(dnisExistentes.has(dni)){
+          // Ya es un caso cargado. Si este envío puntual ya se validó, no
+          // hace falta avisar de nuevo (cargarKoboDePersona() ya lo
+          // muestra en esa ficha); si NO se validó todavía, sigue
+          // apareciendo acá con un link directo a la ficha — ver el
+          // comentario de existentesSinValidar más arriba.
+          const subIdExistente = koboSubmissionId(p);
+          if(!subIdExistente || idsYaValidados.has(subIdExistente)) return;
+          const personaExistente = personaPorDniExistente.get(dni);
+          if(!personaExistente) return;
+          const previoExistente = existentesSinValidar.get(personaExistente.id);
+          if(!previoExistente || (p.fecha||'') > (previoExistente.envio.fecha||'')){
+            existentesSinValidar.set(personaExistente.id, { persona:personaExistente, envio:p, subId:subIdExistente });
+          }
+          return;
+        }
         const previo = porDni.get(dni);
         if(!previo || (p.fecha||'') > (previo.fecha||'')) porDni.set(dni, p);
         return;
@@ -2877,6 +2912,8 @@ async function cargarKoboPendientes(){
     koboPosiblesContinuacionesActuales = [...posiblesContinuaciones.values()]
       .sort((a,b) => (b.envio.fecha||'').localeCompare(a.envio.fecha||''));
     koboSinIdentificarActuales = [...sinIdentificar.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+    koboExistentesSinValidarActuales = [...existentesSinValidar.values()]
+      .sort((a,b) => (b.envio.fecha||'').localeCompare(a.envio.fecha||''));
     mostrarKoboPendientes();
     renderAccionesPendientes();
   }catch(e){
@@ -3165,9 +3202,10 @@ function mostrarKoboPendientes(){
   const hayAltas = koboPendientesActuales.length > 0;
   const hayContinuaciones = koboPosiblesContinuacionesActuales.length > 0;
   const haySinIdentificar = koboSinIdentificarActuales.length > 0;
+  const hayExistentesSinValidar = koboExistentesSinValidarActuales.length > 0;
   const hayValidadoSinIntervencion = koboValidadoSinIntervencionActuales.length > 0;
-  const totalParaConfirmar = koboPendientesActuales.length + koboPosiblesContinuacionesActuales.length + koboSinIdentificarActuales.length;
-  if(!hayAltas && !hayContinuaciones && !haySinIdentificar && !hayValidadoSinIntervencion){
+  const totalParaConfirmar = koboPendientesActuales.length + koboPosiblesContinuacionesActuales.length + koboSinIdentificarActuales.length + koboExistentesSinValidarActuales.length;
+  if(!hayAltas && !hayContinuaciones && !haySinIdentificar && !hayExistentesSinValidar && !hayValidadoSinIntervencion){
     box.style.display = 'none';
     return;
   }
@@ -3256,6 +3294,15 @@ function mostrarKoboPendientes(){
           </div>
         `;
         }).join('') : ''}
+        ${hayExistentesSinValidar ? koboExistentesSinValidarActuales.map(e => `
+          <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${e.persona.id}')">
+            <div class="kobo-pend-txt">
+              <strong>${esc(nombreDisplay(e.persona))}</strong> <span style="font-weight:normal;">(ya tiene caso cargado)</span>
+              <div class="meta">Nuevo envío de KoBo sin validar · ${e.envio.fecha ? new Date(e.envio.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(e.envio.operador||'—')}</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${e.persona.id}')">Ver ficha →</button>
+          </div>
+        `).join('') : ''}
         </details>
       </div>
     ` : ''}
