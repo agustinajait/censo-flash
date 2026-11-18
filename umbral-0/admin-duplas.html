@@ -2079,16 +2079,24 @@ let _duplasConIntegrantes = []; // última data de cargarDuplas() (incluye integ
 async function cargarDuplas(){
   const client = await SupabaseClient.getClient();
   const cont = document.getElementById('duplas-list');
-  const [{ data, error }, { data: jornadas, error: errJ }, { data: personasTodas, error: errP }] = await Promise.all([
+  // Ventana de "últimos 7 días" para "Entrevistas completas (checklist)"
+  // en cada tarjeta (18/11/2026, pedido de Agustina: "quiero verlo en
+  // cada dupla también" — no solo agregado en el reporte semanal, ver
+  // calcularEntrevistasCompletasChecklist()). Mismo criterio de "última
+  // semana" (rolling, no calendario) que ya se usa en casos-en-vivo.html.
+  const desdeSemana = hoyStr(-6), hastaSemana = hoyStr(0);
+  const [{ data, error }, { data: jornadas, error: errJ }, { data: personasTodas, error: errP }, koboOutcomesSemana] = await Promise.all([
     client.from('duplas').select('*, integrantes(*)')
       .order('turno', { ascending: true, nullsFirst: false })
       .order('codigo', { ascending: true }),
     client.from('jornadas').select('dupla_id, inicio, fin').eq('fecha', hoyStr(0)),
     // Total de casos por dupla (pedido de Agustina, 7/10/2026: "en el
-    // admin y en las duplas... cuántos casos hizo en total") — se trae
-    // solo dupla_id (liviano) y se cuenta acá mismo, en vez de 13
-    // consultas de count por separado.
-    client.from('personas').select('dupla_id').eq('oculto', false),
+    // admin y en las duplas... cuántos casos hizo en total") — antes solo
+    // traía dupla_id; ahora trae también lo que hace falta para el
+    // checklist de completitud (ver más abajo), sin pedir `personas` dos
+    // veces.
+    client.from('personas').select('id, nombre, apellido, dni, sin_identificar, fecha_nacimiento, dupla_id').eq('oculto', false),
+    calcularOutcomesKobo(desdeSemana, hastaSemana).catch(e => { console.error('No se pudo traer KoBo para "entrevistas completas" de las tarjetas', e); return null; }),
   ]);
   if(error){ cont.innerHTML = '<div class="empty-msg">Error cargando duplas: '+esc(error.message)+'</div>'; return; }
   if(!data || !data.length){ cont.innerHTML = '<div class="empty-msg">Todavía no hay duplas cargadas. Usá "+ Nueva dupla".</div>'; return; }
@@ -2097,6 +2105,11 @@ async function cargarDuplas(){
   if(!errJ) (jornadas||[]).forEach(j => { jornadaPorDupla[j.dupla_id] = j; });
   const totalCasosPorDupla = {};
   if(!errP) (personasTodas||[]).forEach(p => { totalCasosPorDupla[p.dupla_id] = (totalCasosPorDupla[p.dupla_id]||0) + 1; });
+  const codigoPorDuplaId = {};
+  data.forEach(d => { codigoPorDuplaId[d.id] = d.codigo; });
+  const completasPorDupla = (koboOutcomesSemana && !errP)
+    ? calcularEntrevistasCompletasChecklist(personasTodas||[], codigoPorDuplaId, desdeSemana, hastaSemana, koboOutcomesSemana).porDupla
+    : {};
   cont.innerHTML = '';
   // Marca dónde empieza cada turno (23/9/2026, pedido de Agustina: "marca
   // la división de turnos") — la lista ya viene ordenada por turno, pero
@@ -2108,7 +2121,7 @@ async function cargarDuplas(){
       turnoActual = turnoKey;
       cont.appendChild(renderTurnoDivider(turnoKey));
     }
-    cont.appendChild(renderDuplaCard(d, jornadaPorDupla[d.id], totalCasosPorDupla[d.id] || 0));
+    cont.appendChild(renderDuplaCard(d, jornadaPorDupla[d.id], totalCasosPorDupla[d.id] || 0, koboOutcomesSemana ? (completasPorDupla[d.codigo] || 0) : null));
   });
 }
 
@@ -2164,7 +2177,7 @@ function miniMapaHtml(codigo){
 // desplegable") — el resumen de arriba (`data-role="resumen"`) muestra
 // turno/horario, zona, si marcó jornada hoy e integrantes; el formulario
 // completo de abajo (`data-role="body"`) se abre al tocarlo.
-function renderDuplaCard(d, jornada, totalCasos){
+function renderDuplaCard(d, jornada, totalCasos, entrevistasCompletasSemana){
   const card = document.createElement('div');
   card.className = 'card';
   card.id = 'dupla-card-' + d.id;
@@ -2198,6 +2211,7 @@ function renderDuplaCard(d, jornada, totalCasos){
         </div>
         <div class="dupla-resumen-sub">${esc(turnoResumen)} · ${esc(d.zona || 'sin zona')} · 📊 ${totalCasos||0} caso${totalCasos===1?'':'s'} en total</div>
         <div class="dupla-resumen-integrantes">👤 ${esc(integrantesTxt)}</div>
+        ${entrevistasCompletasSemana!=null ? `<div class="dupla-resumen-integrantes"${entrevistasCompletasSemana>=5?' style="color:#16a34a;font-weight:700;"':''}>🎯 ${entrevistasCompletasSemana}/5 entrevistas completas (checklist, últimos 7 días)</div>` : ''}
       </div>
       ${miniMapaHtml(d.codigo)}
       <span class="chev">▾</span>
