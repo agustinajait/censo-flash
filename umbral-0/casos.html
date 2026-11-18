@@ -3297,10 +3297,10 @@ function mostrarKoboPendientes(){
         ${hayExistentesSinValidar ? koboExistentesSinValidarActuales.map(e => `
           <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${e.persona.id}')">
             <div class="kobo-pend-txt">
-              <strong>${esc(nombreDisplay(e.persona))}</strong> <span style="font-weight:normal;">(ya tiene caso cargado)</span>
-              <div class="meta">Nuevo envío de KoBo sin validar · ${e.envio.fecha ? new Date(e.envio.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(e.envio.operador||'—')}</div>
+              <strong>${esc(nombreDisplay(e.persona))}</strong> <span style="font-weight:normal;">(caso ya cargado)</span>
+              <div class="meta">Hay un envío nuevo de KoBo sin validar todavía · ${e.envio.fecha ? new Date(e.envio.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(e.envio.operador||'—')}</div>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${e.persona.id}')">Ver ficha →</button>
+            <button class="btn btn-green btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${e.persona.id}')">✅ Revisar y validar →</button>
           </div>
         `).join('') : ''}
         </details>
