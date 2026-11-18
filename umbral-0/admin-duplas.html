@@ -3696,13 +3696,16 @@ async function calcularOutcomesKobo(desde, hasta){
   // completando con envíos de fechas distintas, y el cruce es por DNI de
   // la PERSONA ayudada, no del operador.
   const envioPorDni = {};
-  // Metas de gobierno (18/11/2026, pedido de Agustina: "estas son las
-  // metas que evalúan gobierno todos los jueves" — ver
-  // calcularMetasGopa() más abajo). "Primer contacto" = tipo_intervencion
-  // 'primer_acercamiento' (ver esPrimerContactoKobo en casos.html);
-  // "derivación" = cualquier código de termino_intervencion_diaria que
-  // empiece con "derivacion_" (ver TERMINO_INTERVENCION_LABELS en
-  // config/umbral-0.js — son 6 de los 17 códigos posibles).
+  // Metas de GOPA (18/11/2026, pedido de Agustina: "estas son las metas
+  // que evalúan gobierno todos los jueves" — ver calcularMetasGopa() más
+  // abajo). "Primer contacto" = tipo_intervencion 'primer_acercamiento'
+  // (ver esPrimerContactoKobo en casos.html); "derivación" = cualquier
+  // código de termino_intervencion_diaria que esté en
+  // CODIGOS_DERIVACION_GOPA (config/umbral-0.js) — primera versión solo
+  // tomaba los 6 códigos "derivacion_*"; Agustina, mostrando la pregunta
+  // real de KoBo, confirmó que TODAS las acciones de esa pregunta cuentan
+  // como derivación salvo "Diálogo con la persona" y "Otro" (15 de 17).
+  const codigosDerivacion = new Set(project.codigosDerivacionGopa || []);
   let primerosContactos = 0, primerosContactosConDerivacion = 0;
   const primerosContactosPorDupla = {}, primerosContactosConDerivacionPorDupla = {};
   // Clasificación geográfica de cada envío contra el polígono asignado a
@@ -3744,7 +3747,7 @@ async function calcularOutcomesKobo(desde, hasta){
     if(p.tipo === 'primer_acercamiento'){
       primerosContactos++;
       primerosContactosPorDupla[codigoDupla] = (primerosContactosPorDupla[codigoDupla] || 0) + 1;
-      if((p.terminoIntervencionDiaria||[]).some(c => /^derivacion_/.test(c))){
+      if((p.terminoIntervencionDiaria||[]).some(c => codigosDerivacion.has(c))){
         primerosContactosConDerivacion++;
         primerosContactosConDerivacionPorDupla[codigoDupla] = (primerosContactosConDerivacionPorDupla[codigoDupla] || 0) + 1;
       }
