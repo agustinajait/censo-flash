@@ -1358,6 +1358,22 @@ function normalizarNombreKobo(s){
 // ayer que no lo estamos viendo en la plataforma, y está en KoBo".
 // Confirmado: 8 de los integrantes activos tienen nombre compuesto, todos
 // con el mismo riesgo.
+// operadorCoincideConIntegrante() definida ACÁ y no solo en
+// config/umbral-0.js (18/11/2026): si el navegador tenía cacheado el config
+// viejo, la página nueva tiraba "operadorCoincideConIntegrante is not
+// defined". Con el config viejo `operadorDni` no viene y cae al nombre.
+function normDniOperadorLocal(v){
+  const d = String(v||'').replace(/\D/g, '');
+  return (d.length >= 7 && d.length <= 9 && !/^(\d)\1+$/.test(d)) ? d : null;
+}
+function operadorCoincideConIntegrante(integ, envio){
+  if(!integ || !envio) return false;
+  const dk = normDniOperadorLocal(envio.operadorDni), di = normDniOperadorLocal(integ.dni);
+  if(dk && di && dk === di) return true;
+  const nombre = integ.apellido !== undefined ? `${integ.nombre||''} ${integ.apellido||''}` : (integ.nombre||'');
+  return nombresCoincidenKobo(nombre, envio.operador);
+}
+
 function nombresCoincidenKobo(a, b){
   const ta = normalizarNombreKobo(a).split(' ').filter(Boolean);
   const tb = normalizarNombreKobo(b).split(' ').filter(Boolean);

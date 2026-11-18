@@ -451,7 +451,7 @@ function parseUmbral0(row){
 // is not defined" en casos.html) — este archivo es un IIFE, así que sus
 // funciones NO son globales salvo que se cuelguen de window explícitamente
 // (mismo problema que TIPO_INTERVENCION_LABELS, ver casos.html).
-window.operadorCoincideConIntegrante = operadorCoincideConIntegrante;
+if(typeof window.operadorCoincideConIntegrante !== 'function') window.operadorCoincideConIntegrante = operadorCoincideConIntegrante;
 
 window.PROJECT_CONFIG_UMBRAL_0 = {
   id: 'umbral-0',
