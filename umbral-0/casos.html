@@ -3559,6 +3559,20 @@ function _koboValorPresente(v){
 function _koboAlgunoRespondio(personasKobo, campo){
   return personasKobo.some(p => _koboValorPresente(p[campo]));
 }
+// DNI como identificador del cruce KoBo ↔ caso (17/11/2026, pedido de
+// Agustina: "que el identificador sea DNI") — mismo criterio que
+// dniCruceKobo() en casos-en-vivo.html. Caso real: Rocío (dupla G) carga
+// su apellido en KoBo a veces como Zabala y a veces como Puebla, el
+// matching por nombre de operador no reconocía el envío como de su
+// dupla, nunca se asociaba y Ángel Roberto Aquino (DNI 38678276)
+// figuraba con todo faltante teniendo la entrevista completa en KoBo.
+// Solo DNIs "reales" (7 a 9 dígitos, no 99999999 ni 00000000).
+function dniCruceKobo(valor){
+  const d = String(valor||'').replace(/\D/g, '');
+  if(d.length < 7 || d.length > 9) return null;
+  if(/^(\d)\1+$/.test(d)) return null;
+  return d;
+}
 // `ficha` (17/11/2026): la rama "Seguimiento" del formulario de KoBo no
 // pregunta fecha de nacimiento (ver parseUmbral0()) — si la ficha del caso
 // en Releva ya la tiene, el ítem "Fecha de nacimiento o edad" cuenta.
@@ -4010,7 +4024,7 @@ const Casos = {
       // la pantalla; "Casos por resolver" simplemente va a mostrar todo
       // como faltante hasta que se pueda reintentar.
       _miActividadKoboPorPersonaId = {};
-      if(!validacionesRes.error && (validacionesRes.data||[]).length){
+      {
         try{
           const project = window.PROJECT_CONFIG;
           const form = project && project.kobo && (project.kobo.forms||[])[0];
@@ -4021,11 +4035,44 @@ const Casos = {
               const subId = koboSubmissionId(p);
               if(subId) personaKoboPorSubmission[subId] = p.persona;
             });
-            validacionesRes.data.forEach(v => {
+            const subIdsPorPersona = {};
+            (validacionesRes.data||[]).forEach(v => {
               const personaKobo = personaKoboPorSubmission[v.kobo_submission_id];
               if(!personaKobo) return;
               if(!_miActividadKoboPorPersonaId[v.persona_id]) _miActividadKoboPorPersonaId[v.persona_id] = [];
               _miActividadKoboPorPersonaId[v.persona_id].push(personaKobo);
+              (subIdsPorPersona[v.persona_id] = subIdsPorPersona[v.persona_id] || new Set()).add(String(v.kobo_submission_id));
+            });
+            // Restaurado (18/11/2026): el commit "Vincula cada envío de
+            // KoBo a su dupla por el DNI del operador" (5eda02a) había
+            // sacado este cruce por DNI de la PERSONA pensando que el
+            // matching de operador por DNI lo reemplazaba — son cosas
+            // distintas (uno identifica qué dupla cargó el envío, el otro
+            // identifica a qué CASO corresponde) y sin esto "Por resolver"
+            // volvió a depender solo de la asociación manual
+            // (kobo_validaciones), que casi nadie usa — bug confirmado el
+            // 18/11 por Agustina: TODOS los casos de TODAS las duplas
+            // aparecían con el checklist entero faltante en
+            // casos-en-vivo.html, incluso casos con la entrevista completa
+            // en KoBo (ej. Ángel Roberto Aquino, dupla G). Un envío cuenta
+            // para un caso si el DNI de la persona en KoBo es el mismo que
+            // el DNI del caso, sin importar quién lo cargó. Solo DNIs
+            // "reales" (7 a 9 dígitos, no 99999999 ni 00000000).
+            const envioPorDni = {};
+            koboRowsParseadas.forEach(p => {
+              const subId = koboSubmissionId(p);
+              const dni = dniCruceKobo(p.persona && p.persona.dni);
+              if(subId && dni) (envioPorDni[dni] = envioPorDni[dni] || []).push({ subId, persona: p.persona });
+            });
+            Object.values(personaPorId).forEach(per => {
+              const dni = dniCruceKobo(per.dni);
+              if(!dni || !envioPorDni[dni]) return;
+              const ya = subIdsPorPersona[per.id] = subIdsPorPersona[per.id] || new Set();
+              envioPorDni[dni].forEach(e => {
+                if(ya.has(e.subId)) return;
+                ya.add(e.subId);
+                (_miActividadKoboPorPersonaId[per.id] = _miActividadKoboPorPersonaId[per.id] || []).push(e.persona);
+              });
             });
           }
         }catch(e){
