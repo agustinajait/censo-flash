@@ -663,6 +663,7 @@ let koboValidacionesActuales = {}; // kobo_submission_id -> fila de kobo_validac
 let koboPosiblesContinuacionesActuales = []; // envíos sin DNI que podrían ser un caso ya cargado (ver cargarKoboPendientes())
 const koboContinuacionesDescartadas = new Set(); // subIds que el operador ya dijo "no es ella" esta sesión
 let koboSinIdentificarActuales = []; // envíos sin DNI NI nombre matcheable — ver cargarKoboPendientes() y confirmarKoboSinIdentificar()
+let koboExistentesSinValidarActuales = []; // casos ya cargados con un envío de KoBo nuevo sin validar — ver cargarKoboPendientes()
 // subId del envío de KoBo que se está confirmando como "Sin identificar"
 // (23/9/2026, bug real reportado por varias duplas: "validé el caso y
 // sigue apareciendo" — confirmarKoboSinIdentificar()/guardarPersona()
@@ -2553,18 +2554,31 @@ async function fetchKoboProxyAll(project, assetId){
 }
 
 // Todos los envíos de KoBo (de cualquier dupla), ya parseados — en caché
-// para el resto de la sesión: lo usa tanto "KoBo pendientes" (altas nuevas)
-// como cargarKoboDePersona() (ficha de un caso ya cargado), y sin esto cada
-// ficha que se abre repetiría el mismo pedido de ~3000 filas. Si falla, NO
-// se cachea el error — el próximo que lo pida vuelve a intentar.
+// con un TTL corto (no para siempre): lo usa tanto "KoBo pendientes" (altas
+// nuevas) como cargarKoboDePersona() (ficha de un caso ya cargado), y sin
+// esto cada ficha que se abre repetiría el mismo pedido de ~3000 filas.
+// ANTES esta caché no vencía nunca durante la sesión — bug reportado por
+// Agustina el 18/11: un envío nuevo de KoBo ("Walter Leiva") cargado por
+// una dupla que ya tenía la app abierta no aparecía como pendiente hasta
+// recargar la página entera. Con el TTL, a los pocos minutos se vuelve a
+// pedir a KoBo sin necesidad de un reload. Si el pedido falla, NO se
+// cachea el error — el próximo que lo pida vuelve a intentar.
 let _koboRowsParseadasCache = null;
+let _koboRowsParseadasCacheHora = 0;
 let _koboRowsParseadasPromise = null;
+const KOBO_ROWS_CACHE_TTL_MS = 3 * 60 * 1000;
 function obtenerKoboRowsParseadas(project, form){
-  if(_koboRowsParseadasCache) return Promise.resolve(_koboRowsParseadasCache);
+  const cacheVencida = !_koboRowsParseadasCacheHora || (Date.now() - _koboRowsParseadasCacheHora) > KOBO_ROWS_CACHE_TTL_MS;
+  if(_koboRowsParseadasCache && !cacheVencida) return Promise.resolve(_koboRowsParseadasCache);
   if(!_koboRowsParseadasPromise){
     _koboRowsParseadasPromise = fetchKoboProxyAll(project, form.id)
       .then(rows => rows.map(r => form.parseRow(r)).filter(Boolean))
-      .then(parsed => { _koboRowsParseadasCache = parsed; return parsed; })
+      .then(parsed => {
+        _koboRowsParseadasCache = parsed;
+        _koboRowsParseadasCacheHora = Date.now();
+        _koboRowsParseadasPromise = null;
+        return parsed;
+      })
       .catch(e => { _koboRowsParseadasPromise = null; throw e; });
   }
   return _koboRowsParseadasPromise;
@@ -2703,6 +2717,14 @@ async function cargarKoboPendientes(){
     // apenas distinta nunca matcheaban entre sí (texto comparado letra
     // por letra) y el caso volvía a aparecer como alta nueva para siempre.
     const dnisExistentes = new Set((personasPropias||[]).map(p => String(p.dni||'').trim()).filter(d => d && !esDniPlaceholderDup(d)));
+    // persona ya cargada, por DNI — para el aviso de "ya tiene caso, pero
+    // este envío puntual todavía no se validó" (ver koboExistentesSinValidar
+    // más abajo).
+    const personaPorDniExistente = new Map();
+    (personasPropias||[]).forEach(p => {
+      const d = String(p.dni||'').trim();
+      if(d && !esDniPlaceholderDup(d)) personaPorDniExistente.set(d, p);
+    });
     const idsYaValidados = new Set((validacionesPropias||[]).map(v => v.kobo_submission_id));
 
     // "Validado pero sin intervención registrada" (pedido de Agustina,
@@ -2765,17 +2787,40 @@ async function cargarKoboPendientes(){
     // ficha "Miguel Angel" DUPLICADA en vez de sugerir la continuación de
     // la que ya había. Ahora solo se excluye a quien de verdad no tiene
     // ningún nombre cargado (nom vacío) — sea sin_identificar o no.
-    const personasPorNombre = new Map();
+    // Antes era un Map nombre_normalizado_completo -> persona, con lookup
+    // exacto. Bug real (18/11/2026, caso "Ozores" reportado por Agustina):
+    // un envío de KoBo con SOLO el apellido (sin nombre de pila en ESE
+    // envío puntual — pasa con el bloque de seguimiento, que pide nombre y
+    // apellido en campos separados) nunca matcheaba contra "Roberto carlos
+    // Ozores" por match exacto de string, aunque el apellido fuera el
+    // mismo — el envío caía a "sin identificar" en vez de sugerirse como
+    // posible continuación. Ahora se compara con nombresCoincidenKobo()
+    // (el mismo criterio de subconjunto de tokens que ya se usa para
+    // matchear operador->dupla), que sí reconoce "Ozores" como
+    // subconjunto de "Roberto carlos Ozores". No es un merge automático:
+    // sigue mostrándose como tarjeta "¿es la misma persona?" para que la
+    // dupla confirme o descarte.
+    const personasConNombrePropio = [];
     (personasPropias||[]).forEach(p => {
       const nombreCrudo = `${p.nombre||''} ${p.apellido||''}`.trim();
       if(esNombrePlaceholder(nombreCrudo)) return; // "Sin identificar"/"Nc"/etc. — ver esNombrePlaceholder()
-      const nom = normalizarNombreKobo(nombreCrudo);
-      if(nom) personasPorNombre.set(nom, p);
+      personasConNombrePropio.push({ p, nombreCrudo });
     });
 
     const porDni = new Map(); // dni -> envío más reciente (altas nuevas)
     const posiblesContinuaciones = new Map(); // subId -> { persona, envio } (sin DNI, nombre matchea un caso propio)
     const sinIdentificar = new Map(); // subId -> envío (sin DNI Y sin nombre que matchee un caso propio — ver §10.1.14)
+    // persona_id -> { persona, envio, subId } (18/11/2026, pedido de
+    // Agustina: "el problema es que la dupla no va a saber que tiene que
+    // buscarlo [al caso ya cargado]... tiene que seguir apareciendo en
+    // casos para confirmar a diario" — caso real: Walter Leiva ya tenía
+    // ficha en la dupla A desde septiembre, y un envío nuevo de KoBo para
+    // él no mostraba ningún aviso acá, solo adentro de su ficha — la dupla
+    // nunca iba a pensar en ir a buscarlo si no sabía que había algo
+    // nuevo). Guarda el envío SIN VALIDAR más reciente por caso ya
+    // existente, para avisar con un link directo a la ficha en vez de
+    // duplicar el alta.
+    const existentesSinValidar = new Map();
     // Diagnóstico (1/10/2026, pedido de Agustina: "no aparecen pendientes...
     // entré con el usuario de la E y no hay nada", pero la dupla decía
     // haber cargado casos en KoBo ese mismo día) — si el nombre de un
@@ -2812,7 +2857,22 @@ async function cargarKoboPendientes(){
       if(p.poblacionObjetivo === 'no' || p.poblacionObjetivo === 'no_es') return;
       const dni = String((p.persona && p.persona.dni) || '').trim();
       if(dni && !esDniPlaceholderDup(dni)){
-        if(dnisExistentes.has(dni)) return; // ya es un caso cargado — cargarKoboDePersona() ya lo muestra en esa ficha
+        if(dnisExistentes.has(dni)){
+          // Ya es un caso cargado. Si este envío puntual ya se validó, no
+          // hace falta avisar de nuevo (cargarKoboDePersona() ya lo
+          // muestra en esa ficha); si NO se validó todavía, sigue
+          // apareciendo acá con un link directo a la ficha — ver el
+          // comentario de existentesSinValidar más arriba.
+          const subIdExistente = koboSubmissionId(p);
+          if(!subIdExistente || idsYaValidados.has(subIdExistente)) return;
+          const personaExistente = personaPorDniExistente.get(dni);
+          if(!personaExistente) return;
+          const previoExistente = existentesSinValidar.get(personaExistente.id);
+          if(!previoExistente || (p.fecha||'') > (previoExistente.envio.fecha||'')){
+            existentesSinValidar.set(personaExistente.id, { persona:personaExistente, envio:p, subId:subIdExistente });
+          }
+          return;
+        }
         const previo = porDni.get(dni);
         if(!previo || (p.fecha||'') > (previo.fecha||'')) porDni.set(dni, p);
         return;
@@ -2824,8 +2884,9 @@ async function cargarKoboPendientes(){
       const subId = koboSubmissionId(p);
       if(!subId || idsYaValidados.has(subId) || koboContinuacionesDescartadas.has(subId)) return;
       const nombreCrudoEnvio = `${(p.persona&&p.persona.nombre)||''} ${(p.persona&&p.persona.apellido)||''}`.trim();
-      const nom = !esNombrePlaceholder(nombreCrudoEnvio) && normalizarNombreKobo(nombreCrudoEnvio);
-      const personaMatch = nom && personasPorNombre.get(nom);
+      const tieneNombreEnvio = !esNombrePlaceholder(nombreCrudoEnvio) && nombreCrudoEnvio;
+      const personaMatchEnt = tieneNombreEnvio && personasConNombrePropio.find(x => nombresCoincidenKobo(x.nombreCrudo, nombreCrudoEnvio));
+      const personaMatch = personaMatchEnt && personaMatchEnt.p;
       if(personaMatch){
         const previo = posiblesContinuaciones.get(subId);
         if(!previo || (p.fecha||'') > (previo.envio.fecha||'')) posiblesContinuaciones.set(subId, { persona:personaMatch, envio:p, subId });
@@ -2842,16 +2903,17 @@ async function cargarKoboPendientes(){
       sinIdentificar.set(subId, p);
     });
 
-    // Orden ascendente (más viejo primero) — pedido de Agustina (16/10/2026):
-    // la dupla los procesa en el mismo orden en que fue encontrando a cada
-    // persona durante la jornada, no al revés. Ojo: NO es el mismo criterio
-    // que "casos en seguimiento en tu zona" (mostrarCasosPaseTurno, más
-    // abajo), que a propósito muestra los más recientes primero — ver
-    // pedido de Agustina del 15/10/2026 para esa otra sección.
-    koboPendientesActuales = [...porDni.values()].sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+    // Orden descendente (más cercano a hoy primero, el más viejo al final)
+    // — pedido de Agustina (18/11/2026), reemplaza el orden ascendente que
+    // pedía antes (16/10/2026): ahora lo primero que ve la dupla es lo más
+    // reciente. Mismo criterio que "casos en seguimiento en tu zona"
+    // (mostrarCasosPaseTurno, más abajo).
+    koboPendientesActuales = [...porDni.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
     koboPosiblesContinuacionesActuales = [...posiblesContinuaciones.values()]
-      .sort((a,b) => (a.envio.fecha||'').localeCompare(b.envio.fecha||''));
-    koboSinIdentificarActuales = [...sinIdentificar.values()].sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+      .sort((a,b) => (b.envio.fecha||'').localeCompare(a.envio.fecha||''));
+    koboSinIdentificarActuales = [...sinIdentificar.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+    koboExistentesSinValidarActuales = [...existentesSinValidar.values()]
+      .sort((a,b) => (b.envio.fecha||'').localeCompare(a.envio.fecha||''));
     mostrarKoboPendientes();
     renderAccionesPendientes();
   }catch(e){
@@ -3140,9 +3202,10 @@ function mostrarKoboPendientes(){
   const hayAltas = koboPendientesActuales.length > 0;
   const hayContinuaciones = koboPosiblesContinuacionesActuales.length > 0;
   const haySinIdentificar = koboSinIdentificarActuales.length > 0;
+  const hayExistentesSinValidar = koboExistentesSinValidarActuales.length > 0;
   const hayValidadoSinIntervencion = koboValidadoSinIntervencionActuales.length > 0;
-  const totalParaConfirmar = koboPendientesActuales.length + koboPosiblesContinuacionesActuales.length + koboSinIdentificarActuales.length;
-  if(!hayAltas && !hayContinuaciones && !haySinIdentificar && !hayValidadoSinIntervencion){
+  const totalParaConfirmar = koboPendientesActuales.length + koboPosiblesContinuacionesActuales.length + koboSinIdentificarActuales.length + koboExistentesSinValidarActuales.length;
+  if(!hayAltas && !hayContinuaciones && !haySinIdentificar && !hayExistentesSinValidar && !hayValidadoSinIntervencion){
     box.style.display = 'none';
     return;
   }
@@ -3197,8 +3260,30 @@ function mostrarKoboPendientes(){
           // caso que ya se había arreglado para el prefill del alta, ver
           // _prefillDesdeKobo, pero nunca se arregló en esta tarjeta) —
           // la dupla no reconocía cuál caso era el que había cargado.
-          const nombrePila = (p.persona && (p.persona.nombre || p.persona.alias)) || '';
-          const titulo = nombrePila ? `${esc(nombrePila)} (sin apellido ni DNI)` : `${esc(p.tipo||'Intervención')} (sin nombre ni DNI)`;
+          // Bug real #2 (18/11/2026, reportado por Agustina: "el caso que
+          // subió Tomás Villavicencio sí tiene apellido, es Ozores, y en
+          // Releva figura que no tiene ni DNI y apellido") — el arreglo de
+          // arriba solo miraba `p.persona.nombre`, nunca `p.persona.
+          // apellido`: un envío con apellido pero SIN nombre de pila caía
+          // siempre al "sin nombre ni DNI" genérico, y la etiqueta
+          // "(sin apellido ni DNI)" se mostraba fija aunque el apellido
+          // SÍ estuviera. Ahora se arma el nombre completo con lo que haya
+          // (nombre y/o apellido) y la aclaración de qué falta se calcula,
+          // no se da por hecho.
+          const nombrePila = (p.persona && p.persona.nombre) || '';
+          const apellidoPila = (p.persona && p.persona.apellido) || '';
+          const aliasPila = (p.persona && p.persona.alias) || '';
+          const nombreCompleto = `${nombrePila} ${apellidoPila}`.trim() || aliasPila;
+          let titulo;
+          if(nombreCompleto){
+            const faltantes = [];
+            if(!nombrePila && !aliasPila) faltantes.push('nombre');
+            if(!apellidoPila && !aliasPila) faltantes.push('apellido');
+            faltantes.push('DNI');
+            titulo = `${esc(nombreCompleto)} (sin ${faltantes.join(' ni ')})`;
+          }else{
+            titulo = `${esc(p.tipo||'Intervención')} (sin nombre ni DNI)`;
+          }
           return `
           <div class="kobo-pend-card">
             <div class="kobo-pend-txt">
@@ -3209,6 +3294,15 @@ function mostrarKoboPendientes(){
           </div>
         `;
         }).join('') : ''}
+        ${hayExistentesSinValidar ? koboExistentesSinValidarActuales.map(e => `
+          <div class="kobo-pend-card" style="cursor:pointer;" onclick="Casos.abrirFicha('${e.persona.id}')">
+            <div class="kobo-pend-txt">
+              <strong>${esc(nombreDisplay(e.persona))}</strong> <span style="font-weight:normal;">(ya tiene caso cargado)</span>
+              <div class="meta">Nuevo envío de KoBo sin validar · ${e.envio.fecha ? new Date(e.envio.fecha).toLocaleDateString('es-AR') : ''} · cargado por ${esc(e.envio.operador||'—')}</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); Casos.abrirFicha('${e.persona.id}')">Ver ficha →</button>
+          </div>
+        `).join('') : ''}
         </details>
       </div>
     ` : ''}
@@ -3510,6 +3604,20 @@ function _koboValorPresente(v){
 }
 function _koboAlgunoRespondio(personasKobo, campo){
   return personasKobo.some(p => _koboValorPresente(p[campo]));
+}
+// DNI como identificador del cruce KoBo ↔ caso (17/11/2026, pedido de
+// Agustina: "que el identificador sea DNI") — mismo criterio que
+// dniCruceKobo() en casos-en-vivo.html. Caso real: Rocío (dupla G) carga
+// su apellido en KoBo a veces como Zabala y a veces como Puebla, el
+// matching por nombre de operador no reconocía el envío como de su
+// dupla, nunca se asociaba y Ángel Roberto Aquino (DNI 38678276)
+// figuraba con todo faltante teniendo la entrevista completa en KoBo.
+// Solo DNIs "reales" (7 a 9 dígitos, no 99999999 ni 00000000).
+function dniCruceKobo(valor){
+  const d = String(valor||'').replace(/\D/g, '');
+  if(d.length < 7 || d.length > 9) return null;
+  if(/^(\d)\1+$/.test(d)) return null;
+  return d;
 }
 // `ficha` (17/11/2026): la rama "Seguimiento" del formulario de KoBo no
 // pregunta fecha de nacimiento (ver parseUmbral0()) — si la ficha del caso
@@ -3962,7 +4070,7 @@ const Casos = {
       // la pantalla; "Casos por resolver" simplemente va a mostrar todo
       // como faltante hasta que se pueda reintentar.
       _miActividadKoboPorPersonaId = {};
-      if(!validacionesRes.error && (validacionesRes.data||[]).length){
+      {
         try{
           const project = window.PROJECT_CONFIG;
           const form = project && project.kobo && (project.kobo.forms||[])[0];
@@ -3973,11 +4081,44 @@ const Casos = {
               const subId = koboSubmissionId(p);
               if(subId) personaKoboPorSubmission[subId] = p.persona;
             });
-            validacionesRes.data.forEach(v => {
+            const subIdsPorPersona = {};
+            (validacionesRes.data||[]).forEach(v => {
               const personaKobo = personaKoboPorSubmission[v.kobo_submission_id];
               if(!personaKobo) return;
               if(!_miActividadKoboPorPersonaId[v.persona_id]) _miActividadKoboPorPersonaId[v.persona_id] = [];
               _miActividadKoboPorPersonaId[v.persona_id].push(personaKobo);
+              (subIdsPorPersona[v.persona_id] = subIdsPorPersona[v.persona_id] || new Set()).add(String(v.kobo_submission_id));
+            });
+            // Restaurado (18/11/2026): el commit "Vincula cada envío de
+            // KoBo a su dupla por el DNI del operador" (5eda02a) había
+            // sacado este cruce por DNI de la PERSONA pensando que el
+            // matching de operador por DNI lo reemplazaba — son cosas
+            // distintas (uno identifica qué dupla cargó el envío, el otro
+            // identifica a qué CASO corresponde) y sin esto "Por resolver"
+            // volvió a depender solo de la asociación manual
+            // (kobo_validaciones), que casi nadie usa — bug confirmado el
+            // 18/11 por Agustina: TODOS los casos de TODAS las duplas
+            // aparecían con el checklist entero faltante en
+            // casos-en-vivo.html, incluso casos con la entrevista completa
+            // en KoBo (ej. Ángel Roberto Aquino, dupla G). Un envío cuenta
+            // para un caso si el DNI de la persona en KoBo es el mismo que
+            // el DNI del caso, sin importar quién lo cargó. Solo DNIs
+            // "reales" (7 a 9 dígitos, no 99999999 ni 00000000).
+            const envioPorDni = {};
+            koboRowsParseadas.forEach(p => {
+              const subId = koboSubmissionId(p);
+              const dni = dniCruceKobo(p.persona && p.persona.dni);
+              if(subId && dni) (envioPorDni[dni] = envioPorDni[dni] || []).push({ subId, persona: p.persona });
+            });
+            Object.values(personaPorId).forEach(per => {
+              const dni = dniCruceKobo(per.dni);
+              if(!dni || !envioPorDni[dni]) return;
+              const ya = subIdsPorPersona[per.id] = subIdsPorPersona[per.id] || new Set();
+              envioPorDni[dni].forEach(e => {
+                if(ya.has(e.subId)) return;
+                ya.add(e.subId);
+                (_miActividadKoboPorPersonaId[per.id] = _miActividadKoboPorPersonaId[per.id] || []).push(e.persona);
+              });
             });
           }
         }catch(e){
