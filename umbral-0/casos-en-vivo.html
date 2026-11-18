@@ -160,7 +160,7 @@
   </div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-12"></script>
+<script src="../config/umbral-0.js?v=2026-11-18"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
@@ -217,7 +217,10 @@ function _koboValorPresente(v){
 function _koboAlgunoRespondio(personasKobo, campo){
   return personasKobo.some(p => _koboValorPresente(p[campo]));
 }
-function itemsChecklistKobo(personasKobo, sinIdentificar){
+// `ficha` (17/11/2026): la rama "Seguimiento" del formulario de KoBo no
+// pregunta fecha de nacimiento (ver parseUmbral0()) — si la ficha del caso
+// en Releva ya la tiene, el ítem "Fecha de nacimiento o edad" cuenta.
+function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   const r = campo => _koboAlgunoRespondio(personasKobo, campo);
   // "Situación habitacional" NO incluye `lugarHabitual` (16/11/2026,
   // mismo fix que itemsChecklistKobo() en casos.html — lugar_habitual es
@@ -235,7 +238,7 @@ function itemsChecklistKobo(personasKobo, sinIdentificar){
   return [
     { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
     { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
-    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') },
+    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') || !!(ficha && ficha.fecha_nacimiento) },
     { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
     { label:'Situación económica', ok: economicaOk },
     { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
@@ -260,7 +263,7 @@ function esCasoPorResolver(items, actividadPlataforma){
 // sola vez por cargarKoboParaChecklist() — acá solo se arma el checklist y
 // se filtra, sin volver a tocar la red.
 function faltantesChecklist(p, koboPorPersonaId){
-  const items = itemsChecklistKobo((koboPorPersonaId && koboPorPersonaId[p.id]) || [], p.sin_identificar);
+  const items = itemsChecklistKobo((koboPorPersonaId && koboPorPersonaId[p.id]) || [], p.sin_identificar, p);
   return esCasoPorResolver(items, (p.historial||[]).length) ? items.filter(i => i.ok === false).map(i => i.label) : [];
 }
 

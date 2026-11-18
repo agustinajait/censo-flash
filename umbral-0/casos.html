@@ -621,7 +621,7 @@
   <div class="modal-box" id="modal-box"></div>
 </div>
 
-<script src="../config/umbral-0.js?v=2026-10-26b"></script>
+<script src="../config/umbral-0.js?v=2026-11-18"></script>
 <script>window.PROJECT_CONFIG = window.PROJECT_CONFIG_UMBRAL_0;</script>
 <script src="../shared/js/supabase-client.js"></script>
 <script>
@@ -2514,6 +2514,22 @@ function coincidenciaBusquedaPersona(p, q){
 function esTokenRellenoOperadorKobo(t){
   return t.length === 1 || /^[a-z]{0,3}\d+$/.test(t);
 }
+// operadorCoincideConIntegrante() definida ACÁ y no solo en
+// config/umbral-0.js (18/11/2026): si el navegador tenía cacheado el config
+// viejo, la página nueva tiraba "operadorCoincideConIntegrante is not
+// defined". Con el config viejo `operadorDni` no viene y cae al nombre.
+function normDniOperadorLocal(v){
+  const d = String(v||'').replace(/\D/g, '');
+  return (d.length >= 7 && d.length <= 9 && !/^(\d)\1+$/.test(d)) ? d : null;
+}
+function operadorCoincideConIntegrante(integ, envio){
+  if(!integ || !envio) return false;
+  const dk = normDniOperadorLocal(envio.operadorDni), di = normDniOperadorLocal(integ.dni);
+  if(dk && di && dk === di) return true;
+  const nombre = integ.apellido !== undefined ? `${integ.nombre||''} ${integ.apellido||''}` : (integ.nombre||'');
+  return nombresCoincidenKobo(nombre, envio.operador);
+}
+
 function nombresCoincidenKobo(a, b){
   const limpiar = ts => ts.filter(t => !esTokenRellenoOperadorKobo(t));
   const ta = limpiar(normalizarNombreKobo(a).split(' ').filter(Boolean));
@@ -2681,7 +2697,7 @@ async function cargarKoboPendientes(){
     const client = await SupabaseClient.getClient();
 
     const [{ data: integrantes }, { data: personasPropias }, { data: validacionesPropias }, koboParseadas] = await Promise.all([
-      client.from('integrantes').select('nombre,apellido').eq('dupla_id', miPerfil.dupla_id),
+      client.from('integrantes').select('nombre,apellido,dni').eq('dupla_id', miPerfil.dupla_id),
       client.from('personas').select('id,nombre,apellido,dni,sin_identificar').eq('dupla_id', miPerfil.dupla_id),
       // persona_id (antes no se pedía) hace falta para el aviso nuevo de
       // "validado pero sin intervención registrada" — ver más abajo.
@@ -2690,6 +2706,7 @@ async function cargarKoboPendientes(){
       obtenerKoboRowsParseadas(project, form),
     ]);
 
+    const misIntegrantes = integrantes || []; // con dni — ver operadorCoincideConIntegrante() en config/umbral-0.js
     const misNombres = (integrantes||[])
       .map(i => `${i.nombre||''} ${i.apellido||''}`)
       .filter(n => n.trim());
@@ -2801,7 +2818,7 @@ async function cargarKoboPendientes(){
     const misTokens = misNombres.map(n => new Set(normalizarNombreKobo(n).split(' ').filter(Boolean)));
     const operadoresCercanos = new Map(); // operador normalizado -> { operador, fecha }
     koboParseadas.forEach(p => {
-      if(misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return; // matchea bien, no es un near-miss
+      if(misIntegrantes.some(i => operadorCoincideConIntegrante(i, p))) return; // matchea bien, no es un near-miss
       if(!p.operador || !p.fecha || p.fecha < hace7Dias) return;
       const tokensOp = new Set(normalizarNombreKobo(p.operador).split(' ').filter(Boolean));
       const comparteAlgo = misTokens.some(ts => [...ts].some(t => tokensOp.has(t)));
@@ -2812,7 +2829,7 @@ async function cargarKoboPendientes(){
     });
     koboOperadoresNoMatcheadosActuales = [...operadoresCercanos.values()].sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
     koboParseadas.forEach(p => {
-      if(!misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return; // no es de mi dupla
+      if(!misIntegrantes.some(i => operadorCoincideConIntegrante(i, p))) return; // no es de mi dupla
       // "No es población objetivo" / "No se encontró a nadie" — no hay
       // ninguna persona que identificar en este envío, no debería pedirle
       // a la dupla que cargue un caso vacío (reportado 24/9/2026: "veo
@@ -3542,7 +3559,10 @@ function _koboValorPresente(v){
 function _koboAlgunoRespondio(personasKobo, campo){
   return personasKobo.some(p => _koboValorPresente(p[campo]));
 }
-function itemsChecklistKobo(personasKobo, sinIdentificar){
+// `ficha` (17/11/2026): la rama "Seguimiento" del formulario de KoBo no
+// pregunta fecha de nacimiento (ver parseUmbral0()) — si la ficha del caso
+// en Releva ya la tiene, el ítem "Fecha de nacimiento o edad" cuenta.
+function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   const r = campo => _koboAlgunoRespondio(personasKobo, campo);
   // "Situación habitacional" NO incluye `lugarHabitual` (16/11/2026,
   // encontrado armando un listado para la reunión con GOPA: contra un
@@ -3571,7 +3591,7 @@ function itemsChecklistKobo(personasKobo, sinIdentificar){
     // una pregunta del formulario) — su equivalente real para alguien sin
     // DNI es el alias (persona_autopercibida/alias_segui).
     { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
-    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') },
+    { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') || !!(ficha && ficha.fecha_nacimiento) },
     { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
     { label:'Situación económica', ok: economicaOk },
     { label:'Situación educativa', ok: r('asisteEducativo') && r('maxNivelEducativo') },
@@ -4149,7 +4169,7 @@ const Casos = {
     }
 
     const incompletos = personas
-      .map(p => ({ p, items: itemsChecklistKobo(_miActividadKoboPorPersonaId[p.id] || [], p.sin_identificar), actividad: _miActividadActividadPorPersonaId[p.id] || 0 }))
+      .map(p => ({ p, items: itemsChecklistKobo(_miActividadKoboPorPersonaId[p.id] || [], p.sin_identificar, p), actividad: _miActividadActividadPorPersonaId[p.id] || 0 }))
       .filter(r => esCasoPorResolver(r.items, r.actividad))
       .map(r => ({
         p: r.p,
@@ -4686,10 +4706,11 @@ const Casos = {
       if(!form){ openModal('🔗 Asociar un envío de KoBo', '<div class="empty-msg" style="padding:16px 4px;">Este proyecto no tiene KoBo conectado.</div>'); return; }
       const client = await SupabaseClient.getClient();
       const [{ data: integrantes }, { data: yaAsociados }, parsed] = await Promise.all([
-        client.from('integrantes').select('nombre,apellido').eq('dupla_id', personaActual.dupla_id),
+        client.from('integrantes').select('nombre,apellido,dni').eq('dupla_id', personaActual.dupla_id),
         client.from('kobo_validaciones').select('kobo_submission_id'),
         obtenerKoboRowsParseadas(project, form),
       ]);
+      const misIntegrantes = integrantes || [];
       const misNombres = (integrantes||[])
         .map(i => `${i.nombre||''} ${i.apellido||''}`)
         .filter(n => n.trim());
@@ -4699,7 +4720,7 @@ const Casos = {
 
       asociarKoboCandidatosActuales = parsed
         .filter(p => {
-          if(!misNombres.some(n => nombresCoincidenKobo(n, p.operador))) return false; // no es de esta dupla
+          if(!misIntegrantes.some(i => operadorCoincideConIntegrante(i, p))) return false; // no es de esta dupla
           if(p.poblacionObjetivo === 'no' || p.poblacionObjetivo === 'no_es') return false; // no hay persona en este envío
           const subId = koboSubmissionId(p);
           // ya asociado a algún caso, o ya se ve automático en esta ficha

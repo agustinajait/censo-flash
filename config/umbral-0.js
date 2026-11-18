@@ -277,6 +277,43 @@ function legibleLugar(codigo){
   return LUGAR_GEOGRAFICO_LABELS[codigo] || legible(codigo);
 }
 
+// Operador por DNI (17/11/2026, pedido de Agustina: "tiene que ser el
+// DNI del operador, porque así lo vinculo con la dupla que lo carga").
+// Antes cada envío se atribuía a una dupla comparando el NOMBRE del
+// operador con `integrantes` — caso real: Rocío (dupla G) carga su
+// apellido en KoBo a veces como Zabala y a veces como Puebla, sus envíos
+// no se reconocían como de su dupla y el caso de Ángel Roberto Aquino
+// quedaba sin datos de KoBo. "Número de Documento del operador" está en
+// el grupo `identificacion/`; se busca por nombre de campo (dni/documento)
+// en vez de fijar el nombre exacto, que no está confirmado contra el XLSForm.
+function operadorDniDeRow(row){
+  for(const k in row){
+    if(!/^identificacion\//.test(k)) continue;
+    if(!/(dni|documento|doc_)/i.test(k) || /tipo/i.test(k)) continue;
+    const v = row[k];
+    if(v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+  }
+  return null;
+}
+function normDniOperador(v){
+  const d = String(v||'').replace(/\D/g, '');
+  return (d.length >= 7 && d.length <= 9 && !/^(\d)\1+$/.test(d)) ? d : null;
+}
+// ¿Este envío (parseUmbral0) lo cargó este integrante? Primero por DNI
+// del operador; si el DNI no coincide (o falta de algún lado: envíos
+// viejos, integrante sin DNI cargado) cae al matching por nombre de
+// siempre — así sumar el DNI nunca hace "desaparecer" envíos que hoy ya
+// se reconocen por nombre mientras se corrigen DNIs mal cargados.
+// `integ` puede venir como { nombre, apellido, dni } o como
+// { nombre: "Nombre Apellido", dni } (los arrays ya armados en admin-duplas).
+function operadorCoincideConIntegrante(integ, envio){
+  if(!integ || !envio) return false;
+  const dk = normDniOperador(envio.operadorDni), di = normDniOperador(integ.dni);
+  if(dk && di && dk === di) return true;
+  const nombre = integ.apellido !== undefined ? `${integ.nombre||''} ${integ.apellido||''}` : (integ.nombre||'');
+  return typeof nombresCoincidenKobo === 'function' && nombresCoincidenKobo(nombre, envio.operador);
+}
+
 function parseUmbral0(row){
   if(row['identificacion/equipo'] !== 'umbral_0') return null; // este asset lo comparten otros equipos de GOPA
 
@@ -300,6 +337,7 @@ function parseUmbral0(row){
   // un envío de Seguimiento quedaba sin nombre/DNI reconocidos.
   return {
     operador: campo(row, ['identificacion/operador_nombre']),
+    operadorDni: operadorDniDeRow(row),
     tipo: campo(row, ['identificacion/tipo_intervencion']),
     // "¿Es población objetivo?" — solo se pregunta en "Primer
     // Acercamiento". 'no' (no es población objetivo) y 'no_es' ("No se
@@ -408,6 +446,12 @@ function parseUmbral0(row){
     _raw: row,
   };
 }
+
+// Expuesto en window (18/11/2026, bug real: "operadorCoincideConIntegrante
+// is not defined" en casos.html) — este archivo es un IIFE, así que sus
+// funciones NO son globales salvo que se cuelguen de window explícitamente
+// (mismo problema que TIPO_INTERVENCION_LABELS, ver casos.html).
+if(typeof window.operadorCoincideConIntegrante !== 'function') window.operadorCoincideConIntegrante = operadorCoincideConIntegrante;
 
 window.PROJECT_CONFIG_UMBRAL_0 = {
   id: 'umbral-0',
