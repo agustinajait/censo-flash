@@ -447,6 +447,12 @@ function parseUmbral0(row){
   };
 }
 
+// Expuesto en window (18/11/2026, bug real: "operadorCoincideConIntegrante
+// is not defined" en casos.html) — este archivo es un IIFE, así que sus
+// funciones NO son globales salvo que se cuelguen de window explícitamente
+// (mismo problema que TIPO_INTERVENCION_LABELS, ver casos.html).
+window.operadorCoincideConIntegrante = operadorCoincideConIntegrante;
+
 window.PROJECT_CONFIG_UMBRAL_0 = {
   id: 'umbral-0',
   nombre: 'Releva Umbral',
