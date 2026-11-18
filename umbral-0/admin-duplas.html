@@ -3464,7 +3464,7 @@ async function generarReporte(){
       // quedaban completamente afuera de "b. Población abordada".
       client.from('seguimientos').select('persona_id').gte('fecha', desde).lte('fecha', hasta + 'T23:59:59'),
       calcularOutcomesKobo(desde, hasta).catch(e => { console.error('No se pudo traer KoBo para el reporte', e); return null; }),
-      client.from('duplas').select('id, codigo'),
+      client.from('duplas').select('id, codigo, activa'),
       // Observaciones diarias libres que cargan las duplas al cerrar la
       // jornada (§10.1.28, pedido de Agustina: "que después se sumen al
       // reporte semanal") — mismo dato que ya arma cada resumen diario
@@ -3495,6 +3495,12 @@ async function generarReporte(){
     reporte.entrevistasCompletasChecklist = entrevistasCompletas;
     if(koboOutcomes) koboOutcomes.entrevistasCompletasChecklistPorDupla = entrevistasCompletas.porDupla;
     reporte.porDupla = armarRankingPorDupla(personas, codigoPorDupla, desde, hasta, reporte.cobertura.dias, koboOutcomes);
+    // Metas de gobierno + semáforo por dupla (18/11/2026, pedido de
+    // Agustina) — ver calcularMetasGopa()/armarSemaforoDuplas() más arriba.
+    const codigosDuplasActivas = (duplasRes.data||[]).filter(d => d.activa !== false).map(d => d.codigo).filter(Boolean);
+    const diasPeriodo = reporte.cobertura.dias.size;
+    reporte.metasGopa = calcularMetasGopa(koboOutcomes, entrevistasCompletas.total, codigosDuplasActivas.length, diasPeriodo);
+    reporte.semaforoDuplas = armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletas.porDupla, diasPeriodo);
     reporte.accionesPlataforma = await calcularAccionesPlataforma(desde, hasta, intervenciones)
       .catch(e => { console.error('No se pudo calcular acciones de la plataforma', e); return { conteo:{}, totalIntervenciones:0, totalValidaciones:0 }; });
     // Listado de casos del período (nuevos + recontactados) — pedido de
@@ -3648,6 +3654,7 @@ async function calcularOutcomesKobo(desde, hasta){
   // público de reporte-publico.html.
   const puntos = [];
   let totalEnvios = 0;
+  const totalEnviosPorDupla = {}; // código de dupla -> cantidad de envíos en el período (meta de intervenciones/día)
   // DNIs únicos y entrevistas en profundidad logradas, para TODO el
   // período del reporte (13/11/2026, pedido de Agustina: "no está la
   // nueva métrica de cantidad de dnis y entrevistas" — esto ya se
@@ -3670,6 +3677,23 @@ async function calcularOutcomesKobo(desde, hasta){
   // completando con envíos de fechas distintas, y el cruce es por DNI de
   // la PERSONA ayudada, no del operador.
   const envioPorDni = {};
+  // Metas de gobierno (18/11/2026, pedido de Agustina: "estas son las
+  // metas que evalúan gobierno todos los jueves" — ver
+  // calcularMetasGopa() más abajo). "Primer contacto" = tipo_intervencion
+  // 'primer_acercamiento' (ver esPrimerContactoKobo en casos.html);
+  // "derivación" = cualquier código de termino_intervencion_diaria que
+  // empiece con "derivacion_" (ver TERMINO_INTERVENCION_LABELS en
+  // config/umbral-0.js — son 6 de los 17 códigos posibles).
+  let primerosContactos = 0, primerosContactosConDerivacion = 0;
+  const primerosContactosPorDupla = {}, primerosContactosConDerivacionPorDupla = {};
+  // Clasificación geográfica de cada envío contra el polígono asignado a
+  // su dupla (clasificarPuntoVsZonas(), shared/js/mapa-puntos.js — misma
+  // función que ya usa "Cobertura geográfica" más abajo en el reporte).
+  // 'en_zona' o 'iglesia' cuentan como "en zona" para la meta del 85%;
+  // 'en_otra_subzona' y 'fuera_corredor' no.
+  const zonaConteo = {};
+  const zonaPorDupla = {}; // código de dupla -> { en_zona, en_otra_subzona, fuera_corredor, iglesia }
+  const zonasOperativas = project.zonasOperativas;
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
     const dniPersonaEnvio = dniCruceKobo(p.persona && p.persona.dni);
     if(dniPersonaEnvio) (envioPorDni[dniPersonaEnvio] = envioPorDni[dniPersonaEnvio] || []).push(p);
@@ -3685,10 +3709,27 @@ async function calcularOutcomesKobo(desde, hasta){
     const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
     if(!fechaSolo || fechaSolo < desde || fechaSolo > hasta) return;
     totalEnvios++;
+    totalEnviosPorDupla[codigoDupla] = (totalEnviosPorDupla[codigoDupla] || 0) + 1;
     (p.terminoIntervencionDiaria || []).forEach(codigo => {
       conteo[codigo] = (conteo[codigo] || 0) + 1;
     });
     if(p.lat != null && p.lng != null) puntos.push({ lat: p.lat, lng: p.lng, fecha: p.fecha, tipo: p.tipo || null, dupla: codigoDupla });
+    if(p.lat != null && p.lng != null && typeof clasificarPuntoVsZonas === 'function' && zonasOperativas){
+      const clase = clasificarPuntoVsZonas(codigoDupla, p.lat, p.lng, zonasOperativas);
+      if(clase){
+        zonaConteo[clase] = (zonaConteo[clase] || 0) + 1;
+        if(!zonaPorDupla[codigoDupla]) zonaPorDupla[codigoDupla] = {};
+        zonaPorDupla[codigoDupla][clase] = (zonaPorDupla[codigoDupla][clase] || 0) + 1;
+      }
+    }
+    if(p.tipo === 'primer_acercamiento'){
+      primerosContactos++;
+      primerosContactosPorDupla[codigoDupla] = (primerosContactosPorDupla[codigoDupla] || 0) + 1;
+      if((p.terminoIntervencionDiaria||[]).some(c => /^derivacion_/.test(c))){
+        primerosContactosConDerivacion++;
+        primerosContactosConDerivacionPorDupla[codigoDupla] = (primerosContactosConDerivacionPorDupla[codigoDupla] || 0) + 1;
+      }
+    }
     const dni = p.persona && p.persona.dni;
     if(dni && !esDniPlaceholderDup(dni)){
       const dniLimpio = String(dni).trim();
@@ -3703,7 +3744,11 @@ async function calcularOutcomesKobo(desde, hasta){
   });
   const dnisUnicosPorDupla = {};
   Object.entries(dnisPorDupla).forEach(([codigo, set]) => { dnisUnicosPorDupla[codigo] = set.size; });
-  return { totalEnvios, conteo, puntos, dnisUnicos: dnisUnicos.size, entrevistasLogradas, dnisUnicosPorDupla, entrevistasPorDupla, envioPorDni };
+  return {
+    totalEnvios, conteo, puntos, dnisUnicos: dnisUnicos.size, entrevistasLogradas, dnisUnicosPorDupla, entrevistasPorDupla, envioPorDni,
+    totalEnviosPorDupla, primerosContactos, primerosContactosConDerivacion, primerosContactosPorDupla, primerosContactosConDerivacionPorDupla,
+    zonaConteo, zonaPorDupla,
+  };
 }
 
 // Entrevistas en profundidad COMPLETAS según el checklist de GOPA
@@ -3745,6 +3790,79 @@ function calcularEntrevistasCompletasChecklist(personas, codigoPorDuplaId, desde
   });
   detalle.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
   return { total, porDupla, detalle };
+}
+
+// Metas que evalúa GOPA todos los jueves (18/11/2026, pedido de
+// Agustina): "325 intervenciones = 5 x día por dupla · 130 DNIs por
+// semana = 2 x dupla x día · 65 entrevistas completas en profundidad por
+// semana = 5 x dupla · 85% de los registros deben estar en zona ·
+// derivaciones 30% de los primeros contactos". Las dos primeras escalan
+// con `diasPeriodo` (son tasas diarias); la de entrevistas completas es
+// una meta SEMANAL fija por dupla, no escala con los días — el número
+// que da Agustina (325/130/65) corresponde a una semana de 5 días con
+// las 13 duplas de siempre; acá se recalcula con la cantidad real de
+// duplas activas y de días con presencia territorial del período
+// elegido, así que con otro período o con menos/más duplas activas la
+// meta se ajusta sola en vez de quedar un número fijo.
+function pctCumplimiento(actual, meta){
+  if(!meta) return null;
+  return Math.round((actual / meta) * 1000) / 10; // un decimal
+}
+function calcularMetasGopa(koboOutcomes, entrevistasCompletasTotal, duplasActivas, diasPeriodo){
+  if(!koboOutcomes) return null;
+  const metaIntervenciones = 5 * duplasActivas * diasPeriodo;
+  const metaDnis = 2 * duplasActivas * diasPeriodo;
+  const metaEntrevistas = 5 * duplasActivas;
+  const zonaTotal = Object.values(koboOutcomes.zonaConteo||{}).reduce((a,b)=>a+b, 0);
+  const zonaEnZona = (koboOutcomes.zonaConteo.en_zona||0) + (koboOutcomes.zonaConteo.iglesia||0);
+  return {
+    intervenciones: { actual: koboOutcomes.totalEnvios, meta: metaIntervenciones, pct: pctCumplimiento(koboOutcomes.totalEnvios, metaIntervenciones) },
+    dnis: { actual: koboOutcomes.dnisUnicos, meta: metaDnis, pct: pctCumplimiento(koboOutcomes.dnisUnicos, metaDnis) },
+    entrevistasCompletas: { actual: entrevistasCompletasTotal, meta: metaEntrevistas, pct: pctCumplimiento(entrevistasCompletasTotal, metaEntrevistas) },
+    enZona: zonaTotal ? { actual: zonaEnZona, total: zonaTotal, pctReal: Math.round((zonaEnZona/zonaTotal)*1000)/10, meta: 85, pct: pctCumplimiento(zonaEnZona/zonaTotal*100, 85) } : null,
+    derivacionesPrimerContacto: koboOutcomes.primerosContactos ? { actual: koboOutcomes.primerosContactosConDerivacion, total: koboOutcomes.primerosContactos, pctReal: Math.round((koboOutcomes.primerosContactosConDerivacion/koboOutcomes.primerosContactos)*1000)/10, meta: 30, pct: pctCumplimiento(koboOutcomes.primerosContactosConDerivacion/koboOutcomes.primerosContactos*100, 30) } : null,
+  };
+}
+// Semáforo de performance por dupla contra las mismas metas de arriba
+// (18/11/2026, pedido de Agustina: "quiero ver la performance de las
+// duplas... semaforizada"). Verde: cumple la meta (>=100%). Amarillo:
+// 70-99%. Rojo: <70%. Para los % (zona/derivación) solo se semaforiza si
+// hubo suficiente base (al menos 1 envío con ubicación / 1 primer
+// contacto) — si no, queda "—" en vez de un rojo que no significa nada.
+function semaforoDe(pct){
+  if(pct == null) return null;
+  if(pct >= 100) return 'verde';
+  if(pct >= 70) return 'amarillo';
+  return 'rojo';
+}
+function semaforoEmoji(s){
+  return s === 'verde' ? '🟢' : s === 'amarillo' ? '🟡' : s === 'rojo' ? '🔴' : '';
+}
+function armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletasPorDupla, diasPeriodo){
+  if(!koboOutcomes) return [];
+  return codigosDuplasActivas.map(codigo => {
+    const intervDia = diasPeriodo ? (koboOutcomes.totalEnviosPorDupla[codigo]||0) / diasPeriodo : null;
+    const dnisDia = diasPeriodo ? (koboOutcomes.dnisUnicosPorDupla[codigo]||0) / diasPeriodo : null;
+    const zonaD = koboOutcomes.zonaPorDupla[codigo] || {};
+    const zonaTotalD = Object.values(zonaD).reduce((a,b)=>a+b, 0);
+    const zonaEnZonaD = (zonaD.en_zona||0) + (zonaD.iglesia||0);
+    const pcD = koboOutcomes.primerosContactosPorDupla[codigo] || 0;
+    const pcDerivD = koboOutcomes.primerosContactosConDerivacionPorDupla[codigo] || 0;
+    const entrevistasD = (entrevistasCompletasPorDupla && entrevistasCompletasPorDupla[codigo]) || 0;
+    return {
+      codigo,
+      intervDia: diasPeriodo ? Math.round(intervDia*10)/10 : null,
+      intervSemaforo: diasPeriodo ? semaforoDe(pctCumplimiento(intervDia, 5)) : null,
+      dnisDia: diasPeriodo ? Math.round(dnisDia*10)/10 : null,
+      dnisSemaforo: diasPeriodo ? semaforoDe(pctCumplimiento(dnisDia, 2)) : null,
+      entrevistasCompletas: entrevistasD,
+      entrevistasSemaforo: semaforoDe(pctCumplimiento(entrevistasD, 5)),
+      enZonaPct: zonaTotalD ? Math.round((zonaEnZonaD/zonaTotalD)*1000)/10 : null,
+      enZonaSemaforo: zonaTotalD ? semaforoDe(pctCumplimiento(zonaEnZonaD/zonaTotalD*100, 85)) : null,
+      derivacionPct: pcD ? Math.round((pcDerivD/pcD)*1000)/10 : null,
+      derivacionSemaforo: pcD ? semaforoDe(pctCumplimiento(pcDerivD/pcD*100, 30)) : null,
+    };
+  });
 }
 
 // Envíos de KoBo de un día puntual que TODAVÍA NADIE VALIDÓ desde la
@@ -4206,6 +4324,42 @@ const NOMBRE_NIVEL = {1:'Identificación', 2:'Construcción del vínculo', 3:'Mo
 
 function renderReporte(cont, r){
   cont.innerHTML = `
+    <div class="section-title">⭐ Cumplimiento de metas de gobierno (evaluación de los jueves)</div>
+    <div class="section-hint">Metas fijas de GOPA, recalculadas acá para el período y la cantidad de duplas activas elegidos (325 intervenciones, 130 DNIs y 65 entrevistas completas son el resultado para una semana de 5 días con 13 duplas — con otro período o cantidad de duplas, la meta se ajusta sola). "Intervenciones" y "DNIs únicos" salen de KoBo; "Entrevistas completas" usa el checklist de GOPA, no el autoreporte en KoBo (ver sección "g." más abajo); "En zona" compara la ubicación de cada envío contra el polígono de su dupla (ver "a2."); "Derivaciones" es sobre los envíos de tipo "Primer acercamiento" que terminan en algún código de derivación.</div>
+    <div class="card">
+      ${!r.metasGopa ? '<div class="empty-msg">No se pudo calcular (sin datos de KoBo para el período).</div>' : `
+      <div class="kpi-grid">
+        <div class="kpi"><div class="num">${r.metasGopa.intervenciones.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.intervenciones.meta}</span></div><div class="lbl">Intervenciones${r.metasGopa.intervenciones.pct!=null?` (${r.metasGopa.intervenciones.pct}%)`:''}</div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.dnis.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.dnis.meta}</span></div><div class="lbl">DNIs únicos${r.metasGopa.dnis.pct!=null?` (${r.metasGopa.dnis.pct}%)`:''}</div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.entrevistasCompletas.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.entrevistasCompletas.meta}</span></div><div class="lbl">Entrevistas completas (checklist)${r.metasGopa.entrevistasCompletas.pct!=null?` (${r.metasGopa.entrevistasCompletas.pct}%)`:''}</div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.enZona ? r.metasGopa.enZona.pctReal+'%' : '—'}</div><div class="lbl">En zona (meta 85%)${r.metasGopa.enZona ? ` — ${r.metasGopa.enZona.actual}/${r.metasGopa.enZona.total}` : ' — sin ubicación o sin zonas vigentes para clasificar'}</div></div>
+        <div class="kpi"><div class="num">${r.metasGopa.derivacionesPrimerContacto ? r.metasGopa.derivacionesPrimerContacto.pctReal+'%' : '—'}</div><div class="lbl">Derivaciones de primeros contactos (meta 30%)${r.metasGopa.derivacionesPrimerContacto ? ` — ${r.metasGopa.derivacionesPrimerContacto.actual}/${r.metasGopa.derivacionesPrimerContacto.total}` : ' — sin primeros contactos en el período'}</div></div>
+      </div>
+      `}
+    </div>
+
+    <div class="section-title">Performance por dupla — semáforo</div>
+    <div class="section-hint">🟢 cumple la meta · 🟡 entre 70% y 99% · 🔴 menos del 70% · "—" cuando no hay base suficiente para medirlo en el período (sin primeros contactos, sin ubicación, o sin días con presencia territorial).</div>
+    <div class="card">
+      <div class="tbl-wrap">
+        <table class="reporte-tabla">
+          <thead><tr><th>Dupla</th><th style="text-align:right;">Intervenciones/día (meta 5)</th><th style="text-align:right;">DNIs/día (meta 2)</th><th style="text-align:right;">Entrevistas completas (meta 5)</th><th style="text-align:right;">En zona (meta 85%)</th><th style="text-align:right;">Derivaciones (meta 30%)</th></tr></thead>
+          <tbody>
+            ${r.semaforoDuplas && r.semaforoDuplas.length ? r.semaforoDuplas.map(s => `
+              <tr>
+                <td>${esc(s.codigo)}</td>
+                <td class="num">${semaforoEmoji(s.intervSemaforo)} ${s.intervDia!=null?s.intervDia:'—'}</td>
+                <td class="num">${semaforoEmoji(s.dnisSemaforo)} ${s.dnisDia!=null?s.dnisDia:'—'}</td>
+                <td class="num">${semaforoEmoji(s.entrevistasSemaforo)} ${s.entrevistasCompletas}</td>
+                <td class="num">${semaforoEmoji(s.enZonaSemaforo)} ${s.enZonaPct!=null?s.enZonaPct+'%':'—'}</td>
+                <td class="num">${semaforoEmoji(s.derivacionSemaforo)} ${s.derivacionPct!=null?s.derivacionPct+'%':'—'}</td>
+              </tr>
+            `).join('') : '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">Sin datos de KoBo para el período</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="section-title">a. Cobertura territorial</div>
     <div class="card">
       <div class="kpi-grid">
