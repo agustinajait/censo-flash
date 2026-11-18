@@ -3495,12 +3495,18 @@ async function generarReporte(){
     reporte.entrevistasCompletasChecklist = entrevistasCompletas;
     if(koboOutcomes) koboOutcomes.entrevistasCompletasChecklistPorDupla = entrevistasCompletas.porDupla;
     reporte.porDupla = armarRankingPorDupla(personas, codigoPorDupla, desde, hasta, reporte.cobertura.dias, koboOutcomes);
-    // Metas de gobierno + semáforo por dupla (18/11/2026, pedido de
-    // Agustina) — ver calcularMetasGopa()/armarSemaforoDuplas() más arriba.
+    // Metas de GOPA + semáforo por dupla (18/11/2026, pedido de Agustina)
+    // — ver calcularMetasGopa()/armarSemaforoDuplas() más arriba.
+    // `semanasPeriodo` usa días CALENDARIO del rango elegido (no solo los
+    // días con presencia territorial, a diferencia de `diasPeriodo`) —
+    // "entrevistas completas" es una meta semanal fija, no depende de que
+    // haya habido actividad todos los días.
     const codigosDuplasActivas = (duplasRes.data||[]).filter(d => d.activa !== false).map(d => d.codigo).filter(Boolean);
     const diasPeriodo = reporte.cobertura.dias.size;
-    reporte.metasGopa = calcularMetasGopa(koboOutcomes, entrevistasCompletas.total, codigosDuplasActivas.length, diasPeriodo);
-    reporte.semaforoDuplas = armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletas.porDupla, diasPeriodo);
+    const diasCalendario = Math.round((Date.parse(hastaUtcReporte) - Date.parse(desdeUtcReporte)) / 86400000);
+    const semanasPeriodo = diasCalendario / 7;
+    reporte.metasGopa = calcularMetasGopa(koboOutcomes, entrevistasCompletas.total, codigosDuplasActivas.length, diasPeriodo, semanasPeriodo);
+    reporte.semaforoDuplas = armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletas.porDupla, diasPeriodo, semanasPeriodo);
     reporte.accionesPlataforma = await calcularAccionesPlataforma(desde, hasta, intervenciones)
       .catch(e => { console.error('No se pudo calcular acciones de la plataforma', e); return { conteo:{}, totalIntervenciones:0, totalValidaciones:0 }; });
     // Listado de casos del período (nuevos + recontactados) — pedido de
@@ -3797,22 +3803,29 @@ function calcularEntrevistasCompletasChecklist(personas, codigoPorDuplaId, desde
 // semana = 2 x dupla x día · 65 entrevistas completas en profundidad por
 // semana = 5 x dupla · 85% de los registros deben estar en zona ·
 // derivaciones 30% de los primeros contactos". Las dos primeras escalan
-// con `diasPeriodo` (son tasas diarias); la de entrevistas completas es
-// una meta SEMANAL fija por dupla, no escala con los días — el número
-// que da Agustina (325/130/65) corresponde a una semana de 5 días con
-// las 13 duplas de siempre; acá se recalcula con la cantidad real de
-// duplas activas y de días con presencia territorial del período
-// elegido, así que con otro período o con menos/más duplas activas la
-// meta se ajusta sola en vez de quedar un número fijo.
+// con `diasPeriodo` (tasas diarias, sobre días CON presencia
+// territorial). "Entrevistas completas" es una meta SEMANAL: 5 por
+// dupla por CADA semana del período, no un número fijo — corrección de
+// Agustina (18/11/2026: "ojo que la meta es semanal, son 5 entrevistas
+// por dupla por semana") sobre la primera versión, que la dejaba fija en
+// 5×duplas sin importar cuántas semanas abarcara el rango elegido (en un
+// reporte de 1 mes, por ejemplo, tendría que pedir 4 veces más). Escala
+// con `semanasPeriodo` = días CALENDARIO del rango (no solo los días con
+// presencia) ÷ 7 — una semana sigue siendo una semana aunque algún día no
+// haya habido actividad. El número que da Agustina (325/130/65)
+// corresponde a una semana de 5 días con las 13 duplas de siempre; acá
+// se recalcula con la cantidad real de duplas activas, así que con otro
+// período o con menos/más duplas activas la meta se ajusta sola en vez
+// de quedar un número fijo.
 function pctCumplimiento(actual, meta){
   if(!meta) return null;
   return Math.round((actual / meta) * 1000) / 10; // un decimal
 }
-function calcularMetasGopa(koboOutcomes, entrevistasCompletasTotal, duplasActivas, diasPeriodo){
+function calcularMetasGopa(koboOutcomes, entrevistasCompletasTotal, duplasActivas, diasPeriodo, semanasPeriodo){
   if(!koboOutcomes) return null;
   const metaIntervenciones = 5 * duplasActivas * diasPeriodo;
   const metaDnis = 2 * duplasActivas * diasPeriodo;
-  const metaEntrevistas = 5 * duplasActivas;
+  const metaEntrevistas = Math.round(5 * duplasActivas * semanasPeriodo * 10) / 10;
   const zonaTotal = Object.values(koboOutcomes.zonaConteo||{}).reduce((a,b)=>a+b, 0);
   const zonaEnZona = (koboOutcomes.zonaConteo.en_zona||0) + (koboOutcomes.zonaConteo.iglesia||0);
   return {
@@ -3838,8 +3851,12 @@ function semaforoDe(pct){
 function semaforoEmoji(s){
   return s === 'verde' ? '🟢' : s === 'amarillo' ? '🟡' : s === 'rojo' ? '🔴' : '';
 }
-function armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletasPorDupla, diasPeriodo){
+function armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasCompletasPorDupla, diasPeriodo, semanasPeriodo){
   if(!koboOutcomes) return [];
+  // Meta de entrevistas completas por dupla, escalada por semana del
+  // período (ver comentario en calcularMetasGopa) — 5 si el rango es una
+  // semana, menos si es más corto, más si abarca varias semanas.
+  const metaEntrevistasPorDupla = Math.round(5 * semanasPeriodo * 10) / 10;
   return codigosDuplasActivas.map(codigo => {
     const intervDia = diasPeriodo ? (koboOutcomes.totalEnviosPorDupla[codigo]||0) / diasPeriodo : null;
     const dnisDia = diasPeriodo ? (koboOutcomes.dnisUnicosPorDupla[codigo]||0) / diasPeriodo : null;
@@ -3856,7 +3873,8 @@ function armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasComp
       dnisDia: diasPeriodo ? Math.round(dnisDia*10)/10 : null,
       dnisSemaforo: diasPeriodo ? semaforoDe(pctCumplimiento(dnisDia, 2)) : null,
       entrevistasCompletas: entrevistasD,
-      entrevistasSemaforo: semaforoDe(pctCumplimiento(entrevistasD, 5)),
+      entrevistasMeta: metaEntrevistasPorDupla,
+      entrevistasSemaforo: semaforoDe(pctCumplimiento(entrevistasD, metaEntrevistasPorDupla)),
       enZonaPct: zonaTotalD ? Math.round((zonaEnZonaD/zonaTotalD)*1000)/10 : null,
       enZonaSemaforo: zonaTotalD ? semaforoDe(pctCumplimiento(zonaEnZonaD/zonaTotalD*100, 85)) : null,
       derivacionPct: pcD ? Math.round((pcDerivD/pcD)*1000)/10 : null,
@@ -4343,7 +4361,7 @@ function renderReporte(cont, r){
     <div class="card">
       <div class="tbl-wrap">
         <table class="reporte-tabla">
-          <thead><tr><th>Dupla</th><th style="text-align:right;">Intervenciones/día (meta 5)</th><th style="text-align:right;">DNIs/día (meta 2)</th><th style="text-align:right;">Entrevistas completas (meta 5)</th><th style="text-align:right;">En zona (meta 85%)</th><th style="text-align:right;">Derivaciones (meta 30%)</th></tr></thead>
+          <thead><tr><th>Dupla</th><th style="text-align:right;">Intervenciones/día (meta 5)</th><th style="text-align:right;">DNIs/día (meta 2)</th><th style="text-align:right;">Entrevistas completas (meta ${(r.semaforoDuplas&&r.semaforoDuplas[0]&&r.semaforoDuplas[0].entrevistasMeta)||5})</th><th style="text-align:right;">En zona (meta 85%)</th><th style="text-align:right;">Derivaciones (meta 30%)</th></tr></thead>
           <tbody>
             ${r.semaforoDuplas && r.semaforoDuplas.length ? r.semaforoDuplas.map(s => `
               <tr>
