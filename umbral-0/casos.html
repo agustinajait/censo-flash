@@ -3605,6 +3605,30 @@ function _koboValorPresente(v){
 function _koboAlgunoRespondio(personasKobo, campo){
   return personasKobo.some(p => _koboValorPresente(p[campo]));
 }
+// Filtro de "basura" para campos de texto del checklist (18/11/2026,
+// pedido de Agustina tras validar el checklist contra el caso real de
+// Aquino: "¿podés sumar una validación mínima de que no sea basura
+// también a esos campos de texto libre?") — mismo criterio que
+// esNombrePlaceholder()/esDniPlaceholderDup() ya usados en otras partes
+// de esta página, pero esos nunca se aplicaban DENTRO de
+// itemsChecklistKobo(): nombre/apellido/dni/alias contaban como
+// "respondido" con solo que no estuvieran vacíos, así que un envío con
+// nombre="nn", apellido="-" o dni="99999999" marcaba esa categoría como
+// completa igual. Se aplica solo a los campos de texto libre del
+// checklist (identidad + institución comunitaria) — el resto son
+// select-one/select-multiple de opciones fijas, sin este riesgo.
+function _koboTextoValido(v){
+  if(!_koboValorPresente(v)) return false;
+  if(typeof v !== 'string') return true; // boolean/array ya pasaron el chequeo de arriba
+  const s = v.trim().toLowerCase();
+  if(!/[a-z0-9]/i.test(s)) return false; // solo símbolos, ej "-" o "."
+  if(/^(sin identificar|sin datos?|nn|nc|s\/?d|ns\/?nc|no (sabe|contesta|responde)|desconocid[oa])$/.test(s.replace(/\s+/g,' '))) return false;
+  if(/^(\d)\1+$/.test(s)) return false; // DNI de relleno tipo 99999999 o 00000000
+  return true;
+}
+function _koboAlgunoRespondioValido(personasKobo, campo){
+  return personasKobo.some(p => _koboTextoValido(p[campo]));
+}
 // DNI como identificador del cruce KoBo ↔ caso (17/11/2026, pedido de
 // Agustina: "que el identificador sea DNI") — mismo criterio que
 // dniCruceKobo() en casos-en-vivo.html. Caso real: Rocío (dupla G) carga
@@ -3624,6 +3648,7 @@ function dniCruceKobo(valor){
 // en Releva ya la tiene, el ítem "Fecha de nacimiento o edad" cuenta.
 function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   const r = campo => _koboAlgunoRespondio(personasKobo, campo);
+  const rv = campo => _koboAlgunoRespondioValido(personasKobo, campo); // sin "basura" — ver _koboTextoValido()
   // "Situación habitacional" NO incluye `lugarHabitual` (16/11/2026,
   // encontrado armando un listado para la reunión con GOPA: contra un
   // export real, lugar_habitual pertenece a una sección clínica aparte del
@@ -3644,13 +3669,13 @@ function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   // falta cuál (institucionComunitariaCual).
   const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
   const redesOk = r('vinculos') && (!necesitaTipoVinculos || r('tipoVinculos'))
-    && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || r('institucionComunitariaCual'));
+    && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || rv('institucionComunitariaCual'));
   return [
-    { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
+    { label:'Nombre y apellido', ok: sinIdentificar ? null : (rv('nombre') && rv('apellido')) },
     // KoBo no tiene "denuncia de extravío" (eso es un trámite legal, no
     // una pregunta del formulario) — su equivalente real para alguien sin
     // DNI es el alias (persona_autopercibida/alias_segui).
-    { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
+    { label:'DNI (o alias, si no tiene DNI)', ok: rv('dni') || rv('alias') },
     { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') || !!(ficha && ficha.fecha_nacimiento) },
     { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
     { label:'Situación económica', ok: economicaOk },
