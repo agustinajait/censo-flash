@@ -4324,7 +4324,7 @@ const NOMBRE_NIVEL = {1:'Identificación', 2:'Construcción del vínculo', 3:'Mo
 
 function renderReporte(cont, r){
   cont.innerHTML = `
-    <div class="section-title">⭐ Cumplimiento de metas de gobierno (evaluación de los jueves)</div>
+    <div class="section-title">⭐ Cumplimiento de metas de GOPA (evaluación de los jueves)</div>
     <div class="section-hint">Metas fijas de GOPA, recalculadas acá para el período y la cantidad de duplas activas elegidos (325 intervenciones, 130 DNIs y 65 entrevistas completas son el resultado para una semana de 5 días con 13 duplas — con otro período o cantidad de duplas, la meta se ajusta sola). "Intervenciones" y "DNIs únicos" salen de KoBo; "Entrevistas completas" usa el checklist de GOPA, no el autoreporte en KoBo (ver sección "g." más abajo); "En zona" compara la ubicación de cada envío contra el polígono de su dupla (ver "a2."); "Derivaciones" es sobre los envíos de tipo "Primer acercamiento" que terminan en algún código de derivación.</div>
     <div class="card">
       ${!r.metasGopa ? '<div class="empty-msg">No se pudo calcular (sin datos de KoBo para el período).</div>' : `
