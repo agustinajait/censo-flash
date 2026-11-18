@@ -3880,20 +3880,37 @@ function armarSemaforoDuplas(codigosDuplasActivas, koboOutcomes, entrevistasComp
     const pcD = koboOutcomes.primerosContactosPorDupla[codigo] || 0;
     const pcDerivD = koboOutcomes.primerosContactosConDerivacionPorDupla[codigo] || 0;
     const entrevistasD = (entrevistasCompletasPorDupla && entrevistasCompletasPorDupla[codigo]) || 0;
+    const intervCumpl = diasPeriodo ? pctCumplimiento(intervDia, 5) : null;
+    const dnisCumpl = diasPeriodo ? pctCumplimiento(dnisDia, 2) : null;
+    const entrevistasCumpl = pctCumplimiento(entrevistasD, metaEntrevistasPorDupla);
+    const enZonaPctReal = zonaTotalD ? Math.round((zonaEnZonaD/zonaTotalD)*1000)/10 : null;
+    const enZonaCumpl = zonaTotalD ? pctCumplimiento(zonaEnZonaD/zonaTotalD*100, 85) : null;
+    const derivacionPctReal = pcD ? Math.round((pcDerivD/pcD)*1000)/10 : null;
+    const derivacionCumpl = pcD ? pctCumplimiento(pcDerivD/pcD*100, 30) : null;
     return {
       codigo,
       integrantes,
+      // `Cumpl` (18/11/2026, pedido de Agustina: "además del color del
+      // semáforo quiero el porcentaje de la meta") — el % de cumplimiento
+      // contra la meta de cada columna, no solo el color. Para "en zona"
+      // y "derivaciones" esto es DISTINTO del valor real de la columna
+      // (ej. 72% en zona, contra una meta de 85%, es 85% de cumplimiento).
       intervDia: diasPeriodo ? Math.round(intervDia*10)/10 : null,
-      intervSemaforo: diasPeriodo ? semaforoDe(pctCumplimiento(intervDia, 5)) : null,
+      intervCumpl,
+      intervSemaforo: semaforoDe(intervCumpl),
       dnisDia: diasPeriodo ? Math.round(dnisDia*10)/10 : null,
-      dnisSemaforo: diasPeriodo ? semaforoDe(pctCumplimiento(dnisDia, 2)) : null,
+      dnisCumpl,
+      dnisSemaforo: semaforoDe(dnisCumpl),
       entrevistasCompletas: entrevistasD,
       entrevistasMeta: metaEntrevistasPorDupla,
-      entrevistasSemaforo: semaforoDe(pctCumplimiento(entrevistasD, metaEntrevistasPorDupla)),
-      enZonaPct: zonaTotalD ? Math.round((zonaEnZonaD/zonaTotalD)*1000)/10 : null,
-      enZonaSemaforo: zonaTotalD ? semaforoDe(pctCumplimiento(zonaEnZonaD/zonaTotalD*100, 85)) : null,
-      derivacionPct: pcD ? Math.round((pcDerivD/pcD)*1000)/10 : null,
-      derivacionSemaforo: pcD ? semaforoDe(pctCumplimiento(pcDerivD/pcD*100, 30)) : null,
+      entrevistasCumpl,
+      entrevistasSemaforo: semaforoDe(entrevistasCumpl),
+      enZonaPct: enZonaPctReal,
+      enZonaCumpl,
+      enZonaSemaforo: semaforoDe(enZonaCumpl),
+      derivacionPct: derivacionPctReal,
+      derivacionCumpl,
+      derivacionSemaforo: semaforoDe(derivacionCumpl),
     };
   });
 }
@@ -4381,11 +4398,11 @@ function renderReporte(cont, r){
             ${r.semaforoDuplas && r.semaforoDuplas.length ? r.semaforoDuplas.map(s => `
               <tr>
                 <td>${esc(s.codigo)}${s.integrantes ? `<div style="font-weight:400;font-size:0.76rem;color:#64748b;">${esc(s.integrantes)}</div>` : ''}</td>
-                <td class="num">${semaforoEmoji(s.intervSemaforo)} ${s.intervDia!=null?s.intervDia:'—'}</td>
-                <td class="num">${semaforoEmoji(s.dnisSemaforo)} ${s.dnisDia!=null?s.dnisDia:'—'}</td>
-                <td class="num">${semaforoEmoji(s.entrevistasSemaforo)} ${s.entrevistasCompletas}</td>
-                <td class="num">${semaforoEmoji(s.enZonaSemaforo)} ${s.enZonaPct!=null?s.enZonaPct+'%':'—'}</td>
-                <td class="num">${semaforoEmoji(s.derivacionSemaforo)} ${s.derivacionPct!=null?s.derivacionPct+'%':'—'}</td>
+                <td class="num">${semaforoEmoji(s.intervSemaforo)} ${s.intervDia!=null?s.intervDia:'—'}${s.intervCumpl!=null?` <span style="color:#94a3b8;">(${s.intervCumpl}%)</span>`:''}</td>
+                <td class="num">${semaforoEmoji(s.dnisSemaforo)} ${s.dnisDia!=null?s.dnisDia:'—'}${s.dnisCumpl!=null?` <span style="color:#94a3b8;">(${s.dnisCumpl}%)</span>`:''}</td>
+                <td class="num">${semaforoEmoji(s.entrevistasSemaforo)} ${s.entrevistasCompletas}${s.entrevistasCumpl!=null?` <span style="color:#94a3b8;">(${s.entrevistasCumpl}%)</span>`:''}</td>
+                <td class="num">${semaforoEmoji(s.enZonaSemaforo)} ${s.enZonaPct!=null?s.enZonaPct+'%':'—'}${s.enZonaCumpl!=null?` <span style="color:#94a3b8;">(${s.enZonaCumpl}% de la meta)</span>`:''}</td>
+                <td class="num">${semaforoEmoji(s.derivacionSemaforo)} ${s.derivacionPct!=null?s.derivacionPct+'%':'—'}${s.derivacionCumpl!=null?` <span style="color:#94a3b8;">(${s.derivacionCumpl}% de la meta)</span>`:''}</td>
               </tr>
             `).join('') : '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">Sin datos de KoBo para el período</td></tr>'}
           </tbody>
