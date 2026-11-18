@@ -253,11 +253,11 @@ function render(r){
     <div class="section-title">f. Ranking de casos y entrevistas por dupla</div>
     <div class="card">
       <table class="reporte-tabla">
-        <thead><tr><th>Dupla</th><th style="text-align:right;">Casos nuevos</th><th style="text-align:right;">Promedio diario de DNIs (KoBo)</th><th style="text-align:right;">Promedio diario de entrevistas (KoBo)</th></tr></thead>
+        <thead><tr><th>Dupla</th><th style="text-align:right;">Casos nuevos</th><th style="text-align:right;">Promedio diario de DNIs (KoBo)</th><th style="text-align:right;">Promedio diario de entrevistas (KoBo)</th><th style="text-align:right;">Entrevistas completas (checklist) · meta 5/semana</th></tr></thead>
         <tbody>
           ${porDupla.length ? porDupla.map(dd =>
-            `<tr><td>${esc(dd.codigo)}</td><td class="num">${dd.casosNuevos}</td><td class="num">${dd.promedioDniDiario!=null?dd.promedioDniDiario:'—'}</td><td class="num">${dd.promedioEntrevistasDiario!=null?dd.promedioEntrevistasDiario:'—'}</td></tr>`).join('')
-            : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Sin casos en el período</td></tr>'}
+            `<tr><td>${esc(dd.codigo)}</td><td class="num">${dd.casosNuevos}</td><td class="num">${dd.promedioDniDiario!=null?dd.promedioDniDiario:'—'}</td><td class="num">${dd.promedioEntrevistasDiario!=null?dd.promedioEntrevistasDiario:'—'}</td><td class="num"${dd.entrevistasCompletas!=null && dd.entrevistasCompletas>=5 ? ' style="color:#16a34a;font-weight:700;"' : ''}>${dd.entrevistasCompletas!=null?dd.entrevistasCompletas:'—'}</td></tr>`).join('')
+            : '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Sin casos en el período</td></tr>'}
         </tbody>
       </table>
     </div>
