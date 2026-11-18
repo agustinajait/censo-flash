@@ -1403,17 +1403,33 @@ function _koboValorPresente(v){
 function _koboAlgunoRespondio(personasKobo, campo){
   return personasKobo.some(p => _koboValorPresente(p[campo]));
 }
+// Filtro de "basura" para campos de texto del checklist — ver el mismo
+// helper y su comentario en casos.html (18/11/2026, pedido de Agustina
+// tras validar el checklist contra el caso real de Aquino).
+function _koboTextoValido(v){
+  if(!_koboValorPresente(v)) return false;
+  if(typeof v !== 'string') return true;
+  const s = v.trim().toLowerCase();
+  if(!/[a-z0-9]/i.test(s)) return false;
+  if(/^(sin identificar|sin datos?|nn|nc|s\/?d|ns\/?nc|no (sabe|contesta|responde)|desconocid[oa])$/.test(s.replace(/\s+/g,' '))) return false;
+  if(/^(\d)\1+$/.test(s)) return false;
+  return true;
+}
+function _koboAlgunoRespondioValido(personasKobo, campo){
+  return personasKobo.some(p => _koboTextoValido(p[campo]));
+}
 function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   const r = campo => _koboAlgunoRespondio(personasKobo, campo);
+  const rv = campo => _koboAlgunoRespondioValido(personasKobo, campo); // sin "basura" — ver _koboTextoValido()
   const necesitaTipoActividad = personasKobo.some(p => p.actividad === true);
   const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
   const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
   const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
   const redesOk = r('vinculos') && (!necesitaTipoVinculos || r('tipoVinculos'))
-    && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || r('institucionComunitariaCual'));
+    && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || rv('institucionComunitariaCual'));
   return [
-    { label:'Nombre y apellido', ok: sinIdentificar ? null : (r('nombre') && r('apellido')) },
-    { label:'DNI (o alias, si no tiene DNI)', ok: r('dni') || r('alias') },
+    { label:'Nombre y apellido', ok: sinIdentificar ? null : (rv('nombre') && rv('apellido')) },
+    { label:'DNI (o alias, si no tiene DNI)', ok: rv('dni') || rv('alias') },
     { label:'Fecha de nacimiento o edad aproximada', ok: r('fechaNacimiento') || r('edad') || !!(ficha && ficha.fecha_nacimiento) },
     { label:'Situación habitacional', ok: r('tiempoEnCalle') && r('lugarNacimiento') && r('lugarViviendaPrevia') && r('tenenciaViviendaPrevia') && r('conQuienVivias') },
     { label:'Situación económica', ok: economicaOk },
