@@ -33,7 +33,10 @@
   .dupla-card .turno-linea { font-size:0.72rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
   .dupla-card .zona { font-weight:700; font-size:0.88rem; color:#1e293b; margin-bottom:4px; }
   .dupla-card .detalle { font-size:0.78rem; color:#64748b; line-height:1.45; }
+  .dupla-card .iglesia-linea { font-size:0.8rem; color:var(--iglesia); font-weight:700; margin-bottom:6px; }
   .dupla-card .calles { font-size:0.74rem; color:#94a3b8; line-height:1.4; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); }
+  .mymaps-link { display:inline-block; font-size:0.74rem; font-weight:700; color:var(--blue); text-decoration:none; margin-top:8px; }
+  .mymaps-link:hover { text-decoration:underline; }
   .empty-msg { text-align:center; color:#94a3b8; padding:40px 20px; font-size:0.9rem; }
   .mymaps-btn { display:inline-flex; align-items:center; gap:6px; background:#fbbf24; color:#1e1403; font-weight:800; font-family:'Sora',sans-serif; font-size:0.85rem; padding:9px 18px; border-radius:24px; text-decoration:none; margin-top:12px; box-shadow:0 2px 10px rgba(251,191,36,0.35); }
   .mymaps-btn:hover { background:#f8ce5a; }
@@ -85,14 +88,19 @@ const TURNOS = [
 // Una sola explicación por dupla, sin repetir el nombre de la zona dos
 // veces (pedido de Agustina, 29/9/2026: "una sola vez no repitas") —
 // el nombre va UNA vez en la línea "zona"; acá solo se arma el resto:
-// horario pico (si es iglesia) + nota corta (si hay), sin volver a
-// nombrar la zona.
+// la nota operativa (sin la iglesia, que ahora tiene su propia línea
+// clara — ver iglesiaLinea() — para no mostrarla dos veces).
 function explicacion(z){
-  const partes = [];
-  if(z.pico) partes.push(`En su horario pico: ${z.pico}. Fuera de ese horario, patrulla esta zona.`);
-  if(z.nota) partes.push(z.nota);
-  if(!partes.length) return 'Sin cambios.';
-  return partes.join(' ');
+  if(!z.nota) return 'Sin cambios.';
+  return z.nota.split(' | Iglesia:')[0];
+}
+// Línea clara de iglesia, aparte del párrafo largo de instrucciones
+// (18/11/2026, pedido de Agustina: "que sea más claro el texto... iglesia
+// además del párrafo que lo explica" — antes el nombre y horario de la
+// iglesia solo aparecían mezclados adentro de ese párrafo).
+function iglesiaLinea(z){
+  if(z.tipo !== 'iglesia' || !z.pico) return '';
+  return `<div class="iglesia-linea">⛪ <b>Iglesia:</b> ${esc(z.pico)}</div>`;
 }
 
 function renderTurnos(zonas, focusCod){
@@ -105,12 +113,20 @@ function renderTurnos(zonas, focusCod){
       const z = zonas.porDupla[cod];
       const tag = z.tipo ? `<span class="tag tag-${esc(z.tipo)}">${esc(z.tipo)}</span>` : '';
       const calles = z.calles ? `<div class="calles">🛣️ ${esc(z.calles)}</div>` : '';
+      // Link de My Maps en la propia tarjeta de cada dupla (18/11/2026,
+      // pedido de Agustina: "que cada dupla tenga en la caja su my maps")
+      // — antes solo estaba el de la vista enfocada (?dupla=X) y el mapa
+      // madre de arriba (ver actualizarEncabezado()), ninguno de los dos
+      // visible acá, en la vista general con las 12 tarjetas juntas.
+      const mymapsLink = z.mymaps ? `<a class="mymaps-link" href="${esc(z.mymaps)}" target="_blank" rel="noopener">📍 Ver en My Maps</a>` : '';
       return `<div class="dupla-card" style="--card-color:${esc(z.color||'#1a56db')};">
         <div class="top"><span class="codigo">Dupla ${esc(cod)}</span>${tag}</div>
         <div class="turno-linea">${esc(t.label)} · ${esc(t.hora)}</div>
         <div class="zona">${esc(z.nombre||'')}</div>
+        ${iglesiaLinea(z)}
         <div class="detalle">${esc(explicacion(z))}</div>
         ${calles}
+        ${mymapsLink}
       </div>`;
     }).join('');
     return `<div class="turno-section">
