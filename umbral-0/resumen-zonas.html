@@ -146,6 +146,13 @@ function bajadaGeneral(zonas){
 function actualizarEncabezado(zonas, focusCod){
   if(!focusCod){
     document.getElementById('pagina-sub').innerHTML = bajadaGeneral(zonas);
+    // Vista general (18/11/2026, pedido de Agustina: "tiene que estar el
+    // link de My Maps" — antes solo se mostraba en la vista de una sola
+    // dupla, acá quedaba vacío) — el mapa madre (zonas.mapaMadre) junta
+    // todas las zonas en un solo My Maps, para compartir con gobierno.
+    document.getElementById('pagina-mymaps-btn').innerHTML = zonas.mapaMadre
+      ? `<a class="mymaps-btn" href="${esc(zonas.mapaMadre)}" target="_blank" rel="noopener">📍 Ver todas las zonas en Google My Maps</a>`
+      : '';
     return;
   }
   const z = zonas.porDupla[focusCod];
