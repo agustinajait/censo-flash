@@ -50,7 +50,7 @@
     <div style="font-size:0.68rem; color:rgba(255,255,255,0.6); line-height:1.25;">Elaborado por<br><b style="color:rgba(255,255,255,0.85);">Huehaci</b> — Consultora de innovación<br>cívica y tecnológica</div>
   </div>
   <h1 id="pagina-titulo">🗺️ Resumen de zonas — Releva Umbral</h1>
-  <div class="sub" id="pagina-sub">Cómo queda repartido el territorio entre las 13 duplas, turno por turno. Las duplas de <span style="color:#fbbf24;font-weight:700;">frontera</span> (D, H) se corrieron desde Chacarita/Villa Crespo; las de <span style="color:#c4b5fd;font-weight:700;">iglesia</span> (C, F, I, L, M) bajan ahí fuera de su horario pico.</div>
+  <div class="sub" id="pagina-sub"></div>
   <div id="pagina-mymaps-btn"></div>
 </div>
 
@@ -128,8 +128,26 @@ function duplaEnfocada(zonas){
   return (zonas.porDupla && zonas.porDupla[cod]) ? cod : null;
 }
 
+// Bajada genérica (sin foco en una dupla) calculada EN VIVO desde
+// zonas.porDupla (18/11/2026, bug real: antes era texto fijo — "13
+// duplas" y "duplas de frontera (D, H)" — que quedó desactualizado
+// apenas cambió el esquema de zonas (hoy son 12 duplas, sin esa
+// categoría, y las de iglesia son otras) y casi se manda así a
+// gobierno. Así, si vuelve a cambiar la cantidad de duplas o cuáles
+// tienen iglesia, esta bajada se actualiza sola en vez de quedar vieja.
+function bajadaGeneral(zonas){
+  const codigos = Object.keys(zonas.porDupla||{});
+  const iglesia = codigos.filter(c => zonas.porDupla[c].tipo === 'iglesia').sort();
+  let txt = `Cómo queda repartido el territorio entre las ${codigos.length} duplas, turno por turno.`;
+  if(iglesia.length) txt += ` Las duplas de <span style="color:#c4b5fd;font-weight:700;">iglesia</span> (${esc(iglesia.join(', '))}) bajan a su comedor/iglesia fuera de su horario pico.`;
+  return txt;
+}
+
 function actualizarEncabezado(zonas, focusCod){
-  if(!focusCod) return;
+  if(!focusCod){
+    document.getElementById('pagina-sub').innerHTML = bajadaGeneral(zonas);
+    return;
+  }
   const z = zonas.porDupla[focusCod];
   document.getElementById('pagina-titulo').textContent = `🗺️ Tu zona — Dupla ${focusCod}`;
   document.getElementById('pagina-sub').innerHTML =
