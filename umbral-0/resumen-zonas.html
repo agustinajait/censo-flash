@@ -31,7 +31,8 @@
   .tag-iglesia { background:#ede9fe; color:var(--iglesia); }
   .tag-frontera { background:#fef3c7; color:var(--frontera); }
   .dupla-card .turno-linea { font-size:0.72rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
-  .dupla-card .zona { font-weight:700; font-size:0.88rem; color:#1e293b; margin-bottom:4px; }
+  .dupla-card .barrio { font-weight:800; font-size:0.9rem; color:var(--navy); margin-bottom:1px; }
+  .dupla-card .zona { font-weight:500; font-size:0.74rem; color:#94a3b8; margin-bottom:4px; }
   .dupla-card .detalle { font-size:0.78rem; color:#64748b; line-height:1.45; }
   .dupla-card .iglesia-linea { font-size:0.8rem; color:var(--iglesia); font-weight:700; margin-bottom:6px; }
   .dupla-card .calles { font-size:0.74rem; color:#94a3b8; line-height:1.4; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); }
@@ -122,6 +123,7 @@ function renderTurnos(zonas, focusCod){
       return `<div class="dupla-card" style="--card-color:${esc(z.color||'#1a56db')};">
         <div class="top"><span class="codigo">Dupla ${esc(cod)}</span>${tag}</div>
         <div class="turno-linea">${esc(t.label)} · ${esc(t.hora)}</div>
+        ${z.barrio ? `<div class="barrio">🏘️ ${esc(z.barrio)}</div>` : ''}
         <div class="zona">${esc(z.nombre||'')}</div>
         ${iglesiaLinea(z)}
         <div class="detalle">${esc(explicacion(z))}</div>
@@ -174,7 +176,7 @@ function actualizarEncabezado(zonas, focusCod){
   const z = zonas.porDupla[focusCod];
   document.getElementById('pagina-titulo').textContent = `🗺️ Tu zona — Dupla ${focusCod}`;
   document.getElementById('pagina-sub').innerHTML =
-    `${esc(z.nombre||'')} · ${esc(z.turno||'')}${z.pico ? ' — ' + esc(z.pico) : ''}`;
+    `${z.barrio ? '🏘️ ' + esc(z.barrio) + ' — ' : ''}${esc(z.nombre||'')} · ${esc(z.turno||'')}${z.pico ? ' — ' + esc(z.pico) : ''}`;
   document.getElementById('pagina-mymaps-btn').innerHTML = z.mymaps
     ? `<a class="mymaps-btn" href="${esc(z.mymaps)}" target="_blank" rel="noopener">📍 Ver mi zona en Google My Maps</a>`
     : '';
