@@ -3717,9 +3717,6 @@ async function calcularOutcomesKobo(desde, hasta){
   const zonaPorDupla = {}; // código de dupla -> { en_zona, en_otra_subzona, fuera_corredor, iglesia }
   const zonasOperativas = project.zonasOperativas;
   koboRowsRaw.map(r => form.parseRow(r)).filter(Boolean).forEach(p => {
-    const dniPersonaEnvio = dniCruceKobo(p.persona && p.persona.dni);
-    if(dniPersonaEnvio) (envioPorDni[dniPersonaEnvio] = envioPorDni[dniPersonaEnvio] || []).push(p);
-
     const matches = duplaPorNombreKobo.filter(r => operadorCoincideConIntegrante(r, p));
     let match = matches.length === 1 ? matches[0] : null;
     if(matches.length > 1){
@@ -3727,6 +3724,21 @@ async function calcularOutcomesKobo(desde, hasta){
       match = porHorario.length === 1 ? porHorario[0] : matches[0];
     }
     const codigoDupla = match ? match.codigo : null;
+
+    // `codigoDupla` viaja en cada envío de `envioPorDni` (20/11/2026, bug
+    // reportado por Agustina: "mia cubero y pablo... tienen en releva en
+    // el score de entrevistas semanales 2 de 5 y en kobo estoy viendo
+    // más" — el caso real era que 2 de los 5 DNIs que mandó Mia/Pablo
+    // [Dupla C] correspondían a personas cuyo caso en Releva es DUEÑO de
+    // otra dupla (H, o incluso triplicado entre H/D/M) — ver
+    // calcularEntrevistasCompletasChecklist() más abajo, que ahora
+    // acredita por esto, no por el dueño del caso).
+    const dniPersonaEnvio = dniCruceKobo(p.persona && p.persona.dni);
+    if(dniPersonaEnvio){
+      p.codigoDupla = codigoDupla;
+      (envioPorDni[dniPersonaEnvio] = envioPorDni[dniPersonaEnvio] || []).push(p);
+    }
+
     if(!codigoDupla) return; // no es de las 13 duplas
     const fechaSolo = p.fecha ? String(p.fecha).slice(0, 10) : null;
     if(!fechaSolo || fechaSolo < desde || fechaSolo > hasta) return;
@@ -3791,24 +3803,40 @@ async function calcularOutcomesKobo(desde, hasta){
 // fecha cae dentro del período elegido.
 function calcularEntrevistasCompletasChecklist(personas, codigoPorDuplaId, desde, hasta, koboOutcomes){
   const envioPorDni = (koboOutcomes && koboOutcomes.envioPorDni) || {};
-  let total = 0;
-  const porDupla = {};
-  const detalle = []; // { nombre, dupla, fecha } — para mostrar el listado, no solo el número
+  // Se itera por DNI (sobre los envíos de KoBo), no por `personas`: el
+  // caso de Releva de un DNI puede pertenecer a una dupla distinta de la
+  // que en realidad mandó el/los envío(s) que lo completan (20/11/2026,
+  // bug reportado por Agustina — ver nota en calcularOutcomesKobo()).
+  // `personaPorDni` solo se usa para el nombre a mostrar y para el
+  // fallback de sin_identificar/fecha_nacimiento que pide
+  // itemsChecklistKobo(); si no hay caso en Releva para ese DNI, se
+  // evalúa igual contra los datos que ya vienen en los envíos de KoBo.
+  const personaPorDni = new Map();
   (personas||[]).forEach(per => {
     if(per.oculto) return;
     const dni = dniCruceKobo(per.dni);
-    const matches = dni ? (envioPorDni[dni] || []) : [];
+    if(dni && !personaPorDni.has(dni)) personaPorDni.set(dni, per);
+  });
+  let total = 0;
+  const porDupla = {};
+  const detalle = []; // { nombre, dupla, fecha } — para mostrar el listado, no solo el número
+  Object.entries(envioPorDni).forEach(([dni, matches]) => {
     if(!matches.length) return;
-    const items = itemsChecklistKobo(matches.map(m => m.persona), per.sin_identificar, per);
+    const per = personaPorDni.get(dni) || null;
+    const items = itemsChecklistKobo(matches.map(m => m.persona), per ? per.sin_identificar : false, per || {});
     const completos = items.filter(i => i.ok === true).length;
     const aplicables = items.filter(i => i.ok === true || i.ok === false).length;
     if(!aplicables || completos < aplicables) return; // no está completa
     const fechaCompletitud = matches.reduce((max, m) => ((m.fecha||'') > max ? (m.fecha||'') : max), '').slice(0, 10);
     if(!fechaCompletitud || fechaCompletitud < desde || fechaCompletitud > hasta) return;
     total++;
-    const codigo = codigoPorDuplaId[per.dupla_id] || null;
-    if(codigo) porDupla[codigo] = (porDupla[codigo] || 0) + 1;
-    detalle.push({ nombre: `${per.nombre||''} ${per.apellido||''}`.trim() || 'Sin identificar', dupla: codigo, fecha: fechaCompletitud });
+    // Se acredita a TODAS las duplas que aportaron algún envío de KoBo a
+    // este DNI (no solo a la dueña del caso en Releva) — mismo criterio
+    // que ya usamos para "intervenciones" y "DNIs únicos".
+    const duplasQueAportaron = Array.from(new Set(matches.map(m => m.codigoDupla).filter(Boolean)));
+    duplasQueAportaron.forEach(codigo => { porDupla[codigo] = (porDupla[codigo] || 0) + 1; });
+    const nombre = (per && `${per.nombre||''} ${per.apellido||''}`.trim()) || 'Sin identificar';
+    detalle.push({ nombre, dupla: duplasQueAportaron.join('/') || null, fecha: fechaCompletitud });
   });
   detalle.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
   return { total, porDupla, detalle };
