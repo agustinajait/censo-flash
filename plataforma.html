@@ -29,6 +29,23 @@
   .nav-brand span { font-family:'Sora',sans-serif; font-weight:800; font-size:1.05rem; color:var(--cream); }
   .nav-cta { font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; text-decoration:none; background:var(--green); color:#0b1710; padding:9px 18px; border-radius:20px; transition:background 0.15s ease; }
   .nav-cta:hover { background:#b4f49a; }
+  .nav-links { display:flex; align-items:center; gap:18px; }
+  .nav-link { font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; text-decoration:none; color:rgba(246,243,234,0.8); }
+  .nav-link:hover { color:var(--cream); }
+
+  /* Menú "Ingresar" (24/11/2026, pedido de Agustina: "agrega un menu
+     para que ingresen los operadores según si son de umbral o censo")
+     — acceso directo para operadores de campo, sin tener que bajar a
+     leer la grilla de "Proyectos activos" (pensada más para alguien
+     eligiendo/conociendo un proyecto). Dropdown liviano, sin librería:
+     toggle por click + cierre al clickear afuera (ver script al pie). */
+  .nav-ingresar { position:relative; }
+  .nav-ingresar-btn { font-family:'Sora',sans-serif; font-weight:700; font-size:0.82rem; background:var(--green); color:#0b1710; padding:9px 18px; border-radius:20px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background 0.15s ease; }
+  .nav-ingresar-btn:hover { background:#b4f49a; }
+  .nav-ingresar-menu { display:none; position:absolute; top:calc(100% + 8px); right:0; background:white; border-radius:14px; box-shadow:0 14px 32px rgba(0,0,0,0.22); padding:8px; min-width:200px; z-index:10; }
+  .nav-ingresar-menu.open { display:block; }
+  .nav-ingresar-menu a { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:9px; text-decoration:none; color:var(--navy); font-size:0.86rem; font-weight:600; }
+  .nav-ingresar-menu a:hover { background:#f1f8ec; }
 
   .hero { max-width:1180px; margin:0 auto; padding:28px 24px 76px; display:flex; align-items:center; gap:48px; position:relative; z-index:2; }
   .hero-text { flex:1 1 480px; }
@@ -121,7 +138,16 @@
       <img src="assets/huehaci-logo.png" alt="Huehaci">
       <span>Releva</span>
     </a>
-    <a class="nav-cta" href="#proyectos">Ver proyectos</a>
+    <div class="nav-links">
+      <a class="nav-link" href="#proyectos">Ver proyectos</a>
+      <div class="nav-ingresar">
+        <button class="nav-ingresar-btn" id="ingresar-btn" type="button" aria-haspopup="true" aria-expanded="false">Ingresar ▾</button>
+        <div class="nav-ingresar-menu" id="ingresar-menu">
+          <a href="./index.html">🏙️ Soy de Releva Flash</a>
+          <a href="./umbral-0/index.html">🌒 Soy de Releva Umbral</a>
+        </div>
+      </div>
+    </div>
   </nav>
 
   <div class="hero">
@@ -237,6 +263,20 @@
     fa.href = url;
     fa.textContent = p.nombre;
     footerProyectos.appendChild(fa);
+  });
+
+  const ingresarBtn = document.getElementById('ingresar-btn');
+  const ingresarMenu = document.getElementById('ingresar-menu');
+  ingresarBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const abierto = ingresarMenu.classList.toggle('open');
+    ingresarBtn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+  });
+  document.addEventListener('click', (e) => {
+    if(!ingresarMenu.contains(e.target) && e.target !== ingresarBtn){
+      ingresarMenu.classList.remove('open');
+      ingresarBtn.setAttribute('aria-expanded', 'false');
+    }
   });
 </script>
 </body>
