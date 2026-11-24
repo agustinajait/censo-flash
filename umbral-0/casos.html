@@ -2628,7 +2628,7 @@ async function mostrarDebugKoboUmbral0(){
   if(!form){ alert('Este proyecto no tiene KoBo conectado.'); return; }
   try{
     const client = await SupabaseClient.getClient();
-    const { data: integrantes } = await client.from('integrantes').select('nombre,apellido').eq('dupla_id', miPerfil.dupla_id);
+    const { data: integrantes } = await client.from('integrantes').select('nombre,apellido').eq('dupla_id', miPerfil.dupla_id).eq('activo', true);
     const misNombres = (integrantes||[]).map(i => `${i.nombre||''} ${i.apellido||''}`.trim().toLowerCase()).filter(Boolean);
     if(!misNombres.length){ alert('Esta dupla no tiene integrantes cargados todavía.'); return; }
 
@@ -2697,8 +2697,15 @@ async function cargarKoboPendientes(){
   try{
     const client = await SupabaseClient.getClient();
 
+    // `.eq('activo', true)` (24/11/2026, bug real reportado por Agustina):
+    // sin esto, un integrante VIEJO/inactivo de esta dupla (ej. alguien
+    // que pasó a otra dupla, con una fila vieja todavía en `integrantes`)
+    // seguía contando para el matcheo operador->dupla de abajo. Caso real:
+    // Marina Zabala (hoy en Dupla G) tenía una fila vieja e inactiva en
+    // Dupla C desde septiembre — sus envíos de KoBo reales (de Dupla G)
+    // aparecían como "pendientes de confirmar" también en Dupla C.
     const [{ data: integrantes }, { data: personasPropias }, { data: validacionesPropias }, koboParseadas] = await Promise.all([
-      client.from('integrantes').select('nombre,apellido,dni').eq('dupla_id', miPerfil.dupla_id),
+      client.from('integrantes').select('nombre,apellido,dni').eq('dupla_id', miPerfil.dupla_id).eq('activo', true),
       client.from('personas').select('id,nombre,apellido,dni,sin_identificar').eq('dupla_id', miPerfil.dupla_id),
       // persona_id (antes no se pedía) hace falta para el aviso nuevo de
       // "validado pero sin intervención registrada" — ver más abajo.
@@ -4824,7 +4831,7 @@ const Casos = {
       if(!form){ openModal('🔗 Asociar un envío de KoBo', '<div class="empty-msg" style="padding:16px 4px;">Este proyecto no tiene KoBo conectado.</div>'); return; }
       const client = await SupabaseClient.getClient();
       const [{ data: integrantes }, { data: yaAsociados }, parsed] = await Promise.all([
-        client.from('integrantes').select('nombre,apellido,dni').eq('dupla_id', personaActual.dupla_id),
+        client.from('integrantes').select('nombre,apellido,dni').eq('dupla_id', personaActual.dupla_id).eq('activo', true),
         client.from('kobo_validaciones').select('kobo_submission_id'),
         obtenerKoboRowsParseadas(project, form),
       ]);
