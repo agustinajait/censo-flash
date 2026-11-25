@@ -273,7 +273,9 @@ function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   // completar en la práctica.
   const necesitaTipoActividad = personasKobo.some(p => p.actividad === true);
   const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
-  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
+  // 25/11/2026: comparar en minúsculas — ver el mismo fix y su comentario
+  // en admin-duplas.html.
+  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && String(p.vinculos).toLowerCase() !== 'solo');
   const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
   const redesOk = r('vinculos') && (!necesitaTipoVinculos || r('tipoVinculos'))
     && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || rv('institucionComunitariaCual'));

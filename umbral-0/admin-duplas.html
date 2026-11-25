@@ -1423,7 +1423,13 @@ function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   const rv = campo => _koboAlgunoRespondioValido(personasKobo, campo); // sin "basura" — ver _koboTextoValido()
   const necesitaTipoActividad = personasKobo.some(p => p.actividad === true);
   const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
-  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
+  // 25/11/2026: comparar en minúsculas — el valor real siempre llega
+  // capitalizado por legible() (ej. "Solo"), así que el chequeo contra
+  // 'solo' en minúscula daba siempre true y exigía "tipo de vínculo"
+  // incluso a quien contestó que está solo, bloqueando "Redes de
+  // contención" sin motivo (encontrado auditando entrevistas completas
+  // antes de la reunión con gobierno).
+  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && String(p.vinculos).toLowerCase() !== 'solo');
   const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
   const redesOk = r('vinculos') && (!necesitaTipoVinculos || r('tipoVinculos'))
     && r('asisteInstitucionComunitaria') && (!necesitaInstitucionCual || rv('institucionComunitariaCual'));
