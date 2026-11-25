@@ -3671,7 +3671,10 @@ function itemsChecklistKobo(personasKobo, sinIdentificar, ficha){
   const economicaOk = r('actividad') && r('prestaciones') && (!necesitaTipoActividad || r('tipoActividad'));
   // "Vínculos actuales" — si contestó algo distinto de "solo" (acompañado),
   // hace falta el detalle de qué tipo de vínculo (tipoVinculos).
-  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && p.vinculos !== 'solo');
+  // 25/11/2026: comparar en minúsculas — el valor real llega capitalizado
+  // por legible() (ej. "Solo"), así que comparar contra 'solo' en minúscula
+  // daba siempre true y exigía el detalle también a quien está solo.
+  const necesitaTipoVinculos = personasKobo.some(p => _koboValorPresente(p.vinculos) && String(p.vinculos).toLowerCase() !== 'solo');
   // "Asiste a institución comunitaria" — si ALGÚN envío dijo que sí, hace
   // falta cuál (institucionComunitariaCual).
   const necesitaInstitucionCual = personasKobo.some(p => p.asisteInstitucionComunitaria === true);
