@@ -2073,6 +2073,7 @@ async function cargarPerfilesPorDupla(){
 
 // ── DUPLAS ──────────────────────────────────────────────────────────────
 let _duplasConIntegrantes = []; // última data de cargarDuplas() (incluye integrantes anidados) — para descargarNominaIntegrantes()
+let _ultimoReporteGopa = null; // último reporte renderizado por renderReporte() — para el detalle clickeable de "Entrevistas completas" (ver mostrarListadoEntrevistasCompletas())
 // Trae duplas + integrantes + jornada de HOY en un solo viaje — antes
 // jornada e integrantes vivían en dos secciones de solo lectura aparte
 // ("🕒 Jornada de hoy", "👥 Operadores por turno") que duplicaban lo que
@@ -2556,6 +2557,7 @@ async function crearAccesosFaltantes(){
 
 // ── MODAL genérico ──────────────────────────────────────────────────────
 function openModal(titulo, bodyHtml){
+  document.getElementById('modal-box').style.maxWidth = ''; // reset por si un modal anterior lo agrandó (ver mostrarListadoEntrevistasCompletas())
   document.getElementById('modal-box').innerHTML = `
     <div class="modal-head">
       <div class="modal-title">${titulo}</div>
@@ -4410,7 +4412,32 @@ async function calcularReporte({ client, desde, hasta, personas, intervenciones,
 
 const NOMBRE_NIVEL = {1:'Identificación', 2:'Construcción del vínculo', 3:'Monitoreo territorial', 4:'Anclaje comunitario', 5:'Proyecto de inclusión'};
 
+// Listado de personas detrás del KPI "Entrevistas completas (checklist)" —
+// pedido de Agustina (25/11/2026): "poder hacer click en el 83 y ver el
+// listado de las personas entrevistadas". Usa el mismo `detalle` que ya
+// arma calcularEntrevistasCompletasChecklist() (nombre/dupla/fecha de
+// completitud), guardado en _ultimoReporteGopa por renderReporte().
+function mostrarListadoEntrevistasCompletas(){
+  const r = _ultimoReporteGopa;
+  const detalle = (r && r.entrevistasCompletasChecklist && r.entrevistasCompletasChecklist.detalle) || [];
+  const filas = detalle.length
+    ? detalle.map(d => `<tr><td>${esc(d.nombre||'Sin identificar')}</td><td class="num">${esc(d.dupla||'—')}</td><td class="num">${esc((d.fecha||'').split('-').reverse().join('/'))}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="text-align:center;color:#94a3b8;">Sin entrevistas completas en el período.</td></tr>';
+  openModal(`📋 Entrevistas completas — ${detalle.length}`, `
+    <div class="modal-sub">Personas cuya entrevista en profundidad quedó completa (checklist de GOPA) en el período del reporte, ordenadas de más reciente a más antigua. La columna "Dupla" muestra todas las duplas que aportaron algún envío de KoBo para esa persona.</div>
+    <div style="max-height:60vh;overflow-y:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+        <thead><tr style="position:sticky;top:0;background:white;"><th style="text-align:left;padding:6px 4px;border-bottom:1.5px solid #e2e8f0;">Persona</th><th style="text-align:right;padding:6px 4px;border-bottom:1.5px solid #e2e8f0;">Dupla</th><th style="text-align:right;padding:6px 4px;border-bottom:1.5px solid #e2e8f0;">Completada</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn btn-outline" onclick="closeModal()">Cerrar</button></div>
+  `);
+  document.getElementById('modal-box').style.maxWidth = '620px';
+}
+
 function renderReporte(cont, r){
+  _ultimoReporteGopa = r;
   cont.innerHTML = `
     <div class="section-title">⭐ Cumplimiento de metas de GOPA (evaluación de los jueves)</div>
     <div class="section-hint">Metas fijas de GOPA, recalculadas acá para el período y la cantidad de duplas activas elegidos (325 intervenciones, 130 DNIs y 65 entrevistas completas son el resultado para una semana de 5 días con 13 duplas — con otro período o cantidad de duplas, la meta se ajusta sola). "Intervenciones" y "DNIs únicos" salen de KoBo; "Entrevistas completas" usa el checklist de GOPA, no el autoreporte en KoBo (ver sección "g." más abajo); "En zona" compara la ubicación de cada envío contra el polígono de su dupla (ver "a2."); "Derivaciones" es sobre los envíos de tipo "Primer acercamiento" que terminan en algún código de derivación.</div>
@@ -4419,7 +4446,7 @@ function renderReporte(cont, r){
       <div class="kpi-grid">
         <div class="kpi"><div class="num">${r.metasGopa.intervenciones.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.intervenciones.meta}</span></div><div class="lbl">Intervenciones${r.metasGopa.intervenciones.pct!=null?` (${r.metasGopa.intervenciones.pct}%)`:''}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 5 por dupla por día (${5*r.metasGopa.duplasActivas*5}/semana de 5 días con ${r.metasGopa.duplasActivas} duplas)</span></div></div>
         <div class="kpi"><div class="num">${r.metasGopa.dnis.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.dnis.meta}</span></div><div class="lbl">DNIs únicos${r.metasGopa.dnis.pct!=null?` (${r.metasGopa.dnis.pct}%)`:''}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 2 por dupla por día (${2*r.metasGopa.duplasActivas*5}/semana de 5 días con ${r.metasGopa.duplasActivas} duplas)</span></div></div>
-        <div class="kpi"><div class="num">${r.metasGopa.entrevistasCompletas.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.entrevistasCompletas.meta}</span></div><div class="lbl">Entrevistas completas (checklist)${r.metasGopa.entrevistasCompletas.pct!=null?` (${r.metasGopa.entrevistasCompletas.pct}%)`:''}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 5 por dupla por semana (${5*r.metasGopa.duplasActivas}/semana con ${r.metasGopa.duplasActivas} duplas)</span></div></div>
+        <div class="kpi" style="cursor:pointer;" title="Ver el listado de personas" onclick="mostrarListadoEntrevistasCompletas()"><div class="num">${r.metasGopa.entrevistasCompletas.actual}<span style="font-size:0.5em;color:#94a3b8;"> / ${r.metasGopa.entrevistasCompletas.meta}</span></div><div class="lbl">Entrevistas completas (checklist)${r.metasGopa.entrevistasCompletas.pct!=null?` (${r.metasGopa.entrevistasCompletas.pct}%)`:''}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 5 por dupla por semana (${5*r.metasGopa.duplasActivas}/semana con ${r.metasGopa.duplasActivas} duplas)</span><br><span style="font-weight:600;font-size:0.76rem;color:var(--green,#16a34a);">Ver listado →</span></div></div>
         <div class="kpi"><div class="num">${r.metasGopa.enZona ? r.metasGopa.enZona.pctReal+'%' : '—'}</div><div class="lbl">En zona${r.metasGopa.enZona ? ` — ${r.metasGopa.enZona.actual}/${r.metasGopa.enZona.total}` : ' — sin ubicación o sin zonas vigentes para clasificar'}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 85%</span></div></div>
         <div class="kpi"><div class="num">${r.metasGopa.derivacionesPrimerContacto ? r.metasGopa.derivacionesPrimerContacto.pctReal+'%' : '—'}</div><div class="lbl">Derivaciones de primeros contactos${r.metasGopa.derivacionesPrimerContacto ? ` — ${r.metasGopa.derivacionesPrimerContacto.actual}/${r.metasGopa.derivacionesPrimerContacto.total}` : ' — sin primeros contactos en el período'}<br><span style="font-weight:400;font-size:0.76rem;color:#94a3b8;">Meta GOPA: 30%</span></div></div>
       </div>
