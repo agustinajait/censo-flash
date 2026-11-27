@@ -2262,8 +2262,8 @@ function abrirModalCierreJornada(){
         <input type="text" id="f-reemplazo-cierre" placeholder="Ej: Mayra y Mercedes">
       </div>
       <div class="form-field">
-        <label>📸 Captura de GeoTracker (opcional)</label>
-        <div class="hint">GeoTracker → tocá el recorrido de hoy → captura de pantalla del mapa. Ayuda a verificar la cobertura territorial real del turno.</div>
+        <label>📸 Captura de GeoTracker *</label>
+        <div class="hint">GeoTracker → tocá el recorrido de hoy → captura de pantalla del mapa. Es obligatoria para poder cerrar la jornada.</div>
         <div class="file-row"><input type="file" id="f-foto-geotracker-cierre" accept="image/*"></div>
       </div>
       <div class="modal-foot">
@@ -2281,30 +2281,24 @@ async function marcarFinJornada(){
   const observaciones = ta.value.trim();
   if(!observaciones){ modalError('Contá cómo estuvo la jornada — es obligatorio para cerrarla.'); return; }
   const reemplazo = document.getElementById('f-reemplazo-cierre').value.trim() || null;
+  // 27/11/2026, pedido de Agustina ("No es opcional"): la captura de
+  // GeoTracker pasó a ser obligatoria para poder cerrar la jornada, igual
+  // que la observación de texto.
   const fotoGeotracker = document.getElementById('f-foto-geotracker-cierre').files[0] || null;
+  if(!fotoGeotracker){ modalError('Adjuntá la captura de GeoTracker — es obligatoria para cerrar la jornada.'); return; }
   const btn = document.getElementById('btn-confirmar-cierre');
   btn.disabled = true; btn.textContent = 'Guardando…';
   const finIso = new Date().toISOString();
   try{
     const client = await SupabaseClient.getClient();
-    const { data: jornadaCerrada, error } = await client.from('jornadas')
-      .update({ fin: finIso, observaciones, reemplazo })
-      .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr())
-      .select('id').single();
+    // Se sube la foto ANTES de cerrar la jornada (en vez de usar el id de
+    // la jornada como carpeta, se usa dupla+fecha) para que, si la subida
+    // falla, la jornada no quede cerrada sin la foto obligatoria.
+    const path = await subirArchivo(fotoGeotracker, `jornadas/${miPerfil.dupla_id}-${hoyStr()}`);
+    const { error } = await client.from('jornadas')
+      .update({ fin: finIso, observaciones, reemplazo, geotracker_foto_path: path })
+      .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr());
     if(error) throw error;
-    // La foto se sube después de cerrar la jornada (necesita el id ya
-    // creado para la carpeta en el bucket) — si falla, no bloquea el
-    // cierre: la jornada ya quedó guardada igual (25/11/2026, pedido de
-    // Agustina: "necesito que las duplas puedan adjuntar un screenshot
-    // de geotracker al finalizar la jornada").
-    if(fotoGeotracker && jornadaCerrada){
-      try{
-        const path = await subirArchivo(fotoGeotracker, `jornadas/${jornadaCerrada.id}`);
-        await client.from('jornadas').update({ geotracker_foto_path: path }).eq('id', jornadaCerrada.id);
-      }catch(e){
-        console.error('No se pudo subir la foto de GeoTracker (la jornada sí quedó cerrada)', e);
-      }
-    }
     closeModal();
     await cargarJornadaHoy();
     mostrarJornada();
