@@ -3556,6 +3556,13 @@ async function generarReporte(){
     reporte.observacionesDiarias = (jornadasRes.data||[])
       .filter(j => (j.observaciones||'').trim())
       .map(j => ({ dupla: codigoPorDupla[j.dupla_id] || '—', fecha: j.fecha, texto: j.observaciones.trim(), fotoPath: j.geotracker_foto_path || null }));
+    // Vista dedicada solo a las capturas de GeoTracker (25/11/2026,
+    // pedido de Agustina: "deberían aparecer en una sección nueva, solo
+    // de vista de las cargas de geotracker") — mismo dato que ya trae
+    // jornadasRes, filtrado a las que sí tienen foto adjunta.
+    reporte.capturasGeotracker = (jornadasRes.data||[])
+      .filter(j => j.geotracker_foto_path)
+      .map(j => ({ dupla: codigoPorDupla[j.dupla_id] || '—', fecha: j.fecha, fotoPath: j.geotracker_foto_path }));
     renderReporte(cont, reporte);
     estadoEl.textContent = `Listo — ${intervenciones.length} intervenciones, ${derivaciones.length} derivaciones en el período` +
       (koboOutcomes ? `, ${koboOutcomes.totalEnvios} envíos de KoBo del equipo revisados.` : ' (no se pudo revisar KoBo).');
@@ -4626,6 +4633,17 @@ function renderReporte(cont, r){
       `).join('') : '<div class="empty-msg">Sin observaciones cargadas en este período.</div>'}
     </div>
 
+    <div class="section-title">f2. Capturas de GeoTracker</div>
+    <div class="section-hint">Solo las capturas de pantalla de GeoTracker que las duplas adjuntaron al cerrar la jornada en este período — tocá una miniatura para verla en grande.</div>
+    <div class="card">
+      ${r.capturasGeotracker.length ? `<div style="display:flex;flex-wrap:wrap;gap:14px;">${r.capturasGeotracker.map((c,i) => `
+        <div>
+          <div id="geotracker-thumb-${i}" style="width:150px;height:150px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.74rem;overflow:hidden;cursor:pointer;" onclick="verFotoJornadaAdmin('${esc(c.fotoPath)}')">Cargando…</div>
+          <div style="font-size:0.74rem;color:#64748b;margin-top:4px;text-align:center;">Dupla ${esc(c.dupla)} · ${fmtFechaCorta(c.fecha)}</div>
+        </div>
+      `).join('')}</div>` : '<div class="empty-msg">Sin capturas de GeoTracker en este período.</div>'}
+    </div>
+
     <div class="section-title">g. Ranking de casos y entrevistas por dupla</div>
     <div class="section-hint">Casos nuevos identificados por dupla en el período, cargados en la plataforma. DNIs y entrevistas en profundidad logradas salen de KoBo (no hay forma de atribuirlos a una dupla desde la plataforma) — el promedio diario usa los mismos "días con presencia territorial" que ya usa "Promedio de casos nuevos por día, por dupla" más abajo. "Entrevistas completas" (18/11/2026) es distinto de "entrevistas logradas": no mira si la dupla tildó que sí hizo la entrevista en KoBo, sino si el caso tiene TODO el checklist de GOPA respondido (mismo criterio que "casos por resolver") — elegí un rango de una semana para compararlo contra la meta de 5 por dupla. También va en el link público (reporte-publico.html, §13/11/2026: confirmado con Agustina que ya no se lo pasa a gobierno, solo a su jefe).</div>
     <div class="card">
@@ -4696,6 +4714,17 @@ function renderReporte(cont, r){
   `;
 
   window._ultimoReporte = r;
+  // Miniaturas de "f2. Capturas de GeoTracker" (ver más arriba) — se
+  // cargan después del render porque la URL firmada requiere un llamado
+  // async por foto (mismo patrón que ya usa Casos.abrirFicha() para la
+  // foto de la persona en casos.html).
+  (r.capturasGeotracker||[]).forEach((c, i) => {
+    SupabaseClient.getClient().then(async client => {
+      const { data } = await client.storage.from('umbral0-fotos').createSignedUrl(c.fotoPath, 3600);
+      const el = document.getElementById('geotracker-thumb-'+i);
+      if(el && data && data.signedUrl) el.innerHTML = `<img src="${data.signedUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+    }).catch(()=>{});
+  });
   if(window.renderMapaPuntos){
     renderMapaPuntos('reporte-map', (r.koboOutcomes && r.koboOutcomes.puntos) || [], window.PROJECT_CONFIG && window.PROJECT_CONFIG.zonasOperativas);
   }
