@@ -2281,22 +2281,30 @@ async function marcarFinJornada(){
   const observaciones = ta.value.trim();
   if(!observaciones){ modalError('Contá cómo estuvo la jornada — es obligatorio para cerrarla.'); return; }
   const reemplazo = document.getElementById('f-reemplazo-cierre').value.trim() || null;
-  // 27/11/2026, pedido de Agustina ("No es opcional"): la captura de
-  // GeoTracker pasó a ser obligatoria para poder cerrar la jornada, igual
-  // que la observación de texto.
+  // 27/11/2026, pedido de Agustina: se LE DICE al equipo que la captura
+  // de GeoTracker es obligatoria (ver el texto de arriba y el mensaje
+  // que les manda por WhatsApp), pero acá NO se bloquea técnicamente el
+  // cierre si falta — hay duplas con un arreglo personal para no tener
+  // que subirla ("les digo que es obligatorio, pero no lo hagas
+  // obligatorio").
   const fotoGeotracker = document.getElementById('f-foto-geotracker-cierre').files[0] || null;
-  if(!fotoGeotracker){ modalError('Adjuntá la captura de GeoTracker — es obligatoria para cerrar la jornada.'); return; }
   const btn = document.getElementById('btn-confirmar-cierre');
   btn.disabled = true; btn.textContent = 'Guardando…';
   const finIso = new Date().toISOString();
   try{
     const client = await SupabaseClient.getClient();
-    // Se sube la foto ANTES de cerrar la jornada (en vez de usar el id de
-    // la jornada como carpeta, se usa dupla+fecha) para que, si la subida
-    // falla, la jornada no quede cerrada sin la foto obligatoria.
-    const path = await subirArchivo(fotoGeotracker, `jornadas/${miPerfil.dupla_id}-${hoyStr()}`);
+    let path = null;
+    if(fotoGeotracker){
+      try{
+        path = await subirArchivo(fotoGeotracker, `jornadas/${miPerfil.dupla_id}-${hoyStr()}`);
+      }catch(e){
+        console.error('No se pudo subir la foto de GeoTracker (la jornada se cierra igual)', e);
+      }
+    }
+    const update = { fin: finIso, observaciones, reemplazo };
+    if(path) update.geotracker_foto_path = path;
     const { error } = await client.from('jornadas')
-      .update({ fin: finIso, observaciones, reemplazo, geotracker_foto_path: path })
+      .update(update)
       .eq('dupla_id', miPerfil.dupla_id).eq('fecha', hoyStr());
     if(error) throw error;
     closeModal();
